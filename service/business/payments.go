@@ -17,8 +17,8 @@ import (
 )
 
 type PaymentBusiness interface {
-	Send(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-	Receive(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	QueueOut(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	QueueIn(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 }
 
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
@@ -39,7 +39,7 @@ type paymentBusiness struct {
 	partitionCli *partitionV1.PartitionClient
 }
 
-func (pb *paymentBusiness) Send(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) QueueOut(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 
 	logger := pb.service.L().WithField("request", payment)
 
@@ -47,13 +47,24 @@ func (pb *paymentBusiness) Send(ctx context.Context, payment *paymentV1.Payment)
 
 	logger.WithField("auth claim", authClaim).Info("handling send request")
 
-	payment.SenderProfileType = authClaim.ProfileType
-	payment.SenderProfileID = authClaim.ProfileID
-	payment.SenderContactID = authClaim.ContactID
+	p := &models.Payment{ 
 
-	payment.PartitionID = authClaim.PartitionID
-	payment.TenantID = authClaim.TenantID
-	payment.AccessID = authClaim.AccessID
+		SenderProfileType: message.GetSource().GetProfileType(),
+		SenderProfileID:   message.GetSource().GetProfileId(),
+		SenderContactID:   message.GetSource().GetContactId(),
 
-	payment.DateCreated = time.Now()
-	
+		RecipientProfileType: message.GetRecipient().GetProfileType(),
+		RecipientProfileID:   message.GetRecipient().GetProfileId(),
+		RecipientContactID:   message.GetRecipient().GetContactId(),
+
+		Amount: message.GetAmount(),
+		Source: message.GetSource(),
+		Recipient: message.GetRecipient(),
+
+
+
+        
+
+
+
+

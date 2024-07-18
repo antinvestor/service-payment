@@ -41,7 +41,7 @@ type paymentBusiness struct {
 
 func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 
-	logger := pb.service.L().WithField("request", payment)
+	logger := pb.service.L().WithField("request", message)
 
 	authClaim := frame.ClaimsFromContext(ctx)
 
@@ -61,7 +61,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Source: message.GetSource(),
 		Recipient: message.GetRecipient(),
 	}
-	
+
 }
 
 

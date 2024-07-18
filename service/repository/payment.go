@@ -52,7 +52,7 @@ func (repo *paymentRepository) Search(ctx context.Context, query string) ([]*mod
 		searchQ := fmt.Sprintf("%%%s%%", query)
 
 		paymentQuery = paymentQuery.
-			Where(" id ILIKE ? OR external_id ILIKE ? OR transient_id ILIKE ?", searchQ, searchQ, searchQ)
+			Where(" id ILIKE ? OR external_id ILIKE ?", searchQ, searchQ)
 	}
 
 	err := paymentQuery.Find(&payments).Error

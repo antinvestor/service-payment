@@ -17,7 +17,7 @@ import (
 )
 
 type PaymentBusiness interface {
-	QueueOut(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	Dispatch(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 	QueueIn(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 }
 
@@ -39,7 +39,7 @@ type paymentBusiness struct {
 	partitionCli *partitionV1.PartitionClient
 }
 
-func (pb *paymentBusiness) QueueOut(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 
 	logger := pb.service.L().WithField("request", payment)
 
@@ -60,8 +60,11 @@ func (pb *paymentBusiness) QueueOut(ctx context.Context, message *paymentV1.Paym
 		Amount: message.GetAmount(),
 		Source: message.GetSource(),
 		Recipient: message.GetRecipient(),
+	}
+	
+}
 
-		
+
 
 
 

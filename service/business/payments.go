@@ -6,6 +6,7 @@ import (
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	"github.com/antinvestor/service-payments-v1/service/events"
 
 	"github.com/antinvestor/service-payments-v1/service/models"
 	"github.com/pitabwire/frame"
@@ -70,4 +71,27 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		p.Id = message.GetId()
 	}
 
+	pStatus := models.PaymentStatus{
+		PaymentID: p.GetID(),
+		State:     int32(commonv1.STATE_CREATED.Number()),
+		Status:    int32(commonv1.STATUS_QUEUED.Number()),
+	}
+
+	//dispatch payment event
+	event := events.PaymentSave{}
+	err := pb.service.Emit(ctx, event.Name(), p)
+	if err != nil {
+		logger.WithError(err).Warn("could not emit payment event")
+		return nil, err
+	}
+
+	//dispatch payment status event
+	eventStatus := events.PaymentStatusSave{}
+	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+	if err != nil {
+		logger.WithError(err).Warn("could not emit payment status event")
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
 }

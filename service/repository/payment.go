@@ -24,7 +24,6 @@ func NewPaymentRepository(ctx context.Context, service *frame.Service) PaymentRe
 	return &paymentRepository{abstractRepository{service: service}}
 }
 
-
 func (repo *paymentRepository) GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.Payment, error) {
 	payment := models.Payment{}
 	err := repo.readDb(ctx).First(&payment, "partition_id = ? AND id = ?", partitionID, id).Error
@@ -42,7 +41,6 @@ func (repo *paymentRepository) GetByID(ctx context.Context, id string) (*models.
 	}
 	return &payment, nil
 }
-
 
 func (repo *paymentRepository) Search(ctx context.Context, query string) ([]*models.Payment, error) {
 	query = strings.TrimSpace(query)

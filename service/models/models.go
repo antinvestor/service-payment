@@ -100,7 +100,7 @@ type PaymentStatus struct {
 	Status      int32
 }
 
-func (model *PaymentStatus) ToApi() *commonv1.StatusResponse {
+func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 	extra := frame.DBPropertiesToMap(model.Extra)
 	extra["CreatedAt"] = model.CreatedAt.String()
 	extra["StatusID"] = model.ID
@@ -114,4 +114,15 @@ func (model *PaymentStatus) ToApi() *commonv1.StatusResponse {
 		Extras:      extra,
 	}
 	return &status
+}
+
+type Route struct {
+	frame.BaseModel
+
+	CounterID   string `gorm:"type:varchar(50)"`
+	Name        string `gorm:"type:varchar(50)"`
+	Description string `gorm:"type:text"`
+	RouteType   string `gorm:"type:varchar(10)"`
+	Mode        string `gorm:"type:varchar(10)"`
+	Uri         string `gorm:"type:varchar(255)"`
 }

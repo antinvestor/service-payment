@@ -5,8 +5,8 @@ import (
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
-	money "google.golang.org/genproto/googleapis/type/money"
 	"github.com/pitabwire/frame"
+	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
 )
 
@@ -22,23 +22,23 @@ type Payment struct {
 	RecipientProfileType string `gorm:"type:varchar(50)"`
 	RecipientContactID   string `gorm:"type:varchar(50)"`
 
-	Id                    string            `gorm:"type:varchar(50)"`
-	TransactionId         string            `gorm:"type:varchar(50)"`
-	ReferenceId           string            `gorm:"type:varchar(50)"`
-	BatchId               string            `gorm:"type:varchar(50)"`
-	ExternalTransactionId string            `gorm:"type:varchar(50)"`
-	Route                 string            `gorm:"type:varchar(50)"`
+	Id                    string `gorm:"type:varchar(50)"`
+	TransactionId         string `gorm:"type:varchar(50)"`
+	ReferenceId           string `gorm:"type:varchar(50)"`
+	BatchId               string `gorm:"type:varchar(50)"`
+	ExternalTransactionId string `gorm:"type:varchar(50)"`
+	Route                 string `gorm:"type:varchar(50)"`
 
-	Source                *commonv1.ContactLink
-	Recipient             *commonv1.ContactLink
-	Amount                *money.Money
-	Cost                  *money.Money
-	State                 commonv1.STATE
-	Status                commonv1.STATUS
-	DateCreated           *time.Time
-	DateProcessed         *time.Time
-	Outbound              bool
-	Extra                 datatypes.JSONMap
+	Source        *commonv1.ContactLink
+	Recipient     *commonv1.ContactLink
+	Amount        *money.Money
+	Cost          *money.Money
+	State         commonv1.STATE
+	Status        commonv1.STATUS
+	DateCreated   *time.Time
+	DateProcessed *time.Time
+	Outbound      bool
+	Extra         datatypes.JSONMap
 }
 
 func (model *Payment) IsProcessed() bool {
@@ -88,4 +88,30 @@ func (model *Payment) ToApi() *paymentV1.Payment {
 	}
 
 	return &payment
+}
+
+type PaymentStatus struct {
+	frame.BaseModel
+	PaymentID   string `gorm:"type:varchar(50)"`
+	TransientID string `gorm:"type:varchar(50)"`
+	ExternalID  string `gorm:"type:varchar(50)"`
+	Extra       datatypes.JSONMap
+	State       int32
+	Status      int32
+}
+
+func (model *PaymentStatus) ToApi() *commonv1.StatusResponse {
+	extra := frame.DBPropertiesToMap(model.Extra)
+	extra["CreatedAt"] = model.CreatedAt.String()
+	extra["StatusID"] = model.ID
+
+	status := commonv1.StatusResponse{
+		Id:          model.ID,
+		TransientId: model.TransientID,
+		ExternalId:  model.ExternalID,
+		State:       commonv1.STATE(model.State),
+		Status:      commonv1.STATUS(model.Status),
+		Extras:      extra,
+	}
+	return &status
 }

@@ -2,23 +2,18 @@ package business
 
 import (
 	"context"
-	"time"
-
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 
-	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/antinvestor/service-payments-v1/service/models"
-	"github.com/antinvestor/service-payments-v1/service/repository"
-
 	"github.com/pitabwire/frame"
 )
 
 type PaymentBusiness interface {
 	Dispatch(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-	QueueIn(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	//QueueIn(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 }
 
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
@@ -47,7 +42,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 
 	logger.WithField("auth claim", authClaim).Info("handling send request")
 
-	p := &models.Payment{ 
+	p := &models.Payment{
 
 		SenderProfileType: message.GetSource().GetProfileType(),
 		SenderProfileID:   message.GetSource().GetProfileId(),
@@ -57,19 +52,22 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		RecipientProfileID:   message.GetRecipient().GetProfileId(),
 		RecipientContactID:   message.GetRecipient().GetContactId(),
 
-		Amount: message.GetAmount(),
-		Source: message.GetSource(),
-		Recipient: message.GetRecipient(),
+		ReferenceId:           message.GetReferenceId(),
+		BatchId:               message.GetBatchId(),
+		ExternalTransactionId: message.GetExternalTransactionId(),
+		Route:                 message.GetRoute(),
+		Cost:                  message.GetCost(),
+		Amount:                message.GetAmount(),
+		Source:                message.GetSource(),
+		Recipient:             message.GetRecipient(),
+		State:                 message.GetState(),
+		Status:                message.GetStatus(),
+		Outbound:              message.GetOutbound(),
+	}
+	p.GenID(ctx)
+
+	if p.ValidXID(message.GetId()) {
+		p.Id = message.GetId()
 	}
 
 }
-
-
-
-
-
-        
-
-
-
-

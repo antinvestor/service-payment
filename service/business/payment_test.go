@@ -59,5 +59,7 @@ func getPartitionCli(t *testing.T) *partitionV1.PartitionClient {
 }
 
 func TestNewPaymentBusiness(t *testing.T) {
+	profileCli := getProfileCli(t)
+	partitionCli := getPartitionCli(t)
 
 }

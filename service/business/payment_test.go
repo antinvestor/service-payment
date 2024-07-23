@@ -6,6 +6,7 @@ import (
 	"github.com/antinvestor/apis/go/common"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	"github.com/antinvestor/service-payments-v1/service/config"
 
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/pitabwire/frame"
@@ -51,10 +52,10 @@ func getService(serviceName string) (*ctxSrv, error) {
 	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_notification?sslmode=disable", hostIP, mappedPort.Port())
 	testDb := frame.DatastoreCon(dbURL, false)
 
-	var ncfg config.NotificationConfig
-	_ = frame.ConfigProcess("", &ncfg)
+	var pcfg config.PaymentConfig
+	_ = frame.ConfigProcess("", &pcfg)
 
-	ctx, service := frame.NewService(serviceName, testDb, frame.Config(&ncfg), frame.NoopDriver())
+	ctx, service := frame.NewService(serviceName, testDb, frame.Config(&pcfg), frame.NoopDriver())
 
 	m := make(map[string]string)
 	m["sub"] = "testing"
@@ -127,5 +128,43 @@ func getPartitionCli(t *testing.T) *partitionV1.PartitionClient {
 func TestNewPaymentBusiness(t *testing.T) {
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
+
+	type args struct {
+		ctxService   *ctxSrv
+		profileCli   *profileV1.ProfileClient
+		partitionCli *partitionV1.PartitionClient
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      PaymentBusiness
+		expectErr bool
+	}{
+		{
+			name: "NewPaymentBusiness",
+			args: args{
+				ctxService:   getService("NewPaymentBusiness"),
+				profileCli:   profileCli,
+				partitionCli: partitionCli},
+			expectErr: false,
+		},
+		{
+			name: "NewPaymentBusinessWithNils",
+			args: args{
+				ctxService:   nil,
+				profileCli:   nil,
+				partitionCli: nil},
+			expectErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewPaymentBusiness(tt.args.ctxService.ctx, tt.args.ctxService.srv, tt.args.profileCli, tt.args.partitionCli)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("NewPaymentBusiness() error = %v, wantErr %v", err, tt.expectErr)
+				return
+			}
+		})
+	}
 
 }

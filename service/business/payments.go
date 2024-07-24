@@ -71,6 +71,16 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		p.Id = message.GetId()
 	}
 
+	if p.Amount == nil || p.Cost == nil {
+		logger.Error("amount or cost is missing")
+		return nil, ErrorPaymentDoesNotExist
+	}
+
+	if p.Amount.GetCurrencyCode() != p.Cost.GetCurrencyCode() {
+		logger.Error("currency code mismatch")
+		return nil, ErrorInvalidPaymentRequest
+	}
+
 	pStatus := models.PaymentStatus{
 		PaymentID: p.GetID(),
 		State:     int32(commonv1.STATE_CREATED.Number()),

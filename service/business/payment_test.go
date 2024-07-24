@@ -10,6 +10,7 @@ import (
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments-v1/service/config"
 	money "google.golang.org/genproto/googleapis/type/money"
+	"reflect"
 
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/pitabwire/frame"
@@ -52,7 +53,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 		return nil, fmt.Errorf("failed to get container host: %w", err)
 	}
 
-	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_notification?sslmode=disable", hostIP, mappedPort.Port())
+	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_payment?sslmode=disable", hostIP, mappedPort.Port())
 	testDb := frame.DatastoreCon(dbURL, false)
 
 	var pcfg config.PaymentConfig
@@ -233,7 +234,6 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 					ReferenceId:           "test_reference-id",
 					BatchId:               "test_batch-id",
 					ExternalTransactionId: "test_external-transaction-id",
-					Route:                 "test_route",
 				},
 			},
 			want: &commonv1.StatusResponse{
@@ -243,6 +243,97 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		//dispatch without xid
+		//dispatc with nil in amount and cost
+		{
+			name: "DispatchWithNilAmountAndCost",
+			fields: fields{
+				ctxService:   nil,
+				profileCli:   profileCli,
+				partitionCli: partitionCli,
+			},
+			args: args{
+				ctx: context.Background(),
+				message: &paymentV1.Payment{
+					Id: "c2f4j7au6s7f91uqnojg",
+					Recipient: &commonv1.ContactLink{
+						ContactId: "test_contact-id",
+					},
+					Amount: &money.Money{
+						CurrencyCode: "USD",
+						Units:        0,
+						Nanos:        0,
+					},
+					Cost: &money.Money{
+						CurrencyCode: "USD",
+						Units:        0,
+						Nanos:        0,
+					},
+					ReferenceId:           "test_reference-id",
+					BatchId:               "test_batch-id",
+					ExternalTransactionId: "test_external-transaction-id",
+				},
+			},
+			want: &commonv1.StatusResponse{
+				Id:     "c2f4j7au6s7f91uqnojg",
+				State:  commonv1.STATE_CREATED,
+				Status: commonv1.STATUS_QUEUED,
+			},
+			wantErr: true,
+		},
+		//dispatch with currency code mismatch
+		{
+			name: "DispatchWithCurrencyCodeMismatch",
+			fields: fields{
+				ctxService:   nil,
+				profileCli:   profileCli,
+				partitionCli: partitionCli,
+			},
+			args: args{
+				ctx: context.Background(),
+				message: &paymentV1.Payment{
+					Id: "c2f4j7au6s7f91uqnojg",
+					Recipient: &commonv1.ContactLink{
+						ContactId: "test_contact-id",
+					},
+					Amount: &money.Money{
+						CurrencyCode: "USD",
+						Units:        1000,
+						Nanos:        0,
+					},
+					Cost: &money.Money{
+						CurrencyCode: "EUR",
+						Units:        200,
+						Nanos:        0,
+					},
+					ReferenceId:           "test_reference-id",
+					BatchId:               "test_batch-id",
+					ExternalTransactionId: "test_external-transaction-id",
+				},
+			},
+			want: &commonv1.StatusResponse{
+				Id:     "c2f4j7au6s7f91uqnojg",
+				State:  commonv1.STATE_CREATED,
+				Status: commonv1.STATUS_QUEUED,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pb, err := NewPaymentBusiness(tt.fields.ctxService.ctx, tt.fields.ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			if err != nil {
+				t.Errorf("NewPaymentBusiness() error = %v", err)
+				return
+			}
+			got, err := pb.Dispatch(tt.args.ctx, tt.args.message)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PaymentBusiness.Dispatch() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PaymentBusiness.Dispatch() = %v, want %v", got, tt.want)
+			}
+		})
+
 	}
 }

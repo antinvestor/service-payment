@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/antinvestor/apis/go/common"
+	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments-v1/service/config"
 
@@ -143,7 +145,7 @@ func TestNewPaymentBusiness(t *testing.T) {
 		{
 			name: "NewPaymentBusiness",
 			args: args{
-				ctxService:   getService("NewPaymentBusiness"),
+				ctxService:  nil,
 				profileCli:   profileCli,
 				partitionCli: partitionCli},
 			expectErr: false,
@@ -159,12 +161,63 @@ func TestNewPaymentBusiness(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewPaymentBusiness(tt.args.ctxService.ctx, tt.args.ctxService.srv, tt.args.profileCli, tt.args.partitionCli)
+			ctxService, err := getService(tt.name)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("getService() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+			if err == nil {
+				tt.args.ctxService = ctxService
+			}
+
+			_, err = NewPaymentBusiness(tt.args.ctxService.ctx, tt.args.ctxService.srv, tt.args.profileCli, tt.args.partitionCli)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("NewPaymentBusiness() error = %v, wantErr %v", err, tt.expectErr)
 				return
 			}
+
 		})
+
+
 	}
 
 }
+
+func TestPaymentBusiness_Dispatch(t *testing.T) {
+
+	profileCli := getProfileCli(t)
+	partitionCli := getPartitionCli(t)
+
+	type fields struct {
+		ctxService   *ctxSrv
+		profileCli   *profileV1.ProfileClient
+		partitionCli *partitionV1.PartitionClient
+	}
+
+	type args struct {
+		ctx context.Context
+		message *paymentV1.Payment
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *commonv1.StatusResponse
+		wantErr bool
+	}{
+		{
+			name: "Dispatch",
+			fields: fields{
+				ctxService:   getService("Dispatch"),
+				profileCli:   profileCli,
+				partitionCli: partitionCli,
+			},
+			args: args{
+				ctx: context.Background(),
+				message: &paymentV1.Payment{
+					Id: "test_payment-id",
+
+					}
+				},
+

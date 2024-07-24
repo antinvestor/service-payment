@@ -9,6 +9,7 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments-v1/service/config"
+	money "google.golang.org/genproto/googleapis/type/money"
 
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/pitabwire/frame"
@@ -145,7 +146,7 @@ func TestNewPaymentBusiness(t *testing.T) {
 		{
 			name: "NewPaymentBusiness",
 			args: args{
-				ctxService:  nil,
+				ctxService:   nil,
 				profileCli:   profileCli,
 				partitionCli: partitionCli},
 			expectErr: false,
@@ -178,7 +179,6 @@ func TestNewPaymentBusiness(t *testing.T) {
 
 		})
 
-
 	}
 
 }
@@ -195,7 +195,7 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 	}
 
 	type args struct {
-		ctx context.Context
+		ctx     context.Context
 		message *paymentV1.Payment
 	}
 
@@ -209,15 +209,40 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 		{
 			name: "Dispatch",
 			fields: fields{
-				ctxService:   getService("Dispatch"),
+				ctxService:   nil,
 				profileCli:   profileCli,
 				partitionCli: partitionCli,
 			},
 			args: args{
 				ctx: context.Background(),
 				message: &paymentV1.Payment{
-					Id: "test_payment-id",
-
-					}
+					Id: "c2f4j7au6s7f91uqnojg",
+					Recipient: &commonv1.ContactLink{
+						ContactId: "test_contact-id",
+					},
+					Amount: &money.Money{
+						CurrencyCode: "USD",
+						Units:        1000,
+						Nanos:        0,
+					},
+					Cost: &money.Money{
+						CurrencyCode: "USD",
+						Units:        200,
+						Nanos:        0,
+					},
+					ReferenceId:           "test_reference-id",
+					BatchId:               "test_batch-id",
+					ExternalTransactionId: "test_external-transaction-id",
+					Route:                 "test_route",
 				},
-
+			},
+			want: &commonv1.StatusResponse{
+				Id:     "c2f4j7au6s7f91uqnojg",
+				State:  commonv1.STATE_CREATED,
+				Status: commonv1.STATUS_QUEUED,
+			},
+			wantErr: false,
+		},
+		//dispatch without xid
+	}
+}

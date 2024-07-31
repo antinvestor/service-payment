@@ -82,24 +82,26 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
 	}
 
-	//p.GenID(ctx)
+	if message.GetId() == "" {
+		p.GenID(ctx)
+	}
+
 
 	if p.ValidXID(message.GetId()) {
+		// Set payment ID
 		p.Id = message.GetId()
 	}
 
 	pStatus := models.PaymentStatus{
-		PaymentID: p.ID,
+		PaymentID: p.Id,
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
-	// Dispatch payment event
 	if err := pb.emitPaymentEvent(ctx, p); err != nil {
 		return nil, err
 	}
 
-	// Dispatch payment status event
 	if err := pb.emitPaymentStatusEvent(ctx, pStatus); err != nil {
 		return nil, err
 	}

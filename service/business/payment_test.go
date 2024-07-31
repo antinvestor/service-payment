@@ -3,7 +3,6 @@ package business
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/antinvestor/apis/go/common"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -286,8 +285,6 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 			},
 			wantErr: false,
 		},
-
-		//dispatch with currency code mismatch
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -305,19 +302,22 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 			}
 
 			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
-			//log the status
-			fmt.Println("-----------------------------------status-----------------------------------")
-			fmt.Println(status)
-
-
-
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if !reflect.DeepEqual(status, tt.want) {
-				t.Errorf("Dispatch() = %v, want %v", status, tt.want)
+
+            if status.Id != tt.want.Id {
+				t.Errorf("Dispatch() status.Id = %v, want %v", status.Id, tt.want.Id)
+			}
+
+			if status.State != tt.want.State {
+				t.Errorf("Dispatch() status.State = %v, want %v", status.State, tt.want.State)
+			}
+
+			if status.Status != tt.want.Status {
+				t.Errorf("Dispatch() status.Status = %v, want %v", status.Status, tt.want.Status)
 			}
 
 

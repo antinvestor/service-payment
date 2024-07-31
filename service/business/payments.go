@@ -7,9 +7,9 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments-v1/service/events"
-
 	"github.com/antinvestor/service-payments-v1/service/models"
 	"github.com/pitabwire/frame"
+	"github.com/shopspring/decimal"
 )
 
 type PaymentBusiness interface {
@@ -52,34 +52,55 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		RecipientProfileType: message.GetRecipient().GetProfileType(),
 		RecipientProfileID:   message.GetRecipient().GetProfileId(),
 		RecipientContactID:   message.GetRecipient().GetContactId(),
-
+        
 		ReferenceId:           message.GetReferenceId(),
 		BatchId:               message.GetBatchId(),
 		ExternalTransactionId: message.GetExternalTransactionId(),
 		Route:                 message.GetRoute(),
-		Cost:                  message.GetCost(),
-		Amount:                message.GetAmount(),
 		Source:                message.GetSource(),
 		Recipient:             message.GetRecipient(),
 		State:                 message.GetState(),
 		Status:                message.GetStatus(),
 		Outbound:              message.GetOutbound(),
 	}
+
+
+	if message.GetAmount() != nil {
+		//field Amount decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+		p.Amount = decimal.NullDecimal{
+			Valid: true,
+			Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
+
+		}
+	
+
+		p.Currency = message.GetAmount().CurrencyCode
+	}else {
+		logger.Error("amount or cost is missing")
+		return nil, ErrorPaymentDoesNotExist
+	}
+
+	if message.GetCost() != nil {
+		p.Cost = decimal.NullDecimal{
+			Valid: true,
+			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+		}
+
+
+	}else {
+		logger.Error("amount or cost is missing")
+		return nil, ErrorPaymentDoesNotExist
+	}
+
+
 	p.GenID(ctx)
+
 
 	if p.ValidXID(message.GetId()) {
 		p.Id = message.GetId()
 	}
 
-	if p.Amount == nil || p.Cost == nil {
-		logger.Error("amount or cost is missing")
-		return nil, ErrorPaymentDoesNotExist
-	}
 
-	if p.Amount.GetCurrencyCode() != p.Cost.GetCurrencyCode() {
-		logger.Error("currency code mismatch")
-		return nil, ErrorInvalidPaymentRequest
-	}
 
 	pStatus := models.PaymentStatus{
 		PaymentID: p.GetID(),

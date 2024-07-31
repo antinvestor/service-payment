@@ -129,7 +129,7 @@ func getPartitionCli(t *testing.T) *partitionV1.PartitionClient {
 	return profileCli
 }
 
-func TestNewPaymentBusiness(t *testing.T) {
+func TestNewPaymentBusiness_Success(t *testing.T) {
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
 
@@ -152,6 +152,47 @@ func TestNewPaymentBusiness(t *testing.T) {
 				partitionCli: partitionCli},
 			expectErr: false,
 		},
+
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, err := getService(tt.name)
+			if err != nil {
+				t.Errorf("failed to get service: %v", err)
+			}
+
+			pb , err := NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
+
+			if (err != nil){
+				t.Errorf("expected no error, got %v", err)
+			}
+
+			if pb == nil {
+				t.Errorf("expected payment business, got nil")
+			}
+
+
+		})
+
+	}
+
+}
+
+func TestNewPaymentBusinessWithNils(t *testing.T) {
+	profileCli := getProfileCli(t)
+	partitionCli := getPartitionCli(t)
+
+	type args struct {
+		ctxService   *ctxSrv
+		profileCli   *profileV1.ProfileClient
+		partitionCli *partitionV1.PartitionClient
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      PaymentBusiness
+		expectErr bool
+	}{
 		{
 			name: "NewPaymentBusinessWithNils",
 			args: args{
@@ -163,20 +204,20 @@ func TestNewPaymentBusiness(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctxService, err := getService(tt.name)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("getService() error = %v, expectErr %v", err, tt.expectErr)
-				return
+			service, err := getService(tt.name)
+			if err != nil {
+				t.Errorf("failed to get service: %v", err)
 			}
-			if err == nil {
-				tt.args.ctxService = ctxService
+			pb , err := NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
+
+			if err != ErrorInitializationFail {
+				t.Errorf("expected ErrorInitializationFail, got %v", err)
 			}
 
-			_, err = NewPaymentBusiness(tt.args.ctxService.ctx, tt.args.ctxService.srv, tt.args.profileCli, tt.args.partitionCli)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("NewPaymentBusiness() error = %v, wantErr %v", err, tt.expectErr)
-				return
+			if pb != nil {
+				t.Errorf("expected nil PaymentBusiness instance, got %v", pb)
 			}
+
 
 		})
 
@@ -223,7 +264,7 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 					},
 					Amount: &money.Money{
 						CurrencyCode: "USD",
-						Units:        1000,
+						Units:        1000.00,
 						Nanos:        0,
 					},
 					Cost: &money.Money{
@@ -281,42 +322,6 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 			wantErr: true,
 		},
 		//dispatch with currency code mismatch
-		{
-			name: "DispatchWithCurrencyCodeMismatch",
-			fields: fields{
-				ctxService:   nil,
-				profileCli:   profileCli,
-				partitionCli: partitionCli,
-			},
-			args: args{
-				ctx: nil,
-				message: &paymentV1.Payment{
-					Id: "c2f4j7au6s7f91uqnojg",
-					Recipient: &commonv1.ContactLink{
-						ContactId: "test_contact-id",
-					},
-					Amount: &money.Money{
-						CurrencyCode: "USD",
-						Units:        1000,
-						Nanos:        0,
-					},
-					Cost: &money.Money{
-						CurrencyCode: "EUR",
-						Units:        200,
-						Nanos:        0,
-					},
-					ReferenceId:           "test_reference-id",
-					BatchId:               "test_batch-id",
-					ExternalTransactionId: "test_external-transaction-id",
-				},
-			},
-			want: &commonv1.StatusResponse{
-				Id:     "c2f4j7au6s7f91uqnojg",
-				State:  commonv1.STATE_CREATED,
-				Status: commonv1.STATUS_QUEUED,
-			},
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

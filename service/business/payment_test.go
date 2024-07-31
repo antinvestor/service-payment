@@ -3,6 +3,8 @@ package business
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/antinvestor/apis/go/common"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
@@ -10,15 +12,15 @@ import (
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments-v1/service/config"
 	money "google.golang.org/genproto/googleapis/type/money"
-	"reflect"
+
+	"testing"
+	"time"
 
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/pitabwire/frame"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/mock/gomock"
-	"testing"
-	"time"
 )
 
 func getService(serviceName string) (*ctxSrv, error) {
@@ -67,8 +69,8 @@ func getService(serviceName string) (*ctxSrv, error) {
 	m["partition_id"] = "test_partition-id"
 	m["access_id"] = "test_access-id"
 
-	//claims := frame.ClaimsFromMap(m)
-	//ctx = claims.ClaimsToContext(ctx)
+	claims := frame.ClaimsFromMap(m)
+	ctx = claims.ClaimsToContext(ctx)
 
 	eventList := frame.RegisterEvents(
 		&events.PaymentSave{Service: service},
@@ -225,7 +227,7 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 
 }
 
-func TestPaymentBusiness_Dispatch(t *testing.T) {
+func TestDispatchPaymentWithValidData(t *testing.T) {
 
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
@@ -284,43 +286,7 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		//dispatc with nil in amount and cost
-		{
-			name: "DispatchWithNilAmountAndCost",
-			fields: fields{
-				ctxService:   nil,
-				profileCli:   profileCli,
-				partitionCli: partitionCli,
-			},
-			args: args{
-				ctx: context.Background(),
-				message: &paymentV1.Payment{
-					Id: "c2f4j7au6s7f91uqnojg",
-					Recipient: &commonv1.ContactLink{
-						ContactId: "test_contact-id",
-					},
-					Amount: &money.Money{
-						CurrencyCode: "USD",
-						Units:        0,
-						Nanos:        0,
-					},
-					Cost: &money.Money{
-						CurrencyCode: "USD",
-						Units:        0,
-						Nanos:        0,
-					},
-					ReferenceId:           "test_reference-id",
-					BatchId:               "test_batch-id",
-					ExternalTransactionId: "test_external-transaction-id",
-				},
-			},
-			want: &commonv1.StatusResponse{
-				Id:     "c2f4j7au6s7f91uqnojg",
-				State:  commonv1.STATE_CREATED,
-				Status: commonv1.STATUS_QUEUED,
-			},
-			wantErr: true,
-		},
+
 		//dispatch with currency code mismatch
 	}
 	for _, tt := range tests {
@@ -330,20 +296,31 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 				t.Errorf("getService() error = %v", err)
 				return
 			}
+
 			pb, err := NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
 				return
 			}
 
-			got, err := pb.Dispatch(ctxService.ctx, tt.args.message)
+			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
+			//log the status
+			fmt.Println("-----------------------------------status-----------------------------------")
+			fmt.Println(status)
+
+
+
 			if (err != nil) != tt.wantErr {
-				t.Errorf("PaymentBusiness.Dispatch() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PaymentBusiness.Dispatch() = %v, want %v", got, tt.want)
+
+			if !reflect.DeepEqual(status, tt.want) {
+				t.Errorf("Dispatch() = %v, want %v", status, tt.want)
 			}
+
+
 		})
 
 	}

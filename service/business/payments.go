@@ -2,6 +2,7 @@ package business
 
 import (
 	"context"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -35,24 +36,20 @@ type paymentBusiness struct {
 	partitionCli *partitionV1.PartitionClient
 }
 
+
+
 func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-
 	logger := pb.service.L().WithField("request", message)
-
 	authClaim := frame.ClaimsFromContext(ctx)
-
 	logger.WithField("auth claim", authClaim).Info("handling send request")
 
 	p := &models.Payment{
-
-		SenderProfileType: message.GetSource().GetProfileType(),
-		SenderProfileID:   message.GetSource().GetProfileId(),
-		SenderContactID:   message.GetSource().GetContactId(),
-
-		RecipientProfileType: message.GetRecipient().GetProfileType(),
-		RecipientProfileID:   message.GetRecipient().GetProfileId(),
-		RecipientContactID:   message.GetRecipient().GetContactId(),
-        
+		SenderProfileType:     message.GetSource().GetProfileType(),
+		SenderProfileID:       message.GetSource().GetProfileId(),
+		SenderContactID:       message.GetSource().GetContactId(),
+		RecipientProfileType:  message.GetRecipient().GetProfileType(),
+		RecipientProfileID:    message.GetRecipient().GetProfileId(),
+		RecipientContactID:    message.GetRecipient().GetContactId(),
 		ReferenceId:           message.GetReferenceId(),
 		BatchId:               message.GetBatchId(),
 		ExternalTransactionId: message.GetExternalTransactionId(),
@@ -64,65 +61,66 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Outbound:              message.GetOutbound(),
 	}
 
-
-	if message.GetAmount() != nil {
-		//field Amount decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
-		p.Amount = decimal.NullDecimal{
-			Valid: true,
-			Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
-
-		}
-	
-
-		p.Currency = message.GetAmount().CurrencyCode
-	}else {
+	// Validate and set amount
+	if message.GetAmount() == nil {
 		logger.Error("amount or cost is missing")
 		return nil, ErrorPaymentDoesNotExist
 	}
+	p.Amount = decimal.NullDecimal{
+		Valid:   true,
+		Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
+	}
+	p.Currency = message.GetAmount().CurrencyCode
 
-	if message.GetCost() != nil {
-		p.Cost = decimal.NullDecimal{
-			Valid: true,
-			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
-		}
-
-
-	}else {
+	// Validate and set cost
+	if message.GetCost() == nil {
 		logger.Error("amount or cost is missing")
 		return nil, ErrorPaymentDoesNotExist
 	}
-
+	p.Cost = decimal.NullDecimal{
+		Valid:   true,
+		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+	}
 
 	p.GenID(ctx)
-
 
 	if p.ValidXID(message.GetId()) {
 		p.Id = message.GetId()
 	}
 
-
-
 	pStatus := models.PaymentStatus{
-		PaymentID: p.GetID(),
+		PaymentID: p.ID,
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
-	//dispatch payment event
-	event := events.PaymentSave{}
-	err := pb.service.Emit(ctx, event.Name(), p)
-	if err != nil {
-		logger.WithError(err).Warn("could not emit payment event")
+	// Dispatch payment event
+	if err := pb.emitPaymentEvent(ctx, p); err != nil {
 		return nil, err
 	}
 
-	//dispatch payment status event
-	eventStatus := events.PaymentStatusSave{}
-	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
-	if err != nil {
-		logger.WithError(err).Warn("could not emit payment status event")
+	// Dispatch payment status event
+	if err := pb.emitPaymentStatusEvent(ctx, pStatus); err != nil {
 		return nil, err
 	}
 
 	return pStatus.ToStatusAPI(), nil
+}
+
+func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
+	event := events.PaymentSave{}
+	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit payment event")
+		return err
+	}
+	return nil
+}
+
+func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
+	eventStatus := events.PaymentStatusSave{}
+	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit payment status event")
+		return err
+	}
+	return nil
 }

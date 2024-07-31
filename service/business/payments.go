@@ -82,7 +82,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
 	}
 
-	p.GenID(ctx)
+	//p.GenID(ctx)
 
 	if p.ValidXID(message.GetId()) {
 		p.Id = message.GetId()

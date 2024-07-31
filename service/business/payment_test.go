@@ -215,7 +215,7 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 				partitionCli: partitionCli,
 			},
 			args: args{
-				ctx: context.Background(),
+				ctx: nil,
 				message: &paymentV1.Payment{
 					Id: "c2f4j7au6s7f91uqnojg",
 					Recipient: &commonv1.ContactLink{
@@ -289,7 +289,7 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 				partitionCli: partitionCli,
 			},
 			args: args{
-				ctx: context.Background(),
+				ctx: nil,
 				message: &paymentV1.Payment{
 					Id: "c2f4j7au6s7f91uqnojg",
 					Recipient: &commonv1.ContactLink{
@@ -320,12 +320,18 @@ func TestPaymentBusiness_Dispatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pb, err := NewPaymentBusiness(tt.fields.ctxService.ctx, tt.fields.ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			ctxService, err := getService(tt.name)
+			if err != nil {
+				t.Errorf("getService() error = %v", err)
+				return
+			}
+			pb, err := NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
 				return
 			}
-			got, err := pb.Dispatch(tt.args.ctx, tt.args.message)
+
+			got, err := pb.Dispatch(ctxService.ctx, tt.args.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PaymentBusiness.Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return

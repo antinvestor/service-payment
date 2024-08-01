@@ -40,8 +40,8 @@ type paymentBusiness struct {
 
 func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.L().WithField("request", message)
-	authClaim := frame.ClaimsFromContext(ctx)
-	logger.WithField("auth claim", authClaim).Info("handling send request")
+	//authClaim := frame.ClaimsFromContext(ctx)
+	//logger.WithField("auth claim", authClaim).Info("handling send request")
 
 	p := &models.Payment{
 		SenderProfileType:     message.GetSource().GetProfileType(),
@@ -61,8 +61,17 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Outbound:              message.GetOutbound(),
 	}
 
+	if message.GetId() == "" {
+		p.GenID(ctx)
+	}
+
+
+	if p.ValidXID(message.GetId()) {
+		p.Id = message.GetId()
+	}
+
 	// Validate and set amount
-	if message.GetAmount() == nil {
+	if message.GetAmount().Units == 0 || message.GetAmount().CurrencyCode == "" {
 		logger.Error("amount or cost is missing")
 		return nil, ErrorPaymentDoesNotExist
 	}
@@ -73,7 +82,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 	p.Currency = message.GetAmount().CurrencyCode
 
 	// Validate and set cost
-	if message.GetCost() == nil {
+	if message.GetCost().Units == 0 || message.GetCost().CurrencyCode == "" {
 		logger.Error("amount or cost is missing")
 		return nil, ErrorPaymentDoesNotExist
 	}
@@ -82,15 +91,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
 	}
 
-	if message.GetId() == "" {
-		p.GenID(ctx)
-	}
 
-
-	if p.ValidXID(message.GetId()) {
-		// Set payment ID
-		p.Id = message.GetId()
-	}
 
 	pStatus := models.PaymentStatus{
 		PaymentID: p.Id,

@@ -6,8 +6,9 @@ import (
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/pitabwire/frame"
-	money "google.golang.org/genproto/googleapis/type/money"
+	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
+	money "google.golang.org/genproto/googleapis/type/money"
 )
 
 // Payment Table holds the payment details
@@ -31,8 +32,9 @@ type Payment struct {
 
 	Source        *commonv1.ContactLink
 	Recipient     *commonv1.ContactLink
-	Amount        *money.Money
-	Cost          *money.Money
+	Amount        decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+	Cost          decimal.NullDecimal `gorm:"type:numeric" json:"cost"`
+	Currency      string              `gorm:"type:varchar(10)" json:"currency"`
 	State         commonv1.STATE
 	Status        commonv1.STATUS
 	DateCreated   *time.Time
@@ -72,8 +74,8 @@ func (model *Payment) ToApi() *paymentV1.Payment {
 		Id:                    model.ID,
 		Source:                source,
 		Recipient:             recipient,
-		Amount:                model.Amount,
-		Cost:                  model.Cost,
+		Amount:                &money.Money{CurrencyCode: model.Currency, Units: model.Amount.Decimal.CoefficientInt64()},
+		Cost:                  &money.Money{CurrencyCode: model.Currency, Units: model.Cost.Decimal.CoefficientInt64()},
 		State:                 model.State,
 		Status:                model.Status,
 		TransactionId:         model.TransactionId,
@@ -93,8 +95,6 @@ func (model *Payment) ToApi() *paymentV1.Payment {
 type PaymentStatus struct {
 	frame.BaseModel
 	PaymentID   string `gorm:"type:varchar(50)"`
-	TransientID string `gorm:"type:varchar(50)"`
-	ExternalID  string `gorm:"type:varchar(50)"`
 	Extra       datatypes.JSONMap
 	State       int32
 	Status      int32
@@ -103,15 +103,12 @@ type PaymentStatus struct {
 func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 	extra := frame.DBPropertiesToMap(model.Extra)
 	extra["CreatedAt"] = model.CreatedAt.String()
-	extra["StatusID"] = model.ID
+	extra["StatusID"] = model.PaymentID
 
 	status := commonv1.StatusResponse{
-		Id:          model.ID,
-		TransientId: model.TransientID,
-		ExternalId:  model.ExternalID,
+		Id:          model.PaymentID,
 		State:       commonv1.STATE(model.State),
 		Status:      commonv1.STATUS(model.Status),
-		Extras:      extra,
 	}
 	return &status
 }

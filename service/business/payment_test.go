@@ -325,3 +325,94 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 
 	}
 }
+
+func TestDispatchPaymentWithAmountMissing(t *testing.T) {	
+	profileCli := getProfileCli(t)
+	partitionCli := getPartitionCli(t)
+
+	type fields struct {
+		ctxService   *ctxSrv
+		profileCli   *profileV1.ProfileClient
+		partitionCli *partitionV1.PartitionClient
+	}
+
+	type args struct {
+		ctx     context.Context
+		message *paymentV1.Payment
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *commonv1.StatusResponse
+		wantErr bool
+	}{
+		{
+			name: "DispatchWithAmountMissing",
+			fields: fields{
+				ctxService:   nil,
+				profileCli:   profileCli,
+				partitionCli: partitionCli,
+			},
+			args: args{
+				ctx: nil,
+				message: &paymentV1.Payment{
+					Id: "c2f4j7au6s7f91uqnojz",
+					Recipient: &commonv1.ContactLink{
+						ContactId: "test_contact-id",
+					},
+					Amount: &money.Money{
+						CurrencyCode: "",
+						Units:        0,
+						Nanos:        0,
+					},
+					Cost: &money.Money{
+						CurrencyCode: "",
+						Units:        0,
+						Nanos:        0,
+					},
+					ReferenceId:           "test_reference-id",
+					BatchId:               "test_batch-id",
+					ExternalTransactionId: "test_external-transaction-id",
+				},
+			},
+			want: &commonv1.StatusResponse{
+				Id:     "c2f4j7au6s7f91uqnojz",
+				State:  commonv1.STATE_CREATED,
+				Status: commonv1.STATUS_QUEUED,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctxService, err := getService(tt.name)
+			if err != nil {
+				t.Errorf("getService() error = %v", err)
+				return
+			}
+
+			pb, err := NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+
+			if err != nil {
+				t.Errorf("NewPaymentBusiness() error = %v", err)
+				return
+			}
+
+			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
+
+			if err !=  ErrorPaymentDoesNotExist {
+				t.Errorf("Dispatch() error = %v, wantErr %v", err, ErrorPaymentDoesNotExist)
+			}
+
+			if status != nil {
+				t.Errorf("Dispatch() status = %v, want %v", status, nil)
+			}
+
+
+		})
+
+	}
+
+}

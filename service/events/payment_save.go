@@ -34,6 +34,7 @@ func (event *PaymentSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
+
 	payment := payload.(*models.Payment)
 
 	logger := event.Service.L().WithField("type", event.Name())

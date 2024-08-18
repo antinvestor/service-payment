@@ -7,8 +7,8 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
-	"gorm.io/datatypes"
 	money "google.golang.org/genproto/googleapis/type/money"
+	"gorm.io/datatypes"
 )
 
 // Payment Table holds the payment details
@@ -94,10 +94,10 @@ func (model *Payment) ToApi() *paymentV1.Payment {
 
 type PaymentStatus struct {
 	frame.BaseModel
-	PaymentID   string `gorm:"type:varchar(50)"`
-	Extra       datatypes.JSONMap
-	State       int32
-	Status      int32
+	PaymentID string `gorm:"type:varchar(50)"`
+	Extra     datatypes.JSONMap
+	State     int32
+	Status    int32
 }
 
 func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
@@ -106,9 +106,9 @@ func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 	extra["StatusID"] = model.PaymentID
 
 	status := commonv1.StatusResponse{
-		Id:          model.PaymentID,
-		State:       commonv1.STATE(model.State),
-		Status:      commonv1.STATUS(model.Status),
+		Id:     model.PaymentID,
+		State:  commonv1.STATE(model.State),
+		Status: commonv1.STATUS(model.Status),
 	}
 	return &status
 }

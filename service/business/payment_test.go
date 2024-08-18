@@ -2,6 +2,7 @@ package business
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/antinvestor/apis/go/common"
@@ -153,7 +154,6 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 				partitionCli: partitionCli},
 			expectErr: false,
 		},
-
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -162,16 +162,15 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 				t.Errorf("failed to get service: %v", err)
 			}
 
-			pb , err := NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
+			pb, err := NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
 
-			if (err != nil){
+			if err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
 
 			if pb == nil {
 				t.Errorf("expected payment business, got nil")
 			}
-
 
 		})
 
@@ -209,7 +208,7 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to get service: %v", err)
 			}
-			pb , err := NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
+			pb, err := NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
 
 			if err != ErrorInitializationFail {
 				t.Errorf("expected ErrorInitializationFail, got %v", err)
@@ -218,7 +217,6 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 			if pb != nil {
 				t.Errorf("expected nil PaymentBusiness instance, got %v", pb)
 			}
-
 
 		})
 
@@ -307,8 +305,7 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 				return
 			}
 
-
-            if status.Id != tt.want.Id {
+			if status.Id != tt.want.Id {
 				t.Errorf("Dispatch() status.Id = %v, want %v", status.Id, tt.want.Id)
 			}
 
@@ -320,13 +317,12 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 				t.Errorf("Dispatch() status.Status = %v, want %v", status.Status, tt.want.Status)
 			}
 
-
 		})
 
 	}
 }
 
-func TestDispatchPaymentWithAmountMissing(t *testing.T) {	
+func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
 
@@ -402,14 +398,13 @@ func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 
 			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
 
-			if err !=  ErrorPaymentDoesNotExist {
+			if !errors.Is(err, ErrorPaymentDoesNotExist) {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, ErrorPaymentDoesNotExist)
 			}
 
 			if status != nil {
 				t.Errorf("Dispatch() status = %v, want %v", status, nil)
 			}
-
 
 		})
 

@@ -72,13 +72,13 @@ type Cost struct {
 	PaymentID string              `gorm:"type:varchar(50)"`
 	Amount    decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
 	Currency  string
-	Extra     datatypes.JSONMap
+	Extra     datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
 }
 
 type PaymentStatus struct {
 	frame.BaseModel
-	PaymentID string `gorm:"type:varchar(50)"`
-	Extra     datatypes.JSONMap
+	PaymentID string            `gorm:"type:varchar(50)"`
+	Extra     datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
 	State     int32
 	Status    int32
 }

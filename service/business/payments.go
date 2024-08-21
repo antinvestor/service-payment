@@ -21,7 +21,7 @@ type PaymentBusiness interface {
 
 // validateDispatchFields checks for the required fields in the Payment model for dispatching
 func (pb *paymentBusiness) validateDispatchFields(p *models.Payment) error {
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" || p.ExternalTransactionId == "" {
+	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
 		return ErrorPaymentDoesNotExist
 	}
 	return nil
@@ -49,12 +49,13 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 	return nil
 }
 
-func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
+func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment, c *models.Cost) error {
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.L().WithError(err).Warn("could not emit payment event")
 		return err
 	}
+
 	return nil
 }
 
@@ -90,28 +91,31 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 
 	// Initialize Payment model
 	p := &models.Payment{
-		SenderProfileType:     message.GetSource().GetProfileType(),
-		SenderProfileID:       message.GetSource().GetProfileId(),
-		SenderContactID:       message.GetSource().GetContactId(),
-		RecipientProfileType:  message.GetRecipient().GetProfileType(),
-		RecipientProfileID:    message.GetRecipient().GetProfileId(),
-		RecipientContactID:    message.GetRecipient().GetContactId(),
-		ReferenceId:           message.GetReferenceId(),
-		BatchId:               message.GetBatchId(),
-		ExternalTransactionId: message.GetExternalTransactionId(),
-		Route:                 message.GetRoute(),
-		Source:                message.GetSource(),
-		Recipient:             message.GetRecipient(),
-		State:                 message.GetState(),
-		Status:                message.GetStatus(),
-		Outbound:              message.GetOutbound(),
+		SenderProfileType:    message.GetSource().GetProfileType(),
+		SenderProfileID:      message.GetSource().GetProfileId(),
+		SenderContactID:      message.GetSource().GetContactId(),
+		RecipientProfileType: message.GetRecipient().GetProfileType(),
+		RecipientProfileID:   message.GetRecipient().GetProfileId(),
+		RecipientContactID:   message.GetRecipient().GetContactId(),
+		ReferenceId:          message.GetReferenceId(),
+		BatchId:              message.GetBatchId(),
+		Route:                message.GetRoute(),
+		Outbound:             true,
+	}
+
+	//initialize cost
+
+	c := &models.Cost{
+		Amount: decimal.NullDecimal{
+			Valid:   true,
+			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+		},
+		Currency: message.GetCost().CurrencyCode,
 	}
 
 	// Generate or validate Payment ID
 	if message.GetId() == "" {
 		p.GenID(ctx)
-	} else if p.ValidXID(message.GetId()) {
-		p.Id = message.GetId()
 	}
 
 	// Validate required fields
@@ -128,7 +132,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 
 	// Set initial PaymentStatus
 	pStatus := models.PaymentStatus{
-		PaymentID: p.Id,
+		PaymentID: message.GetId(),
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}

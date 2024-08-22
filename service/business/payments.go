@@ -28,7 +28,7 @@ func (pb *paymentBusiness) validateDispatchFields(p *models.Payment) error {
 }
 
 // validateAmountAndCost validates the amount and cost fields of the Payment
-func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment) error {
+func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
 	if message.GetAmount().Units == 0 || message.GetAmount().CurrencyCode == "" {
 		return errors.New("amount is missing or invalid")
 	}
@@ -41,10 +41,12 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 	if message.GetCost().Units == 0 || message.GetCost().CurrencyCode == "" {
 		return errors.New("cost is missing or invalid")
 	}
-	p.Cost = decimal.NullDecimal{
+
+	c.Amount = decimal.NullDecimal{
 		Valid:   true,
 		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
 	}
+	c.Currency = message.GetCost().CurrencyCode
 
 	return nil
 }
@@ -53,6 +55,12 @@ func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payme
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.L().WithError(err).Warn("could not emit payment event")
+		return err
+	}
+
+	eventCost := events.CostSave{}
+	if err := pb.service.Emit(ctx, eventCost.Name(), c); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit cost event")
 		return err
 	}
 
@@ -125,12 +133,12 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 	}
 
 	// Validate and set amount and cost
-	if err := pb.validateAmountAndCost(message, p); err != nil {
+	if err := pb.validateAmountAndCost(message, p, c); err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
-	// Set initial PaymentStatus
+	// Set initial PaymentStatus,
 	pStatus := models.PaymentStatus{
 		PaymentID: message.GetId(),
 		State:     int32(commonv1.STATE_CREATED.Number()),
@@ -138,7 +146,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p); err != nil {
+	if err := pb.emitPaymentEvent(ctx, p, c); err != nil {
 		return nil, err
 	}
 
@@ -155,28 +163,29 @@ func (pb *paymentBusiness) ReceivePayment(ctx context.Context, message *paymentV
 	//logger.WithField("auth claim", authClaim).Info("handling send request")
 
 	p := &models.Payment{
-		SenderProfileType:     message.GetSource().GetProfileType(),
-		SenderProfileID:       message.GetSource().GetProfileId(),
-		SenderContactID:       message.GetSource().GetContactId(),
-		RecipientProfileType:  message.GetRecipient().GetProfileType(),
-		RecipientProfileID:    message.GetRecipient().GetProfileId(),
-		RecipientContactID:    message.GetRecipient().GetContactId(),
-		ReferenceId:           message.GetReferenceId(),
-		BatchId:               message.GetBatchId(),
-		ExternalTransactionId: message.GetExternalTransactionId(),
-		Route:                 message.GetRoute(),
-		Source:                message.GetSource(),
-		Recipient:             message.GetRecipient(),
-		State:                 message.GetState(),
-		Status:                message.GetStatus(),
-		Outbound:              message.GetOutbound(),
+		SenderProfileType:    message.GetSource().GetProfileType(),
+		SenderProfileID:      message.GetSource().GetProfileId(),
+		SenderContactID:      message.GetSource().GetContactId(),
+		RecipientProfileType: message.GetRecipient().GetProfileType(),
+		RecipientProfileID:   message.GetRecipient().GetProfileId(),
+		RecipientContactID:   message.GetRecipient().GetContactId(),
+		ReferenceId:          message.GetReferenceId(),
+		BatchId:              message.GetBatchId(),
+		Route:                message.GetRoute(),
+		Outbound:             false,
+	}
+
+	c := &models.Cost{
+		Amount: decimal.NullDecimal{
+			Valid:   true,
+			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+		},
+		Currency: message.GetCost().CurrencyCode,
 	}
 
 	// Generate or validate Payment ID
 	if message.GetId() == "" {
 		p.GenID(ctx)
-	} else if p.ValidXID(message.GetId()) {
-		p.Id = message.GetId()
 	}
 
 	// Validate required fields
@@ -186,20 +195,20 @@ func (pb *paymentBusiness) ReceivePayment(ctx context.Context, message *paymentV
 	}
 
 	// Validate and set amount and cost
-	if err := pb.validateAmountAndCost(message, p); err != nil {
+	if err := pb.validateAmountAndCost(message, p, c); err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
 	// Set initial PaymentStatus
 	pStatus := models.PaymentStatus{
-		PaymentID: p.Id,
+		PaymentID: message.GetId(),
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p); err != nil {
+	if err := pb.emitPaymentEvent(ctx, p, c); err != nil {
 		return nil, err
 	}
 
@@ -212,7 +221,7 @@ func (pb *paymentBusiness) ReceivePayment(ctx context.Context, message *paymentV
 
 // validateReceiveFields checks for the required fields in the Payment model for receiving
 func (pb *paymentBusiness) validateReceiveFields(p *models.Payment) error {
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" || p.ExternalTransactionId == "" {
+	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
 		return ErrorPaymentDoesNotExist
 	}
 	return nil

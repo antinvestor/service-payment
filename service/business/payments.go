@@ -3,6 +3,7 @@ package business
 import (
 	"context"
 	"errors"
+	"github.com/antinvestor/service-payments-v1/service/repository"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
@@ -17,6 +18,9 @@ import (
 type PaymentBusiness interface {
 	Dispatch(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 	ReceivePayment(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+
+	Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error)
+	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
 }
 
 // validateDispatchFields checks for the required fields in the Payment model for dispatching
@@ -213,6 +217,59 @@ func (pb *paymentBusiness) ReceivePayment(ctx context.Context, message *paymentV
 	}
 
 	if err := pb.emitPaymentStatusEvent(ctx, pStatus); err != nil {
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
+func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
+
+	logger := pb.service.L().WithField("request", status)
+	logger.Info("handling status check request")
+
+	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
+	p, err := paymentRepo.GetByID(ctx, status.GetId())
+	if err != nil {
+		logger.WithError(err).Error("could not get payment status")
+		return nil, err
+	}
+
+	paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, pb.service)
+	pStatus, err := paymentStatusRepo.GetByID(ctx, p.ID)
+	if err != nil {
+		logger.WithError(err).Error("could not get payment status")
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
+func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+
+	logger := pb.service.L().WithField("request", req)
+	logger.Info("handling status update request")
+
+	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
+	p, err := paymentRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		logger.WithError(err).Error("could not get payment status")
+		return nil, err
+	}
+	pStatus := models.PaymentStatus{
+		PaymentID: p.ID,
+		State:     int32(req.GetState()),
+		Status:    int32(req.GetStatus()),
+		Extra:     frame.DBPropertiesFromMap(req.GetExtras()),
+	}
+
+	pStatus.GenID(ctx)
+
+	//queue out payment status for further processing
+	eventStatus := events.PaymentStatusSave{}
+	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+	if err != nil {
+		logger.WithError(err).Warn("could not save status")
 		return nil, err
 	}
 

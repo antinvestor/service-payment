@@ -102,6 +102,7 @@ func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 		Id:     model.PaymentID,
 		State:  commonv1.STATE(model.State),
 		Status: commonv1.STATUS(model.Status),
+		Extras: extra,
 	}
 	return &status
 }

@@ -9,6 +9,16 @@ import (
 	"gorm.io/datatypes"
 )
 
+const (
+	RouteModeTransmit   = "tx"
+	RouteModeReceive    = "rx"
+	RouteModeTransceive = "trx"
+
+	RouteTypeAny       = "any"
+	RouteTypeLongForm  = "l"
+	RouteTypeShortForm = "s"
+)
+
 // Payment Table holds the payment details
 type Payment struct {
 	frame.BaseModel

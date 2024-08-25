@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/antinvestor/service-payments-v1/service/repository"
+	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
@@ -18,9 +19,11 @@ import (
 type PaymentBusiness interface {
 	Dispatch(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 	ReceivePayment(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-
 	Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error)
 	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
+
+	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
+	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
 }
 
 // validateDispatchFields checks for the required fields in the Payment model for dispatching
@@ -274,6 +277,126 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 	}
 
 	return pStatus.ToStatusAPI(), nil
+}
+
+func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
+	stream paymentV1.PaymentService_SearchServer) error {
+
+	// Log the incoming search request
+	logger := pb.service.L().WithField("request", search)
+	logger.Debug("handling payment search request")
+
+	// Extract the context and JWT token
+	ctx := stream.Context()
+	jwtToken := frame.JwtFromContext(ctx)
+	logger.WithField("jwt", jwtToken).Debug("auth jwt supplied")
+
+	// Initialize the payment repository
+	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
+
+	var paymentList []*models.Payment
+	var err error
+
+	// Handle search by ID or by general query
+	if search.GetIdQuery() != "" {
+		// Search by ID
+		payment, err0 := paymentRepo.GetByID(ctx, search.GetIdQuery())
+		if err0 != nil {
+			return err0
+		}
+
+		paymentList = append(paymentList, payment)
+
+	} else {
+		// General search query
+		paymentList, err = paymentRepo.Search(ctx, search.GetQuery())
+		if err != nil {
+			logger.WithError(err).Error("failed to search payments")
+			return err
+		}
+	}
+
+	// Initialize the payment status repository
+	paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, pb.service)
+
+	var resultStatus *models.PaymentStatus
+	var responsesList []*paymentV1.Payment
+	for _, p := range paymentList {
+		pStatus := &models.PaymentStatus{}
+		if p.ID != "" {
+			resultStatus, err = paymentStatusRepo.GetByID(ctx, p.ID)
+			if err != nil {
+				logger.WithError(err).WithField("status_id", p.ID).Error("could not get status id")
+				return err
+			} else {
+				pStatus = resultStatus
+			}
+		}
+
+		// Convert the payment model to the API response format
+		result := p.ToApi(pStatus, nil)
+		responsesList = append(responsesList, result)
+	}
+
+	// Send the search response back to the client
+	err = stream.Send(&paymentV1.SearchResponse{Data: responsesList})
+	if err != nil {
+		logger.WithError(err).Warn("unable to send a result")
+	}
+
+	return nil
+}
+
+func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error) {
+
+	logger := pb.service.L().WithField("request", paymentReq)
+	logger.Debug("handling release request")
+
+	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
+	p, err := paymentRepo.GetByID(ctx, paymentReq.GetId())
+	if err != nil {
+		logger.WithError(err).Warn("could not fetch payment by id")
+		return nil, err
+	}
+
+	if !p.IsReleased() {
+		releaseDate := time.Now()
+		p.ReleasedAt = &releaseDate
+
+		event := events.PaymentSave{}
+		err = pb.service.Emit(ctx, event.Name(), p)
+		if err != nil {
+			logger.WithError(err).Warn("could not emit payment save")
+			return nil, err
+		}
+
+		pStatus := models.PaymentStatus{
+			PaymentID: p.GetID(),
+			State:     int32(commonv1.STATE_ACTIVE.Number()),
+			Status:    int32(commonv1.STATUS_QUEUED.Number()),
+		}
+
+		pStatus.GenID(ctx)
+
+		eventStatus := events.PaymentStatusSave{}
+		err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+		if err != nil {
+			logger.WithError(err).Warn("could not emit payment status")
+			return nil, err
+		}
+
+		return pStatus.ToStatusAPI(), nil
+	} else {
+
+		paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, pb.service)
+		pStatus, err := paymentStatusRepo.GetByID(ctx, p.ID)
+		if err != nil {
+			logger.WithError(err).Warn("could not get payment status")
+			return nil, err
+		}
+
+		return pStatus.ToStatusAPI(), nil
+	}
 }
 
 // validateReceiveFields checks for the required fields in the Payment model for receiving

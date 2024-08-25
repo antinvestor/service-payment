@@ -7,6 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
+	"time"
 )
 
 const (
@@ -37,17 +38,28 @@ type Payment struct {
 	BatchId       string              `gorm:"type:varchar(50)"`
 	Route         string              `gorm:"type:varchar(50)"`
 	Currency      string              `gorm:"type:varchar(10)"`
-
-	Outbound bool
-	Extra    datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	ReleasedAt    *time.Time
+	Outbound      bool
+	Extra         datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
 }
 
-func (model *Payment) ToApi() *paymentV1.Payment {
+func (model *Payment) IsReleased() bool {
+	return model.ReleasedAt != nil && !model.ReleasedAt.IsZero()
+}
+func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *paymentV1.Payment {
 
 	extra := make(map[string]string)
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
+	if model.IsReleased() {
+		extra["ReleaseDate"] = model.ReleasedAt.String()
+	}
+	if len(message) != 0 {
+		for key, val := range message {
+			extra[key] = val
+		}
+	}
 
 	source := &commonv1.ContactLink{
 		ProfileType: model.SenderProfileType,
@@ -70,6 +82,7 @@ func (model *Payment) ToApi() *paymentV1.Payment {
 		ReferenceId:   model.ReferenceId,
 		BatchId:       model.BatchId,
 		Route:         model.Route,
+		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.Outbound,
 		Extra:         extra,
 	}

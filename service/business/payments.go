@@ -17,8 +17,8 @@ import (
 )
 
 type PaymentBusiness interface {
-	Dispatch(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-	ReceivePayment(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	Send(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
+	Receive(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 	Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error)
 	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
 
@@ -101,7 +101,7 @@ type paymentBusiness struct {
 	partitionCli *partitionV1.PartitionClient
 }
 
-func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.L().WithField("request", message)
 
 	// Initialize Payment model
@@ -164,7 +164,7 @@ func (pb *paymentBusiness) Dispatch(ctx context.Context, message *paymentV1.Paym
 	return pStatus.ToStatusAPI(), nil
 }
 
-func (pb *paymentBusiness) ReceivePayment(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.L().WithField("request", message)
 	//authClaim := frame.ClaimsFromContext(ctx)
 	//logger.WithField("auth claim", authClaim).Info("handling send request")

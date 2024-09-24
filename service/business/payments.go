@@ -21,7 +21,6 @@ type PaymentBusiness interface {
 	Receive(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
 	Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error)
 	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
-
 	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
 	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
 }
@@ -114,7 +113,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		RecipientContactID:   message.GetRecipient().GetContactId(),
 		ReferenceId:          message.GetReferenceId(),
 		BatchId:              message.GetBatchId(),
-		Route:                message.GetRoute(),
+		RouteID:                message.GetRoute(),
+		PaymentType:           "Bank Transfers",
 		Outbound:             true,
 	}
 
@@ -178,7 +178,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		RecipientContactID:   message.GetRecipient().GetContactId(),
 		ReferenceId:          message.GetReferenceId(),
 		BatchId:              message.GetBatchId(),
-		Route:                message.GetRoute(),
+		RouteID:                message.GetRoute(),
 		Outbound:             false,
 	}
 

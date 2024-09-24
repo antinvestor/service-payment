@@ -299,7 +299,7 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 				return
 			}
 
-			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
+			status, err := pb.Send(ctxService.ctx, tt.args.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -396,7 +396,7 @@ func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 				return
 			}
 
-			status, err := pb.Dispatch(ctxService.ctx, tt.args.message)
+			status, err := pb.Send(ctxService.ctx, tt.args.message)
 
 			if !errors.Is(err, ErrorPaymentDoesNotExist) {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, ErrorPaymentDoesNotExist)

@@ -36,8 +36,9 @@ type Payment struct {
 	TransactionId string              `gorm:"type:varchar(50)"`
 	ReferenceId   string              `gorm:"type:varchar(50)"`
 	BatchId       string              `gorm:"type:varchar(50)"`
-	Route         string              `gorm:"type:varchar(50)"`
+	RouteID         string              `gorm:"type:varchar(50)"`
 	Currency      string              `gorm:"type:varchar(10)"`
+    PaymentType   string              `gorm:"type:varchar(10)"`
 	ReleasedAt    *time.Time
 	Outbound      bool
 	Extra         datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
@@ -81,7 +82,7 @@ func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *p
 		TransactionId: model.TransactionId,
 		ReferenceId:   model.ReferenceId,
 		BatchId:       model.BatchId,
-		Route:         model.Route,
+		Route:         model.RouteID,
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.Outbound,
 		Extra:         extra,

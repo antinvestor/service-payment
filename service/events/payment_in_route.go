@@ -64,7 +64,7 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Warn("could not route payment")
 
 		if strings.Contains(err.Error(), "no routes matched for payment") {
-			nStatus := models.PaymentStatus{
+			pStatus := models.PaymentStatus{
 				PaymentID: n.GetID(),
 				State:          int32(commonv1.STATE_INACTIVE),
 				Status:         int32(commonv1.STATUS_FAILED),
@@ -73,10 +73,10 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 				}),
 			}
 
-			nStatus.GenID(ctx)
+			pStatus.GenID(ctx)
 
 			eventStatus := PaymentStatusSave{}
-			err = event.Service.Emit(ctx, eventStatus.Name(), nStatus)
+			err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
@@ -103,17 +103,17 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	nStatus := models.PaymentStatus{
+	pStatus := models.PaymentStatus{
 		PaymentID: n.GetID(),
 		State:          int32(commonv1.STATE_ACTIVE),
 		Status:         int32(commonv1.STATUS_QUEUED),
 	}
 
-	nStatus.GenID(ctx)
+	pStatus.GenID(ctx)
 
 	// Queue out payment status for further processing
 	eventStatus := PaymentStatusSave{}
-	err = event.Service.Emit(ctx, eventStatus.Name(), nStatus)
+	err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit status for save")
 		return err

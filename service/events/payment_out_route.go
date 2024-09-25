@@ -102,7 +102,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	evt := NotificationOutQueue{}
+	evt := PaymentOutQueue{}
 	err = event.Service.Emit(ctx, evt.Name(), p.GetID())
 	if err != nil {
 		logger.WithError(err).Warn("could not queue out payment")

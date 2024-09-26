@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 	"errors"
-    commonv1 "github.com/antinvestor/apis/go/common/v1"
+	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	"github.com/antinvestor/service-payments-v1/service/models"
 	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
@@ -47,14 +47,14 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	}).Create(payment)
 
 	err := result.Error
-	
+
 	if err != nil {
 		logger.WithError(err).Warn("could not save to db")
 		return err
 	}
 	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
 
-	if !payment.Outbound {
+	if !payment.OutBound {
 		event := PaymentInRoute{}
 		err = event.Service.Emit(ctx, event.Name(), payment.GetID())
 		if err != nil {
@@ -74,8 +74,8 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	} else {
 		pStatus := models.PaymentStatus{
 			PaymentID: payment.GetID(),
-			State:          int32(commonv1.STATE_CHECKED.Number()),
-			Status:         int32(commonv1.STATUS_QUEUED.Number()),
+			State:     int32(commonv1.STATE_CHECKED.Number()),
+			Status:    int32(commonv1.STATUS_QUEUED.Number()),
 		}
 
 		pStatus.GenID(ctx)

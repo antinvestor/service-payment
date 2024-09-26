@@ -9,7 +9,6 @@ import (
 	"github.com/antinvestor/service-payments-v1/service/models"
 	"github.com/antinvestor/service-payments-v1/service/repository"
 	"github.com/pitabwire/frame"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -53,8 +52,8 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).WithField("status_id", pStatus.PaymentID).Warn("could not get payment status")
 		return err
 	}
-	
-	paymentMap, err := event.formatOutboundPayment(ctx, logger, payment)
+
+	paymentMap, err := event.formatOutboundPayment(payment)
 	if err != nil {
 		return err
 	}
@@ -101,7 +100,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	return nil
 }
 
-func (event *PaymentOutQueue) formatOutboundPayment(ctx context.Context, logger *logrus.Entry, p *models.Payment) (map[string]string, error) {
+func (event *PaymentOutQueue) formatOutboundPayment(p *models.Payment) (map[string]string, error) {
 
 	paymentMap := make(map[string]string)
 	paymentMap["id"] = p.GetID()
@@ -114,5 +113,4 @@ func (event *PaymentOutQueue) formatOutboundPayment(ctx context.Context, logger 
 	paymentMap["currency"] = p.Currency
 
 	return paymentMap, nil
- }
- 
+}

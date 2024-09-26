@@ -25,63 +25,6 @@ type PaymentBusiness interface {
 	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
 }
 
-// validateDispatchFields checks for the required fields in the Payment model for dispatching
-func (pb *paymentBusiness) validateDispatchFields(p *models.Payment) error {
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
-		return ErrorPaymentDoesNotExist
-	}
-	return nil
-}
-
-// validateAmountAndCost validates the amount and cost fields of the Payment
-func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
-	if message.GetAmount().Units == 0 || message.GetAmount().CurrencyCode == "" {
-		return errors.New("amount is missing or invalid")
-	}
-	p.Amount = decimal.NullDecimal{
-		Valid:   true,
-		Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
-	}
-	p.Currency = message.GetAmount().CurrencyCode
-
-	if message.GetCost().Units == 0 || message.GetCost().CurrencyCode == "" {
-		return errors.New("cost is missing or invalid")
-	}
-
-	c.Amount = decimal.NullDecimal{
-		Valid:   true,
-		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
-	}
-	c.Currency = message.GetCost().CurrencyCode
-
-	return nil
-}
-
-func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment, c *models.Cost) error {
-	event := events.PaymentSave{}
-	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit payment event")
-		return err
-	}
-
-	eventCost := events.CostSave{}
-	if err := pb.service.Emit(ctx, eventCost.Name(), c); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit cost event")
-		return err
-	}
-
-	return nil
-}
-
-func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
-	eventStatus := events.PaymentStatusSave{}
-	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit payment status event")
-		return err
-	}
-	return nil
-}
-
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
 	//initialize the service
 	if service == nil || profileCli == nil || partitionCli == nil {
@@ -113,9 +56,9 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		RecipientContactID:   message.GetRecipient().GetContactId(),
 		ReferenceId:          message.GetReferenceId(),
 		BatchId:              message.GetBatchId(),
-		RouteID:                message.GetRoute(),
-		PaymentType:           "Bank Transfers",
-		Outbound:             true,
+		RouteID:              message.GetRoute(),
+		PaymentType:          "Bank Transfers",
+		OutBound:             true,
 	}
 
 	//initialize cost
@@ -132,20 +75,15 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	if message.GetId() == "" {
 		p.GenID(ctx)
 	}
-
-	// Validate required fields
-	if err := pb.validateDispatchFields(p); err != nil {
-		logger.Error(err)
-		return nil, err
+	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
+		return nil, nil
 	}
 
-	// Validate and set amount and cost
 	if err := pb.validateAmountAndCost(message, p, c); err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
-	// Set initial PaymentStatus,
 	pStatus := models.PaymentStatus{
 		PaymentID: message.GetId(),
 		State:     int32(commonv1.STATE_CREATED.Number()),
@@ -178,8 +116,8 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		RecipientContactID:   message.GetRecipient().GetContactId(),
 		ReferenceId:          message.GetReferenceId(),
 		BatchId:              message.GetBatchId(),
-		RouteID:                message.GetRoute(),
-		Outbound:             false,
+		RouteID:              message.GetRoute(),
+		OutBound:             false,
 	}
 
 	c := &models.Cost{
@@ -195,10 +133,8 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		p.GenID(ctx)
 	}
 
-	// Validate required fields
-	if err := pb.validateReceiveFields(p); err != nil {
-		logger.Error(err)
-		return nil, err
+	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
+		return nil, nil
 	}
 
 	// Validate and set amount and cost
@@ -399,10 +335,59 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 	}
 }
 
-// validateReceiveFields checks for the required fields in the Payment model for receiving
-func (pb *paymentBusiness) validateReceiveFields(p *models.Payment) error {
+// validateDispatchFields checks for the required fields in the Payment model for dispatching
+func (pb *paymentBusiness) validateDispatchFields(p *models.Payment) error {
 	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
 		return ErrorPaymentDoesNotExist
+	}
+	return nil
+}
+
+// validateAmountAndCost validates the amount and cost fields of the Payment
+func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
+	if message.GetAmount().Units == 0 || message.GetAmount().CurrencyCode == "" {
+		return errors.New("amount is missing or invalid")
+	}
+	p.Amount = decimal.NullDecimal{
+		Valid:   true,
+		Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
+	}
+	p.Currency = message.GetAmount().CurrencyCode
+
+	if message.GetCost().Units == 0 || message.GetCost().CurrencyCode == "" {
+		return errors.New("cost is missing or invalid")
+	}
+
+	c.Amount = decimal.NullDecimal{
+		Valid:   true,
+		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+	}
+	c.Currency = message.GetCost().CurrencyCode
+
+	return nil
+}
+
+func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment, c *models.Cost) error {
+	event := events.PaymentSave{}
+	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit payment event")
+		return err
+	}
+
+	eventCost := events.CostSave{}
+	if err := pb.service.Emit(ctx, eventCost.Name(), c); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit cost event")
+		return err
+	}
+
+	return nil
+}
+
+func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
+	eventStatus := events.PaymentStatusSave{}
+	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+		pb.service.L().WithError(err).Warn("could not emit payment status event")
+		return err
 	}
 	return nil
 }

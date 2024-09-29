@@ -39,6 +39,7 @@ type Payment struct {
 	RouteID       string              `gorm:"type:varchar(50)"`
 	Currency      string              `gorm:"type:varchar(10)"`
 	PaymentType   string              `gorm:"type:varchar(10)"`
+    Cost	      *Cost
 	ReleasedAt    *time.Time
 	OutBound      bool
 	Extra         datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
@@ -86,6 +87,10 @@ func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *p
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.OutBound,
 		Extra:         extra,
+		Cost:           &money.Money{
+							CurrencyCode: model.Cost.Currency,
+							Units:        model.Cost.Amount.Decimal.CoefficientInt64(),
+						},
 	}
 
 	return &payment

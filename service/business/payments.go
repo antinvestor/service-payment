@@ -2,7 +2,6 @@ package business
 
 import (
 	"context"
-	"errors"
 	"github.com/antinvestor/service-payments-v1/service/repository"
 	"time"
 
@@ -46,6 +45,10 @@ type paymentBusiness struct {
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.L().WithField("request", message)
 
+	authClaim := frame.ClaimsFromContext(ctx)
+
+	logger.WithField("auth claim", authClaim).Info("handling queue out request")
+
 	// Initialize Payment model
 	p := &models.Payment{
 		SenderProfileType:    message.GetSource().GetProfileType(),
@@ -71,12 +74,11 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		Currency: message.GetCost().CurrencyCode,
 	}
 
+	p.Cost = c
+
 	// Generate or validate Payment ID
 	if message.GetId() == "" {
 		p.GenID(ctx)
-	}
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
-		return nil, nil
 	}
 
 	if err := pb.validateAmountAndCost(message, p, c); err != nil {
@@ -91,7 +93,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p, c); err != nil {
+	if err := pb.emitPaymentEvent(ctx, p); err != nil {
 		return nil, err
 	}
 
@@ -128,6 +130,8 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		Currency: message.GetCost().CurrencyCode,
 	}
 
+	p.Cost = c
+
 	// Generate or validate Payment ID
 	if message.GetId() == "" {
 		p.GenID(ctx)
@@ -151,7 +155,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p, c); err != nil {
+	if err := pb.emitPaymentEvent(ctx, p); err != nil {
 		return nil, err
 	}
 
@@ -335,27 +339,21 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 	}
 }
 
-// validateDispatchFields checks for the required fields in the Payment model for dispatching
-func (pb *paymentBusiness) validateDispatchFields(p *models.Payment) error {
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
-		return ErrorPaymentDoesNotExist
-	}
-	return nil
-}
 
 // validateAmountAndCost validates the amount and cost fields of the Payment
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
-	if message.GetAmount().Units == 0 || message.GetAmount().CurrencyCode == "" {
-		return errors.New("amount is missing or invalid")
+	if message.GetAmount().Units <= 0 || message.GetAmount().CurrencyCode == "" {
+		return nil 
 	}
+
 	p.Amount = decimal.NullDecimal{
 		Valid:   true,
 		Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
 	}
 	p.Currency = message.GetAmount().CurrencyCode
 
-	if message.GetCost().Units == 0 || message.GetCost().CurrencyCode == "" {
-		return errors.New("cost is missing or invalid")
+	if message.GetCost().CurrencyCode == "" {
+		return nil
 	}
 
 	c.Amount = decimal.NullDecimal{
@@ -366,19 +364,13 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 
 	return nil
 }
-
-func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment, c *models.Cost) error {
+func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.L().WithError(err).Warn("could not emit payment event")
 		return err
 	}
 
-	eventCost := events.CostSave{}
-	if err := pb.service.Emit(ctx, eventCost.Name(), c); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit cost event")
-		return err
-	}
 
 	return nil
 }

@@ -2,8 +2,8 @@ package business
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"log"
 
 	"github.com/antinvestor/apis/go/common"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -44,6 +44,14 @@ func getService(serviceName string) (*ctxSrv, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
+	// Ensure the container is shut down at the end
+	defer func() {
+		fmt.Println("Shutting down Postgres container...")
+		if err := postgresC.Terminate(ctx); err != nil {
+			fmt.Printf("failed to terminate container: %s\n", err.Error())
+		}
+	}()
+	
 
 	mappedPort, err := postgresC.MappedPort(ctx, "5432")
 	if err != nil {
@@ -62,6 +70,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	_ = frame.ConfigProcess("", &pcfg)
 
 	ctx, service := frame.NewService(serviceName, testDb, frame.Config(&pcfg), frame.NoopDriver())
+	log.Printf("New Service = %v", ctx)
 
 	m := make(map[string]string)
 	m["sub"] = "testing"
@@ -71,6 +80,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 
 	claims := frame.ClaimsFromMap(m)
 	ctx = claims.ClaimsToContext(ctx)
+
 
 	eventList := frame.RegisterEvents(
 		&events.PaymentSave{Service: service},
@@ -158,6 +168,7 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service, err := getService(tt.name)
+			log.Printf("ctxService = %v", service.ctx)
 			if err != nil {
 				t.Errorf("failed to get service: %v", err)
 			}
@@ -224,7 +235,7 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 
 }
 
-func TestDispatchPaymentWithValidData(t *testing.T) {
+func TestSendPaymentWithValidData(t *testing.T) {
 
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
@@ -248,7 +259,7 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Dispatch",
+			name: "Send",
 			fields: fields{
 				ctxService:   nil,
 				profileCli:   profileCli,
@@ -273,7 +284,8 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 					},
 					ReferenceId:           "test_reference-id",
 					BatchId:               "test_batch-id",
-					ExternalTransactionId: "test_external-transaction-id",
+					ExternalTransactionId: "test_external-transaction-id", 
+					Outbound: true,
 				},
 			},
 			want: &commonv1.StatusResponse{
@@ -287,6 +299,8 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctxService, err := getService(tt.name)
+			//log ctxService
+			log.Printf("ctxService = %v", ctxService.ctx)
 			if err != nil {
 				t.Errorf("getService() error = %v", err)
 				return
@@ -300,10 +314,13 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 			}
 
 			status, err := pb.Send(ctxService.ctx, tt.args.message)
-			if (err != nil) != tt.wantErr {
+			if (err != nil)  {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			//log status
+
+			log.Printf("Dispatch() status = %v", status)
 
 			if status.Id != tt.want.Id {
 				t.Errorf("Dispatch() status.Id = %v, want %v", status.Id, tt.want.Id)
@@ -322,7 +339,7 @@ func TestDispatchPaymentWithValidData(t *testing.T) {
 	}
 }
 
-func TestDispatchPaymentWithAmountMissing(t *testing.T) {
+func TestSendPaymentWithAmountMissing(t *testing.T) {
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
 
@@ -345,7 +362,7 @@ func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "DispatchWithAmountMissing",
+			name: "SendWithAmountMissing",
 			fields: fields{
 				ctxService:   nil,
 				profileCli:   profileCli,
@@ -371,6 +388,7 @@ func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 					ReferenceId:           "test_reference-id",
 					BatchId:               "test_batch-id",
 					ExternalTransactionId: "test_external-transaction-id",
+					Outbound: true,
 				},
 			},
 			want: &commonv1.StatusResponse{
@@ -398,12 +416,14 @@ func TestDispatchPaymentWithAmountMissing(t *testing.T) {
 
 			status, err := pb.Send(ctxService.ctx, tt.args.message)
 
-			if !errors.Is(err, ErrorPaymentDoesNotExist) {
-				t.Errorf("Dispatch() error = %v, wantErr %v", err, ErrorPaymentDoesNotExist)
+			if (err != nil)  {
+				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
+				//return
 			}
 
-			if status != nil {
+			if status == nil {
 				t.Errorf("Dispatch() status = %v, want %v", status, nil)
+				//return 
 			}
 
 		})

@@ -45,9 +45,9 @@ type paymentBusiness struct {
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.L().WithField("request", message)
 
-	authClaim := frame.ClaimsFromContext(ctx)
+	//authClaim := frame.ClaimsFromContext(ctx)
 
-	logger.WithField("auth claim", authClaim).Info("handling queue out request")
+	//logger.WithField("auth claim", authClaim).Info("handling queue out request")
 
 	// Initialize Payment model
 	p := &models.Payment{

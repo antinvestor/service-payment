@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  payment_db:
+    image: postgres:16.3
+    environment:
+      POSTGRES_DB: service_payment
+      POSTGRES_USER: ant
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5436:5432"
+
+  payment_service:
+    build: ./
+    ports:
+      - "50051:50051"  # Map the port where the gRPC server listens
+    depends_on:
+      - payment_db
+    environment:
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+    restart: on-failure

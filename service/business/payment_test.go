@@ -6,16 +6,18 @@ import (
 	"log"
 
 	"github.com/antinvestor/apis/go/common"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments-v1/service/config"
+
 	money "google.golang.org/genproto/googleapis/type/money"
 
 	"testing"
 	"time"
 
+	"github.com/antinvestor/service-payments-v1/config"
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/pitabwire/frame"
 	"github.com/testcontainers/testcontainers-go"

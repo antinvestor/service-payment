@@ -6,7 +6,7 @@ import (
 
 	apis "github.com/antinvestor/apis/go/common"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
-	"github.com/antinvestor/service-payments-v1/service/config"
+	"github.com/antinvestor/service-payments-v1/config"
 	"github.com/antinvestor/service-payments-v1/service/events"
 	"github.com/antinvestor/service-payments-v1/service/handlers"
 	"github.com/antinvestor/service-payments-v1/service/models"

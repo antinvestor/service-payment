@@ -19,4 +19,5 @@ services:
     environment:
       - LOG_LEVEL=debug
       - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
-    restart: on-failure
+      - SECURELY_RUN_SERVICE=false
+    restart: unless-stopped

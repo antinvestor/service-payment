@@ -137,9 +137,9 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		p.GenID(ctx)
 	}
 
-	if p.SenderProfileID == "" || p.RecipientProfileID == "" {
-		return nil, nil
-	}
+	// if p.SenderProfileID == "" || p.RecipientProfileID == "" {
+	// 	return nil, nil
+	// }
 
 	// Validate and set amount and cost
 	if err := pb.validateAmountAndCost(message, p, c); err != nil {

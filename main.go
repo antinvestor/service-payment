@@ -22,7 +22,6 @@ import (
 )
 
 func main() {
-
 	serviceName := "service_payment"
 
 	var paymentConfig config.PaymentConfig
@@ -33,13 +32,13 @@ func main() {
 	}
 
 	ctx, service := frame.NewService(serviceName, frame.Config(&paymentConfig))
+	defer service.Stop(ctx)
 
 	log := service.L()
 
 	serviceOptions := []frame.Option{frame.Datastore(ctx)}
 
 	if paymentConfig.DoDatabaseMigrate() {
-
 		service.Init(serviceOptions...)
 
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
@@ -53,7 +52,7 @@ func main() {
 
 	err = service.RegisterForJwt(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("main -- could not register fo jwt")
+		log.WithError(err).Fatal("main -- could not register for jwt")
 	}
 
 	oauth2ServiceHost := paymentConfig.GetOauth2ServiceURI()
@@ -61,7 +60,6 @@ func main() {
 	oauth2ServiceSecret := paymentConfig.Oauth2ServiceClientSecret
 
 	audienceList := make([]string, 0)
-
 	if paymentConfig.Oauth2ServiceAudience != "" {
 		audienceList = strings.Split(paymentConfig.Oauth2ServiceAudience, ",")
 	}
@@ -97,15 +95,26 @@ func main() {
 		log.WithError(err).Fatal("could not load validator for proto messages")
 	}
 
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		protovalidateinterceptor.UnaryServerInterceptor(validator),
+	}
+
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		protovalidateinterceptor.StreamServerInterceptor(validator),
+	}
+
+	// Check if the service should run securely
+	if paymentConfig.SecurelyRunService {
+		log.Info("Running service securely with TLS")
+		unaryInterceptors = append([]grpc.UnaryServerInterceptor{service.UnaryAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer)}, unaryInterceptors...)
+		streamInterceptors = append([]grpc.StreamServerInterceptor{service.StreamAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer)}, streamInterceptors...)
+	} else {
+		log.Warn("Service is running insecurely: secure by setting SECURELY_RUN_SERVICE=True")
+	}
+
 	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			service.UnaryAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer),
-			protovalidateinterceptor.UnaryServerInterceptor(validator),
-		),
-		grpc.ChainStreamInterceptor(
-			service.StreamAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer),
-			protovalidateinterceptor.StreamServerInterceptor(validator),
-		),
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
 	)
 
 	implementation := &handlers.PaymentServer{
@@ -123,19 +132,16 @@ func main() {
 		frame.RegisterEvents(
 			&events.PaymentSave{Service: service},
 			&events.PaymentStatusSave{Service: service},
-          ))
+		))
 
 	service.Init(serviceOptions...)
 
 	log.WithField("server http port", paymentConfig.HttpServerPort).
 		WithField("server grpc port", paymentConfig.GrpcServerPort).
-		Info(" Initiating server operations")
+		Info("Initiating server operations")
 
-	defer implementation.Service.Stop(ctx)
-	err = implementation.Service.Run(ctx, "")
+	err = service.Run(ctx, "")
 	if err != nil {
-		log.WithError(err).Fatal("could not run Server ")
+		log.WithError(err).Fatal("could not run Server")
 	}
 }
-
-

@@ -132,6 +132,10 @@ func main() {
 		frame.RegisterEvents(
 			&events.PaymentSave{Service: service},
 			&events.PaymentStatusSave{Service: service},
+			&events.PaymentInQueue{Service: service},
+			&events.PaymentOutQueue{Service: service,},
+			&events.PaymentInRoute{Service: service},
+			&events.PaymentOutRoute{Service: service, ProfileCli: profileCli},
 		))
 
 	service.Init(serviceOptions...)

@@ -33,6 +33,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.5 // indirect
+	github.com/Rhymond/go-money v1.0.14
 	github.com/alitto/pond v1.8.3 // indirect
 	github.com/bufbuild/protovalidate-go v0.7.0
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect

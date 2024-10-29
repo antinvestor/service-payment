@@ -1,4 +1,4 @@
-package coreapi
+package jengaApi
 
 import (
 	"bytes"

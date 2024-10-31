@@ -1,4 +1,4 @@
-module github.com/antinvestor/service-payments-v1
+module github.com/antinvestor/service-payments
 
 go 1.23.0
 

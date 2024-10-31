@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	models "service/models"
+	models "github.com/antinvestor/jenga-api/service/models"
 )
 
 // Client represents the Jenga API client

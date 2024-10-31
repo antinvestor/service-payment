@@ -35,7 +35,7 @@ func (event *PaymentOutQueue) Validate(ctx context.Context, payload any) error {
 func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	paymentID := *payload.(*string)
 
-	logger := event.Service.L().WithField("payload", paymentID).WithField("type", event.Name())
+	logger := event.Service.L(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling payment event")
 
 	// Fetch payment record by ID

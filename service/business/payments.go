@@ -43,7 +43,7 @@ type paymentBusiness struct {
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L().WithField("request", message)
+	logger := pb.service.L(ctx).WithField("request", message)
 
 	//authClaim := frame.ClaimsFromContext(ctx)
 
@@ -105,7 +105,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 }
 
 func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L().WithField("request", message)
+	logger := pb.service.L(ctx).WithField("request", message)
 	//authClaim := frame.ClaimsFromContext(ctx)
 	//logger.WithField("auth claim", authClaim).Info("handling send request")
 
@@ -168,7 +168,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 
 func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
 
-	logger := pb.service.L().WithField("request", status)
+	logger := pb.service.L(ctx).WithField("request", status)
 	logger.Info("handling status check request")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -190,7 +190,7 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 
 func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
 
-	logger := pb.service.L().WithField("request", req)
+	logger := pb.service.L(ctx).WithField("request", req)
 	logger.Info("handling status update request")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -222,8 +222,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	stream paymentV1.PaymentService_SearchServer) error {
 
-	// Log the incoming search request
-	logger := pb.service.L().WithField("request", search)
+	logger := pb.service.L(stream.Context()).WithField("request", search)
 	logger.Debug("handling payment search request")
 
 	// Extract the context and JWT token
@@ -289,7 +288,7 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 
 func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error) {
 
-	logger := pb.service.L().WithField("request", paymentReq)
+	logger := pb.service.L(ctx).WithField("request", paymentReq)
 	logger.Debug("handling release request")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -367,7 +366,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit payment event")
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
 		return err
 	}
 
@@ -378,7 +377,7 @@ func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payme
 func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
 	eventStatus := events.PaymentStatusSave{}
 	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
-		pb.service.L().WithError(err).Warn("could not emit payment status event")
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
 		return err
 	}
 	return nil

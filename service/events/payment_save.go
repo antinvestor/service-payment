@@ -38,7 +38,7 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 
 	payment := payload.(*models.Payment)
 
-	logger := event.Service.L().WithField("type", event.Name())
+	logger := event.Service.L(ctx).WithField("type", event.Name())
 	logger.WithField("payload", payment).Debug("handling event")
 
 	result := event.Service.DB(ctx, false).Clauses(clause.OnConflict{

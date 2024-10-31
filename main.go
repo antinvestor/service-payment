@@ -34,8 +34,9 @@ func main() {
 	ctx, service := frame.NewService(serviceName, frame.Config(&paymentConfig))
 	defer service.Stop(ctx)
 
-	log := service.L()
+	log := service.L(ctx).WithField("type", "main")
 
+	log.Info("starting service...")
 	serviceOptions := []frame.Option{frame.Datastore(ctx)}
 
 	if paymentConfig.DoDatabaseMigrate() {

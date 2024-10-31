@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	models 
+	models "github.com/antinvestor/service-payments-v1/integrations/jenga-api/service/models"
 )
 
 // Client represents the Jenga API client
@@ -79,8 +79,8 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 
 // STKUSSDRequest represents the structure for the STK/USSD push request
 type STKUSSDRequest struct {
-	Merchant Merchant `json:"merchant"`
-	Payment  Payment  `json:"payment"`
+	Merchant models.Merchant `json:"merchant"`
+	Payment  models.Payment  `json:"payment"`
 }
 
 

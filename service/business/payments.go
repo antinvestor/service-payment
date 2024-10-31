@@ -2,15 +2,15 @@ package business
 
 import (
 	"context"
-	"github.com/antinvestor/service-payments-v1/service/repository"
+	"github.com/antinvestor/service-payments/service/repository"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments-v1/service/events"
-	"github.com/antinvestor/service-payments-v1/service/models"
+	"github.com/antinvestor/service-payments/service/events"
+	"github.com/antinvestor/service-payments/service/models"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 )
@@ -338,11 +338,10 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 	}
 }
 
-
 // validateAmountAndCost validates the amount and cost fields of the Payment
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
 	if message.GetAmount().Units <= 0 || message.GetAmount().CurrencyCode == "" {
-		return nil 
+		return nil
 	}
 
 	p.Amount = decimal.NullDecimal{
@@ -369,7 +368,6 @@ func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payme
 		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
 		return err
 	}
-
 
 	return nil
 }

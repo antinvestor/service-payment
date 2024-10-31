@@ -21,6 +21,7 @@ require (
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/docker/docker v27.0.3+incompatible // indirect
 	github.com/google/cel-go v0.21.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/panjf2000/ants/v2 v2.10.0 // indirect
@@ -37,8 +38,6 @@ require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.5 // indirect
-	github.com/Rhymond/go-money v1.0.14
-	github.com/alitto/pond v1.9.2 // indirect
 	github.com/bufbuild/protovalidate-go v0.7.2
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/containerd v1.7.18 // indirect

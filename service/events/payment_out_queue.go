@@ -6,8 +6,8 @@ import (
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	"github.com/antinvestor/service-payments-v1/service/models"
-	"github.com/antinvestor/service-payments-v1/service/repository"
+	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/frame"
 	"google.golang.org/protobuf/proto"
 )

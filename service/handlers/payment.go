@@ -6,7 +6,7 @@ import (
 	partitionv1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments-v1/service/business"
+	"github.com/antinvestor/service-payments/service/business"
 	"github.com/pitabwire/frame"
 )
 

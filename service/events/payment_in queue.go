@@ -6,8 +6,8 @@ import (
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments-v1/service/models"
-	"github.com/antinvestor/service-payments-v1/service/repository"
+	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 
 	"strings"
 
@@ -72,8 +72,8 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 
 	pStatus := models.PaymentStatus{
 		PaymentID: p.GetID(),
-		State:          int32(commonv1.STATE_ACTIVE),
-		Status:         int32(commonv1.STATUS_IN_PROCESS),
+		State:     int32(commonv1.STATE_ACTIVE),
+		Status:    int32(commonv1.STATUS_IN_PROCESS),
 	}
 
 	pStatus.GenID(ctx)

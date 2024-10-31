@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	models "github.com/antinvestor/service-payments/integrations/jenga-api/service/models"
 	"net/http"
-	models "github.com/antinvestor/service-payments-v1/integrations/jenga-api/service/models"
 )
 
 // Client represents the Jenga API client
@@ -76,14 +76,11 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
-
 // STKUSSDRequest represents the structure for the STK/USSD push request
 type STKUSSDRequest struct {
 	Merchant models.Merchant `json:"merchant"`
 	Payment  models.Payment  `json:"payment"`
 }
-
-
 
 // STKUSSDResponse represents the response structure for the STK/USSD push initiation
 type STKUSSDResponse struct {
@@ -101,8 +98,6 @@ func (c *Client) GenerateSignature(accountNumber, ref, mobileNumber, telco, amou
 	mac.Write([]byte(data))
 	return hex.EncodeToString(mac.Sum(nil))
 }
-
-
 
 // InitiateSTKUSSD initiates an STK/USSD push request
 func (c *Client) InitiateSTKUSSD(request STKUSSDRequest, accessToken string) (*STKUSSDResponse, error) {
@@ -147,4 +142,3 @@ func (c *Client) InitiateSTKUSSD(request STKUSSDRequest, accessToken string) (*S
 	}
 	return &stkUssdResponse, nil
 }
-

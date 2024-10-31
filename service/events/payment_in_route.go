@@ -7,8 +7,8 @@ import (
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments-v1/service/models"
-	"github.com/antinvestor/service-payments-v1/service/repository"
+	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 
 	"strings"
 
@@ -66,8 +66,8 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 		if strings.Contains(err.Error(), "no routes matched for payment") {
 			pStatus := models.PaymentStatus{
 				PaymentID: n.GetID(),
-				State:          int32(commonv1.STATE_INACTIVE),
-				Status:         int32(commonv1.STATUS_FAILED),
+				State:     int32(commonv1.STATE_INACTIVE),
+				Status:    int32(commonv1.STATUS_FAILED),
 				Extra: frame.DBPropertiesFromMap(map[string]string{
 					"error": err.Error(),
 				}),
@@ -105,8 +105,8 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 
 	pStatus := models.PaymentStatus{
 		PaymentID: n.GetID(),
-		State:          int32(commonv1.STATE_ACTIVE),
-		Status:         int32(commonv1.STATUS_QUEUED),
+		State:     int32(commonv1.STATE_ACTIVE),
+		Status:    int32(commonv1.STATUS_QUEUED),
 	}
 
 	pStatus.GenID(ctx)
@@ -183,6 +183,6 @@ func selectRoute(_ context.Context, routes []*models.Route) (*models.Route, erro
 	if len(routes) == 0 {
 		return nil, errors.New("no routes matched for payment")
 	}
-	
+
 	return routes[0], nil
 }

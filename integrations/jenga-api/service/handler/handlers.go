@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	client "github.com/antinvestor/service-payments-v1/integrations/jenga-api/service/coreapi"
-	
+	client "github.com/antinvestor/service-payments/integrations/jenga-api/service/coreapi"
 )
 
 // HandleSTKPush handles STK push requests
@@ -22,9 +21,9 @@ func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//initialize the client
-	client := client.New("merchantCode", "consumerSecret", "apiKey", "env")
+	clientApi := client.New("merchantCode", "consumerSecret", "apiKey", "env")
 	//initiate STK/USSD push request
-	response, err := client.InitiateSTKUSSD(request, "accessToken")
+	response, err := clientApi.InitiateSTKUSSD(request, "accessToken")
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -33,7 +32,10 @@ func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-
+	//test error after encoding
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
-

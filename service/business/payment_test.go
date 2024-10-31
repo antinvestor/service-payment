@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/antinvestor/service-payments-v1/config"
-	"github.com/antinvestor/service-payments-v1/service/events"
+	"github.com/antinvestor/service-payments/config"
+	"github.com/antinvestor/service-payments/service/events"
 	"github.com/pitabwire/frame"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -53,7 +53,6 @@ func getService(serviceName string) (*ctxSrv, error) {
 			fmt.Printf("failed to terminate container: %s\n", err.Error())
 		}
 	}()
-	
 
 	mappedPort, err := postgresC.MappedPort(ctx, "5432")
 	if err != nil {
@@ -82,7 +81,6 @@ func getService(serviceName string) (*ctxSrv, error) {
 
 	claims := frame.ClaimsFromMap(m)
 	ctx = claims.ClaimsToContext(ctx)
-
 
 	eventList := frame.RegisterEvents(
 		&events.PaymentSave{Service: service},
@@ -286,8 +284,8 @@ func TestSendPaymentWithValidData(t *testing.T) {
 					},
 					ReferenceId:           "test_reference-id",
 					BatchId:               "test_batch-id",
-					ExternalTransactionId: "test_external-transaction-id", 
-					Outbound: true,
+					ExternalTransactionId: "test_external-transaction-id",
+					Outbound:              true,
 				},
 			},
 			want: &commonv1.StatusResponse{
@@ -316,7 +314,7 @@ func TestSendPaymentWithValidData(t *testing.T) {
 			}
 
 			status, err := pb.Send(ctxService.ctx, tt.args.message)
-			if (err != nil)  {
+			if err != nil {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -390,7 +388,7 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 					ReferenceId:           "test_reference-id",
 					BatchId:               "test_batch-id",
 					ExternalTransactionId: "test_external-transaction-id",
-					Outbound: true,
+					Outbound:              true,
 				},
 			},
 			want: &commonv1.StatusResponse{
@@ -418,14 +416,14 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 
 			status, err := pb.Send(ctxService.ctx, tt.args.message)
 
-			if (err != nil)  {
+			if err != nil {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				//return
 			}
 
 			if status == nil {
 				t.Errorf("Dispatch() status = %v, want %v", status, nil)
-				//return 
+				//return
 			}
 
 		})
@@ -433,5 +431,3 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 	}
 
 }
-
-

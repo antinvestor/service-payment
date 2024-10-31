@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 	"errors"
-	"github.com/antinvestor/service-payments-v1/service/models"
+	"github.com/antinvestor/service-payments/service/models"
 	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
 )

@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	client "github.com/antinvestor/service-payments/integrations/jenga-api/service/coreapi"
-	//config
 	"github.com/antinvestor/service-payments/integrations/jenga-api/config"
+	client "github.com/antinvestor/service-payments/integrations/jenga-api/service/coreapi"
 )
 
-// HandleSTKPush handles STK push requests
 func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -24,8 +22,16 @@ func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientApi := client.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.Env, jengaConfig.ApiKey)
+
+	//generate bearer token
+	var bearerToken *client.BearerTokenResponse
+	bearerToken, err = clientApi.GenerateBearerToken()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	//initiate STK/USSD push request
-	response, err := clientApi.InitiateSTKUSSD(request, "accessToken")
+	response, err := clientApi.InitiateSTKUSSD(request, bearerToken.AccessToken)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

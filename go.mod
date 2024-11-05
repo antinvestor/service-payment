@@ -9,6 +9,7 @@ require (
 	github.com/antinvestor/apis/go/partition v1.29.1
 	github.com/antinvestor/apis/go/payment v1.29.1
 	github.com/antinvestor/apis/go/profile v1.29.1
+	github.com/gorilla/mux v1.7.3
 	github.com/pitabwire/frame v1.25.15
 	github.com/shopspring/decimal v1.4.0
 	github.com/testcontainers/testcontainers-go v0.32.0

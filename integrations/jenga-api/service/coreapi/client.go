@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	models "github.com/antinvestor/service-payments/integrations/jenga-api/service/models"
+	models "github.com/antinvestor/jenga-api/service/models"
 	"net/http"
 )
 

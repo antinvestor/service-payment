@@ -4,9 +4,17 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/antinvestor/service-payments/integrations/jenga-api/config"
-	client "github.com/antinvestor/service-payments/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/jenga-api/config"
+	client "github.com/antinvestor/jenga-api/service/coreapi"
 )
+
+// HealthHandler is a simple health check handler
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+
+}
 
 func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

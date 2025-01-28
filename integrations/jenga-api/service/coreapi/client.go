@@ -77,41 +77,6 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 }
 
 // PaymentRequest Payer Request represents the structure for the payer request
-type PaymentRequest struct {
-	Biller    models.Biller `json:"biller"`
-	Bill      models.Bill   `json:"bill"`
-	Payer     models.Payer  `json:"payer"`
-	PartnerID string        `json:"partnerId"`
-	Remarks   string        `json:"remarks"`
-}
-
-// PaymentResponse represents the response structure for the payment request
-
-type PaymentResponse struct {
-	Status    bool   `json:"status"`
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
-	Reference string `json:"reference"`
-	Data      struct {
-		TransactionId string `json:"transactionId"`
-		Status        string `json:"status"`
-	} `json:"data"`
-}
-
-// STKUSSDRequest represents the structure for the STK/USSD push request
-type STKUSSDRequest struct {
-	Merchant models.Merchant `json:"merchant"`
-	Payment  models.Payment  `json:"payment"`
-}
-
-// STKUSSDResponse represents the response structure for the STK/USSD push initiation
-type STKUSSDResponse struct {
-	Status        bool   `json:"status"`
-	Code          int    `json:"code"`
-	Message       string `json:"message"`
-	Reference     string `json:"reference"`
-	TransactionID string `json:"transactionId"`
-}
 
 // GenerateSignatureBillGoodsAndServices GenerateSignature generates a HMAC-SHA256 signature for the payment request
 func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, reference, partnerID string) string {
@@ -123,7 +88,7 @@ func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, refer
 
 // InitiateBillGoodsAndServices initiates a bill payment request for goods and services
 
-func (c *Client) InitiateBillGoodsAndServices(request PaymentRequest, accessToken string) (*PaymentResponse, error) {
+func (c *Client) InitiateBillGoodsAndServices(request models.PaymentRequest, accessToken string) (*models.PaymentResponse, error) {
 	//https://uat.finserve.africa/v3-apis/transaction-api/v3.0/bills/pay
 	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/bills/pay", c.Env)
 	// Generate the signature for the request
@@ -152,7 +117,7 @@ func (c *Client) InitiateBillGoodsAndServices(request PaymentRequest, accessToke
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to initiate bill payment: %s", resp.Status)
 	}
-	var paymentResponse PaymentResponse
+	var paymentResponse models.PaymentResponse
 	if err := json.NewDecoder(resp.Body).Decode(&paymentResponse); err != nil {
 		return nil, err
 	}
@@ -168,7 +133,7 @@ func (c *Client) GenerateSignature(accountNumber, ref, mobileNumber, telco, amou
 }
 
 // InitiateSTKUSSD initiates an STK/USSD push request
-func (c *Client) InitiateSTKUSSD(request STKUSSDRequest, accessToken string) (*STKUSSDResponse, error) {
+func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
 	// Generate the signature for the request
@@ -204,7 +169,7 @@ func (c *Client) InitiateSTKUSSD(request STKUSSDRequest, accessToken string) (*S
 		return nil, fmt.Errorf("failed to initiate STK/USSD push: %s", resp.Status)
 	}
 
-	var stkUssdResponse STKUSSDResponse
+	var stkUssdResponse models.STKUSSDResponse
 	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ vendor
 
 # User-specific stuff:
 .idea/
+.qodo/
 
 # Binaries for programs and plugins
 *.exe
@@ -23,3 +24,4 @@ vendor
 coverage.html
 
 
+.qodo

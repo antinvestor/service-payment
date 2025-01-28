@@ -26,7 +26,7 @@ func (js *JobServer) asyncBillPaymentsGoodsandServices(ctx context.Context, w ht
 		return
 	}
 	//var jengaConfig config.JengaConfig
-	var request client.PaymentRequest
+	var request models.PaymentRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -65,7 +65,7 @@ func StkUssdPushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var jengaConfig config.JengaConfig
-	var request client.STKUSSDRequest
+	var request models.STKUSSDRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)

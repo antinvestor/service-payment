@@ -76,6 +76,28 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
+// PaymentRequest Payer Request represents the structure for the payer request
+type PaymentRequest struct {
+	Biller    models.Biller `json:"biller"`
+	Bill      models.Bill   `json:"bill"`
+	Payer     models.Payer  `json:"payer"`
+	PartnerID string        `json:"partnerId"`
+	Remarks   string        `json:"remarks"`
+}
+
+// PaymentResponse represents the response structure for the payment request
+
+type PaymentResponse struct {
+	Status    bool   `json:"status"`
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	Reference string `json:"reference"`
+	Data      struct {
+		TransactionId string `json:"transactionId"`
+		Status        string `json:"status"`
+	} `json:"data"`
+}
+
 // STKUSSDRequest represents the structure for the STK/USSD push request
 type STKUSSDRequest struct {
 	Merchant models.Merchant `json:"merchant"`
@@ -89,6 +111,52 @@ type STKUSSDResponse struct {
 	Message       string `json:"message"`
 	Reference     string `json:"reference"`
 	TransactionID string `json:"transactionId"`
+}
+
+// GenerateSignatureBillGoodsAndServices GenerateSignature generates a HMAC-SHA256 signature for the payment request
+func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, reference, partnerID string) string {
+	data := billerCode + amount + reference + partnerID
+	mac := hmac.New(sha256.New, []byte(c.ConsumerSecret))
+	mac.Write([]byte(data))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// InitiateBillGoodsAndServices initiates a bill payment request for goods and services
+
+func (c *Client) InitiateBillGoodsAndServices(request PaymentRequest, accessToken string) (*PaymentResponse, error) {
+	//https://uat.finserve.africa/v3-apis/transaction-api/v3.0/bills/pay
+	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/bills/pay", c.Env)
+	// Generate the signature for the request
+	signature := c.GenerateSignatureBillGoodsAndServices(
+		request.Biller.BillerCode,
+		request.Bill.Amount,
+		request.Bill.Reference,
+		request.PartnerID,
+	)
+	jsonBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Signature", signature)
+	resp, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to initiate bill payment: %s", resp.Status)
+	}
+	var paymentResponse PaymentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&paymentResponse); err != nil {
+		return nil, err
+	}
+	return &paymentResponse, nil
 }
 
 // GenerateSignature generates a HMAC-SHA256 signature for the STK/USSD push request

@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/antinvestor/apis/go/common v1.29.0
 	github.com/antinvestor/apis/go/payment v1.29.1
+	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gorilla/mux v1.8.1
 	github.com/pitabwire/frame v1.25.18
 	github.com/shopspring/decimal v1.4.0

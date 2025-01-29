@@ -1,15 +1,20 @@
 package router
 
-//use the mux router
 import (
 	handlers "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/gorilla/mux"
 )
 
-func NewRouter() *mux.Router {
+
+func NewRouter(js *handlers.JobServer) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	//for testing purposes
+
+	// Health check endpoint
 	router.HandleFunc("/health", handlers.HealthHandler).Methods("GET")
-	router.HandleFunc("/stk-ussd-push", handlers.StkUssdPushHandler).Methods("POST")
+
+	// Job related endpoints
+	router.HandleFunc("/payments/goods-services",js.AsyncBillPaymentsGoodsandServices).Methods("POST")
+	router.HandleFunc("/jobs/{jobID}", js.GetJobStatus).Methods("GET")
+
 	return router
 }

@@ -1,0 +1,18 @@
+service:
+  name: service_jenga_api
+  version: "1.0"
+
+http:
+  port: 8080
+
+redis:
+  addr: "redis:6380"  # Inside docker network, still use 6379
+  password: ""
+  db: 0
+
+events:
+  type: "redis"
+  redis:
+    addr: "redis:6380"  # Inside docker network, still use 6379
+    password: ""
+    db: 0

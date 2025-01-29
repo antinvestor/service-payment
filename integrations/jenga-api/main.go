@@ -1,26 +1,80 @@
 package main
 
 import (
-	"context"
+	"fmt"
+	"github.com/antinvestor/jenga-api/service/events"
+	"github.com/antinvestor/jenga-api/config"
+	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
+	"github.com/go-redis/redis"
 	"github.com/pitabwire/frame"
 	"log"
+	"os"
 )
 
-//our main application
-
 func main() {
-
-	serviceName := "service_jenga_api"
-	ctx := context.Background()
-	router := router.NewRouter()
-
-	server := frame.HttpHandler(router)
-
-	ctx, service := frame.NewService(serviceName, server)
-	err := service.Run(ctx, ":443")
-	if err != nil {
-		log.Fatal("main -- Could not run Server : %v", err)
+	// Set config file path
+	if err := os.Setenv("CONFIG_FILE", "config.yaml"); err != nil {
+		log.Fatalf("failed to set config file env: %v", err)
 	}
 
+	serviceName := "service_jenga_api"
+	var jengaConfig config.JengaConfig
+	err := frame.ConfigProcess("", &jengaConfig)
+	if err != nil {
+		log.Fatalf("failed to process config: %v", err)
+		return
+	}
+
+	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
+	defer service.Stop(ctx)
+
+	// Get Redis configuration from environment
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	// Initialize JobServer
+	js := &handler.JobServer{
+		Service:     service,
+		RedisClient: redisClient,
+	}
+
+	// Initialize router
+	router := router.NewRouter(js)
+
+	// Create service options
+	serviceOptions := []frame.Option{
+		frame.HttpHandler(router),
+		frame.RegisterEvents(
+			&events.JengaGoodsServices{Service: service},
+		),
+	}
+
+	// Start the service
+	service.Init(serviceOptions...)
+
+	log.Printf("Starting Jenga API service on :8080")
+	err = service.Run(ctx, "")
+	if err != nil {
+		log.Fatalf("failed to run service: %v", err)
+	}
+
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			log.Printf("error closing redis client: %v", err)
+		}
+	}()
 }

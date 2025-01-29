@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   jenga_service:
     build: ./
@@ -8,4 +10,18 @@ services:
       - JENGA_ENV=uat.finserve.africa
       - JENGA_MERCHANT_CODE=8503993262
       - JENGA_CONSUMER_SECRET=iS3N5hDNwGK3Zm9F1eJ2Aic64e4da8
+      - REDIS_HOST=redis
+      - REDIS_PORT=6380
+      - CONFIG_FILE=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6380"  # Changed host port to 6380
+    command: redis-server --appendonly yes
     restart: unless-stopped

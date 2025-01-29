@@ -32,7 +32,7 @@ func main() {
 		log.Fatalf("MerchantCode is required")
 		return 
 	}
-	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env)
+	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
 
 
 	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))

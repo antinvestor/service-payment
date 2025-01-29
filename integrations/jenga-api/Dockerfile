@@ -26,6 +26,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 # Copy the binary to the Alpine image
 COPY --from=builder /app/jenga_binary /jenga
 
+# Copy the keys directory
+COPY keys /keys
+
 # Set entry point to the binary
 ENTRYPOINT ["/jenga"]
 

@@ -6,6 +6,11 @@ vendor
 # User-specific stuff:
 .idea/
 .qodo/
+.keys/
+
+#.env
+.env
+config.yaml
 
 # Binaries for programs and plugins
 *.exe

@@ -107,14 +107,24 @@ func (event *JengaGoodsServices) Execute(ctx context.Context, payload any) error
 		})
 		return err
 	}
+	// throw token
+
+	logger.WithField("token", token).Info("bearer token generated")
 
 	// Generate signature for the request
-	signature := event.Client.GenerateSignatureBillGoodsAndServices(
+	signature, err := event.Client.GenerateSignatureBillGoodsAndServices(
 		request.Biller.BillerCode,
 		request.Bill.Amount,
 		request.Bill.Reference,
 		request.PartnerID,
 	)
+	if err != nil {
+		logger.WithError(err).Error("failed to generate signature")
+		event.updateJobStatus(job.ID, "failed", map[string]string{
+			"error": "failed to generate signature",
+		})
+		return err
+	}
 
 	// Add signature and job metadata to request
 	metadata := map[string]string{

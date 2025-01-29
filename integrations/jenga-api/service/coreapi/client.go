@@ -2,12 +2,21 @@ package coreapi
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/hmac"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"time"
 
 	models "github.com/antinvestor/jenga-api/service/models"
 )
@@ -19,15 +28,32 @@ type Client struct {
 	ApiKey         string
 	HttpClient     *http.Client
 	Env            string
+	JengaPrivateKey string
 }
 
 // New creates a new instance of the Jenga API client
-func New(merchantCode, consumerSecret, apiKey, env string) *Client {
+func New(merchantCode, consumerSecret, apiKey, env string, jengaPrivateKey string) *Client {
+	// Create a custom transport with TLS configuration
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
+
+	// Create HTTP client with the custom transport
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   30 * time.Second,
+	}
+
 	return &Client{
 		MerchantCode:   merchantCode,
 		ConsumerSecret: consumerSecret,
 		ApiKey:         apiKey,
-		HttpClient:     &http.Client{},
+		HttpClient:     httpClient,
 		Env:            env,
 	}
 }
@@ -66,25 +92,80 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to generate token: %s", resp.Status)
+		return nil, fmt.Errorf("failed to generate token: %s, body: %s", resp.Status, string(respBody))
 	}
 
 	var tokenResponse BearerTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+	if err := json.Unmarshal(respBody, &tokenResponse); err != nil {
 		return nil, err
 	}
 	return &tokenResponse, nil
 }
 
-// PaymentRequest Payer Request represents the structure for the payer request
 
-// GenerateSignatureBillGoodsAndServices GenerateSignature generates a HMAC-SHA256 signature for the payment request
-func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, reference, partnerID string) string {
-	data := billerCode + amount + reference + partnerID
-	mac := hmac.New(sha256.New, []byte(c.ConsumerSecret))
-	mac.Write([]byte(data))
-	return hex.EncodeToString(mac.Sum(nil))
+// GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
+func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, billRef, amount string) (string, error) {
+	// Format message as per Jenga API requirements
+	message := fmt.Sprintf("%s%s%s%s", billerCode, countryCode, billRef, amount)
+	
+	// Get private key path from environment or config
+	privateKeyPath := c.JengaPrivateKey		
+	if privateKeyPath == "" {
+		privateKeyPath = "app/keys/privatekey.pem" // default path
+	}
+
+	// Generate signature
+	signature, err := GenerateSignature(message, privateKeyPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signature: %v", err)
+	}
+
+	return signature, nil
+}
+
+func GenerateSignature(message string, privateKeyPath string) (string, error) {
+	privateKey, err := LoadPrivateKey(privateKeyPath)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.Sum256([]byte(message))
+	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash[:])
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(signature), nil
+}
+
+func LoadPrivateKey(privateKeyPath string) (*rsa.PrivateKey, error) {
+	privateKeyBytes, err := os.ReadFile(privateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
+	if privateKeyBlock == nil {
+		return nil, fmt.Errorf("failed to decode private key")
+	}
+
+	privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKeyRSA, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse private key")
+	}
+
+	return privateKeyRSA, nil
 }
 
 // InitiateBillGoodsAndServices initiates a bill payment request for goods and services
@@ -93,12 +174,16 @@ func (c *Client) InitiateBillGoodsAndServices(request models.PaymentRequest, acc
 	//https://uat.finserve.africa/v3-apis/transaction-api/v3.0/bills/pay
 	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/bills/pay", c.Env)
 	// Generate the signature for the request
-	signature := c.GenerateSignatureBillGoodsAndServices(
+	signature, err := c.GenerateSignatureBillGoodsAndServices(
 		request.Biller.BillerCode,
 		request.Bill.Amount,
 		request.Bill.Reference,
 		request.PartnerID,
 	)
+	if err != nil {
+		return nil, err
+	}
+
 	jsonBody, err := json.Marshal(request)
 	if err != nil {
 		return nil, err

@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/antinvestor/jenga-api/service/events"
+	"log"
+	"os"
+
 	"github.com/antinvestor/jenga-api/config"
+	"github.com/antinvestor/jenga-api/service/coreapi"
+	"github.com/antinvestor/jenga-api/service/events"
 	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
 	"github.com/go-redis/redis"
 	"github.com/pitabwire/frame"
-	"log"
-	"os"
 )
 
 func main() {
@@ -25,6 +27,13 @@ func main() {
 		log.Fatalf("failed to process config: %v", err)
 		return
 	}
+	//initialize jenga client
+    if jengaConfig.MerchantCode == "" {
+		log.Fatalf("MerchantCode is required")
+		return 
+	}
+	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env)
+
 
 	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
 	defer service.Stop(ctx)
@@ -59,7 +68,7 @@ func main() {
 	serviceOptions := []frame.Option{
 		frame.HttpHandler(router),
 		frame.RegisterEvents(
-			&events.JengaGoodsServices{Service: service},
+			&events.JengaGoodsServices{Service: service, RedisClient: redisClient, Client: clientApi},
 		),
 	}
 

@@ -26,20 +26,24 @@ func (event *JengaGoodsServices) PayloadType() any {
 }
 
 func (event *JengaGoodsServices) updateJobStatus(jobID string, status string, response interface{}) error {
+	if event.RedisClient == nil {
+		return errors.New("redis client not initialized")
+	}
+
 	// Update status
 	if err := event.RedisClient.Set(jobID+"_status", status, 0).Err(); err != nil {
-		return errors.New("failed to update job status in redis")
+		return errors.New("failed to update job status in redis: " + err.Error())
 	}
 
 	// Store response if provided
 	if response != nil {
 		responseData, err := json.Marshal(response)
 		if err != nil {
-			return errors.New("failed to marshal response data")
+			return errors.New("failed to marshal response data: " + err.Error())
 		}
 
 		if err := event.RedisClient.Set(jobID+"_response", string(responseData), 0).Err(); err != nil {
-			return errors.New("failed to save response data to redis")
+			return errors.New("failed to save response data to redis: " + err.Error())
 		}
 	}
 
@@ -74,6 +78,14 @@ func (event *JengaGoodsServices) Validate(ctx context.Context, payload any) erro
 }
 
 func (event *JengaGoodsServices) Execute(ctx context.Context, payload any) error {
+	if event.RedisClient == nil {
+		return errors.New("redis client not initialized")
+	}
+
+	if event.Client == nil {
+		return errors.New("jenga client not initialized")
+	}
+
 	job := payload.(*models.Job)
 	request := job.ExtraData
 

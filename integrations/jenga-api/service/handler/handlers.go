@@ -62,19 +62,16 @@ func (js *JobServer) AsyncBillPaymentsGoodsandServices(w http.ResponseWriter, r 
 	}
 
 	// Emit event for processing
-	eventPayload := models.Job{
+	event := events.JengaGoodsServices{
+		Service:     js.Service,
+		RedisClient: js.RedisClient,
+	}
+	eventPayload := &models.Job{
 		ID:        jobID,
-		ExtraData: request,
+		ExtraData: request,  // request is already a models.PaymentRequest
 	}
 
-	jsonPayload, err := json.Marshal(eventPayload)
-	if err != nil {
-		logger.WithError(err).Error("failed to marshal event payload")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	event := events.JengaGoodsServices{}
-	if err := js.Service.Emit(ctx, event.Name(), jsonPayload); err != nil {
+	if err := js.Service.Emit(ctx, event.Name(), eventPayload); err != nil {
 		logger.WithError(err).Error("failed to emit event")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

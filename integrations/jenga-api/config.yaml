@@ -6,13 +6,13 @@ http:
   port: 8080
 
 redis:
-  addr: "redis:6380"  # Inside docker network, still use 6379
+  addr: "redis:6379"  # Use internal Docker network port
   password: ""
   db: 0
 
 events:
   type: "redis"
   redis:
-    addr: "redis:6380"  # Inside docker network, still use 6379
+    addr: "redis:6379"  # Use internal Docker network port
     password: ""
     db: 0

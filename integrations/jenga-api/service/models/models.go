@@ -70,3 +70,8 @@ type Payer struct {
 	Reference    string `json:"reference"`
 	MobileNumber string `json:"mobileNumber"`
 }
+
+type Job struct {
+	ID        string         `json:"id"`
+	ExtraData PaymentRequest `json:"extra_data"`
+}

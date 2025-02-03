@@ -24,6 +24,6 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"  # Map external port 6380 to internal 6379
+      - "6381:6379"  # Map external port 6380 to internal 6379
     command: redis-server --appendonly yes
     restart: unless-stopped

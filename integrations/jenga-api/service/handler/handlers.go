@@ -143,6 +143,47 @@ func (js *JobServer) GetJobStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (js *JobServer)AccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+
+	logger := js.Service.L(ctx).WithField("type", "AccountBalanceHandler")
+	logger.Info("processing account balance")
+
+	// https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}
+	//get the country code and account number from the request
+	countryCode := r.URL.Query().Get("countryCode")
+	accountNumber := r.URL.Query().Get("accountId")
+
+	eventPayload := &models.AccountBalanceRequest{
+		CountryCode: countryCode,
+		AccountId:   accountNumber,
+	}
+
+	//processing event Payload
+	logger.WithField("payload", eventPayload).Debug("------processing event-----------------------------------")
+
+	event := &events.JengaAccountBalance{
+		RedisClient: js.RedisClient,
+		Service:     js.Service,
+	}
+	err := js.Service.Emit(ctx, event.Name(), eventPayload)
+	if err != nil {
+		logger.WithError(err).Error("failed to execute event")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+
+//
+
 // HealthHandler is a simple health check handler
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

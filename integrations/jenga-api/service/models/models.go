@@ -75,3 +75,23 @@ type Job struct {
 	ID        string         `json:"id"`
 	ExtraData PaymentRequest `json:"extra_data"`
 }
+
+type AccountBalanceRequest struct {
+	CountryCode string `json:"countryCode"`
+	AccountId     string `json:"account"`
+}
+
+//BalanceResponse represents the response structure for the account balance
+
+type BalanceResponse struct {
+	Status  bool   `json:"status"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Balances []struct {
+			Amount string `json:"amount"`
+			Type   string `json:"type"`
+		} `json:"balances"`
+		Currency string `json:"currency"`
+	} `json:"data"`
+}

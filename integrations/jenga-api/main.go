@@ -69,6 +69,7 @@ func main() {
 		frame.HttpHandler(router),
 		frame.RegisterEvents(
 			&events.JengaGoodsServices{Service: service, RedisClient: redisClient, Client: clientApi},
+			&events.JengaAccountBalance{Service: service, RedisClient: redisClient, Client: clientApi},
 		),
 	}
 

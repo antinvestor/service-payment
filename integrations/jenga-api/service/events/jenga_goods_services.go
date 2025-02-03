@@ -134,6 +134,8 @@ func (event *JengaGoodsServices) Execute(ctx context.Context, payload any) error
 	metadataBytes, _ := json.Marshal(metadata)
 	request.Remarks = string(metadataBytes)
 
+	//log request
+	logger.WithField("request", request).Debug("------------------requesting payment------------------")
 	// Initiate the payment
 	response, err := event.Client.InitiateBillGoodsAndServices(request, token.AccessToken)
 	if err != nil {

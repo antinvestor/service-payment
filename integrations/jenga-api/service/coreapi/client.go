@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -125,47 +126,98 @@ func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, 
 	if err != nil {
 		return "", fmt.Errorf("failed to generate signature: %v", err)
 	}
+	//log signature
+	
 
 	return signature, nil
 }
 
-func GenerateSignature(message string, privateKeyPath string) (string, error) {
-	privateKey, err := LoadPrivateKey(privateKeyPath)
-	if err != nil {
-		return "", err
-	}
-
-	hash := sha256.Sum256([]byte(message))
-	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash[:])
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(signature), nil
-}
-
-func LoadPrivateKey(privateKeyPath string) (*rsa.PrivateKey, error) {
+// SignData generates a SHA-256 signature with RSA private key
+func GenerateSignature(message, privateKeyPath string) (string, error) {
+	// Read private key file
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to read private key: %v", err)
 	}
 
-	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
-	if privateKeyBlock == nil {
-		return nil, fmt.Errorf("failed to decode private key")
+	// Decode PEM format
+	block, _ := pem.Decode(privateKeyBytes)
+	if block == nil {
+		return "", fmt.Errorf("failed to decode private key PEM")
 	}
 
-	privateKey, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
+	// Parse RSA private key
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse RSA private key: %v", err)
+	}
+
+	privateKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return "", fmt.Errorf("failed to cast parsed key to RSA private key")
+	}
+
+	// Compute SHA-256 hash
+	hashed := sha256.Sum256([]byte(message))
+
+	// Sign the hash using RSA PKCS1v15
+	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed[:])
+	if err != nil {
+		return "", fmt.Errorf("failed to sign data: %v", err)
+	}
+
+	// Encode to Base64
+	return base64.StdEncoding.EncodeToString(signature), nil
+}
+func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
+	// Generate signature
+	signature, err := GenerateSignature(countryCode+accountId, "app/keys/privatekey.pem")
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signature: %v", err)
+	}
+	return signature, nil
+}
+
+func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
+	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
+	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
+    
+
+
+	// Generate the signature for the request
+	signature, err := GenerateBalanceSignature(countryCode, accountId)
 	if err != nil {
 		return nil, err
 	}
-
-	privateKeyRSA, ok := privateKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse private key")
+	//print signature
+	fmt.Println("------------------------------signature--------------------------------")
+	fmt.Println(signature)	
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Signature", signature)
+	resp, err := c.HttpClient.Do(req)
 
-	return privateKeyRSA, nil
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to initiate account balance: %s response Message: %s", resp.Status, resp.Body)
+	}
+	var balanceResponse models.BalanceResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&balanceResponse); err != nil {
+		return nil, err
+	}
+	//print balance response
+	fmt.Println("------------------------------balance response--------------------------------")
+	fmt.Println(balanceResponse)
+
+	return &balanceResponse, nil
 }
 
 // InitiateBillGoodsAndServices initiates a bill payment request for goods and services

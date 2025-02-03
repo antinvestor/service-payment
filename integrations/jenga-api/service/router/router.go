@@ -15,6 +15,7 @@ func NewRouter(js *handlers.JobServer) *mux.Router {
 	// Job related endpoints
 	router.HandleFunc("/payments/goods-services",js.AsyncBillPaymentsGoodsandServices).Methods("POST")
 	router.HandleFunc("/jobs/{jobID}", js.GetJobStatus).Methods("GET")
+	router.HandleFunc("/account-balance", js.AccountBalanceHandler).Methods("GET")
 
 	return router
 }

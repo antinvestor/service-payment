@@ -18,9 +18,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
+	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/go-redis/redis"
+	"google.golang.org/genproto/googleapis/type/money"
 	"github.com/pitabwire/frame"
 )
 
@@ -45,10 +48,6 @@ func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload 
 		return errors.New("transaction reference is required")
 	}
 
-	if request.Transaction.ID == "" {
-		return errors.New("transaction ID is required")
-	}
-
 	return nil
 }
 
@@ -62,27 +61,46 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 
 	// Extract relevant information from callback
 	payment := &paymentV1.Payment{
-		Id:         callback.Transaction.Reference,
-		ExternalId: callback.Transaction.ID,
-		Amount:     callback.Transaction.Amount,
-		Currency:   callback.Transaction.Currency,
+		ReferenceId: callback.Transaction.Reference,
+		Amount: &money.Money{
+			Units: int64(callback.Transaction.Amount * 100), // convert to cents
+			CurrencyCode: callback.Transaction.Currency,
+		},
+		Cost: &money.Money{
+			Units: int64(callback.Transaction.ServiceCharge * 100), // convert to cents
+			CurrencyCode: callback.Transaction.OrderCurrency,
+		},
+		Source: &commonv1.ContactLink{
+			ContactId: callback.Customer.Reference,
+			Extras: map[string]string{
+				"mobile_number": callback.Customer.MobileNumber,
+			},
+			ProfileName: callback.Customer.Name,
+		},
+	    Recipient: &commonv1.ContactLink{
+			ContactId: callback.Bank.Reference,
+			Extras: map[string]string{
+				"account": *callback.Bank.Account,
+			},
+		},
+			
+
 	}
 
 	// Add any additional information from callback to extras
 	extras := make(map[string]string)
-	extras["status"] = callback.Transaction.Status
-	extras["statusDescription"] = callback.Transaction.StatusDescription
-	extras["transactionDate"] = callback.Transaction.TransactionDate
-
 	// Marshal the full callback to JSON and store it in extras
 	callbackJSON, err := json.Marshal(callback)
 	if err == nil {
 		extras["raw_callback"] = string(callbackJSON)
 	}
 
-	payment.Extras = extras
+	payment.Extra = extras
+	receiveRequest := &paymentV1.ReceiveRequest{
+		Data: payment,
+	}
 
 	// Invoke the GRPC receive method
-	_, err = event.PaymentClient.Receive(ctx, payment)
+	_, err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
 	return err
 }

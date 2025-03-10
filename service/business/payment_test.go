@@ -65,7 +65,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	}
 
 	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_payment?sslmode=disable", hostIP, mappedPort.Port())
-	testDb := frame.DatastoreCon(dbURL, false)
+	testDb := frame.DatastoreConnection(ctx, dbURL, false)
 
 	var pcfg config.PaymentConfig
 	_ = frame.ConfigProcess("", &pcfg)

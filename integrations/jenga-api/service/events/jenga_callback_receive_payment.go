@@ -22,14 +22,12 @@ import (
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/go-redis/redis"
 	"google.golang.org/genproto/googleapis/type/money"
 	"github.com/pitabwire/frame"
 )
 
 type JengaCallbackReceivePayment struct {
 	Service       *frame.Service
-	RedisClient   *redis.Client
 	PaymentClient *paymentV1.PaymentClient
 }
 

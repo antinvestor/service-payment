@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events"
@@ -28,15 +29,27 @@ func main() {
 		return
 	}
 	//initialize jenga client
-    if jengaConfig.MerchantCode == "" {
+	if jengaConfig.MerchantCode == "" {
 		log.Fatalf("MerchantCode is required")
-		return 
+		return
 	}
 	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
+
+	// Initialize payment client
+	//paymentConn, err := grpc.Dial(jengaConfig.ProfileServiceURI, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("failed to connect to payment service: %v", err)
+		return
+	}
 
 
 	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
 	defer service.Stop(ctx)
+	paymentClient, err := paymentV1.NewPaymentsClient(ctx)
+	if err != nil {
+		log.Fatalf("failed to create payment client: %v", err)
+		return
+	}
 
 	// Get Redis configuration from environment
 	redisHost := os.Getenv("REDIS_HOST")
@@ -70,6 +83,7 @@ func main() {
 		frame.RegisterEvents(
 			&events.JengaGoodsServices{Service: service, RedisClient: redisClient, Client: clientApi},
 			&events.JengaAccountBalance{Service: service, RedisClient: redisClient, Client: clientApi},
+			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
 		),
 	}
 

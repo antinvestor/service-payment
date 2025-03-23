@@ -53,10 +53,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	paymentMap, err := event.formatOutboundPayment(payment)
-	if err != nil {
-		return err
-	}
+	paymentMap := event.formatOutboundPayment(payment)
 
 	apiPayment := payment.ToApi(pStatus, paymentMap)
 
@@ -100,8 +97,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	return nil
 }
 
-func (event *PaymentOutQueue) formatOutboundPayment(p *models.Payment) (map[string]string, error) {
-
+func (event *PaymentOutQueue) formatOutboundPayment(p *models.Payment) map[string]string {
 	paymentMap := make(map[string]string)
 	paymentMap["id"] = p.GetID()
 	paymentMap["created_at"] = p.CreatedAt.Format(time.RFC3339Nano)
@@ -112,5 +108,5 @@ func (event *PaymentOutQueue) formatOutboundPayment(p *models.Payment) (map[stri
 	}
 	paymentMap["currency"] = p.Currency
 
-	return paymentMap, nil
+	return paymentMap
 }

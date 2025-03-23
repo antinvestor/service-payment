@@ -1,7 +1,8 @@
-package business
+package business_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/config"
+	business "github.com/antinvestor/service-payments/service/business"
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/pitabwire/frame"
 	"github.com/testcontainers/testcontainers-go"
@@ -49,7 +51,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	// Ensure the container is shut down at the end
 	defer func() {
 		fmt.Println("Shutting down Postgres container...")
-		if err := postgresC.Terminate(ctx); err != nil {
+		if terminateErr := postgresC.Terminate(ctx); terminateErr != nil {
 			fmt.Printf("failed to terminate container: %s\n", err.Error())
 		}
 	}()
@@ -99,7 +101,6 @@ type ctxSrv struct {
 }
 
 func getProfileCli(t *testing.T) *profileV1.ProfileClient {
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockProfileService := profileV1.NewMockProfileServiceClient(ctrl)
@@ -153,7 +154,7 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		want      PaymentBusiness
+		want      business.PaymentBusiness
 		expectErr bool
 	}{
 		{
@@ -173,7 +174,7 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 				t.Errorf("failed to get service: %v", err)
 			}
 
-			pb, err := NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
+			pb, err := business.NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
 
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
@@ -182,11 +183,8 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 			if pb == nil {
 				t.Errorf("expected payment business, got nil")
 			}
-
 		})
-
 	}
-
 }
 
 func TestNewPaymentBusinessWithNils(t *testing.T) {
@@ -201,7 +199,7 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		want      PaymentBusiness
+		want      business.PaymentBusiness
 		expectErr bool
 	}{
 		{
@@ -219,24 +217,20 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to get service: %v", err)
 			}
-			pb, err := NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
+			pb, err := business.NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
 
-			if err != ErrorInitializationFail {
+			if !errors.Is(err, business.ErrorInitializationFail) {
 				t.Errorf("expected ErrorInitializationFail, got %v", err)
 			}
 
 			if pb != nil {
 				t.Errorf("expected nil PaymentBusiness instance, got %v", pb)
 			}
-
 		})
-
 	}
-
 }
 
 func TestSendPaymentWithValidData(t *testing.T) {
-
 	profileCli := getProfileCli(t)
 	partitionCli := getPartitionCli(t)
 
@@ -306,7 +300,7 @@ func TestSendPaymentWithValidData(t *testing.T) {
 				return
 			}
 
-			pb, err := NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			pb, err := business.NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
 
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
@@ -333,9 +327,7 @@ func TestSendPaymentWithValidData(t *testing.T) {
 			if status.Status != tt.want.Status {
 				t.Errorf("Dispatch() status.Status = %v, want %v", status.Status, tt.want.Status)
 			}
-
 		})
-
 	}
 }
 
@@ -407,7 +399,7 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 				return
 			}
 
-			pb, err := NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			pb, err := business.NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
 
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
@@ -425,9 +417,6 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 				t.Errorf("Dispatch() status = %v, want %v", status, nil)
 				//return
 			}
-
 		})
-
 	}
-
 }

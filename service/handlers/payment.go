@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionv1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -35,7 +36,6 @@ func (ps *PaymentServer) Send(ctx context.Context, req *paymentV1.SendRequest) (
 }
 
 func (ps *PaymentServer) Status(ctx context.Context, req *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
-
 	paymentBusiness, err := ps.newPaymentBusiness(ctx)
 	if err != nil {
 		return nil, err
@@ -43,9 +43,8 @@ func (ps *PaymentServer) Status(ctx context.Context, req *commonv1.StatusRequest
 	return paymentBusiness.Status(ctx, req)
 }
 
-// StatusUpdate request to allow continuation of payment processing
+// StatusUpdate request to allow continuation of payment processing.
 func (ps *PaymentServer) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusUpdateResponse, error) {
-
 	paymentBusiness, err := ps.newPaymentBusiness(ctx)
 	if err != nil {
 		return nil, err
@@ -58,9 +57,8 @@ func (ps *PaymentServer) StatusUpdate(ctx context.Context, req *commonv1.StatusU
 	return &commonv1.StatusUpdateResponse{Data: response}, nil
 }
 
-// Release method for releasing queued payments and returns if payment status if released
+// Release method for releasing queued payments and returns if payment status if released.
 func (ps *PaymentServer) Release(ctx context.Context, req *paymentV1.ReleaseRequest) (*paymentV1.ReleaseResponse, error) {
-
 	paymentBusiness, err := ps.newPaymentBusiness(ctx)
 	if err != nil {
 		return nil, err
@@ -74,9 +72,8 @@ func (ps *PaymentServer) Release(ctx context.Context, req *paymentV1.ReleaseRequ
 	return &paymentV1.ReleaseResponse{Data: response}, nil
 }
 
-// Receive method is for client request for particular Payment responses from system
+// Receive method is for client request for particular Payment responses from system.
 func (ps *PaymentServer) Receive(ctx context.Context, req *paymentV1.ReceiveRequest) (*paymentV1.ReceiveResponse, error) {
-
 	paymentBusiness, err := ps.newPaymentBusiness(ctx)
 	if err != nil {
 		return nil, err

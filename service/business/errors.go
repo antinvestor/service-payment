@@ -25,5 +25,4 @@ var (
 	ErrorPaymentAlreadyPartiallySettled = status.Error(codes.FailedPrecondition, "Specified payment has already been partially settled")
 
 	ErrorPaymentAlreadyPartiallyRefunded = status.Error(codes.FailedPrecondition, "Specified payment has already been partially refunded")
-	
 )

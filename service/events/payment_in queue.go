@@ -51,9 +51,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 	// Queue a payment for further processing by peripheral services
 	err = event.Service.Publish(ctx, p.RouteID, p)
 	if err != nil {
-
 		if !strings.Contains(err.Error(), "reference does not exist") {
-
 			if p.RouteID != "" {
 				_, err = loadRoute(ctx, event.Service, p.RouteID)
 				if err != nil {

@@ -1,0 +1,47 @@
+linters-settings:
+  shadow:
+    enable: true
+  errcheck:
+    exclude-functions:
+      - fmt.Errorf
+run:
+  timeout: 5m
+linters:
+  disable:
+    - gocritic
+    - godox
+  enable:
+    - bidichk
+    - durationcheck
+    - errcheck
+    - errorlint
+    - goimports
+    - goconst
+    - godot
+   # - godox
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - ineffassign
+    - gosimple
+    - govet
+    - nolintlint
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - testpackage
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+    - whitespace
+    - usetesting
+    - copyloopvar
+issues:
+  fix: true
+
+

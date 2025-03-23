@@ -2,8 +2,9 @@ package business
 
 import (
 	"context"
-	"github.com/antinvestor/service-payments/service/repository"
 	"time"
+
+	"github.com/antinvestor/service-payments/service/repository"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
@@ -43,7 +44,7 @@ type paymentBusiness struct {
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", message)
+	//logger := pb.service.L(ctx).WithField("request", message)
 
 	//authClaim := frame.ClaimsFromContext(ctx)
 
@@ -81,10 +82,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		p.GenID(ctx)
 	}
 
-	if err := pb.validateAmountAndCost(message, p, c); err != nil {
-		logger.Error(err)
-		return nil, err
-	}
+	pb.validateAmountAndCost(message, p, c)
 
 	pStatus := models.PaymentStatus{
 		PaymentID: message.GetId(),
@@ -105,7 +103,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 }
 
 func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", message)
+	//logger := pb.service.L(ctx).WithField("request", message)
 	//authClaim := frame.ClaimsFromContext(ctx)
 	//logger.WithField("auth claim", authClaim).Info("handling send request")
 
@@ -142,10 +140,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	// }
 
 	// Validate and set amount and cost
-	if err := pb.validateAmountAndCost(message, p, c); err != nil {
-		logger.Error(err)
-		return nil, err
-	}
+	pb.validateAmountAndCost(message, p, c)
 
 	// Set initial PaymentStatus
 	pStatus := models.PaymentStatus{
@@ -167,7 +162,6 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 }
 
 func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
-
 	logger := pb.service.L(ctx).WithField("request", status)
 	logger.Info("handling status check request")
 
@@ -189,7 +183,6 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 }
 
 func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
-
 	logger := pb.service.L(ctx).WithField("request", req)
 	logger.Info("handling status update request")
 
@@ -221,7 +214,6 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 
 func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	stream paymentV1.PaymentService_SearchServer) error {
-
 	logger := pb.service.L(stream.Context()).WithField("request", search)
 	logger.Debug("handling payment search request")
 
@@ -245,7 +237,6 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 		}
 
 		paymentList = append(paymentList, payment)
-
 	} else {
 		// General search query
 		paymentList, err = paymentRepo.Search(ctx, search.GetQuery())
@@ -287,7 +278,6 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 }
 
 func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error) {
-
 	logger := pb.service.L(ctx).WithField("request", paymentReq)
 	logger.Debug("handling release request")
 
@@ -326,7 +316,6 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 
 		return pStatus.ToStatusAPI(), nil
 	} else {
-
 		paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, pb.service)
 		pStatus, err := paymentStatusRepo.GetByID(ctx, p.ID)
 		if err != nil {
@@ -338,10 +327,10 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 	}
 }
 
-// validateAmountAndCost validates the amount and cost fields of the Payment
-func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) error {
+// validateAmountAndCost validates the amount and cost fields of the Payment.
+func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {
 	if message.GetAmount().Units <= 0 || message.GetAmount().CurrencyCode == "" {
-		return nil
+		return
 	}
 
 	p.Amount = decimal.NullDecimal{
@@ -351,7 +340,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 	p.Currency = message.GetAmount().CurrencyCode
 
 	if message.GetCost().CurrencyCode == "" {
-		return nil
+		return
 	}
 
 	c.Amount = decimal.NullDecimal{
@@ -359,9 +348,8 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
 	}
 	c.Currency = message.GetCost().CurrencyCode
-
-	return nil
 }
+
 func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {

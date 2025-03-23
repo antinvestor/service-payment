@@ -16,7 +16,6 @@ import (
 )
 
 func filterContactFromProfileByID(profile *profileV1.ProfileObject, contactID string) *profileV1.ContactObject {
-
 	for _, contact := range profile.GetContacts() {
 		if contact.GetId() == contactID {
 			return contact
@@ -123,7 +122,6 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 }
 
 func routePayment(ctx context.Context, service *frame.Service, routeMode string, payment *models.Payment) (*models.Route, error) {
-
 	routeRepository := repository.NewRouteRepository(ctx, service)
 	if payment.RouteID != "" {
 		route, err := routeRepository.GetByID(ctx, payment.RouteID)
@@ -152,11 +150,9 @@ func routePayment(ctx context.Context, service *frame.Service, routeMode string,
 	}
 
 	return route, nil
-
 }
 
 func loadRoute(ctx context.Context, service *frame.Service, routeId string) (*models.Route, error) {
-
 	if routeId == "" {
 		return nil, fmt.Errorf("no route id provided")
 	}
@@ -174,7 +170,6 @@ func loadRoute(ctx context.Context, service *frame.Service, routeId string) (*mo
 	}
 
 	return route, nil
-
 }
 
 func selectRoute(_ context.Context, routes []*models.Route) (*models.Route, error) {

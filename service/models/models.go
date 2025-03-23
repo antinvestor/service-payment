@@ -1,13 +1,14 @@
 package models
 
 import (
+	"time"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
-	"time"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 	RouteTypeShortForm = "s"
 )
 
-// Payment Table holds the payment details
+// Payment Table holds the payment details.
 type Payment struct {
 	frame.BaseModel
 
@@ -39,7 +40,7 @@ type Payment struct {
 	RouteID       string              `gorm:"type:varchar(50)"`
 	Currency      string              `gorm:"type:varchar(10)"`
 	PaymentType   string              `gorm:"type:varchar(10)"`
-    Cost	      *Cost
+	Cost          *Cost
 	ReleasedAt    *time.Time
 	OutBound      bool
 	Extra         datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
@@ -49,7 +50,6 @@ func (model *Payment) IsReleased() bool {
 	return model.ReleasedAt != nil && !model.ReleasedAt.IsZero()
 }
 func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *paymentV1.Payment {
-
 	extra := make(map[string]string)
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
@@ -87,10 +87,10 @@ func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *p
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.OutBound,
 		Extra:         extra,
-		Cost:           &money.Money{
-							CurrencyCode: model.Cost.Currency,
-							Units:        model.Cost.Amount.Decimal.CoefficientInt64(),
-						},
+		Cost: &money.Money{
+			CurrencyCode: model.Cost.Currency,
+			Units:        model.Cost.Amount.Decimal.CoefficientInt64(),
+		},
 	}
 
 	return &payment

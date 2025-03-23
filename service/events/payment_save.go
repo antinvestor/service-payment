@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"errors"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/pitabwire/frame"
@@ -35,7 +36,6 @@ func (event *PaymentSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
-
 	payment := payload.(*models.Payment)
 
 	logger := event.Service.L(ctx).WithField("type", event.Name())
@@ -89,5 +89,4 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		}
 	}
 	return nil
-
 }

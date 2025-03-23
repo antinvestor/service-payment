@@ -37,7 +37,6 @@ func (event *PaymentOutRoute) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
-
 	paymentId := *payload.(*string)
 
 	logger := event.Service.L(ctx).WithField("payload", paymentId).WithField("type", event.Name())
@@ -89,7 +88,6 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 			}
 
 			return nil
-
 		}
 
 		return err

@@ -1,11 +1,11 @@
 linters-settings:
-  shadow:
-    enable: true
   errcheck:
     exclude-functions:
-      - fmt.Errorf
+      - fmt.Errorf  # ✅ `errcheck` supports settings
+
 run:
   timeout: 5m
+
 linters:
   disable:
     - gocritic
@@ -18,7 +18,6 @@ linters:
     - goimports
     - goconst
     - godot
-   # - godox
     - goheader
     - gomoddirectives
     - gomodguard
@@ -41,7 +40,6 @@ linters:
     - whitespace
     - usetesting
     - copyloopvar
+
 issues:
   fix: true
-
-

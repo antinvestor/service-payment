@@ -1,10 +1,12 @@
 package main
 
 import (
+	
 	"fmt"
 	"log"
 	"os"
 
+	commonV1 "github.com/antinvestor/apis/go/common"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
@@ -33,37 +35,22 @@ func main() {
 		log.Fatalf("MerchantCode is required")
 		return
 	}
-	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
+	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env,jengaConfig.JengaPrivateKey)
 
 	// Initialize payment client
-	//paymentConn, err := grpc.Dial(jengaConfig.ProfileServiceURI, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("failed to connect to payment service: %v", err)
-		return
-	}
-
-
-	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
+    ctx , service := frame.NewService(serviceName, frame.Config(&jengaConfig))
 	defer service.Stop(ctx)
-	paymentClient, err := paymentV1.NewPaymentsClient(ctx)
+	clientBase, err := commonV1.NewClientBase(ctx, commonV1.WithEndpoint("payment_service:50051"))
 	if err != nil {
-		log.Fatalf("failed to create payment client: %v", err)
-		return
+		log.Fatalf("failed to create client base: %v", err)
 	}
-
-	// Get Redis configuration from environment
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
+	
+	paymentClient := paymentV1.Init(clientBase, paymentV1.NewPaymentServiceClient(clientBase.Connection()))
+	
 
 	// Initialize Redis client
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
+		Addr:     fmt.Sprintf("%s:%s", jengaConfig.RedisHost, jengaConfig.RedisPort),	
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})

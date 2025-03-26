@@ -1,29 +1,41 @@
 version: '3.8'
 
+networks:
+  jenga_network:  # Define a custom network
+    driver: bridge
+
 services:
   jenga_service:
     build: ./
     ports:
-      - "8080:8080"  # Map the port where the http server listens
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379  # Keep internal port as 6379
-      - CONFIG_FILE=/app/config.yaml
-      - JENGA_API_KEY=${JENGA_API_KEY}
-      - JENGA_ENV=${JENGA_ENV}
-      - JENGA_MERCHANT_CODE=${JENGA_MERCHANT_CODE}
-      - JENGA_CONSUMER_SECRET=${JENGA_CONSUMER_SECRET}
-      - JENGA_PRIVATE_KEY_PATH=${JENGA_PRIVATE_KEY_PATH}
+      - "8080:8080"
+    env_file:
+      - .env
     volumes:
       - ./config.yaml:/app/config.yaml
       - ./keys:/app/keys
     depends_on:
       - redis
     restart: unless-stopped
+    networks:
+      - jenga_network  # Attach to the custom network
 
   redis:
     image: redis:7-alpine
     ports:
-      - "6381:6379"  # Map external port 6380 to internal 6379
+      - "6381:6379"
     command: redis-server --appendonly yes
     restart: unless-stopped
+    networks:
+      - jenga_network  # Attach to the custom network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run --token ${TUNNEL_TOKEN}
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - jenga_service
+    networks:
+      - jenga_network  # Attach to the custom network

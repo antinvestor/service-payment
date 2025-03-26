@@ -43,14 +43,13 @@ func main() {
 	}
 
 
-	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
-	defer service.Stop(ctx)
-	paymentClient, err := paymentV1.NewPaymentsClient(ctx)
+	paymentConn, err := grpc.Dial("payment_service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("failed to create payment client: %v", err)
+		log.Fatalf("failed to connect to payment service: %v", err)
 		return
 	}
-
+	
+	paymentClient := paymentV1.NewPaymentsClient(paymentConn)
 	// Get Redis configuration from environment
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {

@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflag
 FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /payment_binary /payment
-COPY --from=builder /migrations /migrations
+#COPY --from=builder /migrations /migrations
 
 WORKDIR /
 

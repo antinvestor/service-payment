@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/antinvestor/jenga-api/service/coreapi"

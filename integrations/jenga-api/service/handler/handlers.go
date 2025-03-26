@@ -185,13 +185,32 @@ func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Reques
 
 // FetchBillersHandler handles requests to fetch billers
 func (js *JobServer) FetchBillersHandler(w http.ResponseWriter, r *http.Request) {
-	billers, err := js.Client.FetchBillers()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Log the request event
+	logger := js.Service.L(r.Context()).WithField("type", "FetchBillers")
+
+	// Log the request
+	logger.Info("processing fetch billers")
+
+	// Prepare event payload
+	eventPayload := &models.FetchBillersRequest{}
+
+	// Log the processing of event payload
+	logger.WithField("payload", eventPayload).Debug("processing fetch billers event")
+
+	// Create event
+	event := &events.JengaFetchBillers{
+		RedisClient: js.RedisClient,
+		Service:     js.Service,
+	}
+
+	// Emit event
+	if err := js.Service.Emit(r.Context(), event.Name(), eventPayload); err != nil {
+		logger.WithError(err).Error("failed to execute fetch billers event")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(billers)
+	w.WriteHeader(http.StatusOK)
 }
 
 // HealthHandler is a simple health check handler

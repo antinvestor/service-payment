@@ -95,3 +95,10 @@ type BalanceResponse struct {
 		Currency string `json:"currency"`
 	} `json:"data"`
 }
+
+// FetchBillersRequest represents the request structure for fetching billers
+// It can be extended with additional fields if needed
+
+type FetchBillersRequest struct {
+	// Add fields if necessary
+}

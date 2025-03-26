@@ -24,11 +24,11 @@ import (
 
 // Client represents the Jenga API client
 type Client struct {
-	MerchantCode   string
-	ConsumerSecret string
-	ApiKey         string
-	HttpClient     *http.Client
-	Env            string
+	MerchantCode    string
+	ConsumerSecret  string
+	ApiKey          string
+	HttpClient      *http.Client
+	Env             string
 	JengaPrivateKey string
 }
 
@@ -109,14 +109,13 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
-
 // GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
 func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, billRef, amount string) (string, error) {
 	// Format message as per Jenga API requirements
 	message := fmt.Sprintf("%s%s%s%s", billerCode, countryCode, billRef, amount)
-	
+
 	// Get private key path from environment or config
-	privateKeyPath := c.JengaPrivateKey		
+	privateKeyPath := c.JengaPrivateKey
 	if privateKeyPath == "" {
 		privateKeyPath = "app/keys/privatekey.pem" // default path
 	}
@@ -127,7 +126,6 @@ func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, 
 		return "", fmt.Errorf("failed to generate signature: %v", err)
 	}
 	//log signature
-	
 
 	return signature, nil
 }
@@ -181,8 +179,6 @@ func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
 func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
 	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
-    
-
 
 	// Generate the signature for the request
 	signature, err := GenerateBalanceSignature(countryCode, accountId)
@@ -191,7 +187,7 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	}
 	//print signature
 	fmt.Println("------------------------------signature--------------------------------")
-	fmt.Println(signature)	
+	fmt.Println(signature)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -312,4 +308,44 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 		return nil, err
 	}
 	return &stkUssdResponse, nil
+}
+
+// FetchBillers fetches billers from the Jenga API
+func (c *Client) FetchBillers() ([]models.Biller, error) {
+	// Generate bearer token
+	token, err := c.GenerateBearerToken()
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/billers",c.Env)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	resp, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch billers: %s", resp.Status)
+	}
+
+	var result struct {
+		Status bool `json:"status"`
+		Data   struct {
+			Billers []models.Biller `json:"billers"`
+		} `json:"data"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Data.Billers, nil
 }

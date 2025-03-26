@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/go-redis/redis"
@@ -17,6 +18,7 @@ import (
 type JobServer struct {
 	Service     *frame.Service
 	RedisClient *redis.Client
+	Client       *coreapi.Client
 }
 
 func (js *JobServer) AsyncBillPaymentsGoodsandServices(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +70,7 @@ func (js *JobServer) AsyncBillPaymentsGoodsandServices(w http.ResponseWriter, r 
 	}
 	eventPayload := &models.Job{
 		ID:        jobID,
-		ExtraData: request,  // request is already a models.PaymentRequest
+		ExtraData: request, // request is already a models.PaymentRequest
 	}
 
 	if err := js.Service.Emit(ctx, event.Name(), eventPayload); err != nil {
@@ -143,7 +145,7 @@ func (js *JobServer) GetJobStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (js *JobServer)AccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
+func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -181,8 +183,16 @@ func (js *JobServer)AccountBalanceHandler(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+// FetchBillersHandler handles requests to fetch billers
+func (js *JobServer) FetchBillersHandler(w http.ResponseWriter, r *http.Request) {
+	billers, err := js.Client.FetchBillers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-//
+	json.NewEncoder(w).Encode(billers)
+}
 
 // HealthHandler is a simple health check handler
 func HealthHandler(w http.ResponseWriter, r *http.Request) {

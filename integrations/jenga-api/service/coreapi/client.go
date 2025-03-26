@@ -111,9 +111,12 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 
 
 // GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
-func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, billRef, amount string) (string, error) {
+func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, billRef, partnerId string) (string, error) {
 	// Format message as per Jenga API requirements
-	message := fmt.Sprintf("%s%s%s%s", billerCode, countryCode, billRef, amount)
+	message := fmt.Sprintf("%s%s%s%s", billerCode, amount, billRef, partnerId)
+	//log message
+	fmt.Println("------------------------------message--------------------------------")
+	fmt.Println("****************************"+message+"*******************************")
 	
 	// Get private key path from environment or config
 	privateKeyPath := c.JengaPrivateKey		
@@ -122,7 +125,8 @@ func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, countryCode, 
 	}
 
 	// Generate signature
-	signature, err := GenerateSignature(message, privateKeyPath)
+	//signature, err := GenerateSignature(message, privateKeyPath)
+	signature, err := GenerateSignature(billerCode+amount+billRef+partnerId, "app/keys/privatekey.pem")
 	if err != nil {
 		return "", fmt.Errorf("failed to generate signature: %v", err)
 	}
@@ -181,6 +185,8 @@ func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
 func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
 	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
+	
+	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}
     
 
 
@@ -229,7 +235,7 @@ func (c *Client) InitiateBillGoodsAndServices(request models.PaymentRequest, acc
 	signature, err := c.GenerateSignatureBillGoodsAndServices(
 		request.Biller.BillerCode,
 		request.Bill.Amount,
-		request.Bill.Reference,
+		request.Payer.Reference,
 		request.PartnerID,
 	)
 	if err != nil {

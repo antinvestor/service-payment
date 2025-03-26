@@ -2,8 +2,6 @@ module github.com/antinvestor/service-payments
 
 go 1.23.0
 
-toolchain go1.23.2
-
 require (
 	github.com/antinvestor/apis/go/common v1.29.0
 	github.com/antinvestor/apis/go/partition v1.29.1

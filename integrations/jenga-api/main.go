@@ -1,8 +1,6 @@
 package main
 
 import (
-	
-	"fmt"
 	"log"
 	"os"
 
@@ -13,7 +11,6 @@ import (
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events"
 	"github.com/antinvestor/jenga-api/service/router"
-	"github.com/go-redis/redis"
 	"github.com/pitabwire/frame"
 )
 
@@ -46,19 +43,9 @@ func main() {
 	}
 	
 	paymentClient := paymentV1.Init(clientBase, paymentV1.NewPaymentServiceClient(clientBase.Connection()))
-	
-
-	// Initialize Redis client
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", jengaConfig.RedisHost, jengaConfig.RedisPort),	
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
 	// Initialize JobServer
 	js := &handler.JobServer{
 		Service:     service,
-		RedisClient: redisClient,
 	}
 
 	// Initialize router
@@ -68,10 +55,8 @@ func main() {
 	serviceOptions := []frame.Option{
 		frame.HttpHandler(router),
 		frame.RegisterEvents(
-			&events.JengaGoodsServices{Service: service, RedisClient: redisClient, Client: clientApi},
-			&events.JengaAccountBalance{Service: service, RedisClient: redisClient, Client: clientApi},
-			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
-			&events.JengaFetchBillers{Service: service, RedisClient: redisClient, Client: clientApi},
+			&events.JengaAccountBalance{Service: service, Client: clientApi},
+			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},	
 		),
 	}
 
@@ -84,9 +69,4 @@ func main() {
 		log.Fatalf("failed to run service: %v", err)
 	}
 
-	defer func() {
-		if err := redisClient.Close(); err != nil {
-			log.Printf("error closing redis client: %v", err)
-		}
-	}()
 }

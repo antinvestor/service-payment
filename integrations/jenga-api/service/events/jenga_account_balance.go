@@ -5,14 +5,13 @@ import (
 	"errors"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/go-redis/redis"
 	"github.com/pitabwire/frame"
 )
 
 type JengaAccountBalance struct {
 	Service     *frame.Service
 	Client      *coreapi.Client
-	RedisClient *redis.Client
+
 }
 
 func (event *JengaAccountBalance) Name() string {
@@ -39,9 +38,6 @@ func (event *JengaAccountBalance) Validate(ctx context.Context, payload any) err
 
 
 func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) error {
-	if event.RedisClient == nil {
-		return errors.New("redis client not initialized")
-	}
 
 	if event.Client == nil {
 		return errors.New("jenga client not initialized")

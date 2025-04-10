@@ -280,47 +280,7 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	return &balanceResponse, nil
 }
 
-// InitiateBillGoodsAndServices initiates a bill payment request for goods and services
 
-func (c *Client) InitiateBillGoodsAndServices(request models.PaymentRequest, accessToken string) (*models.PaymentResponse, error) {
-	//https://uat.finserve.africa/v3-apis/transaction-api/v3.0/bills/pay
-	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/bills/pay", c.Env)
-	// Generate the signature for the request
-	signature, err := c.GenerateSignatureBillGoodsAndServices(
-		request.Biller.BillerCode,
-		request.Bill.Amount,
-		request.Payer.Reference,
-		request.PartnerID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonBody, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Signature", signature)
-	resp, err := c.HttpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to initiate bill payment: %s", resp.Status)
-	}
-	var paymentResponse models.PaymentResponse
-	if err := json.NewDecoder(resp.Body).Decode(&paymentResponse); err != nil {
-		return nil, err
-	}
-	return &paymentResponse, nil
-}
 
 
 

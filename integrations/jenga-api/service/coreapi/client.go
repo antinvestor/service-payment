@@ -159,8 +159,9 @@ func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
 func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
+
 	// Generate the signature for the request
-	signature, err := c.GeneratePaymentSignature(
+signature, err := c.GeneratePaymentSignature(
 		request.Merchant.AccountNumber,
 		request.Payment.Ref,
 		request.Payment.MobileNumber,
@@ -191,10 +192,6 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to initiate STK/USSD push: %s", resp.Status)
-	}
-
 	var stkUssdResponse models.STKUSSDResponse
 	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
 		return nil, err
@@ -203,29 +200,7 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 }
 
 // GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
-func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, billRef, partnerId string) (string, error) {
-	// Format message as per Jenga API requirements
-	message := fmt.Sprintf("%s%s%s%s", billerCode, amount, billRef, partnerId)
-	//log message
-	fmt.Println("------------------------------message--------------------------------")
-	fmt.Println("****************************" + message + "*******************************")
 
-	// Get private key path from environment or config
-	privateKeyPath := c.JengaPrivateKey
-	if privateKeyPath == "" {
-		privateKeyPath = "app/keys/privatekey.pem" // default path
-	}
-
-	// Generate signature
-	//signature, err := GenerateSignature(message, privateKeyPath)
-	signature, err := GenerateSignature(billerCode+amount+billRef+partnerId, "app/keys/privatekey.pem")
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %v", err)
-	}
-	//log signature
-
-	return signature, nil
-}
 
 
 

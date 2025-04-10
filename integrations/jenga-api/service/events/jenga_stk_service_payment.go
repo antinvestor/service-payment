@@ -10,8 +10,8 @@ import (
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
-	"google.golang.org/genproto/googleapis/type/money"
 	"github.com/pitabwire/frame"
+	"google.golang.org/genproto/googleapis/type/money"
 )
 
 type JengaSTKServicePayment struct {
@@ -43,9 +43,9 @@ func (event *JengaSTKServicePayment) Validate(ctx context.Context, payload any) 
 	return nil
 }
 
-func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) (*paymentV1.ReceiveResponse, error) {
+func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) error {
 	if event.PaymentClient == nil {
-		return nil, errors.New("payment client not initialized")
+		return errors.New("payment client not initialized")
 	}
 
 	stkRequest := payload.(*models.STKUSSDRequest)
@@ -53,7 +53,7 @@ func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) (
 	// Convert amount string to int64 (cents)
 	amountFloat, err := strconv.ParseFloat(stkRequest.Payment.Amount, 64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid amount format: %v", err)
+		return fmt.Errorf("invalid amount format: %v", err)
 	}
 	amountCents := int64(amountFloat * 100)
 
@@ -75,7 +75,7 @@ func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) (
 		Recipient: &commonv1.ContactLink{
 			ContactId: stkRequest.Merchant.AccountNumber,
 			Extras: map[string]string{
-				"account":       stkRequest.Merchant.AccountNumber,
+				"account":      stkRequest.Merchant.AccountNumber,
 				"country_code": stkRequest.Merchant.CountryCode,
 				"name":         stkRequest.Merchant.Name,
 			},
@@ -95,11 +95,17 @@ func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) (
 		Data: payment,
 	}
 
-	// Invoke the GRPC receive method
-	response, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
-	if err != nil {
-		return nil, err
+	// Check if the payment client is properly initialized
+	if event.PaymentClient == nil || event.PaymentClient.Client == nil {
+		return errors.New("payment client not properly initialized")
 	}
-	fmt.Println("Payment received:", response)
-	return response, nil
+
+	// Log the request for debugging
+	logger := event.Service.L(ctx)
+	logger.WithField("payment_ref", payment.ReferenceId).Info("Sending receive request to payment service")
+
+	// Invoke the GRPC receive method
+	_, err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
+
+	return err
 }

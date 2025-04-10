@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"time"
 
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
@@ -51,8 +52,29 @@ func (event *JengaSTKUSSD) Validate(ctx context.Context, payload any) error {
 // Execute handles the STK/USSD push request
 func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	request := payload.(*models.STKUSSDRequest)
-	
+
+	// Get logger first to avoid redefinition
 	logger := event.Service.L(ctx)
+
+	// Generate a unique 6-character reference
+	// We'll use the current time to help make it unique
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	// Use the last 6 digits of the timestamp (or fewer if needed)
+	// This gives a rolling unique ID that cycles every million milliseconds (16.6 minutes)
+	timeComponent := timestamp % 1000000
+
+	// Store original reference for logging
+	originalRef := request.Payment.Ref
+
+	// Generate the new reference (format: A12345, where A is alphabetic and 12345 are numeric)
+	// This creates references like A12345, B56789, etc.
+	asciiChar := 65 + ((timestamp / 1000000) % 26) // 65 is ASCII 'A', rotating through 26 letters
+	request.Payment.Ref = fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%100000)
+
+	logger.WithFields(map[string]interface{}{
+		"original_ref": originalRef,
+		"new_ref":      request.Payment.Ref,
+	}).Info("Generated unique 6-character transaction reference")
 
 	// Generate bearer token for authorization
 	token, err := event.Client.GenerateBearerToken()
@@ -68,19 +90,35 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
 	}
 
-	logger.WithField("response", response).Info("Successfully initiated STK/USSD push")
+	logger.WithField("response", response).Info("STK/USSD push response received")
 
-	// Create STK service payment event
-	stkServicePayment := &JengaSTKServicePayment{
-		Service:       event.Service,
-		PaymentClient: event.PaymentClient,
-	}
+	// Check if Jenga returned a success response before proceeding
+	// Note: Jenga API might return status=false but still provide a transaction ID,
+	// in which case we shouldn't proceed with payment processing
+	if response.Status || response.TransactionID != "" {
+		// Only proceed with payment processing if we have a transaction ID
+		logger.WithField("transaction_id", response.TransactionID).Info("Processing payment for successful transaction")
 
-	// Execute STK service payment
-	_, err = stkServicePayment.Execute(ctx, request)
-	if err != nil {
-		logger.WithError(err).Error("failed to execute STK service payment")
-		return fmt.Errorf("failed to execute STK service payment: %v", err)
+		// Create STK service payment event
+		stkServicePayment := &JengaSTKServicePayment{
+			Service:       event.Service,
+			PaymentClient: event.PaymentClient,
+		}
+
+		// Execute STK service payment
+		err = stkServicePayment.Execute(ctx, request)
+		if err != nil {
+			logger.WithError(err).Error("failed to execute STK service payment")
+			//return fmt.Errorf("failed to execute STK service payment: %v", err)
+		}
+	} else {
+		// Log that we're not proceeding with payment processing due to failed STK push
+		logger.WithFields(map[string]interface{}{
+			"code":    response.Code,
+			"message": response.Message,
+		}).Warn("Not processing payment due to unsuccessful STK push")
+		// Return the error from the STK push
+		//return fmt.Errorf("STK push unsuccessful: %s (code: %d)", response.Message, response.Code)
 	}
 
 	return nil

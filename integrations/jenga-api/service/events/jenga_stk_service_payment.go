@@ -43,9 +43,9 @@ func (event *JengaSTKServicePayment) Validate(ctx context.Context, payload any) 
 	return nil
 }
 
-func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) error {
+func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) (*paymentV1.ReceiveResponse, error) {
 	if event.PaymentClient == nil {
-		return errors.New("payment client not initialized")
+		return nil, errors.New("payment client not initialized")
 	}
 
 	stkRequest := payload.(*models.STKUSSDRequest)
@@ -53,7 +53,7 @@ func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) e
 	// Convert amount string to int64 (cents)
 	amountFloat, err := strconv.ParseFloat(stkRequest.Payment.Amount, 64)
 	if err != nil {
-		return fmt.Errorf("invalid amount format: %v", err)
+		return nil, fmt.Errorf("invalid amount format: %v", err)
 	}
 	amountCents := int64(amountFloat * 100)
 
@@ -96,6 +96,10 @@ func (event *JengaSTKServicePayment) Execute(ctx context.Context, payload any) e
 	}
 
 	// Invoke the GRPC receive method
-	_, err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
-	return err
+	response, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Payment received:", response)
+	return response, nil
 }

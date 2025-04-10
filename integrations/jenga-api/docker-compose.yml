@@ -14,17 +14,6 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml
       - ./keys:/app/keys
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - jenga_network  # Attach to the custom network
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6381:6379"
-    command: redis-server --appendonly yes
     restart: unless-stopped
     networks:
       - jenga_network  # Attach to the custom network

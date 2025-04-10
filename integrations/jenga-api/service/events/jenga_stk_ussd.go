@@ -77,7 +77,8 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Execute STK service payment
-	if err := stkServicePayment.Execute(ctx, request); err != nil {
+	_, err = stkServicePayment.Execute(ctx, request)
+	if err != nil {
 		logger.WithError(err).Error("failed to execute STK service payment")
 		return fmt.Errorf("failed to execute STK service payment: %v", err)
 	}

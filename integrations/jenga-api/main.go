@@ -8,10 +8,10 @@ import (
 
 	commonV1 "github.com/antinvestor/apis/go/common"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events"
-	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
 	"github.com/go-redis/redis"
 	"github.com/pitabwire/frame"
@@ -71,6 +71,7 @@ func main() {
 			&events.JengaGoodsServices{Service: service, RedisClient: redisClient, Client: clientApi},
 			&events.JengaAccountBalance{Service: service, RedisClient: redisClient, Client: clientApi},
 			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
+			&events.JengaFetchBillers{Service: service, RedisClient: redisClient, Client: clientApi},
 		),
 	}
 

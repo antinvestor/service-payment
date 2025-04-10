@@ -38,9 +38,10 @@ func (event *JengaFetchBillers) Validate(ctx context.Context, payload any) error
 // Execute handles the fetching of billers
 func (event *JengaFetchBillers) Execute(ctx context.Context, payload any) error {
 	//request := payload.(*models.FetchBillersRequest)
-
+	// Generate bearer token for authorization
+	token, err := event.Client.GenerateBearerToken()
 	// Fetch billers using the client
-	billers, err := event.Client.FetchBillers()
+	billers, err := event.Client.FetchBillers(token.AccessToken)
 	if err != nil {
 		return fmt.Errorf("failed to fetch billers: %v", err)
 	}

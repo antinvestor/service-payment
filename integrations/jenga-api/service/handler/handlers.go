@@ -18,7 +18,46 @@ import (
 type JobServer struct {
 	Service     *frame.Service
 	RedisClient *redis.Client
-	Client       *coreapi.Client
+	Client      *coreapi.Client
+}
+
+
+func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx := r.Context()
+	logger := js.Service.L(ctx).WithField("type", "InitiateStkUssd")
+
+	var request models.STKUSSDRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		logger.WithError(err).Error("failed to decode request")
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Create event
+	event := &events.JengaSTKUSSD{
+		Service: js.Service,
+		Client:  js.Client,
+	}
+
+	// Execute event
+	err := js.Service.Emit(ctx, event.Name(), &request)
+	if err != nil {
+		logger.WithError(err).Error("failed to process STK/USSD request")
+		http.Error(w, "Failed to process request", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+		"message": "STK/USSD push initiated successfully",
+	})
 }
 
 func (js *JobServer) AsyncBillPaymentsGoodsandServices(w http.ResponseWriter, r *http.Request) {

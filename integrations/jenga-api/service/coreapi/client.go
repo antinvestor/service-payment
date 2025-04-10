@@ -3,20 +3,19 @@ package coreapi
 import (
 	"bytes"
 	"crypto"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	models "github.com/antinvestor/jenga-api/service/models"
@@ -109,31 +108,6 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
-// GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
-func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, billRef, partnerId string) (string, error) {
-	// Format message as per Jenga API requirements
-	message := fmt.Sprintf("%s%s%s%s", billerCode, amount, billRef, partnerId)
-	//log message
-	fmt.Println("------------------------------message--------------------------------")
-	fmt.Println("****************************"+message+"*******************************")
-	
-	// Get private key path from environment or config
-	privateKeyPath := c.JengaPrivateKey
-	if privateKeyPath == "" {
-		privateKeyPath = "app/keys/privatekey.pem" // default path
-	}
-
-	// Generate signature
-	//signature, err := GenerateSignature(message, privateKeyPath)
-	signature, err := GenerateSignature(billerCode+amount+billRef+partnerId, "app/keys/privatekey.pem")
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %v", err)
-	}
-	//log signature
-
-	return signature, nil
-}
-
 // SignData generates a SHA-256 signature with RSA private key
 func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Read private key file
@@ -171,6 +145,90 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Encode to Base64
 	return base64.StdEncoding.EncodeToString(signature), nil
 }
+
+func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
+	// Generate signature
+	signature, err := GenerateSignature(strings.Join(args, ""), "app/keys/privatekey.pem")
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signature: %v", err)
+	}
+	return signature, nil
+}
+
+// InitiateSTKUSSD initiates an STK/USSD push request
+func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
+	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
+
+	// Generate the signature for the request
+	signature, err := c.GeneratePaymentSignature(
+		request.Merchant.AccountNumber,
+		request.Payment.Ref,
+		request.Payment.MobileNumber,
+		request.Payment.Telco,
+		request.Payment.Amount,
+		request.Payment.Currency,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Signature", signature)
+
+	resp, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to initiate STK/USSD push: %s", resp.Status)
+	}
+
+	var stkUssdResponse models.STKUSSDResponse
+	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
+		return nil, err
+	}
+	return &stkUssdResponse, nil
+}
+
+// GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
+func (c *Client) GenerateSignatureBillGoodsAndServices(billerCode, amount, billRef, partnerId string) (string, error) {
+	// Format message as per Jenga API requirements
+	message := fmt.Sprintf("%s%s%s%s", billerCode, amount, billRef, partnerId)
+	//log message
+	fmt.Println("------------------------------message--------------------------------")
+	fmt.Println("****************************" + message + "*******************************")
+
+	// Get private key path from environment or config
+	privateKeyPath := c.JengaPrivateKey
+	if privateKeyPath == "" {
+		privateKeyPath = "app/keys/privatekey.pem" // default path
+	}
+
+	// Generate signature
+	//signature, err := GenerateSignature(message, privateKeyPath)
+	signature, err := GenerateSignature(billerCode+amount+billRef+partnerId, "app/keys/privatekey.pem")
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signature: %v", err)
+	}
+	//log signature
+
+	return signature, nil
+}
+
+
+
 func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
 	// Generate signature
 	signature, err := GenerateSignature(countryCode+accountId, "app/keys/privatekey.pem")
@@ -183,10 +241,8 @@ func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
 func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
 	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
-	
-	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}
-    
 
+	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}
 
 	// Generate the signature for the request
 	signature, err := GenerateBalanceSignature(countryCode, accountId)
@@ -266,72 +322,29 @@ func (c *Client) InitiateBillGoodsAndServices(request models.PaymentRequest, acc
 	return &paymentResponse, nil
 }
 
-// GenerateSignature generates a HMAC-SHA256 signature for the STK/USSD push request
-func (c *Client) GenerateSignature(accountNumber, ref, mobileNumber, telco, amount, currency string) string {
-	data := accountNumber + ref + mobileNumber + telco + amount + currency
-	mac := hmac.New(sha256.New, []byte(c.ConsumerSecret))
-	mac.Write([]byte(data))
-	return hex.EncodeToString(mac.Sum(nil))
-}
 
-// InitiateSTKUSSD initiates an STK/USSD push request
-func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
-	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
-
-	// Generate the signature for the request
-	signature := c.GenerateSignature(
-		request.Merchant.AccountNumber,
-		request.Payment.Ref,
-		request.Payment.MobileNumber,
-		request.Payment.Telco,
-		request.Payment.Amount,
-		request.Payment.Currency,
-	)
-
-	jsonBody, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Signature", signature)
-
-	resp, err := c.HttpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to initiate STK/USSD push: %s", resp.Status)
-	}
-
-	var stkUssdResponse models.STKUSSDResponse
-	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
-		return nil, err
-	}
-	return &stkUssdResponse, nil
-}
 
 // FetchBillers fetches billers from the Jenga API
-func (c *Client) FetchBillers() ([]models.Biller, error) {
-	// Generate bearer token
-	token, err := c.GenerateBearerToken()
+func (c *Client) FetchBillers(token string) ([]models.Biller, error) {
+
+	signature, err := GenerateBalanceSignature("ke", "mombasa")
 	if err != nil {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/billers",c.Env)
+	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/billers?per_page=3&page=1", c.Env)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("------------------------------signature--------------------------------")
+	fmt.Println(signature)
+	fmt.Println("------------------------------token--------------------------------")
+	fmt.Println(token)
+
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Signature", signature)
 
 	resp, err := c.HttpClient.Do(req)
 	if err != nil {

@@ -103,7 +103,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 }
 
 func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	//logger := pb.service.L(ctx).WithField("request", message)
+	logger := pb.service.L(ctx).WithField("request", message)
+	logger.Info("handling receive request")
 	//authClaim := frame.ClaimsFromContext(ctx)
 	//logger.WithField("auth claim", authClaim).Info("handling send request")
 

@@ -7,7 +7,7 @@ import (
 	"github.com/antinvestor/jenga-api/service/models"
 )
 
-func (js *JobServer) HandleCallback(w http.ResponseWriter, r *http.Request) {
+func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -23,7 +23,7 @@ func (js *JobServer) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var callback models.CallbackRequest
+	var callback models.StkCallback
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode callback request")
 		http.Error(w, "Invalid request body", http.StatusBadRequest)

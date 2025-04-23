@@ -37,17 +37,31 @@ func main() {
 	// Initialize payment client
 	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
 	defer service.Stop(ctx)
-	// Use environment variable for the gRPC endpoint or default to service name in Docker network
+	// Use environment variable for the gRPC endpoint or default to container service name
 	paymentServiceEndpoint := os.Getenv("PAYMENT_SERVICE_ENDPOINT")
 	if paymentServiceEndpoint == "" {
-		paymentServiceEndpoint = "0.0.0.0:50051"
-	}
-	clientBase, err := commonV1.NewClientBase(ctx, commonV1.WithEndpoint(paymentServiceEndpoint))
-	if err != nil {
-		log.Fatalf("failed to create client base: %v", err)
+		// When running in Docker, we should use the service name from docker-compose
+		// as defined in docker-compose.yml for the payment service
+		paymentServiceEndpoint = "localhost:50051"
 	}
 
-	paymentClient := paymentV1.Init(clientBase, paymentV1.NewPaymentServiceClient(clientBase.Connection()))
+	log.Printf("Attempting to connect to payment service at: %s", paymentServiceEndpoint)
+
+	// When running in Docker environment, make sure networkss are properly linked
+	// or that host IPs are accessible depending on your Docker network setup
+
+	// Use the proper client initialization function
+	paymentClient, err := paymentV1.NewPaymentsClient(
+		ctx,
+		commonV1.WithEndpoint(paymentServiceEndpoint), // Important for non-TLS connections
+	)
+
+	if err != nil {
+		log.Printf("Warning: Failed to create payment client: %v", err)
+		// Continue execution - we'll handle the nil client in the handlers
+	} else {
+		log.Printf("Successfully connected to payment service at %s", paymentServiceEndpoint)
+	}
 	// Initialize JobServer
 	js := &handler.JobServer{
 		Service: service,
@@ -62,7 +76,6 @@ func main() {
 		frame.RegisterEvents(
 			&events.JengaAccountBalance{Service: service, Client: clientApi},
 			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
-			&events.JengaSTKServicePayment{Service: service, PaymentClient: paymentClient},
 			&events.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient},
 		),
 	}

@@ -1,4 +1,3 @@
-
 package events
 
 import (
@@ -9,8 +8,8 @@ import (
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
-	"google.golang.org/genproto/googleapis/type/money"
 	"github.com/pitabwire/frame"
+	"google.golang.org/genproto/googleapis/type/money"
 )
 
 type JengaCallbackReceivePayment struct {
@@ -27,6 +26,8 @@ func (event *JengaCallbackReceivePayment) PayloadType() any {
 }
 
 func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload any) error {
+
+	
 	request := payload.(*models.CallbackRequest)
 
 	if request.Transaction.Reference == "" {
@@ -38,38 +39,38 @@ func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload 
 
 func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload any) error {
 
+	// Get logger first to avoid redefinition
+	logger := event.Service.L(ctx)
+
 	if event.PaymentClient == nil {
 		return errors.New("payment client not initialized")
 	}
 
-	callback := payload.(*models.CallbackRequest)
+	callback := payload.(*models.StkCallback)
 
 	// Extract relevant information from callback
 	payment := &paymentV1.Payment{
-		ReferenceId: callback.Transaction.Reference,
+		ReferenceId: callback.Transaction,
 		Amount: &money.Money{
-			Units: int64(callback.Transaction.Amount * 100), // convert to cents
-			CurrencyCode: callback.Transaction.Currency,
+			Units:        int64(callback.DebitedAmount * 100), // convert to cents
+			CurrencyCode: callback.Currency,
 		},
 		Cost: &money.Money{
-			Units: int64(callback.Transaction.ServiceCharge * 100), // convert to cents
-			CurrencyCode: callback.Transaction.OrderCurrency,
+			Units:        int64(callback.Charge * 100), // convert to cents
+			CurrencyCode: callback.Currency,
 		},
 		Source: &commonv1.ContactLink{
-			ContactId: callback.Customer.Reference,
+			ContactId: callback.MobileNumber,
 			Extras: map[string]string{
-				"mobile_number": callback.Customer.MobileNumber,
-			},
-			ProfileName: callback.Customer.Name,
-		},
-	    Recipient: &commonv1.ContactLink{
-			ContactId: callback.Bank.Reference,
-			Extras: map[string]string{
-				"account": *callback.Bank.Account,
+				"mobile_number": callback.MobileNumber,
 			},
 		},
-			
-
+		Recipient: &commonv1.ContactLink{
+			ContactId: callback.Telco,
+			Extras: map[string]string{
+				"account": callback.Telco,
+			},
+		},
 	}
 
 	// Add any additional information from callback to extras
@@ -86,6 +87,13 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	// Invoke the GRPC receive method
-	_, err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
-	return err
+	receiveResponse, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
+	if err != nil {
+		return err
+	}
+
+	// Log the receive response
+	logger.WithField("receive_response", receiveResponse).Info("Received receive response from payment service")
+
+	return nil
 }

@@ -145,7 +145,7 @@ func main() {
 		WithField("server grpc port", paymentConfig.GrpcServerPort).
 		Info("Initiating server operations")
 
-	err = service.Run(ctx, "")
+	err = service.Run(ctx, ":8081")
 	if err != nil {
 		log.WithError(err).Fatal("could not run Server")
 	}

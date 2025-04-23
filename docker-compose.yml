@@ -1,5 +1,6 @@
-version: '3.8'
-
+networks:
+  common_network:
+    driver: bridge
 services:
   payment_db:
     image: postgres:16.3
@@ -9,6 +10,7 @@ services:
       POSTGRES_PASSWORD: secret
     ports:
       - "5436:5432"
+    network_mode: host
 
   payment_service:
     build: ./
@@ -21,3 +23,4 @@ services:
       - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
       - SECURELY_RUN_SERVICE=false
     restart: unless-stopped
+    network_mode: host

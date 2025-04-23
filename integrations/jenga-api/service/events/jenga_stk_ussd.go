@@ -63,7 +63,6 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	// This gives a rolling unique ID that cycles every million milliseconds (16.6 minutes)
 	timeComponent := timestamp % 1000000
 
-	// Store original reference for logging
 	originalRef := request.Payment.Ref
 
 	// Generate the new reference (format: A12345, where A is alphabetic and 12345 are numeric)
@@ -89,37 +88,8 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
 	}
-
+	
 	logger.WithField("response", response).Info("STK/USSD push response received")
-
-	// Check if Jenga returned a success response before proceeding
-	// Note: Jenga API might return status=false but still provide a transaction ID,
-	// in which case we shouldn't proceed with payment processing
-	if response.Status || response.TransactionID != "" {
-		// Only proceed with payment processing if we have a transaction ID
-		logger.WithField("transaction_id", response.TransactionID).Info("Processing payment for successful transaction")
-
-		// Create STK service payment event
-		stkServicePayment := &JengaSTKServicePayment{
-			Service:       event.Service,
-			PaymentClient: event.PaymentClient,
-		}
-
-		// Execute STK service payment
-		err = stkServicePayment.Execute(ctx, request)
-		if err != nil {
-			logger.WithError(err).Error("failed to execute STK service payment")
-			//return fmt.Errorf("failed to execute STK service payment: %v", err)
-		}
-	} else {
-		// Log that we're not proceeding with payment processing due to failed STK push
-		logger.WithFields(map[string]interface{}{
-			"code":    response.Code,
-			"message": response.Message,
-		}).Warn("Not processing payment due to unsuccessful STK push")
-		// Return the error from the STK push
-		//return fmt.Errorf("STK push unsuccessful: %s (code: %d)", response.Message, response.Code)
-	}
 
 	return nil
 }

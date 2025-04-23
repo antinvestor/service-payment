@@ -1,5 +1,20 @@
 package models
 
+
+
+type StkCallback struct {
+	Status       bool   `json:"status"`
+	Code         int    `json:"code"`
+	Message      string `json:"message"`
+	Transaction  string `json:"transactionReference"`
+	Telco        string `json:"telcoReference"`
+	MobileNumber string `json:"mobileNumber"`
+	Currency     string `json:"currency"`
+	RequestAmount float64 `json:"requestAmount"`
+	DebitedAmount float64 `json:"debitedAmount"`
+	Charge float64 `json:"charge"`
+	TelcoName string `json:"telco"`
+}
 type CallbackRequest struct {
 	CallbackType string `json:"callbackType"`
 	Customer     struct {

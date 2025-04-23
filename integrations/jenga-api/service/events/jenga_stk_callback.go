@@ -95,5 +95,27 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	// Log the receive response
 	logger.WithField("receive_response", receiveResponse).Info("Received receive response from payment service")
 
+
+
+	//  status update use commonv1 StatusUpdateRequest
+	
+	statusUpdateRequest := &commonv1.StatusUpdateRequest{
+		Id:     receiveResponse.Data.Id,
+		State:  commonv1.STATE_ACTIVE,
+		Status: commonv1.STATUS_SUCCESSFUL,
+		Extras: map[string]string{
+			"raw_callback": string(callbackJSON),
+		},
+	}
+
+	// Invoke the GRPC status update method
+	statusUpdateResponse, err := event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+	if err != nil {
+		return err
+	}
+
+	// Log the status update response
+	logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")
+
 	return nil
 }

@@ -27,7 +27,6 @@ func (event *JengaCallbackReceivePayment) PayloadType() any {
 
 func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload any) error {
 
-	
 	request := payload.(*models.CallbackRequest)
 
 	if request.Transaction.Reference == "" {
@@ -89,16 +88,31 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	// Invoke the GRPC receive method
 	receiveResponse, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
 	if err != nil {
-		return err
+		logger.WithError(err).Error("failed to receive payment")
+		//update status
+		statusUpdateRequest := &commonv1.StatusUpdateRequest{
+			Id:     receiveResponse.Data.Id,
+			State:  commonv1.STATE_ACTIVE,
+			Status: commonv1.STATUS_FAILED,
+			Extras: map[string]string{
+				"raw_callback": string(callbackJSON),
+			},
+		}
+
+		// Invoke the GRPC status update method
+		statusUpdateResponse, err := event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+		if err != nil {
+			logger.WithError(err).Error("failed to update payment status")
+			return nil
+		}
+		logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")
+		return nil
 	}
 
 	// Log the receive response
 	logger.WithField("receive_response", receiveResponse).Info("Received receive response from payment service")
 
-
-
 	//  status update use commonv1 StatusUpdateRequest
-	
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     receiveResponse.Data.Id,
 		State:  commonv1.STATE_ACTIVE,
@@ -111,9 +125,9 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	// Invoke the GRPC status update method
 	statusUpdateResponse, err := event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
-		return err
+		logger.WithError(err).Error("failed to update payment status")
+		return nil
 	}
-
 	// Log the status update response
 	logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")
 

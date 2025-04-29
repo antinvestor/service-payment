@@ -23,6 +23,7 @@ type PaymentBusiness interface {
 	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
 	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
 	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
+	InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error)
 }
 
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
@@ -327,6 +328,63 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 		return pStatus.ToStatusAPI(), nil
 	}
 }
+
+func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("request", req)
+	logger.Info("handling initiate prompt request")
+
+	// Initialize Prompt model
+	p := &models.Prompt{
+		ID: req.GetId(),
+		SourceID: req.GetSource().GetProfileId(),
+		SourceProfileType: req.GetSource().GetProfileType(),
+		SourceContactID: req.GetSource().GetContactId(),
+		RecipientID: req.GetRecipient().GetProfileId(),
+		RecipientProfileType: req.GetRecipient().GetProfileType(),
+		RecipientContactID: req.GetRecipient().GetContactId(),
+		Amount: func() *decimal.Decimal {
+			dec := decimal.NewFromFloat(float64(req.GetAmount().Units))
+			return &dec
+		}(),
+
+		DateCreated: time.Now().Format("2006-01-02 15:04:05"),
+		DeviceID: req.GetDeviceId(),
+		State: int32(commonv1.STATE_CREATED.Number()),
+		Status: int32(commonv1.STATUS_QUEUED.Number()),
+	}
+
+	// Generate or validate Prompt ID
+	if req.GetId() == "" {
+		p.GenID(ctx)
+	}
+
+
+	// Set initial PromptStatus
+	pStatus := models.PromptStatus{
+		PromptID: p.GetID(),
+		State:    int32(commonv1.STATE_CREATED.Number()),
+		Status:   int32(commonv1.STATUS_QUEUED.Number()),
+	}
+
+	//Emit events for Prompt 
+	event := events.PromptSave{}
+	err := pb.service.Emit(ctx, event.Name(), p)
+	if err != nil {
+		logger.WithError(err).Warn("could not emit prompt save")
+		return nil, err
+	}
+
+	eventStatus := events.PromptStatusSave{}
+	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+	if err != nil {
+		logger.WithError(err).Warn("could not emit prompt status save")
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
+
 
 // validateAmountAndCost validates the amount and cost fields of the Payment.
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {

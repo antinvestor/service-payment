@@ -143,7 +143,7 @@ type Route struct {
 
 type Prompt struct {
 	frame.BaseModel
-
+	ID string `gorm:"type:varchar(50)"`
 	SourceID string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
 	SourceContactID string `gorm:"type:varchar(50)"`
@@ -164,6 +164,7 @@ type Prompt struct {
 
 func (model *Prompt) ToApi() *paymentV1.InitiatePromptRequest {
 	return &paymentV1.InitiatePromptRequest{
+		Id: model.ID,
 		Source: &commonv1.ContactLink{
 			ProfileType: model.SourceProfileType,
 			ProfileId:   model.SourceID,

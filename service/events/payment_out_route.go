@@ -58,7 +58,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 
 	contact := filterContactFromProfileByID(pr, p.RecipientContactID)
 	switch contact.Type {
-	case profileV1.ContactType_PHONE:
+	case profileV1.ContactType_MSISDN:
 		p.PaymentType = models.RouteTypeShortForm
 	default:
 		p.PaymentType = models.RouteTypeAny

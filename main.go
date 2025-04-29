@@ -25,7 +25,7 @@ func main() {
 	serviceName := "service_payment"
 
 	var paymentConfig config.PaymentConfig
-	err := frame.ConfigProcess("", &paymentConfig)
+	err := frame.ConfigFillFromEnv(&paymentConfig)	
 	if err != nil {
 		logrus.WithError(err).Fatal("could not process configs")
 		return

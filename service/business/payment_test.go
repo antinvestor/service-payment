@@ -70,7 +70,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	testDb := frame.DatastoreConnection(ctx, dbURL, false)
 
 	var pcfg config.PaymentConfig
-	_ = frame.ConfigProcess("", &pcfg)
+	_ = frame.ConfigFillFromEnv(&pcfg)
 
 	ctx, service := frame.NewService(serviceName, testDb, frame.Config(&pcfg), frame.NoopDriver())
 	log.Printf("New Service = %v", ctx)

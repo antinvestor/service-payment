@@ -17,6 +17,8 @@ type PaymentServer struct {
 	PartitionCli *partitionv1.PartitionClient
 
 	paymentV1.UnimplementedPaymentServiceServer
+
+	
 }
 
 func (ps *PaymentServer) newPaymentBusiness(ctx context.Context) (business.PaymentBusiness, error) {
@@ -85,4 +87,19 @@ func (ps *PaymentServer) Receive(ctx context.Context, req *paymentV1.ReceiveRequ
 	}
 
 	return &paymentV1.ReceiveResponse{Data: response}, nil
+}
+
+// InitiatePrompt method for client request for particular Prompt responses from system.
+func (ps *PaymentServer) InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*paymentV1.InitiatePromptResponse, error) {
+	paymentBusiness, err := ps.newPaymentBusiness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	response, err := paymentBusiness.InitiatePrompt(ctx, req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &paymentV1.InitiatePromptResponse{Data: response}, nil
 }

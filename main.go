@@ -137,6 +137,8 @@ func main() {
 			&events.PaymentOutQueue{Service: service},
 			&events.PaymentInRoute{Service: service},
 			&events.PaymentOutRoute{Service: service, ProfileCli: profileCli},
+			&events.PromptSave{Service: service},
+			&events.PromptStatusSave{Service: service},
 		))
 
 	service.Init(serviceOptions...)

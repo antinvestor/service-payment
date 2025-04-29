@@ -1,4 +1,4 @@
-package events
+package events_stk
 
 import (
 	"context"

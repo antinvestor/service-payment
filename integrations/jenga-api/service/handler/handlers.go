@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/events"
+	"github.com/antinvestor/jenga-api/service/events/events_stk"
+	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
 )
@@ -34,7 +35,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create event
-	event := &events.JengaSTKUSSD{
+	event := &events_stk.JengaSTKUSSD{
 		Service: js.Service,
 		Client:  js.Client,
 	}
@@ -79,7 +80,7 @@ func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Reques
 	//processing event Payload
 	logger.WithField("payload", eventPayload).Debug("------processing event-----------------------------------")
 
-	event := &events.JengaAccountBalance{
+	event := &events_account_balance.JengaAccountBalance{
 
 		Service: js.Service,
 	}

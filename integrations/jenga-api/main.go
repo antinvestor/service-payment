@@ -8,7 +8,8 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/events"
+	"github.com/antinvestor/jenga-api/service/events/events_stk"
+	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
 	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
 	"github.com/pitabwire/frame"
@@ -74,9 +75,9 @@ func main() {
 	serviceOptions := []frame.Option{
 		frame.HttpHandler(router),
 		frame.RegisterEvents(
-			&events.JengaAccountBalance{Service: service, Client: clientApi},
-			&events.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
-			&events.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient},
+			&events_account_balance.JengaAccountBalance{Service: service, Client: clientApi},
+			&events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
+			&events_stk.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient},
 		),
 	}
 

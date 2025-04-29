@@ -1,4 +1,4 @@
-package events
+package events_account_balance
 
 import (
 	"context"

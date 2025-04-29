@@ -126,6 +126,8 @@ func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 	return &status
 }
 
+
+
 type Route struct {
 	frame.BaseModel
 
@@ -188,6 +190,29 @@ func (model *Prompt) ToApiStatus() *commonv1.StatusResponse {
 		State:  commonv1.STATE(model.State),
 		Status: commonv1.STATUS(model.Status),
 	}
+}
+
+type PromptStatus struct {
+	frame.BaseModel
+
+	PromptID string            `gorm:"type:varchar(50)"`
+	Extra    datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	State    int32
+	Status   int32
+}
+
+func (model *PromptStatus) ToStatusAPI() *commonv1.StatusResponse {
+	extra := frame.DBPropertiesToMap(model.Extra)
+	extra["CreatedAt"] = model.CreatedAt.String()
+	extra["PromptID"] = model.PromptID
+
+	status := commonv1.StatusResponse{
+		Id:     model.PromptID,
+		State:  commonv1.STATE(model.State),
+		Status: commonv1.STATUS(model.Status),
+		Extras: extra,
+	}
+	return &status
 }
 
 

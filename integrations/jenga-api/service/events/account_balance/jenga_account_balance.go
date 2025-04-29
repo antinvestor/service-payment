@@ -10,7 +10,7 @@ import (
 
 type JengaAccountBalance struct {
 	Service     *frame.Service
-	Client      *coreapi.Client
+	Client      coreapi.JengaApiClient
 
 }
 

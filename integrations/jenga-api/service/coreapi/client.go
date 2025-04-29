@@ -2,19 +2,11 @@ package coreapi
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -108,43 +100,6 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
-// SignData generates a SHA-256 signature with RSA private key
-func GenerateSignature(message, privateKeyPath string) (string, error) {
-	// Read private key file
-	privateKeyBytes, err := os.ReadFile(privateKeyPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read private key: %v", err)
-	}
-
-	// Decode PEM format
-	block, _ := pem.Decode(privateKeyBytes)
-	if block == nil {
-		return "", fmt.Errorf("failed to decode private key PEM")
-	}
-
-	// Parse RSA private key
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse RSA private key: %v", err)
-	}
-
-	privateKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("failed to cast parsed key to RSA private key")
-	}
-
-	// Compute SHA-256 hash
-	hashed := sha256.Sum256([]byte(message))
-
-	// Sign the hash using RSA PKCS1v15
-	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed[:])
-	if err != nil {
-		return "", fmt.Errorf("failed to sign data: %v", err)
-	}
-
-	// Encode to Base64
-	return base64.StdEncoding.EncodeToString(signature), nil
-}
 
 func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
 	// Generate signature
@@ -160,7 +115,7 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
 
-	// Generate the signature for the request
+// Generate the signature for the request
 signature, err := c.GeneratePaymentSignature(
 		request.Merchant.AccountNumber,
 		request.Payment.Ref,
@@ -199,26 +154,10 @@ signature, err := c.GeneratePaymentSignature(
 	return &stkUssdResponse, nil
 }
 
-// GenerateSignatureBillGoodsAndServices GenerateSignature generates a RSA signature for the payment request
-
-
-
-
-func GenerateBalanceSignature(countryCode, accountId string) (string, error) {
-	// Generate signature
-	signature, err := GenerateSignature(countryCode+accountId, "app/keys/privatekey.pem")
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %v", err)
-	}
-	return signature, nil
-}
-
 func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
 	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
-
-	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}
-
+	
 	// Generate the signature for the request
 	signature, err := GenerateBalanceSignature(countryCode, accountId)
 	if err != nil {
@@ -255,53 +194,3 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	return &balanceResponse, nil
 }
 
-
-
-
-
-// FetchBillers fetches billers from the Jenga API
-func (c *Client) FetchBillers(token string) ([]models.Biller, error) {
-
-	signature, err := GenerateBalanceSignature("ke", "mombasa")
-	if err != nil {
-		return nil, err
-	}
-
-	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/billers?per_page=3&page=1", c.Env)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println("------------------------------signature--------------------------------")
-	fmt.Println(signature)
-	fmt.Println("------------------------------token--------------------------------")
-	fmt.Println(token)
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	req.Header.Set("Signature", signature)
-
-	resp, err := c.HttpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch billers: %s", resp.Status)
-	}
-
-	var result struct {
-		Status bool `json:"status"`
-		Data   struct {
-			Billers []models.Biller `json:"billers"`
-		} `json:"data"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Data.Billers, nil
-}

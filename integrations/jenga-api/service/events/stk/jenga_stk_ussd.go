@@ -14,7 +14,7 @@ import (
 // JengaSTKUSSD handles STK/USSD push requests
 type JengaSTKUSSD struct {
 	Service       *frame.Service
-	Client        *coreapi.Client
+	Client        coreapi.JengaApiClient
 	PaymentClient *paymentV1.PaymentClient
 }
 
@@ -88,7 +88,7 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
 	}
-	
+
 	logger.WithField("response", response).Info("STK/USSD push response received")
 
 	return nil

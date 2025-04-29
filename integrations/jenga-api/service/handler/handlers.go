@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events"
 	"github.com/antinvestor/jenga-api/service/models"
@@ -14,10 +13,9 @@ import (
 //job server handlers
 
 type JobServer struct {
-	Service     *frame.Service
-	Client      *coreapi.Client
+	Service *frame.Service
+	Client  *coreapi.Client
 }
-
 
 func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -52,12 +50,10 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "success",
+		"status":  "success",
 		"message": "STK/USSD push initiated successfully",
 	})
 }
-
-
 
 func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -84,8 +80,8 @@ func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Reques
 	logger.WithField("payload", eventPayload).Debug("------processing event-----------------------------------")
 
 	event := &events.JengaAccountBalance{
-		
-		Service:     js.Service,
+
+		Service: js.Service,
 	}
 	err := js.Service.Emit(ctx, event.Name(), eventPayload)
 	if err != nil {

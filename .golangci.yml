@@ -1,3 +1,9 @@
+# Configuration for golangci-lint
+# See https://golangci-lint.run/usage/configuration/ for details
+
+# Required for golangci-lint v2.x
+version: 2
+
 linters-settings:
   errcheck:
     exclude-functions:
@@ -5,6 +11,10 @@ linters-settings:
 
 run:
   timeout: 5m
+
+formatters:
+  enable:
+    - goimports
 
 linters:
   disable:
@@ -15,7 +25,6 @@ linters:
     - durationcheck
     - errcheck
     - errorlint
-    - goimports
     - goconst
     - godot
     - goheader
@@ -24,7 +33,6 @@ linters:
     - goprintffuncname
     - gosec
     - ineffassign
-    - gosimple
     - govet
     - nolintlint
     - predeclared
@@ -32,7 +40,6 @@ linters:
     - sqlclosecheck
     - staticcheck
     - testpackage
-    - typecheck
     - unconvert
     - unparam
     - unused

@@ -126,8 +126,6 @@ func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
 	return &status
 }
 
-
-
 type Route struct {
 	frame.BaseModel
 
@@ -139,27 +137,24 @@ type Route struct {
 	Uri         string `gorm:"type:varchar(255)"`
 }
 
-
-
 type Prompt struct {
 	frame.BaseModel
-	ID string `gorm:"type:varchar(50)"`
-	SourceID string `gorm:"type:varchar(50)"`
+	ID                string `gorm:"type:varchar(50)"`
+	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
-	SourceContactID string `gorm:"type:varchar(50)"`
+	SourceContactID   string `gorm:"type:varchar(50)"`
 
-	RecipientID string `gorm:"type:varchar(50)"`
+	RecipientID          string `gorm:"type:varchar(50)"`
 	RecipientProfileType string `gorm:"type:varchar(50)"`
-	RecipientContactID string `gorm:"type:varchar(50)"`
+	RecipientContactID   string `gorm:"type:varchar(50)"`
 
-	Amount *decimal.Decimal `gorm:"type:numeric"`
-	DateCreated string `gorm:"type:varchar(50)"`
-	DeviceID string `gorm:"type:varchar(50)"`
-	State int32 `gorm:"type:integer"`
-	Status int32 `gorm:"type:integer"`
-	Route string `gorm:"type:varchar(50)"`
-	Metadata map[string]string `gorm:"type:jsonb"`
-	
+	Amount      *decimal.Decimal  `gorm:"type:numeric"`
+	DateCreated string            `gorm:"type:varchar(50)"`
+	DeviceID    string            `gorm:"type:varchar(50)"`
+	State       int32             `gorm:"type:integer"`
+	Status      int32             `gorm:"type:integer"`
+	Route       string            `gorm:"type:varchar(50)"`
+	Metadata    map[string]string `gorm:"type:jsonb"`
 }
 
 func (model *Prompt) ToApi() *paymentV1.InitiatePromptRequest {
@@ -175,7 +170,7 @@ func (model *Prompt) ToApi() *paymentV1.InitiatePromptRequest {
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount: &money.Money{Units: model.Amount.CoefficientInt64()},
+		Amount:      &money.Money{Units: model.Amount.CoefficientInt64()},
 		DateCreated: model.DateCreated,
 		DeviceId:    model.DeviceID,
 		State:       commonv1.STATE(model.State),
@@ -215,5 +210,3 @@ func (model *PromptStatus) ToStatusAPI() *commonv1.StatusResponse {
 	}
 	return &status
 }
-
-

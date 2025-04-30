@@ -335,29 +335,28 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 
 	// Initialize Prompt model
 	p := &models.Prompt{
-		ID: req.GetId(),
-		SourceID: req.GetSource().GetProfileId(),
-		SourceProfileType: req.GetSource().GetProfileType(),
-		SourceContactID: req.GetSource().GetContactId(),
-		RecipientID: req.GetRecipient().GetProfileId(),
+		ID:                   req.GetId(),
+		SourceID:             req.GetSource().GetProfileId(),
+		SourceProfileType:    req.GetSource().GetProfileType(),
+		SourceContactID:      req.GetSource().GetContactId(),
+		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
-		RecipientContactID: req.GetRecipient().GetContactId(),
+		RecipientContactID:   req.GetRecipient().GetContactId(),
 		Amount: func() *decimal.Decimal {
 			dec := decimal.NewFromFloat(float64(req.GetAmount().Units))
 			return &dec
 		}(),
 
 		DateCreated: time.Now().Format("2006-01-02 15:04:05"),
-		DeviceID: req.GetDeviceId(),
-		State: int32(commonv1.STATE_CREATED.Number()),
-		Status: int32(commonv1.STATUS_QUEUED.Number()),
+		DeviceID:    req.GetDeviceId(),
+		State:       int32(commonv1.STATE_CREATED.Number()),
+		Status:      int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
 	// Generate or validate Prompt ID
 	if req.GetId() == "" {
 		p.GenID(ctx)
 	}
-
 
 	// Set initial PromptStatus
 	pStatus := models.PromptStatus{
@@ -366,7 +365,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		Status:   int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
-	//Emit events for Prompt 
+	//Emit events for Prompt
 	event := events.PromptSave{}
 	err := pb.service.Emit(ctx, event.Name(), p)
 	if err != nil {
@@ -383,8 +382,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 
 	return pStatus.ToStatusAPI(), nil
 }
-
-
 
 // validateAmountAndCost validates the amount and cost fields of the Payment.
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {

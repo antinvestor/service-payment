@@ -17,8 +17,6 @@ type PaymentServer struct {
 	PartitionCli *partitionv1.PartitionClient
 
 	paymentV1.UnimplementedPaymentServiceServer
-
-	
 }
 
 func (ps *PaymentServer) newPaymentBusiness(ctx context.Context) (business.PaymentBusiness, error) {

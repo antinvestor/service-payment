@@ -92,6 +92,9 @@ func TestGenerateBearerToken(t *testing.T) {
 }
 
 func TestInitiateSTKUSSD(t *testing.T) {
+	// Enable test mode to skip actual signature validation
+	TestMode = true
+	defer func() { TestMode = false }()
 	tests := []struct {
 		name            string
 		request         models.STKUSSDRequest
@@ -211,6 +214,9 @@ func TestInitiateSTKUSSD(t *testing.T) {
 }
 
 func TestInitiateAccountBalance(t *testing.T) {
+	// Enable test mode to skip actual signature validation
+	TestMode = true
+	defer func() { TestMode = false }()
 	tests := []struct {
 		name            string
 		countryCode     string
@@ -330,6 +336,11 @@ func TestInitiateAccountBalance(t *testing.T) {
 }
 
 func TestGenerateSignature(t *testing.T) {
+	// Disable test mode for the signature generation tests
+	// since these tests specifically validate the signature generation logic
+	oldTestMode := TestMode
+	TestMode = false
+	defer func() { TestMode = oldTestMode }()
 	// Create a temporary file for testing
 	tmpFile, err := os.CreateTemp("", "test-private-key")
 	assert.NoError(t, err)

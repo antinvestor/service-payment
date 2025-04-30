@@ -30,6 +30,13 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate required fields in the callback
+	if callback.Transaction == "" || callback.MobileNumber == "" || callback.Currency == "" {
+		logger.Error("missing required fields in callback")
+		http.Error(w, "Missing required fields in callback", http.StatusBadRequest)
+		return
+	}
+
 	// Log the callback for debugging
 	logger.WithField("callback", callback).Info("received callback")
 

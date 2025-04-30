@@ -34,6 +34,12 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate the request by checking required fields
+	if request.Merchant.AccountNumber == "" || request.Payment.MobileNumber == "" || request.Payment.Amount == "" {
+		http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
+		return
+	}
+
 	// Create event
 	event := &events_stk.JengaSTKUSSD{
 		Service: js.Service,

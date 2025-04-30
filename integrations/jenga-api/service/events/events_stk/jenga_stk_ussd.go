@@ -21,7 +21,7 @@ type JengaSTKUSSD struct {
 
 // Name returns the name of the event handler
 func (event *JengaSTKUSSD) Name() string {
-	return "jenga_stk_ussd"
+	return "jenga.stk.ussd"
 }
 
 // PayloadType returns the type of payload this event expects

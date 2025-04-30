@@ -103,7 +103,13 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 
 func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
 	// Generate signature
-	signature, err := GenerateSignature(strings.Join(args, ""), "app/keys/privatekey.pem")
+	// Use the private key path stored in the client configuration
+	privateKeyPath := c.JengaPrivateKey
+	if privateKeyPath == "" {
+		privateKeyPath = "app/keys/privatekey.pem" // Fallback to default path
+	}
+
+	signature, err := GenerateSignature(strings.Join(args, ""), privateKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate signature: %v", err)
 	}
@@ -159,7 +165,7 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
 	
 	// Generate the signature for the request
-	signature, err := GenerateBalanceSignature(countryCode, accountId)
+	signature, err := GenerateBalanceSignature(countryCode, accountId, c.JengaPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -179,13 +185,16 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to initiate account balance: %s response Message: %s", resp.Status, resp.Body)
+	// Read the response body for all status codes
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
+	
+	// Always parse the response, even for error status codes
 	var balanceResponse models.BalanceResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&balanceResponse); err != nil {
-		return nil, err
+	if err := json.Unmarshal(respBodyBytes, &balanceResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBodyBytes))
 	}
 	//print balance response
 	fmt.Println("------------------------------balance response--------------------------------")

@@ -10,6 +10,7 @@ import (
 	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 )
 
 //job server handlers
@@ -17,6 +18,7 @@ import (
 type JobServer struct {
 	Service *frame.Service
 	Client  *coreapi.Client
+	PaymentClient *paymentV1.PaymentClient
 }
 
 func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +73,8 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 			bgLogger.WithError(err).WithField("reference", req.Payment.Ref).Error("failed to process async STK/USSD request")
 			// Note: Cannot return HTTP error since we've already sent the response
 			// Here you could implement a notification mechanism or fallback strategy
-			
+			//_ , err = js.PaymentClient.Client.Init
+
 		} else {
 			bgLogger.WithField("reference", req.Payment.Ref).Info("successfully processed async STK/USSD request")
 		}

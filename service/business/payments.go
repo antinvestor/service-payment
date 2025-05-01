@@ -99,14 +99,17 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p); err != nil {
+	event := events.PaymentSave{}
+	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
 
-	if err := pb.emitPaymentStatusEvent(ctx, pStatus); err != nil {
+	eventStatus := events.PaymentStatusSave{}
+	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
 		return nil, err
 	}
-
 	return pStatus.ToStatusAPI(), nil
 }
 
@@ -159,11 +162,17 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	}
 
 	// Emit events for Payment and PaymentStatus
-	if err := pb.emitPaymentEvent(ctx, p); err != nil {
+
+	// Emit events for Payment and PaymentStatus
+	event := events.PaymentSave{}
+	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
 
-	if err := pb.emitPaymentStatusEvent(ctx, pStatus); err != nil {
+	eventStatus := events.PaymentStatusSave{}
+	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
 		return nil, err
 	}
 
@@ -354,7 +363,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount:               &money.Money{CurrencyCode: req.GetAmount().GetCurrencyCode(), Units: req.GetAmount().GetUnits()},	
+		Amount:               &money.Money{CurrencyCode: req.GetAmount().GetCurrencyCode(), Units: req.GetAmount().GetUnits()},
 		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
@@ -397,23 +406,23 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 				"pushType":     req.Extra["pushType"],
 			},
 		}
-		
+
 		// Convert to JSON
 		jsonData, err := json.Marshal(stkPayload)
 		if err != nil {
 			asyncLogger.WithError(err).Error("Failed to marshal STK request payload")
 			return
 		}
-		
+
 		// Get API endpoint from environment
 		apiEndpoint := os.Getenv("JENGA_API_ENDPOINT")
 		if apiEndpoint == "" {
 			apiEndpoint = "https://uat.finserve.africa/v3-apis/transaction-api/v3.0/stk/push"
 		}
-		
+
 		// Create the HTTP client with timeout
 		client := &http.Client{Timeout: 30 * time.Second}
-		
+
 		// Create HTTP request
 		httpReq, err := http.NewRequestWithContext(asyncCtx, "POST", apiEndpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
@@ -421,37 +430,36 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
-		
+
 		// Add authentication if configured
 		authToken := os.Getenv("JENGA_API_TOKEN")
 		if authToken != "" {
-			httpReq.Header.Set("Authorization", "Bearer " + authToken)
+			httpReq.Header.Set("Authorization", "Bearer "+authToken)
 		}
-		
+
 		// Send the request
 		asyncLogger.WithField("payload", string(jsonData)).Info("Sending STK push request")
 		resp, err := client.Do(httpReq)
-		
+
 		if err != nil {
 			asyncLogger.WithError(err).Error("Failed to send STK push request")
 			return
 		}
 		defer resp.Body.Close()
-		
+
 		// Read and process response
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			asyncLogger.WithError(err).Error("Failed to read response body")
 			return
 		}
-		
+
 		asyncLogger.WithFields(map[string]interface{}{
 			"statusCode": resp.StatusCode,
 			"body":       string(respBody),
 			"reference":  transactionRef,
 		}).Info("Received STK push response")
 	}()
-
 
 	//Emit events for Prompt
 	event := events.PromptSave{}
@@ -467,7 +475,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		State:    int32(commonv1.STATE_CREATED.Number()),
 		Status:   int32(commonv1.STATUS_QUEUED.Number()),
 	}
-	
 
 	eventStatus := events.PromptStatusSave{}
 	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
@@ -502,22 +509,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 	c.Currency = message.GetCost().CurrencyCode
 }
 
-func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payment) error {
-	event := events.PaymentSave{}
-	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
-		return err
-	}
-
-	return nil
-}
-
-func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
-	return pb.service.Emit(ctx, "payment.status", &pStatus)
-}
-
 // generateTransactionRef creates a unique 6-character reference for Jenga API
-// Uses a letter prefix + 5 digits format (e.g., A12345)
 func generateTransactionRef() string {
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
 	timeComponent := timestamp % 1000000

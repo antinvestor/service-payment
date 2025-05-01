@@ -1,7 +1,13 @@
 package business
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/antinvestor/service-payments/service/repository"
@@ -339,7 +345,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		CountryCode:   req.GetRecipientAccount().GetCountryCode(),
 		Name:          req.GetRecipientAccount().GetName(),
 	}
-
 	// Initialize Prompt model
 	p := &models.Prompt{
 		ID:                   req.GetId(),
@@ -356,18 +361,97 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
 		Account:              &account,
 	}
-
-	// Generate or validate Prompt ID
+	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
+	transactionRef := generateTransactionRef()
 	if req.GetId() == "" {
-		p.GenID(ctx)
+		p.ID = transactionRef
 	}
+	p.Extra["transaction_ref"] = transactionRef
 
-	// Set initial PromptStatus
-	pStatus := models.PromptStatus{
-		PromptID: p.GetID(),
-		State:    int32(commonv1.STATE_CREATED.Number()),
-		Status:   int32(commonv1.STATUS_QUEUED.Number()),
-	}
+	// Send the STK/USSD push request to Jenga API asynchronously
+	go func() {
+		// Create new background context for async processing
+		asyncCtx := context.Background()
+		asyncLogger := pb.service.L(asyncCtx).WithField("function", "AsyncSTKPush").WithField("promptId", p.GetID())
+		asyncLogger.Info("Starting async STK/USSD push request")
+
+		// Format the current date and amount for the API
+		currentDate := time.Now().Format("2006-01-02")
+		amountStr := fmt.Sprintf("%.2f", float64(req.GetAmount().GetUnits())/100)
+		callbackURL := os.Getenv("CALLBACK_URL")
+		// Prepare the payload for Jenga API
+		stkPayload := map[string]interface{}{
+			"merchant": map[string]string{
+				"accountNumber": account.AccountNumber,
+				"countryCode":   account.CountryCode,
+				"name":          account.Name,
+			},
+			"payment": map[string]string{
+				"ref":          transactionRef,
+				"amount":       amountStr,
+				"currency":     req.GetAmount().GetCurrencyCode(),
+				"telco":        req.Extra["telco"],
+				"mobileNumber": req.GetSource().GetContactId(),
+				"date":         currentDate,
+				"callBackUrl":  callbackURL,
+				"pushType":     req.Extra["pushType"],
+			},
+		}
+		
+		// Convert to JSON
+		jsonData, err := json.Marshal(stkPayload)
+		if err != nil {
+			asyncLogger.WithError(err).Error("Failed to marshal STK request payload")
+			return
+		}
+		
+		// Get API endpoint from environment
+		apiEndpoint := os.Getenv("JENGA_API_ENDPOINT")
+		if apiEndpoint == "" {
+			apiEndpoint = "https://uat.finserve.africa/v3-apis/transaction-api/v3.0/stk/push"
+		}
+		
+		// Create the HTTP client with timeout
+		client := &http.Client{Timeout: 30 * time.Second}
+		
+		// Create HTTP request
+		httpReq, err := http.NewRequestWithContext(asyncCtx, "POST", apiEndpoint, bytes.NewBuffer(jsonData))
+		if err != nil {
+			asyncLogger.WithError(err).Error("Failed to create HTTP request")
+			return
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		
+		// Add authentication if configured
+		authToken := os.Getenv("JENGA_API_TOKEN")
+		if authToken != "" {
+			httpReq.Header.Set("Authorization", "Bearer " + authToken)
+		}
+		
+		// Send the request
+		asyncLogger.WithField("payload", string(jsonData)).Info("Sending STK push request")
+		resp, err := client.Do(httpReq)
+		
+		if err != nil {
+			asyncLogger.WithError(err).Error("Failed to send STK push request")
+			return
+		}
+		defer resp.Body.Close()
+		
+		// Read and process response
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			asyncLogger.WithError(err).Error("Failed to read response body")
+			return
+		}
+		
+		asyncLogger.WithFields(map[string]interface{}{
+			"statusCode": resp.StatusCode,
+			"body":       string(respBody),
+			"reference":  transactionRef,
+		}).Info("Received STK push response")
+	}()
+
 
 	//Emit events for Prompt
 	event := events.PromptSave{}
@@ -376,6 +460,14 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		logger.WithError(err).Warn("could not emit prompt save")
 		return nil, err
 	}
+
+	// Set initial PromptStatus
+	pStatus := models.PromptStatus{
+		PromptID: p.GetID(),
+		State:    int32(commonv1.STATE_CREATED.Number()),
+		Status:   int32(commonv1.STATUS_QUEUED.Number()),
+	}
+	
 
 	eventStatus := events.PromptStatusSave{}
 	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
@@ -421,10 +513,14 @@ func (pb *paymentBusiness) emitPaymentEvent(ctx context.Context, p *models.Payme
 }
 
 func (pb *paymentBusiness) emitPaymentStatusEvent(ctx context.Context, pStatus models.PaymentStatus) error {
-	eventStatus := events.PaymentStatusSave{}
-	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
-		return err
-	}
-	return nil
+	return pb.service.Emit(ctx, "payment.status", &pStatus)
+}
+
+// generateTransactionRef creates a unique 6-character reference for Jenga API
+// Uses a letter prefix + 5 digits format (e.g., A12345)
+func generateTransactionRef() string {
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	timeComponent := timestamp % 1000000
+	asciiChar := 65 + ((timestamp / 1000000) % 26)
+	return fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%100000)
 }

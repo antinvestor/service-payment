@@ -137,6 +137,13 @@ type Route struct {
 	Uri         string `gorm:"type:varchar(255)"`
 }
 
+type Account struct {
+	frame.BaseModel
+	AccountNumber string `gorm:"type:varchar(50)"`
+	CountryCode   string `gorm:"type:varchar(50)"`
+	Name          string `gorm:"type:varchar(50)"`
+}
+
 type Prompt struct {
 	frame.BaseModel
 	ID                string `gorm:"type:varchar(50)"`
@@ -154,11 +161,24 @@ type Prompt struct {
 	State       int32             `gorm:"type:integer"`
 	Status      int32             `gorm:"type:integer"`
 	Route       string            `gorm:"type:varchar(50)"`
-	Metadata    map[string]string `gorm:"type:jsonb"`
+	Account     *Account          `gorm:"foreignKey:AccountID"`
+	Extra       datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
 }
 
-func (model *Prompt) ToApi() *paymentV1.InitiatePromptRequest {
-	return &paymentV1.InitiatePromptRequest{
+func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptRequest {
+	extra := make(map[string]string)
+	extra["tenant_id"] = model.TenantID
+	extra["partition_id"] = model.PartitionID
+	extra["access_id"] = model.AccessID
+	extra["PromptID"] = model.ID
+
+	if len(message) != 0 {
+		for key, val := range message {
+			extra[key] = val
+		}
+	}
+
+	prompt := paymentV1.InitiatePromptRequest{
 		Id: model.ID,
 		Source: &commonv1.ContactLink{
 			ProfileType: model.SourceProfileType,
@@ -170,14 +190,21 @@ func (model *Prompt) ToApi() *paymentV1.InitiatePromptRequest {
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:      &money.Money{Units: model.Amount.CoefficientInt64()},
+		Amount:      &money.Money{CurrencyCode: extra["Currency"], Units: model.Amount.CoefficientInt64()},
 		DateCreated: model.DateCreated,
 		DeviceId:    model.DeviceID,
 		State:       commonv1.STATE(model.State),
 		Status:      commonv1.STATUS(model.Status),
 		Route:       model.Route,
-		Metadata:    model.Metadata,
+		RecipientAccount: &paymentV1.Account{
+			AccountNumber: model.Account.AccountNumber,
+			CountryCode:   model.Account.CountryCode,
+			Name:          model.Account.Name,
+		},
+		Extra:       extra,
 	}
+
+	return &prompt
 }
 
 func (model *Prompt) ToApiStatus() *commonv1.StatusResponse {

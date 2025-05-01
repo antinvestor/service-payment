@@ -4,9 +4,9 @@ go 1.24.0
 
 require (
 	github.com/antinvestor/apis/go/common v1.34.0
-	github.com/antinvestor/apis/go/partition v1.34.0
-	github.com/antinvestor/apis/go/payment v1.34.0
-	github.com/antinvestor/apis/go/profile v1.34.0
+	github.com/antinvestor/apis/go/partition v1.34.2
+	github.com/antinvestor/apis/go/payment v1.34.2
+	github.com/antinvestor/apis/go/profile v1.34.2
 	github.com/pitabwire/frame v1.31.3
 	github.com/shopspring/decimal v1.4.0
 	github.com/testcontainers/testcontainers-go v0.32.0
@@ -41,7 +41,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.5 // indirect
-	github.com/bufbuild/protovalidate-go v0.10.0
+	github.com/bufbuild/protovalidate-go v0.10.1
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/containerd v1.7.18 // indirect
 	github.com/containerd/errdefs v0.1.0 // indirect
@@ -70,7 +70,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -111,7 +110,7 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/api v0.230.0 // indirect
+	google.golang.org/api v0.231.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250428153025-10db94c68c34 // indirect
 	google.golang.org/protobuf v1.36.6
 	gorm.io/driver/mysql v1.5.7 // indirect

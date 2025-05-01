@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -40,26 +41,41 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create event
-	event := &events_stk.JengaSTKUSSD{
-		Service: js.Service,
-		Client:  js.Client,
-	}
+	// Make a copy of the request for async processing
+	requestCopy := request
 
-	// Execute event
-	err := js.Service.Emit(ctx, event.Name(), &request)
-	if err != nil {
-		logger.WithError(err).Error("failed to process STK/USSD request")
-		http.Error(w, "Failed to process request", http.StatusInternalServerError)
-		return
-	}
-
-	// Return success response
+	// Return immediate success response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
-		"message": "STK/USSD push initiated successfully",
+		"message": "STK/USSD push request accepted for processing",
+		"referenceId": request.Payment.Ref, // Use the correct field Ref
 	})
+
+	// Process the request asynchronously in a goroutine
+	go func(req models.STKUSSDRequest) {
+		// Create a new background context for async processing
+		bgCtx := context.Background()
+		bgLogger := js.Service.L(bgCtx).WithField("type", "AsyncInitiateStkUssd")
+		bgLogger.WithField("reference", req.Payment.Ref).Info("starting async STK/USSD processing")
+
+		// Create event
+		event := &events_stk.JengaSTKUSSD{
+			Service: js.Service,
+			Client:  js.Client,
+		}
+
+		// Execute event
+		err := js.Service.Emit(bgCtx, event.Name(), &req)
+		if err != nil {
+			bgLogger.WithError(err).WithField("reference", req.Payment.Ref).Error("failed to process async STK/USSD request")
+			// Note: Cannot return HTTP error since we've already sent the response
+			// Here you could implement a notification mechanism or fallback strategy
+			
+		} else {
+			bgLogger.WithField("reference", req.Payment.Ref).Info("successfully processed async STK/USSD request")
+		}
+	}(requestCopy)
 }
 
 func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Request) {

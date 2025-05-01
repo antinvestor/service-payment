@@ -146,7 +146,7 @@ type Account struct {
 
 type Prompt struct {
 	frame.BaseModel
-	ID                string `gorm:"type:varchar(50)"`
+	ID                string `gorm:"type:varchar(50)"`	
 	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
 	SourceContactID   string `gorm:"type:varchar(50)"`
@@ -154,13 +154,12 @@ type Prompt struct {
 	RecipientID          string `gorm:"type:varchar(50)"`
 	RecipientProfileType string `gorm:"type:varchar(50)"`
 	RecipientContactID   string `gorm:"type:varchar(50)"`
-
-	Amount      *decimal.Decimal  `gorm:"type:numeric"`
-	DateCreated string            `gorm:"type:varchar(50)"`
-	DeviceID    string            `gorm:"type:varchar(50)"`
-	State       int32             `gorm:"type:integer"`
-	Status      int32             `gorm:"type:integer"`
-	Route       string            `gorm:"type:varchar(50)"`
+	Amount               *money.Money
+	DateCreated          string            `gorm:"type:varchar(50)"`
+	DeviceID             string            `gorm:"type:varchar(50)"`
+	State                int32             `gorm:"type:integer"`
+	Status               int32             `gorm:"type:integer"`
+	Route                string            `gorm:"type:varchar(50)"`
 	Account     *Account          `gorm:"foreignKey:AccountID"`
 	Extra       datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
 }
@@ -190,7 +189,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:      &money.Money{CurrencyCode: extra["Currency"], Units: model.Amount.CoefficientInt64()},
+		Amount:      model.Amount,
 		DateCreated: model.DateCreated,
 		DeviceId:    model.DeviceID,
 		State:       commonv1.STATE(model.State),

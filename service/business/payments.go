@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/service/repository"
+	"google.golang.org/genproto/googleapis/type/money"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
@@ -333,6 +334,12 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 	logger := pb.service.L(ctx).WithField("request", req)
 	logger.Info("handling initiate prompt request")
 
+	account := models.Account{
+		AccountNumber: req.GetRecipientAccount().GetAccountNumber(),
+		CountryCode:   req.GetRecipientAccount().GetCountryCode(),
+		Name:          req.GetRecipientAccount().GetName(),
+	}
+
 	// Initialize Prompt model
 	p := &models.Prompt{
 		ID:                   req.GetId(),
@@ -342,15 +349,12 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount: func() *decimal.Decimal {
-			dec := decimal.NewFromFloat(float64(req.GetAmount().Units))
-			return &dec
-		}(),
-
-		DateCreated: time.Now().Format("2006-01-02 15:04:05"),
-		DeviceID:    req.GetDeviceId(),
-		State:       int32(commonv1.STATE_CREATED.Number()),
-		Status:      int32(commonv1.STATUS_QUEUED.Number()),
+		Amount:               &money.Money{CurrencyCode: req.GetAmount().GetCurrencyCode(), Units: req.GetAmount().GetUnits()},	
+		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
+		DeviceID:             req.GetDeviceId(),
+		State:                int32(commonv1.STATE_CREATED.Number()),
+		Status:               int32(commonv1.STATUS_QUEUED.Number()),
+		Account:              &account,
 	}
 
 	// Generate or validate Prompt ID

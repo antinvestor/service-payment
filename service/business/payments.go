@@ -146,12 +146,6 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	if message.GetId() == "" {
 		p.GenID(ctx)
 	}
-
-	// if p.SenderProfileID == "" || p.RecipientProfileID == "" {
-	// 	return nil, nil
-	// }
-
-	// Validate and set amount and cost
 	pb.validateAmountAndCost(message, p, c)
 
 	// Set initial PaymentStatus
@@ -161,9 +155,6 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
 
-	// Emit events for Payment and PaymentStatus
-
-	// Emit events for Payment and PaymentStatus
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
@@ -183,13 +174,68 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 	logger := pb.service.L(ctx).WithField("request", status)
 	logger.Info("handling status check request")
 
+	// Define a slice of status handlers that will be tried in order
+	statusHandlers := []func(context.Context, string) (*commonv1.StatusResponse, error){
+		pb.getPaymentStatus,
+		pb.getPromptStatus,
+		// Add new handlers here in the future
+	}
+
+	// Try each handler until one succeeds
+	for _, handler := range statusHandlers {
+		statusResponse, err := handler(ctx, status.GetId())
+		if err == nil {
+			// Successfully found and processed the status
+			return statusResponse, nil
+		}
+		// Log but continue to next handler
+		logger.WithError(err).Debug("status handler couldn't process request")
+	}
+
+	// If we get here, no handler could process the request
+	logger.Error("could not find entity with this ID")
+	return nil, fmt.Errorf("no entity found with ID: %s", status.GetId())
+}
+
+func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("request", req)
+	logger.Info("handling status update request")
+
+	// Define a slice of status update handlers that will be tried in order
+	statusUpdateHandlers := []func(context.Context, *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error){
+		pb.updatePaymentStatus,
+		pb.updatePromptStatus,
+		// Add new handlers here in the future
+	}
+
+	// Try each handler until one succeeds
+	for _, handler := range statusUpdateHandlers {
+		statusResponse, err := handler(ctx, req)
+		if err == nil {
+			// Successfully updated the status
+			return statusResponse, nil
+		}
+		// Log but continue to next handler
+		logger.WithError(err).Debug("status update handler couldn't process request")
+	}
+
+	// If we get here, no handler could process the request
+	logger.Error("could not find entity with this ID")
+	return nil, fmt.Errorf("no entity found with ID: %s", req.GetId())
+}
+
+// getPaymentStatus tries to get the status of a payment with the given ID
+func (pb *paymentBusiness) getPaymentStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("paymentId", id)
+
+	// Try to find a payment with this ID
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
-	p, err := paymentRepo.GetByID(ctx, status.GetId())
+	p, err := paymentRepo.GetByID(ctx, id)
 	if err != nil {
-		logger.WithError(err).Error("could not get payment status")
 		return nil, err
 	}
 
+	// Get the payment status
 	paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, pb.service)
 	pStatus, err := paymentStatusRepo.GetByID(ctx, p.ID)
 	if err != nil {
@@ -200,16 +246,40 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 	return pStatus.ToStatusAPI(), nil
 }
 
-func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", req)
-	logger.Info("handling status update request")
+// getPromptStatus tries to get the status of a prompt with the given ID
+func (pb *paymentBusiness) getPromptStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("promptId", id)
 
+	// Try to find a prompt with this ID
+	promptRepo := repository.NewPromptRepository(ctx, pb.service)
+	prompt, err := promptRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the prompt status
+	promptStatusRepo := repository.NewPromptStatusRepository(ctx, pb.service)
+	pStatus, err := promptStatusRepo.GetByID(ctx, prompt.ID)
+	if err != nil {
+		logger.WithError(err).Error("could not get prompt status")
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
+// updatePaymentStatus tries to update the status of a payment with the given ID
+func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("paymentId", req.GetId())
+
+	// Try to find a payment with this ID
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
 	p, err := paymentRepo.GetByID(ctx, req.GetId())
 	if err != nil {
-		logger.WithError(err).Error("could not get payment status")
 		return nil, err
 	}
+
+	// Create a payment status update
 	pStatus := models.PaymentStatus{
 		PaymentID: p.ID,
 		State:     int32(req.GetState()),
@@ -219,11 +289,43 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 
 	pStatus.GenID(ctx)
 
-	//queue out payment status for further processing
+	// Emit the payment status event
 	eventStatus := events.PaymentStatusSave{}
 	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
 	if err != nil {
-		logger.WithError(err).Warn("could not save status")
+		logger.WithError(err).Warn("could not save payment status")
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
+// updatePromptStatus tries to update the status of a prompt with the given ID
+func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.L(ctx).WithField("promptId", req.GetId())
+
+	// Try to find a prompt with this ID
+	promptRepo := repository.NewPromptRepository(ctx, pb.service)
+	prompt, err := promptRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a prompt status update
+	pStatus := models.PromptStatus{
+		PromptID: prompt.ID,
+		State:    int32(req.GetState()),
+		Status:   int32(req.GetStatus()),
+		Extra:    frame.DBPropertiesFromMap(req.GetExtras()),
+	}
+
+	pStatus.GenID(ctx)
+
+	// Emit the prompt status event
+	eventStatus := events.PromptStatusSave{}
+	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+	if err != nil {
+		logger.WithError(err).Error("could not emit prompt status event")
 		return nil, err
 	}
 

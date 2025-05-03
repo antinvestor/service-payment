@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/service/repository"
-	"google.golang.org/genproto/googleapis/type/money"
-
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -21,6 +19,7 @@ import (
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
+	"gorm.io/datatypes"
 )
 
 type PaymentBusiness interface {
@@ -465,19 +464,24 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount:               &money.Money{CurrencyCode: req.GetAmount().GetCurrencyCode(), Units: req.GetAmount().GetUnits()},
+		Amount:               decimal.NullDecimal{Valid: true, Decimal: decimal.NewFromFloat(float64(req.GetAmount().GetUnits()))},
 		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
-		Account:              &account,
+		Account:              account,
+		Extra:                make(datatypes.JSONMap),
 	}
 	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
 	transactionRef := generateTransactionRef()
 	if req.GetId() == "" {
-		p.ID = transactionRef
+		// If no ID provided in the request, use the transaction reference as the ID
+		p.GenID(ctx)
 	}
 	p.Extra["transaction_ref"] = transactionRef
+
+	//add currency
+	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()
 
 	// Send the STK/USSD push request to Jenga API asynchronously
 	go func() {
@@ -507,6 +511,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 				"callBackUrl":  callbackURL,
 				"pushType":     req.Extra["pushType"],
 			},
+			"id": p.GetID(),
 		}
 
 		// Convert to JSON
@@ -576,7 +581,10 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		PromptID: p.GetID(),
 		State:    int32(commonv1.STATE_CREATED.Number()),
 		Status:   int32(commonv1.STATUS_QUEUED.Number()),
+		Extra:    make(datatypes.JSONMap),
 	}
+	// Use the same ID as the prompt for the status to maintain relationship
+	pStatus.ID = p.GetID()
 
 	eventStatus := events.PromptStatusSave{}
 	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)

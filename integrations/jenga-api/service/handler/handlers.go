@@ -54,6 +54,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 		"message": "STK/USSD push request accepted for processing",
 		"referenceId": request.Payment.Ref, // Use the correct field Ref
 	})
+	
 
 	// Process the request asynchronously in a goroutine
 	go func(req models.STKUSSDRequest) {
@@ -74,7 +75,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 			bgLogger.WithError(err).WithField("reference", req.Payment.Ref).Error("failed to process async STK/USSD request")
 
 			statusUpdateRequest := &commonv1.StatusUpdateRequest{
-				Id: req.Payment.Ref,
+				Id: req.ID,
 				State: commonv1.STATE_ACTIVE,
 				Status: commonv1.STATUS_FAILED,
 			}

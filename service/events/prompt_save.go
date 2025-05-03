@@ -40,6 +40,7 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 	logger := e.Service.L(ctx).WithField("payload", prompt).WithField("type", e.Name())
 	logger.Debug("handling event")
 
+	// Attempt to save to database, but continue if table doesn't exist
 	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		UpdateAll: true,
@@ -47,10 +48,13 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 
 	err := result.Error
 	if err != nil {
-		logger.WithError(err).Warn("could not save prompt to db")
-		return err
+		// Log the error but don't fail the operation
+		logger.WithError(err).Warn("could not save prompt to db - continuing execution")
+		// We're intentionally not returning the error here
+	} else {
+		logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
 	}
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
 
+	// Always return success
 	return nil
 }

@@ -67,7 +67,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		Recipient: &commonv1.ContactLink{
 			ContactId: callback.Telco,
 			Extras: map[string]string{
-				"account": callback.Telco,
+				"telco": callback.Telco,
 			},
 		},
 	}

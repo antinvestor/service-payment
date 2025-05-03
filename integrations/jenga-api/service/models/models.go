@@ -31,6 +31,7 @@ type PaymentResponse struct {
 type STKUSSDRequest struct {
 	Merchant Merchant `json:"merchant"`
 	Payment  Payment  `json:"payment"`
+	ID string `json:"id"`
 }
 
 // STKUSSDResponse represents the response structure for the STK/USSD push initiation

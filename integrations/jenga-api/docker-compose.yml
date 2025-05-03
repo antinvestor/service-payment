@@ -1,8 +1,6 @@
 networks:
   jenga_network:  # Define a custom network
     driver: bridge
-  common_network:
-    driver: bridge
 
 services:
   jenga_service:
@@ -14,9 +12,11 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml
       - ./keys:/app/keys
-
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - jenga_network
+    environment:
+      - PAYMENT_SERVICE_ENDPOINT=payment_service:50051  # Reference by service name
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -26,4 +26,38 @@ services:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
       - jenga_service
-    network_mode: host
+    networks:
+      - jenga_network
+
+  payment_db:
+    image: postgres:16.3
+    environment:
+      POSTGRES_DB: service_payment
+      POSTGRES_USER: ant
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5436:5432"
+    networks:
+      - jenga_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ant -d service_payment"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  payment_service:
+    build: ../../
+    ports:
+      - "50051:50051"  # Map the port where the gRPC server listens
+    depends_on:
+      payment_db:
+        condition: service_healthy
+    environment:
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - SECURELY_RUN_SERVICE=false
+      - JENGA_API_ENDPOINT=https://jenga_service.chamamobile.com/payments/stk-ussd
+      - JENGA_API_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkplbmdhQVBJVXNlciIsImlhdCI6MTY4MjQyMTIwMCwiZXhwIjoxNzEzOTU3MjAwLCJpc3MiOiJwYXltZW50LXNlcnZpY2UiLCJhdWQiOiJqZW5nYS1hcGkiLCJyb2xlIjoic2VydmljZSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    restart: unless-stopped
+    networks:
+      - jenga_network

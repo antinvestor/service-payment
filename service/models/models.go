@@ -43,7 +43,7 @@ type Payment struct {
 	Cost          *Cost
 	ReleasedAt    *time.Time
 	OutBound      bool
-	Extra         datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	Extra         datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 func (model *Payment) IsReleased() bool {
@@ -101,13 +101,13 @@ type Cost struct {
 	PaymentID string              `gorm:"type:varchar(50)"`
 	Amount    decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
 	Currency  string
-	Extra     datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	Extra     datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 type PaymentStatus struct {
 	frame.BaseModel
 	PaymentID string            `gorm:"type:varchar(50)"`
-	Extra     datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	Extra     datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 	State     int32
 	Status    int32
 }
@@ -154,14 +154,14 @@ type Prompt struct {
 	RecipientID          string `gorm:"type:varchar(50)"`
 	RecipientProfileType string `gorm:"type:varchar(50)"`
 	RecipientContactID   string `gorm:"type:varchar(50)"`
-	Amount               *money.Money
+	Amount           decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
 	DateCreated          string            `gorm:"type:varchar(50)"`
 	DeviceID             string            `gorm:"type:varchar(50)"`
 	State                int32             `gorm:"type:integer"`
 	Status               int32             `gorm:"type:integer"`
 	Route                string            `gorm:"type:varchar(50)"`
-	Account     *Account          `gorm:"foreignKey:AccountID"`
-	Extra       datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	Account     Account `gorm:"type:jsonb"`
+	Extra       datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptRequest {
@@ -170,6 +170,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
 	extra["PromptID"] = model.ID
+	
 
 	if len(message) != 0 {
 		for key, val := range message {
@@ -189,7 +190,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:      model.Amount,
+		Amount:     &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
 		DateCreated: model.DateCreated,
 		DeviceId:    model.DeviceID,
 		State:       commonv1.STATE(model.State),
@@ -218,7 +219,7 @@ type PromptStatus struct {
 	frame.BaseModel
 
 	PromptID string            `gorm:"type:varchar(50)"`
-	Extra    datatypes.JSONMap `gorm:"index:,type:gin,option:jsonb_path_ops" json:"extra"`
+	Extra    datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 	State    int32
 	Status   int32
 }

@@ -69,7 +69,7 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		//update status
 		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id: request.Payment.Ref,	
+			Id: request.ID,	
 			State: commonv1.STATE_ACTIVE,
 			Status: commonv1.STATUS_FAILED,
 
@@ -84,7 +84,7 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	logger.WithField("response", response).Info("STK/USSD push response received")
 	//update status
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id: request.Payment.Ref,	
+		Id: request.ID,	
 		State: commonv1.STATE_ACTIVE,
 		Status: commonv1.STATUS_SUCCESSFUL,
 	}

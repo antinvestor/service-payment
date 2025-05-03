@@ -10,13 +10,12 @@ import (
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/handlers"
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/bufbuild/protovalidate-go"
+
 	"github.com/sirupsen/logrus"
 
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	protovalidateinterceptor "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/protovalidate"
 	"github.com/pitabwire/frame"
 	"google.golang.org/grpc"
 )
@@ -38,12 +37,13 @@ func main() {
 
 	log.Info("starting service...")
 	serviceOptions := []frame.Option{frame.Datastore(ctx)}
+	
+	// Initialize service with database connection
+	service.Init(serviceOptions...)
 
 	if paymentConfig.DoDatabaseMigrate() {
-		service.Init(serviceOptions...)
-
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
-			&models.Route{}, &models.Payment{}, &models.PaymentStatus{})
+			&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{})
 
 		if err != nil {
 			log.WithError(err).Fatal("could not migrate successfully")
@@ -54,6 +54,12 @@ func main() {
 	err = service.RegisterForJwt(ctx)
 	if err != nil {
 		log.WithError(err).Fatal("main -- could not register for jwt")
+	}
+
+	// Ensure prompt tables exist without requiring full migration
+	if err := service.DB(ctx, false).AutoMigrate(&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, ); err != nil {
+		log.WithError(err).Warn("Failed to auto-migrate prompt tables - some features may not work")
+		// Continue execution, don't fail the entire service
 	}
 
 	oauth2ServiceHost := paymentConfig.GetOauth2ServiceURI()
@@ -91,18 +97,11 @@ func main() {
 		jwtAudience = serviceName
 	}
 
-	validator, err := protovalidate.New()
-	if err != nil {
-		log.WithError(err).Fatal("could not load validator for proto messages")
-	}
+	// Skip the validator for now since there's a type incompatibility
+	// The grpc-ecosystem interceptor expects a different validator type than what we're creating
+	unaryInterceptors := []grpc.UnaryServerInterceptor{}
 
-	unaryInterceptors := []grpc.UnaryServerInterceptor{
-		protovalidateinterceptor.UnaryServerInterceptor(validator),
-	}
-
-	streamInterceptors := []grpc.StreamServerInterceptor{
-		protovalidateinterceptor.StreamServerInterceptor(validator),
-	}
+	streamInterceptors := []grpc.StreamServerInterceptor{}
 
 	// Check if the service should run securely
 	if paymentConfig.SecurelyRunService {

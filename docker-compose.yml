@@ -10,12 +10,14 @@ services:
       POSTGRES_PASSWORD: secret
     ports:
       - "5436:5432"
-    network_mode: host
+    networks:
+      - common_network
 
   payment_service:
     build: ./
     ports:
       - "50051:50051"  # Map the port where the gRPC server listens
+      - "8081:8081"    # HTTP port
     depends_on:
       - payment_db
     environment:
@@ -23,4 +25,5 @@ services:
       - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
       - SECURELY_RUN_SERVICE=false
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - common_network

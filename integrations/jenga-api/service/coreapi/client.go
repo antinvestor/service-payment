@@ -100,8 +100,7 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	return &tokenResponse, nil
 }
 
-
-func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
+func (c *Client) GeneratePaymentSignature(args ...string) (string, error) {
 	// Generate signature
 	// Use the private key path stored in the client configuration
 	privateKeyPath := c.JengaPrivateKey
@@ -120,9 +119,8 @@ func (c *Client)GeneratePaymentSignature(args ...string) (string, error) {
 func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
-
-// Generate the signature for the request
-signature, err := c.GeneratePaymentSignature(
+	// Generate the signature for the request
+	signature, err := c.GeneratePaymentSignature(
 		request.Merchant.AccountNumber,
 		request.Payment.Ref,
 		request.Payment.MobileNumber,
@@ -163,7 +161,7 @@ signature, err := c.GeneratePaymentSignature(
 func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
 	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
 	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
-	
+
 	// Generate the signature for the request
 	signature, err := GenerateBalanceSignature(countryCode, accountId, c.JengaPrivateKey)
 	if err != nil {
@@ -190,7 +188,7 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
-	
+
 	// Always parse the response, even for error status codes
 	var balanceResponse models.BalanceResponse
 	if err := json.Unmarshal(respBodyBytes, &balanceResponse); err != nil {
@@ -202,4 +200,3 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 
 	return &balanceResponse, nil
 }
-

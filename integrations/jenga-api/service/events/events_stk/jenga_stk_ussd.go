@@ -4,9 +4,9 @@ package events_stk
 import (
 	"context"
 	"fmt"
-	"time"
 
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
@@ -56,26 +56,6 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 
 	// Get logger first to avoid redefinition
 	logger := event.Service.L(ctx)
-
-	// Generate a unique 6-character reference
-	// We'll use the current time to help make it unique
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-	// Use the last 6 digits of the timestamp (or fewer if needed)
-	// This gives a rolling unique ID that cycles every million milliseconds (16.6 minutes)
-	timeComponent := timestamp % 1000000
-
-	originalRef := request.Payment.Ref
-
-	// Generate the new reference (format: A12345, where A is alphabetic and 12345 are numeric)
-	// This creates references like A12345, B56789, etc.
-	asciiChar := 65 + ((timestamp / 1000000) % 26) // 65 is ASCII 'A', rotating through 26 letters
-	request.Payment.Ref = fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%100000)
-
-	logger.WithFields(map[string]interface{}{
-		"original_ref": originalRef,
-		"new_ref":      request.Payment.Ref,
-	}).Info("Generated unique 6-character transaction reference")
-
 	// Generate bearer token for authorization
 	token, err := event.Client.GenerateBearerToken()
 	if err != nil {
@@ -87,10 +67,31 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	response, err := event.Client.InitiateSTKUSSD(*request, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
+		//update status
+		statusUpdateRequest := &commonv1.StatusUpdateRequest{
+			Id: request.Payment.Ref,	
+			State: commonv1.STATE_ACTIVE,
+			Status: commonv1.STATUS_FAILED,
+
+		}
+		_, err = event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+		if err != nil {
+			logger.WithError(err).Error("failed to update payment status")
+		}
 		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
 	}
-
+	
 	logger.WithField("response", response).Info("STK/USSD push response received")
+	//update status
+	statusUpdateRequest := &commonv1.StatusUpdateRequest{
+		Id: request.Payment.Ref,	
+		State: commonv1.STATE_ACTIVE,
+		Status: commonv1.STATUS_SUCCESSFUL,
+	}
+	_, err = event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+	if err != nil {
+		logger.WithError(err).Error("failed to update payment status")
+	}
 
 	return nil
 }

@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/antinvestor/apis/go/common v1.34.0
-	github.com/antinvestor/apis/go/payment v1.34.3
+	github.com/antinvestor/apis/go/payment v1.34.4
 	github.com/gorilla/mux v1.8.1
 	github.com/pitabwire/frame v1.32.1
 	github.com/stretchr/testify v1.10.0

@@ -56,11 +56,13 @@ func main() {
 		log.WithError(err).Fatal("main -- could not register for jwt")
 	}
 
-	// Ensure prompt tables exist without requiring full migration
-	if err := service.DB(ctx, false).AutoMigrate(&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, ); err != nil {
-		log.WithError(err).Warn("Failed to auto-migrate prompt tables - some features may not work")
-		// Continue execution, don't fail the entire service
+	// Ensure all required tables exist - this is critical for service operation
+	log.Info("Running database auto-migration to ensure tables exist")
+	if err := service.DB(ctx, false).AutoMigrate( &models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}); err != nil {
+		log.WithError(err).Fatal("Failed to auto-migrate database tables - cannot continue")
+		return
 	}
+	log.Info("Database auto-migration completed successfully")
 
 	oauth2ServiceHost := paymentConfig.GetOauth2ServiceURI()
 	oauth2ServiceURL := fmt.Sprintf("%s/oauth2/token", oauth2ServiceHost)

@@ -1,12 +1,11 @@
 package events_stk
 
-
 import (
 	"context"
 	"fmt"
 
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
@@ -69,26 +68,34 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		//update status
 		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id: request.ID,	
-			State: commonv1.STATE_ACTIVE,
+			Id:     request.ID,
+			State:  commonv1.STATE_ACTIVE,
 			Status: commonv1.STATUS_FAILED,
-
+			Extras: map[string]string{
+				"update_type": "prompt", // Explicitly specify this is a prompt update
+				"transaction_ref": request.Payment.Ref,
+				"error": err.Error(),
+			},
 		}
-		_, err = event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+		_, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 		if err != nil {
 			logger.WithError(err).Error("failed to update payment status")
 		}
 		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
 	}
-	
+
 	logger.WithField("response", response).Info("STK/USSD push response received")
 	//update status
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id: request.ID,	
-		State: commonv1.STATE_ACTIVE,
+		Id:     request.ID,
+		State:  commonv1.STATE_ACTIVE,
 		Status: commonv1.STATUS_SUCCESSFUL,
+		Extras: map[string]string{
+			"update_type": "prompt", // Explicitly specify this is a prompt update
+			"transaction_ref": request.Payment.Ref,
+		},
 	}
-	_, err = event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+	_, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to update payment status")
 	}

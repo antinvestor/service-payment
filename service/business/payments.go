@@ -10,13 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/antinvestor/service-payments/service/repository"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
@@ -200,6 +200,34 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 	logger := pb.service.L(ctx).WithField("request", req)
 	logger.Info("handling status update request")
 
+	// Check if the request has an explicit update_type specified
+	updateType, hasUpdateType := req.GetExtras()["update_type"]
+	if hasUpdateType {
+		logger.WithField("update_type", updateType).Info("Request has explicit update type")
+		
+		// Handle explicit prompt update first
+		if updateType == "prompt" {
+			logger.Info("Processing explicit prompt status update")
+			statusResponse, err := pb.updatePromptStatus(ctx, req)
+			if err == nil {
+				return statusResponse, nil
+			}
+			logger.WithError(err).Error("Failed to update prompt status despite explicit type")
+			// Return the error since this was explicitly a prompt update
+			return nil, err
+		} else if updateType == "payment" {
+			logger.Info("Processing explicit payment status update")
+			statusResponse, err := pb.updatePaymentStatus(ctx, req)
+			if err == nil {
+				return statusResponse, nil
+			}
+			logger.WithError(err).Error("Failed to update payment status despite explicit type")
+			// Return the error since this was explicitly a payment update
+			return nil, err
+		}
+	}
+
+	// If no specific type was provided, try the standard order of handlers
 	// Define a slice of status update handlers that will be tried in order
 	statusUpdateHandlers := []func(context.Context, *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error){
 		pb.updatePaymentStatus,
@@ -286,7 +314,7 @@ func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv
 		Extra:     frame.DBPropertiesFromMap(req.GetExtras()),
 	}
 
-	pStatus.GenID(ctx)
+	//pStatus.GenID(ctx)
 
 	// Emit the payment status event
 	eventStatus := events.PaymentStatusSave{}
@@ -318,7 +346,7 @@ func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1
 		Extra:    frame.DBPropertiesFromMap(req.GetExtras()),
 	}
 
-	pStatus.GenID(ctx)
+	//pStatus.GenID(ctx)
 
 	// Emit the prompt status event
 	eventStatus := events.PromptStatusSave{}
@@ -457,7 +485,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 	}
 	// Initialize Prompt model
 	p := &models.Prompt{
-		ID:                   req.GetId(),
 		SourceID:             req.GetSource().GetProfileId(),
 		SourceProfileType:    req.GetSource().GetProfileType(),
 		SourceContactID:      req.GetSource().GetContactId(),
@@ -469,15 +496,39 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
-		Account:              account,
+		Account:              func() datatypes.JSON {
+			accountJSON, err := json.Marshal(account)
+			if err != nil {
+				logger.WithError(err).Error("failed to marshal account to JSON")
+				return datatypes.JSON("{}")
+			}
+			return accountJSON
+		}(),
 		Extra:                make(datatypes.JSONMap),
 	}
+
 	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
 	transactionRef := generateTransactionRef()
-	if req.GetId() == "" {
-		// If no ID provided in the request, use the transaction reference as the ID
-		p.GenID(ctx)
+
+	// First explicitly set the provided ID if one was given
+	if req.GetId() != "" {
+		p.ID = req.GetId()
 	}
+
+	// Then ensure the model has a valid ID by calling GenID if needed
+	// This ensures that either the provided ID is used or a new one is generated
+	if p.GetID() == "" {
+		p.GenID(ctx)
+		// And make sure the explicit ID field matches the base model
+		p.ID = p.GetID()
+	}
+
+	// Log the ID that will be used
+	logger.WithFields(map[string]interface{}{
+		"promptId":    p.ID,
+		"baseModelId": p.GetID(),
+	}).Info("Prompt ID set")
+
 	p.Extra["transaction_ref"] = transactionRef
 
 	//add currency
@@ -575,6 +626,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		logger.WithError(err).Warn("could not emit prompt save")
 		return nil, err
 	}
+	
 
 	// Set initial PromptStatus
 	pStatus := models.PromptStatus{

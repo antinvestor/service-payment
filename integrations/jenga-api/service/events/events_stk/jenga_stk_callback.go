@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -22,14 +23,13 @@ func (event *JengaCallbackReceivePayment) Name() string {
 }
 
 func (event *JengaCallbackReceivePayment) PayloadType() any {
-	return &models.CallbackRequest{}
+	return &models.StkCallback{}
 }
 
 func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload any) error {
+	callback := payload.(*models.StkCallback)
 
-	request := payload.(*models.CallbackRequest)
-
-	if request.Transaction.Reference == "" {
+	if callback.Transaction == "" {
 		return errors.New("transaction reference is required")
 	}
 
@@ -47,8 +47,15 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 
 	callback := payload.(*models.StkCallback)
 
+	logger.WithFields(map[string]interface{}{
+		"transaction_ref": callback.Transaction,
+		"telco_ref":       callback.Telco,
+		"mobile_number":   callback.MobileNumber,
+	}).Info("Processing STK callback")
+
 	// Extract relevant information from callback
 	payment := &paymentV1.Payment{
+		// Keep the original transaction reference - we'll handle lookup/mapping in the payment service
 		ReferenceId: callback.Transaction,
 		Amount: &money.Money{
 			Units:        int64(callback.DebitedAmount * 100), // convert to cents
@@ -74,6 +81,13 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 
 	// Add any additional information from callback to extras
 	extras := make(map[string]string)
+
+	// Add key data to help with reference handling
+	extras["telco_ref"] = callback.Telco
+	extras["mobile_number"] = callback.MobileNumber
+	extras["update_type"] = "payment" // Explicitly indicate this is a payment update
+	extras["callback_time"] = time.Now().Format(time.RFC3339)
+
 	// Marshal the full callback to JSON and store it in extras
 	callbackJSON, err := json.Marshal(callback)
 	if err == nil {
@@ -100,7 +114,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		}
 
 		// Invoke the GRPC status update method
-		statusUpdateResponse, err := event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+		statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 		if err != nil {
 			logger.WithError(err).Error("failed to update payment status")
 			return nil
@@ -123,7 +137,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	// Invoke the GRPC status update method
-	statusUpdateResponse, err := event.PaymentClient.Client.StatusUpdate(ctx, statusUpdateRequest)
+	statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to update payment status")
 		return nil

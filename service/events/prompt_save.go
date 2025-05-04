@@ -23,14 +23,35 @@ func (e *PromptSave) PayloadType() any {
 	return &models.Prompt{}
 }
 
-func (e *PromptSave) Validate(_ context.Context, payload any) error {
+func (e *PromptSave) Validate(ctx context.Context, payload any) error {
+	logger := e.Service.L(ctx).WithField("function", "PromptSave.Validate")
+	
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
-		return errors.New(" payload is not of type models.Prompt")
+		logger.Error("Payload is not of type models.Prompt")
+		return errors.New("payload is not of type models.Prompt")
 	}
+
+	// Log detailed ID information
+	logger.WithFields(map[string]interface{}{
+		"prompt.ID": prompt.ID,
+		"prompt.GetID()": prompt.GetID(),
+	}).Debug("Validating prompt ID")
+	
+	// Fix ID issues if possible
 	if prompt.GetID() == "" {
-		return errors.New(" prompt Id should already have been set ")
+		// If BaseModel ID is empty but explicit ID is set, try to use that
+		if prompt.ID != "" {
+			logger.Info("Using explicit ID field for validation")
+			return nil
+		}
+		
+		logger.Error("Prompt ID is not set and no fallback ID is available")
+		return errors.New("prompt Id should already have been set")
 	}
+	
+	// If we got here, the ID is valid
+	logger.Debug("Prompt ID validation successful")
 	return nil
 }
 
@@ -40,7 +61,7 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 	logger := e.Service.L(ctx).WithField("payload", prompt).WithField("type", e.Name())
 	logger.Debug("handling event")
 
-	// Attempt to save to database, but continue if table doesn't exist
+	// Attempt to save to database
 	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		UpdateAll: true,
@@ -48,13 +69,11 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 
 	err := result.Error
 	if err != nil {
-		// Log the error but don't fail the operation
-		logger.WithError(err).Warn("could not save prompt to db - continuing execution")
-		// We're intentionally not returning the error here
-	} else {
-		logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+		logger.WithError(err).Error("could not save prompt to db")
+		// Return the error so the caller knows the save failed
+		return err
 	}
 
-	// Always return success
+	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
 	return nil
 }

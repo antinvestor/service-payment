@@ -17,11 +17,11 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	logger := js.Service.L(ctx).WithField("type", "CallbackHandler")
 
 	// Verify Basic Auth if needed
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		http.Error(w, "Authorization header required", http.StatusUnauthorized)
-		return
-	}
+	// authHeader := r.Header.Get("Authorization")
+	// if authHeader == "" {
+	// 	http.Error(w, "Authorization header required", http.StatusUnauthorized)
+	// 	return
+	// }
 
 	var callback models.StkCallback
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
@@ -40,22 +40,22 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	// Log the callback for debugging
 	logger.WithField("callback", callback).Info("received callback")
 
-	callbackData, err := json.Marshal(callback)
-	if err != nil {
-		logger.WithError(err).Error("failed to marshal callback data")
+	// Add additional information to the callback context for logging
+	logger = logger.WithFields(map[string]interface{}{
+		"transaction_ref": callback.Transaction,
+		"telco_ref": callback.Telco,
+		"status": callback.Status,
+	})
+	
+	// Queue the callback for processing using the event system
+	if err := js.Service.Emit(ctx, "jenga.callback.receive.payment", &callback); err != nil {
+		logger.WithError(err).Error("failed to emit callback event")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	
+	logger.Info("Successfully emitted callback event")
 
-	// Queue the callback for processing
-	if err := js.Service.Publish(ctx, "jenga.callback.receive.payment", &callbackData); err != nil {
-		logger.WithError(err).Error("failed to queue callback for processing")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Return success response
-	w.WriteHeader(http.StatusAccepted)
 	// Return success response
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{

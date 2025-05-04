@@ -79,7 +79,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 				State: commonv1.STATE_ACTIVE,
 				Status: commonv1.STATUS_FAILED,
 			}
-			_ , err = js.PaymentClient.Client.StatusUpdate(bgCtx, statusUpdateRequest)
+			_ , err = js.PaymentClient.StatusUpdate(bgCtx, statusUpdateRequest)
 			if err != nil {
 				bgLogger.WithError(err).WithField("reference", req.Payment.Ref).Error("failed to update payment status")
 			}

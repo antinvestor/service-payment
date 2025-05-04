@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -160,7 +161,7 @@ type Prompt struct {
 	State                int32             `gorm:"type:integer"`
 	Status               int32             `gorm:"type:integer"`
 	Route                string            `gorm:"type:varchar(50)"`
-	Account     Account `gorm:"type:jsonb"`
+	Account     datatypes.JSON `gorm:"type:jsonb"`
 	Extra       datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
@@ -196,11 +197,20 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 		State:       commonv1.STATE(model.State),
 		Status:      commonv1.STATUS(model.Status),
 		Route:       model.Route,
-		RecipientAccount: &paymentV1.Account{
-			AccountNumber: model.Account.AccountNumber,
-			CountryCode:   model.Account.CountryCode,
-			Name:          model.Account.Name,
-		},
+		RecipientAccount: func() *paymentV1.Account {
+			var account Account
+			if len(model.Account) > 0 {
+				err := json.Unmarshal(model.Account, &account)
+				if err == nil {
+					return &paymentV1.Account{
+						AccountNumber: account.AccountNumber,
+						CountryCode:   account.CountryCode,
+						Name:          account.Name,
+					}
+				}
+			}
+			return &paymentV1.Account{}
+		}(),
 		Extra:       extra,
 	}
 

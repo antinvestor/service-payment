@@ -57,6 +57,8 @@ github.com/antinvestor/apis/go/payment v1.34.2 h1:pYzWMNyQ9ICgB3cstX7vX2/HVmeYwM
 github.com/antinvestor/apis/go/payment v1.34.2/go.mod h1:MwaiErdWO0USM+zt1eq2LC5bepKYt/EDW0Mt3Y/g85Y=
 github.com/antinvestor/apis/go/payment v1.34.3 h1:8crt7R3RUdh+GTm/Gac2KMTzCme5/1y6um7eEBdhf0I=
 github.com/antinvestor/apis/go/payment v1.34.3/go.mod h1:MwaiErdWO0USM+zt1eq2LC5bepKYt/EDW0Mt3Y/g85Y=
+github.com/antinvestor/apis/go/payment v1.34.4 h1:G6JshQCEei2uWH5XeoRPt71w0fjo7FdUfE5aCEXVvhw=
+github.com/antinvestor/apis/go/payment v1.34.4/go.mod h1:MwaiErdWO0USM+zt1eq2LC5bepKYt/EDW0Mt3Y/g85Y=
 github.com/antinvestor/apis/go/profile v1.34.0 h1:VdWb69C9C95jiH/ZN3jkQwxtwbftLJULrB347HmmRho=
 github.com/antinvestor/apis/go/profile v1.34.0/go.mod h1:n8iGXbnxWPYQ90+jI3onPeuSegdpSH8tgbGkHlnPY/k=
 github.com/antinvestor/apis/go/profile v1.34.2 h1:G6Y+ZyF+6+yiJsYcmjmdH6HLTuqlh5REPENbthejKdg=

@@ -45,6 +45,8 @@ github.com/antinvestor/apis/go/payment v1.29.1 h1:cAwyFy/hbdgEDEBqZCGoYF7DnWAVMw
 github.com/antinvestor/apis/go/payment v1.29.1/go.mod h1:PKOzKZq8Tj8OvFisPEaZzAIMU8/aa9r44dDSzsGUbuE=
 github.com/antinvestor/apis/go/payment v1.34.3 h1:8crt7R3RUdh+GTm/Gac2KMTzCme5/1y6um7eEBdhf0I=
 github.com/antinvestor/apis/go/payment v1.34.3/go.mod h1:MwaiErdWO0USM+zt1eq2LC5bepKYt/EDW0Mt3Y/g85Y=
+github.com/antinvestor/apis/go/payment v1.34.4 h1:G6JshQCEei2uWH5XeoRPt71w0fjo7FdUfE5aCEXVvhw=
+github.com/antinvestor/apis/go/payment v1.34.4/go.mod h1:MwaiErdWO0USM+zt1eq2LC5bepKYt/EDW0Mt3Y/g85Y=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=

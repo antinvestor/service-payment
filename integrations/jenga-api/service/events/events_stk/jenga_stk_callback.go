@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -56,7 +57,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	// Extract relevant information from callback
 	payment := &paymentV1.Payment{
 		// Keep the original transaction reference - we'll handle lookup/mapping in the payment service
-		ReferenceId: callback.Transaction,
+		TransactionId: callback.Transaction,
 		Amount: &money.Money{
 			Units:        int64(callback.DebitedAmount * 100), // convert to cents
 			CurrencyCode: callback.Currency,
@@ -103,34 +104,34 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	receiveResponse, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to receive payment")
-		//update status
-		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id:     receiveResponse.Data.Id,
-			State:  commonv1.STATE_ACTIVE,
-			Status: commonv1.STATUS_FAILED,
-			Extras: map[string]string{
-				"raw_callback": string(callbackJSON),
-			},
-		}
-
-		// Invoke the GRPC status update method
-		statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
-		if err != nil {
-			logger.WithError(err).Error("failed to update payment status")
-			return nil
-		}
-		logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")
 		return nil
 	}
 
 	// Log the receive response
 	logger.WithField("receive_response", receiveResponse).Info("Received receive response from payment service")
 
+	// Verify payment ID exists before proceeding
+	if receiveResponse.Data == nil || receiveResponse.Data.GetId() == "" {
+		logger.Error("received empty payment ID from payment service")
+		return nil
+	}
+
+	// Add a small delay to give time for the payment to be saved to the database
+	// This prevents the race condition where we try to update a payment that hasn't been saved yet
+	time.Sleep(500 * time.Millisecond)
+	
+	// Determine payment status based on callback.Status
+	paymentStatus := commonv1.STATUS_SUCCESSFUL
+	if !callback.Status {
+		paymentStatus = commonv1.STATUS_FAILED
+		logger.Info("Callback indicates payment failure, setting status to FAILED")
+	}
+	
 	//  status update use commonv1 StatusUpdateRequest
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id:     receiveResponse.Data.Id,
+		Id:     receiveResponse.Data.GetId(),
 		State:  commonv1.STATE_ACTIVE,
-		Status: commonv1.STATUS_SUCCESSFUL,
+		Status: paymentStatus,
 		Extras: map[string]string{
 			"raw_callback": string(callbackJSON),
 		},
@@ -140,7 +141,20 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to update payment status")
-		return nil
+		
+		// If the first attempt fails due to timing, try again with a longer delay
+		if strings.Contains(err.Error(), "no entity found") {
+			logger.Info("First status update attempt failed, retrying after a delay")
+			time.Sleep(1 * time.Second)
+			
+			statusUpdateResponse, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
+			if err != nil {
+				logger.WithError(err).Error("failed to update payment status after retry")
+				return nil
+			}
+		} else {
+			return nil
+		}
 	}
 	// Log the status update response
 	logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")

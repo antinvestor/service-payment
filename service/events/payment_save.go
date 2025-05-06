@@ -55,8 +55,9 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
 
 	if !payment.OutBound {
-		event := PaymentInRoute{}
-		err = event.Service.Emit(ctx, event.Name(), payment.GetID())
+		// Use the parent event's Service field instead of creating a new uninitialized event
+		inRouteEvent := PaymentInRoute{Service: event.Service}
+		err = event.Service.Emit(ctx, inRouteEvent.Name(), payment.GetID())
 		if err != nil {
 			return err
 		}
@@ -65,8 +66,9 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	}
 
 	if payment.IsReleased() {
-		event := PaymentOutRoute{}
-		err = event.Service.Emit(ctx, event.Name(), payment.GetID())
+		// Use the parent event's Service field instead of creating a new uninitialized event
+		outRouteEvent := PaymentOutRoute{Service: event.Service}
+		err = event.Service.Emit(ctx, outRouteEvent.Name(), payment.GetID())
 		if err != nil {
 			logger.WithError(err).Warn("could not emit for queue out")
 			return err
@@ -81,7 +83,7 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		pStatus.GenID(ctx)
 
 		// Queue out payment status for further processing
-		eventStatus := PaymentStatusSave{}
+		eventStatus := PaymentStatusSave{Service: event.Service}
 		err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
 		if err != nil {
 			logger.WithError(err).Warn("could not emit status")

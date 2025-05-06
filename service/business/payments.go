@@ -148,11 +148,15 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	pb.validateAmountAndCost(message, p, c)
 
 	// Set initial PaymentStatus
+	// IMPORTANT: Use the payment's generated ID instead of the message.GetId() which might be empty
 	pStatus := models.PaymentStatus{
-		PaymentID: message.GetId(),
+		PaymentID: p.GetID(), // Use the payment's ID that was just generated/validated
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
+	
+	// Generate ID for the PaymentStatus
+	pStatus.GenID(ctx)
 
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
@@ -314,7 +318,7 @@ func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv
 		Extra:     frame.DBPropertiesFromMap(req.GetExtras()),
 	}
 
-	//pStatus.GenID(ctx)
+	pStatus.GenID(ctx)
 
 	// Emit the payment status event
 	eventStatus := events.PaymentStatusSave{}
@@ -346,7 +350,7 @@ func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1
 		Extra:    frame.DBPropertiesFromMap(req.GetExtras()),
 	}
 
-	//pStatus.GenID(ctx)
+	pStatus.GenID(ctx)
 
 	// Emit the prompt status event
 	eventStatus := events.PromptStatusSave{}
@@ -543,7 +547,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 
 		// Format the current date and amount for the API
 		currentDate := time.Now().Format("2006-01-02")
-		amountStr := fmt.Sprintf("%.2f", float64(req.GetAmount().GetUnits())/100)
+		amountStr := fmt.Sprintf("%.2f", float64(req.GetAmount().GetUnits()))
 		callbackURL := os.Getenv("CALLBACK_URL")
 		// Prepare the payload for Jenga API
 		stkPayload := map[string]interface{}{

@@ -1,13 +1,9 @@
 package business
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -519,128 +515,49 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		p.ID = req.GetId()
 	}
 
-	// Then ensure the model has a valid ID by calling GenID if needed
-	// This ensures that either the provided ID is used or a new one is generated
 	if p.GetID() == "" {
 		p.GenID(ctx)
-		// And make sure the explicit ID field matches the base model
 		p.ID = p.GetID()
 	}
 
-	// Log the ID that will be used
 	logger.WithFields(map[string]interface{}{
 		"promptId":    p.ID,
 		"baseModelId": p.GetID(),
 	}).Info("Prompt ID set")
 
 	p.Extra["transaction_ref"] = transactionRef
-
-	//add currency
 	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()
 
-	// Send the STK/USSD push request to Jenga API asynchronously
-	go func() {
-		// Create new background context for async processing
-		asyncCtx := context.Background()
-		asyncLogger := pb.service.L(asyncCtx).WithField("function", "AsyncSTKPush").WithField("promptId", p.GetID())
-		asyncLogger.Info("Starting async STK/USSD push request")
+	// Add telco and pushType information if provided
+	if telco, ok := req.Extra["telco"]; ok {
+		p.Extra["telco"] = telco
+	}
 
-		// Format the current date and amount for the API
-		currentDate := time.Now().Format("2006-01-02")
-		amountStr := fmt.Sprintf("%.2f", float64(req.GetAmount().GetUnits()))
-		callbackURL := os.Getenv("CALLBACK_URL")
-		// Prepare the payload for Jenga API
-		stkPayload := map[string]interface{}{
-			"merchant": map[string]string{
-				"accountNumber": account.AccountNumber,
-				"countryCode":   account.CountryCode,
-				"name":          account.Name,
-			},
-			"payment": map[string]string{
-				"ref":          transactionRef,
-				"amount":       amountStr,
-				"currency":     req.GetAmount().GetCurrencyCode(),
-				"telco":        req.Extra["telco"],
-				"mobileNumber": req.GetSource().GetContactId(),
-				"date":         currentDate,
-				"callBackUrl":  callbackURL,
-				"pushType":     req.Extra["pushType"],
-			},
-			"id": p.GetID(),
-		}
+	if pushType, ok := req.Extra["pushType"]; ok {
+		p.Extra["pushType"] = pushType
+	}
 
-		// Convert to JSON
-		jsonData, err := json.Marshal(stkPayload)
-		if err != nil {
-			asyncLogger.WithError(err).Error("Failed to marshal STK request payload")
-			return
-		}
+	p.Extra["mobile_number"] = req.GetSource().GetContactId()
 
-		// Get API endpoint from environment
-		apiEndpoint := os.Getenv("JENGA_API_ENDPOINT")
-		if apiEndpoint == "" {
-			apiEndpoint = "https://uat.finserve.africa/v3-apis/transaction-api/v3.0/stk/push"
-		}
 
-		// Create the HTTP client with timeout
-		client := &http.Client{Timeout: 30 * time.Second}
 
-		// Create HTTP request
-		httpReq, err := http.NewRequestWithContext(asyncCtx, "POST", apiEndpoint, bytes.NewBuffer(jsonData))
-		if err != nil {
-			asyncLogger.WithError(err).Error("Failed to create HTTP request")
-			return
-		}
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Add authentication if configured
-		authToken := os.Getenv("JENGA_API_TOKEN")
-		if authToken != "" {
-			httpReq.Header.Set("Authorization", "Bearer "+authToken)
-		}
-
-		// Send the request
-		asyncLogger.WithField("payload", string(jsonData)).Info("Sending STK push request")
-		resp, err := client.Do(httpReq)
-
-		if err != nil {
-			asyncLogger.WithError(err).Error("Failed to send STK push request")
-			return
-		}
-		defer resp.Body.Close()
-
-		// Read and process response
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			asyncLogger.WithError(err).Error("Failed to read response body")
-			return
-		}
-
-		asyncLogger.WithFields(map[string]interface{}{
-			"statusCode": resp.StatusCode,
-			"body":       string(respBody),
-			"reference":  transactionRef,
-		}).Info("Received STK push response")
-	}()
-
-	//Emit events for Prompt
 	event := events.PromptSave{}
 	err := pb.service.Emit(ctx, event.Name(), p)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit prompt save")
 		return nil, err
 	}
-	
 
-	// Set initial PromptStatus
+	logger.WithField("promptId", p.GetID()).Info("Prompt saved and event emitted for STK/USSD processing")
+	
 	pStatus := models.PromptStatus{
 		PromptID: p.GetID(),
 		State:    int32(commonv1.STATE_CREATED.Number()),
 		Status:   int32(commonv1.STATUS_QUEUED.Number()),
 		Extra:    make(datatypes.JSONMap),
 	}
-	// Use the same ID as the prompt for the status to maintain relationship
 	pStatus.ID = p.GetID()
+	pStatus.Extra["transaction_ref"] = transactionRef
 
 	eventStatus := events.PromptStatusSave{}
 	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
@@ -648,6 +565,8 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		logger.WithError(err).Warn("could not emit prompt status save")
 		return nil, err
 	}
+
+	pb.service.Publish(ctx, "initiate.prompt", p)
 
 	return pStatus.ToStatusAPI(), nil
 }

@@ -15,7 +15,6 @@ func NewRouter(js *handlers.JobServer) *mux.Router {
    // Job related endpoints
 	router.HandleFunc("/payments/stk-ussd", js.InitiateStkUssd).Methods("POST")
 	router.HandleFunc("/account-balance", js.AccountBalanceHandler).Methods("GET")
-
 	
 	// Callback endpoint
 	router.HandleFunc("/receivepayments", js.HandleStkCallback).Methods("POST")

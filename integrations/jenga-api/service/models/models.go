@@ -1,5 +1,11 @@
 package models
 
+import (
+	"github.com/pitabwire/frame"
+	"gorm.io/datatypes"
+	"github.com/shopspring/decimal"
+)
+
 type Merchant struct {
 	CountryCode   string `json:"countryCode"`
 	AccountNumber string `json:"accountNumber"`
@@ -102,4 +108,31 @@ type BalanceResponse struct {
 
 type FetchBillersRequest struct {
 	// Add fields if necessary
+}
+
+type Prompt struct {
+	frame.BaseModel
+	ID                string `gorm:"type:varchar(50)"`	
+	SourceID          string `gorm:"type:varchar(50)"`
+	SourceProfileType string `gorm:"type:varchar(50)"`
+	SourceContactID   string `gorm:"type:varchar(50)"`
+
+	RecipientID          string `gorm:"type:varchar(50)"`
+	RecipientProfileType string `gorm:"type:varchar(50)"`
+	RecipientContactID   string `gorm:"type:varchar(50)"`
+	Amount           decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+	DateCreated          string            `gorm:"type:varchar(50)"`
+	DeviceID             string            `gorm:"type:varchar(50)"`
+	State                int32             `gorm:"type:integer"`
+	Status               int32             `gorm:"type:integer"`
+	Route                string            `gorm:"type:varchar(50)"`
+	Account     datatypes.JSON `gorm:"type:jsonb"`
+	Extra       datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+}
+
+type Account struct {
+	frame.BaseModel
+	AccountNumber string `gorm:"type:varchar(50)"`
+	CountryCode   string `gorm:"type:varchar(50)"`
+	Name          string `gorm:"type:varchar(50)"`
 }

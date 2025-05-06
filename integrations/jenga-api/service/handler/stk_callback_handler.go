@@ -9,13 +9,21 @@ import (
 )
 
 func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
 	ctx := r.Context()
 	logger := js.Service.L(ctx).WithField("type", "CallbackHandler")
+	logger.Info("---------------------------------------callback hit---------------------------------------------------")
+	//log body
+	logger.Info("body: ", r.Body)
+
+
+	// if r.Method != http.MethodPost {
+	// 	http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	// 	return
+	// }
+
+
+
+	//i  have been hit
 
 	// Verify Basic Auth if needed
 	// authHeader := r.Header.Get("Authorization")

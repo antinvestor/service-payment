@@ -150,7 +150,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		State:     int32(commonv1.STATE_CREATED.Number()),
 		Status:    int32(commonv1.STATUS_QUEUED.Number()),
 	}
-	
+
 	// Generate ID for the PaymentStatus
 	pStatus.GenID(ctx)
 
@@ -204,7 +204,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 	updateType, hasUpdateType := req.GetExtras()["update_type"]
 	if hasUpdateType {
 		logger.WithField("update_type", updateType).Info("Request has explicit update type")
-		
+
 		// Handle explicit prompt update first
 		if updateType == "prompt" {
 			logger.Info("Processing explicit prompt status update")
@@ -496,7 +496,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
-		Account:              func() datatypes.JSON {
+		Account: func() datatypes.JSON {
 			accountJSON, err := json.Marshal(account)
 			if err != nil {
 				logger.WithError(err).Error("failed to marshal account to JSON")
@@ -504,7 +504,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 			}
 			return accountJSON
 		}(),
-		Extra:                make(datatypes.JSONMap),
+		Extra: make(datatypes.JSONMap),
 	}
 
 	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
@@ -515,14 +515,14 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		p.ID = req.GetId()
 	}
 
-	if p.GetID() == "" {
+	if p.ID == "" {
 		p.GenID(ctx)
 		p.ID = p.GetID()
 	}
 
 	logger.WithFields(map[string]interface{}{
 		"promptId":    p.ID,
-		"baseModelId": p.GetID(),
+		"baseModelId": p.ID,
 	}).Info("Prompt ID set")
 
 	p.Extra["transaction_ref"] = transactionRef
@@ -539,8 +539,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 
 	p.Extra["mobile_number"] = req.GetSource().GetContactId()
 
-
-
 	event := events.PromptSave{}
 	err := pb.service.Emit(ctx, event.Name(), p)
 	if err != nil {
@@ -548,10 +546,10 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		return nil, err
 	}
 
-	logger.WithField("promptId", p.GetID()).Info("Prompt saved and event emitted for STK/USSD processing")
-	
+	logger.WithField("promptId", p.ID).Info("Prompt saved and event emitted for STK/USSD processing")
+
 	pStatus := models.PromptStatus{
-		PromptID: p.GetID(),
+		PromptID: p.ID,
 		State:    int32(commonv1.STATE_CREATED.Number()),
 		Status:   int32(commonv1.STATUS_QUEUED.Number()),
 		Extra:    make(datatypes.JSONMap),
@@ -566,7 +564,11 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		return nil, err
 	}
 
-	pb.service.Publish(ctx, "initiate.prompt", p)
+	err = pb.service.Publish(ctx, "initiate.prompt", p)
+	if err != nil {
+		logger.WithError(err).Warn("could not publish initiate-prompt")
+		return nil, err
+	}
 
 	return pStatus.ToStatusAPI(), nil
 }

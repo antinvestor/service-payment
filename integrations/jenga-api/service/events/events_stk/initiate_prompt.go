@@ -39,7 +39,7 @@ func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	}
 
 	// Basic validation
-	if prompt.GetID() == "" {
+	if prompt.ID == "" {
 		return fmt.Errorf("prompt ID is required")
 	}
 	if !prompt.Amount.Valid {
@@ -52,6 +52,29 @@ func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	return nil
 }
 
+// Handle implements the frame.SubscribeWorker interface
+func (event *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
+	// Create a new payload instance
+	payload := event.PayloadType()
+	prompt, ok := payload.(*models.Prompt)
+	if !ok {
+		return fmt.Errorf("invalid payload type, expected Prompt")
+	}
+
+	// Unmarshal the message into the payload
+	if err := json.Unmarshal(message, prompt); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %v", err)
+	}
+
+	// Validate the payload
+	if err := event.Validate(ctx, prompt); err != nil {
+		return fmt.Errorf("payload validation failed: %v", err)
+	}
+
+	// Execute the business logic
+	return event.Execute(ctx, prompt)
+}
+
 // Execute handles the prompt and initiates the STK/USSD push request
 func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
@@ -60,7 +83,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Get logger
-	logger := event.Service.L(ctx).WithField("promptId", prompt.GetID())
+	logger := event.Service.L(ctx).WithField("promptId", prompt.ID)
 	logger.Info("Processing initiate.prompt event")
 
 	// Extract account information from JSON
@@ -128,7 +151,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 			CallBackUrl:  callbackURL,
 			PushType:     pushType,
 		},
-		ID: prompt.GetID(),
+		ID: prompt.ID,
 	}
 
 	logger.WithField("stkRequest", stkRequest).Info("Prepared STK request")
@@ -139,7 +162,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to generate bearer token")
 		// Update status to failed
 		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id:     prompt.GetID(),
+			Id:     prompt.ID,
 			State:  commonv1.STATE_ACTIVE,
 			Status: commonv1.STATUS_FAILED,
 			Extras: map[string]string{
@@ -161,7 +184,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		// Update status to failed
 		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id:     prompt.GetID(),
+			Id:     prompt.ID,
 			State:  commonv1.STATE_ACTIVE,
 			Status: commonv1.STATUS_FAILED,
 			Extras: map[string]string{
@@ -178,10 +201,10 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	}
 
 	logger.WithField("response", response).Info("STK/USSD push response received")
-	
+
 	// Update status to processing
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id:     prompt.GetID(),
+		Id:     prompt.ID,
 		State:  commonv1.STATE_ACTIVE,
 		Status: commonv1.STATUS_SUCCESSFUL,
 		Extras: map[string]string{
@@ -198,3 +221,4 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 
 	return nil
 }
+

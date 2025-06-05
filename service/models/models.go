@@ -247,3 +247,60 @@ func (model *PromptStatus) ToStatusAPI() *commonv1.StatusResponse {
 	}
 	return &status
 }
+
+// PaymentLink represents a payment link with associated customers and notifications.
+type PaymentLink struct {
+	frame.BaseModel
+
+	ExpiryDate        time.Time         `gorm:"type:date" json:"expiryDate"`
+	SaleDate          time.Time         `gorm:"type:date" json:"saleDate"`
+	PaymentLinkType   string            `gorm:"type:varchar(20)" json:"paymentLinkType"`
+	SaleType          string            `gorm:"type:varchar(20)" json:"saleType"`
+	Name              string            `gorm:"type:varchar(100)" json:"name"`
+	Description       string            `gorm:"type:text" json:"description"`
+	ExternalRef       string            `gorm:"type:varchar(50)" json:"externalRef"`
+	PaymentLinkRef    string            `gorm:"type:varchar(50)" json:"paymentLinkRef"`
+	RedirectURL       string            `gorm:"type:varchar(255)" json:"redirectURL"`
+	AmountOption      string            `gorm:"type:varchar(20)" json:"amountOption"`
+	Amount            decimal.Decimal   `gorm:"type:numeric" json:"amount"`
+	Currency          string            `gorm:"type:varchar(10)" json:"currency"`
+	Customers         datatypes.JSON    `gorm:"type:jsonb" json:"customers"`      // stores []Customer as JSON
+	Notifications     datatypes.JSON    `gorm:"type:jsonb" json:"notifications"`  // stores []string as JSON
+}
+
+// Customer represents a customer for a payment link.
+type Customer struct {
+	FirstName           string `json:"firstName"`
+	LastName            string `json:"lastName"`
+	Email               string `json:"email"`
+	PhoneNumber         string `json:"phoneNumber"`
+	FirstAddress        string `json:"firstAddress"`
+	CountryCode         string `json:"countryCode"`
+	PostalOrZipCode     string `json:"postalOrZipCode"`
+	CustomerExternalRef string `json:"customerExternalRef"`
+}
+
+// PaymentLinkStatus tracks the status of a PaymentLink.
+type PaymentLinkStatus struct {
+	frame.BaseModel
+
+	PaymentLinkID string            `gorm:"type:varchar(50)" json:"paymentLinkId"`
+	Extra         datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	State         int32             `json:"state"`
+	Status        int32             `json:"status"`
+}
+
+// ToStatusAPI converts PaymentLinkStatus to a commonv1.StatusResponse for API use.
+func (model *PaymentLinkStatus) ToStatusAPI() *commonv1.StatusResponse {
+	extra := frame.DBPropertiesToMap(model.Extra)
+	extra["CreatedAt"] = model.CreatedAt.String()
+	extra["PaymentLinkID"] = model.PaymentLinkID
+
+	status := commonv1.StatusResponse{
+		Id:     model.PaymentLinkID,
+		State:  commonv1.STATE(model.State),
+		Status: commonv1.STATUS(model.Status),
+		Extras: extra,
+	}
+	return &status
+}

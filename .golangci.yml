@@ -1,6 +1,8 @@
 # Configuration for golangci-lint
 # See https://golangci-lint.run/usage/configuration/ for details
 
+version: 2.0
+
 linters-settings:
   errcheck:
     exclude-functions:

@@ -1,12 +1,7 @@
 # Configuration for golangci-lint
 # See https://golangci-lint.run/usage/configuration/ for details
 
-version: 2.0
-
-linters-settings:
-  errcheck:
-    exclude-functions:
-      - fmt.Errorf  # ✅ `errcheck` supports settings
+version: "2"
 
 run:
   timeout: 5m

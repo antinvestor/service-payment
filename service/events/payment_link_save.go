@@ -24,7 +24,7 @@ func (e *PaymentLinkSave) PayloadType() any {
 }
 
 func (e *PaymentLinkSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.L(ctx).WithField("function", "PaymentLinkSave.Validate")
+	logger := e.Service.Log(ctx).WithField("function", "PaymentLinkSave.Validate")
 
 	paymentLink, ok := payload.(*models.PaymentLink)
 	if !ok {
@@ -33,10 +33,11 @@ func (e *PaymentLinkSave) Validate(ctx context.Context, payload any) error {
 	}
 
 	// Log detailed ID information
-	logger.WithFields(map[string]interface{}{
-		"paymentLink.ID":    paymentLink.ID,
-		"paymentLink.GetID()": paymentLink.GetID(),
-	}).Debug("Validating payment link ID")
+	logger.
+		WithField("paymentLink.ID", paymentLink.ID).
+		WithField("paymentLink.GetID()", paymentLink.GetID()).
+		WithField("paymentLink.BaseModel.ID", paymentLink.BaseModel.ID).
+		Debug("Validating payment link ID")
 
 	// Fix ID issues if possible
 	if paymentLink.GetID() == "" {
@@ -58,7 +59,7 @@ func (e *PaymentLinkSave) Validate(ctx context.Context, payload any) error {
 func (e *PaymentLinkSave) Execute(ctx context.Context, payload any) error {
 	paymentLink := payload.(*models.PaymentLink)
 
-	logger := e.Service.L(ctx).WithField("payload", paymentLink).WithField("type", e.Name())
+	logger := e.Service.Log(ctx).WithField("payload", paymentLink).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	// Attempt to save to database

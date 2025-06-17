@@ -67,12 +67,12 @@ func getService(serviceName string) (*ctxSrv, error) {
 	}
 
 	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_payment?sslmode=disable", hostIP, mappedPort.Port())
-	testDb := frame.DatastoreConnection(ctx, dbURL, false)
+	testDb := frame.WithDatastoreConnection(dbURL, false)
 
 	var pcfg config.PaymentConfig
-	_ = frame.ConfigFillFromEnv(&pcfg)
+	//_ = frame.ConfigFillFromEnv(&pcfg)
 
-	ctx, service := frame.NewService(serviceName, testDb, frame.Config(&pcfg), frame.NoopDriver())
+	ctx, service := frame.NewService(serviceName, testDb, frame.WithConfig(&pcfg), frame.WithNoopDriver())
 	log.Printf("New Service = %v", ctx)
 
 	m := make(map[string]string)
@@ -84,10 +84,10 @@ func getService(serviceName string) (*ctxSrv, error) {
 	claims := frame.ClaimsFromMap(m)
 	ctx = claims.ClaimsToContext(ctx)
 
-	eventList := frame.RegisterEvents(
+	eventList := frame.WithRegisterEvents(
 		&events.PaymentSave{Service: service},
 		&events.PaymentStatusSave{Service: service})
-	service.Init(eventList)
+	service.Init(ctx , eventList)
 	_ = service.Run(ctx, "")
 	return &ctxSrv{
 		ctx,

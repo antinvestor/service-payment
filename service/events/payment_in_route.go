@@ -48,7 +48,7 @@ func (event *PaymentInRoute) Validate(ctx context.Context, payload any) error {
 
 func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 	paymentID := *payload.(*string)
-	logger := event.Service.L(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)

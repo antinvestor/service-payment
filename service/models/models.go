@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
+	"maps"
 )
 
 const (
@@ -59,9 +60,7 @@ func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *p
 		extra["ReleaseDate"] = model.ReleasedAt.String()
 	}
 	if len(message) != 0 {
-		for key, val := range message {
-			extra[key] = val
-		}
+		maps.Copy(extra, message)
 	}
 
 	source := &commonv1.ContactLink{
@@ -147,22 +146,22 @@ type Account struct {
 
 type Prompt struct {
 	frame.BaseModel
-	ID                string `gorm:"type:varchar(50)"`	
+	ID                string `gorm:"type:varchar(50)"`
 	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
 	SourceContactID   string `gorm:"type:varchar(50)"`
 
-	RecipientID          string `gorm:"type:varchar(50)"`
-	RecipientProfileType string `gorm:"type:varchar(50)"`
-	RecipientContactID   string `gorm:"type:varchar(50)"`
-	Amount           decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
-	DateCreated          string            `gorm:"type:varchar(50)"`
-	DeviceID             string            `gorm:"type:varchar(50)"`
-	State                int32             `gorm:"type:integer"`
-	Status               int32             `gorm:"type:integer"`
-	Route                string            `gorm:"type:varchar(50)"`
-	Account     datatypes.JSON `gorm:"type:jsonb"`
-	Extra       datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	RecipientID          string              `gorm:"type:varchar(50)"`
+	RecipientProfileType string              `gorm:"type:varchar(50)"`
+	RecipientContactID   string              `gorm:"type:varchar(50)"`
+	Amount               decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+	DateCreated          string              `gorm:"type:varchar(50)"`
+	DeviceID             string              `gorm:"type:varchar(50)"`
+	State                int32               `gorm:"type:integer"`
+	Status               int32               `gorm:"type:integer"`
+	Route                string              `gorm:"type:varchar(50)"`
+	Account              datatypes.JSON      `gorm:"type:jsonb"`
+	Extra                datatypes.JSONMap   `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptRequest {
@@ -171,12 +170,9 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
 	extra["PromptID"] = model.ID
-	
 
 	if len(message) != 0 {
-		for key, val := range message {
-			extra[key] = val
-		}
+		maps.Copy(extra, message)
 	}
 
 	prompt := paymentV1.InitiatePromptRequest{
@@ -191,7 +187,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:     &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
+		Amount:      &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
 		DateCreated: model.DateCreated,
 		DeviceId:    model.DeviceID,
 		State:       commonv1.STATE(model.State),
@@ -211,7 +207,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			}
 			return &paymentV1.Account{}
 		}(),
-		Extra:       extra,
+		Extra: extra,
 	}
 
 	return &prompt
@@ -252,20 +248,21 @@ func (model *PromptStatus) ToStatusAPI() *commonv1.StatusResponse {
 type PaymentLink struct {
 	frame.BaseModel
 
-	ExpiryDate        time.Time         `gorm:"type:date" json:"expiryDate"`
-	SaleDate          time.Time         `gorm:"type:date" json:"saleDate"`
-	PaymentLinkType   string            `gorm:"type:varchar(20)" json:"paymentLinkType"`
-	SaleType          string            `gorm:"type:varchar(20)" json:"saleType"`
-	Name              string            `gorm:"type:varchar(100)" json:"name"`
-	Description       string            `gorm:"type:text" json:"description"`
-	ExternalRef       string            `gorm:"type:varchar(50)" json:"externalRef"`
-	PaymentLinkRef    string            `gorm:"type:varchar(50)" json:"paymentLinkRef"`
-	RedirectURL       string            `gorm:"type:varchar(255)" json:"redirectURL"`
-	AmountOption      string            `gorm:"type:varchar(20)" json:"amountOption"`
-	Amount            decimal.Decimal   `gorm:"type:numeric" json:"amount"`
-	Currency          string            `gorm:"type:varchar(10)" json:"currency"`
-	Customers         datatypes.JSON    `gorm:"type:jsonb" json:"customers"`      // stores []Customer as JSON
-	Notifications     datatypes.JSON    `gorm:"type:jsonb" json:"notifications"`  // stores []string as JSON
+	ExpiryDate      time.Time       `gorm:"type:date" json:"expiryDate"`
+	SaleDate        time.Time       `gorm:"type:date" json:"saleDate"`
+	PaymentLinkType string          `gorm:"type:varchar(20)" json:"paymentLinkType"`
+	SaleType        string          `gorm:"type:varchar(20)" json:"saleType"`
+	Name            string          `gorm:"type:varchar(100)" json:"name"`
+	Description     string          `gorm:"type:text" json:"description"`
+	ExternalRef     string          `gorm:"type:varchar(50)" json:"externalRef"`
+	PaymentLinkRef  string          `gorm:"type:varchar(50)" json:"paymentLinkRef"`
+	RedirectURL     string          `gorm:"type:varchar(255)" json:"redirectURL"`
+	AmountOption    string          `gorm:"type:varchar(20)" json:"amountOption"`
+	Amount          decimal.Decimal `gorm:"type:numeric" json:"amount"`
+	Currency        string          `gorm:"type:varchar(10)" json:"currency"`
+	Customers       datatypes.JSON  `gorm:"type:jsonb" json:"customers"`     // stores []Customer as JSON
+	Notifications   datatypes.JSON  `gorm:"type:jsonb" json:"notifications"` //Notifications are enums
+
 }
 
 // Customer represents a customer for a payment link.
@@ -279,6 +276,116 @@ type Customer struct {
 	PostalOrZipCode     string `json:"postalOrZipCode"`
 	CustomerExternalRef string `json:"customerExternalRef"`
 }
+
+// enum type for notification types
+
+// NotificationType is an enum for notification types.
+type NotificationType string
+
+const (
+	NotificationTypeEmail NotificationType = "email"
+	NotificationTypeSMS   NotificationType = "sms"
+)
+
+// String returns the string representation of the NotificationType.
+func (n NotificationType) String() string {
+	return string(n)
+}
+
+// AllNotificationTypes returns all valid NotificationType values.
+func AllNotificationTypes() []NotificationType {
+	return []NotificationType{
+		NotificationTypeEmail,
+		NotificationTypeSMS,
+	}
+}
+
+// IsValid checks if the NotificationType is valid.
+func (n NotificationType) IsValid() bool {
+	switch n {
+	case NotificationTypeEmail, NotificationTypeSMS:
+		return true
+	default:
+		return false
+	}
+}
+
+func (model *PaymentLink) ToApi(message map[string]string) *paymentV1.CreatePaymentLinkRequest {
+	extra := make(map[string]string)
+	extra["tenant_id"] = model.TenantID
+	extra["partition_id"] = model.PartitionID
+	extra["access_id"] = model.AccessID
+	extra["PaymentLinkID"] = model.ID
+
+	if len(message) != 0 {
+		maps.Copy(extra, message)
+	}
+
+	paymentLink := paymentV1.PaymentLink{
+		Id:              model.ID,
+		ExpiryDate:      model.ExpiryDate.String(),
+		SaleDate:        model.SaleDate.String(),
+		PaymentLinkType: model.PaymentLinkType,
+		SaleType:        model.SaleType,
+		Name:            model.Name,
+		Description:     model.Description,
+		ExternalRef:     model.ExternalRef,
+		PaymentLinkRef:  model.PaymentLinkRef,
+		RedirectUrl:     model.RedirectURL,
+		AmountOption:    model.AmountOption,
+		Amount:          &money.Money{CurrencyCode: model.Currency, Units: model.Amount.CoefficientInt64()},
+		Currency:        model.Currency,
+	}
+
+	Customers := make([]*paymentV1.Customer, 0)
+	if len(model.Customers) > 0 {
+		var customerList []Customer
+		err := json.Unmarshal(model.Customers, &customerList)
+		if err == nil {
+			for _, customer := range customerList {
+				Customers = append(Customers, &paymentV1.Customer{
+					Source:              &commonv1.ContactLink{ProfileName: customer.FirstName + " " + customer.LastName, ContactId: customer.PhoneNumber, Extras: map[string]string{"email": customer.Email}},
+					FirstAddress:        customer.FirstAddress,
+					CountryCode:         customer.CountryCode,
+					PostalOrZipCode:     customer.PostalOrZipCode,
+					CustomerExternalRef: customer.CustomerExternalRef,
+				})
+			}
+		}
+	}
+
+    createPaymentLinkRequest := &paymentV1.CreatePaymentLinkRequest{
+		PaymentLink:   &paymentLink,
+		Customers:     Customers,
+		Notifications:  make([]paymentV1.NotificationType, 0),
+	}
+	if len(model.Notifications) > 0 {
+		var notificationTypes []NotificationType
+		err := json.Unmarshal(model.Notifications, &notificationTypes)
+		if err == nil {
+			for _, notificationType := range notificationTypes {
+				if notificationType.IsValid() {
+					createPaymentLinkRequest.Notifications = append(createPaymentLinkRequest.Notifications, toPaymentV1NotificationType(notificationType.String()))
+				}
+			}
+		}
+	}
+	return  createPaymentLinkRequest
+}
+
+// Helper to map string to paymentV1.NotificationType enum
+func toPaymentV1NotificationType(s string) paymentV1.NotificationType {
+	switch s {
+	case "email":
+		return paymentV1.NotificationType_NOTIFICATION_TYPE_EMAIL
+	case "sms":
+		return paymentV1.NotificationType_NOTIFICATION_TYPE_SMS
+	default:
+		return paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED
+	}
+}
+
+
 
 // PaymentLinkStatus tracks the status of a PaymentLink.
 type PaymentLinkStatus struct {

@@ -35,7 +35,7 @@ func (e *PaymentStatusSave) Validate(_ context.Context, payload any) error {
 func (e *PaymentStatusSave) Execute(ctx context.Context, payload any) error {
 	pStatus := payload.(*models.PaymentStatus)
 
-	logger := e.Service.L(ctx).WithField("payload", pStatus).WithField("type", e.Name())
+	logger := e.Service.Log(ctx).WithField("payload", pStatus).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{

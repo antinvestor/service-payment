@@ -24,7 +24,7 @@ func (e *PaymentLinkStatusSave) PayloadType() any {
 }
 
 func (e *PaymentLinkStatusSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.L(ctx).WithField("function", "PaymentLinkStatusSave.Validate")
+	logger := e.Service.Log(ctx).WithField("function", "PaymentLinkStatusSave.Validate")
 
 	paymentLinkStatus, ok := payload.(*models.PaymentLinkStatus)
 	if !ok {
@@ -33,11 +33,11 @@ func (e *PaymentLinkStatusSave) Validate(ctx context.Context, payload any) error
 	}
 
 	// Log detailed ID information
-	logger.WithFields(map[string]interface{}{
-		"paymentLinkStatus.ID":      paymentLinkStatus.ID,
-		"paymentLinkStatus.GetID()": paymentLinkStatus.GetID(),
-		"paymentLinkStatus.PaymentLinkID": paymentLinkStatus.PaymentLinkID,
-	}).Debug("Validating payment link status ID")
+	logger.
+		WithField("paymentLinkStatus.ID", paymentLinkStatus.ID).
+		WithField("paymentLinkStatus.GetID()", paymentLinkStatus.GetID()).
+		WithField("paymentLinkStatus.PaymentLinkID", paymentLinkStatus.PaymentLinkID).
+		Debug("Validating payment link status ID")
 
 	// Check for ID validity
 	if paymentLinkStatus.GetID() == "" {
@@ -66,7 +66,7 @@ func (e *PaymentLinkStatusSave) Validate(ctx context.Context, payload any) error
 func (e *PaymentLinkStatusSave) Execute(ctx context.Context, payload any) error {
 	paymentLinkStatus := payload.(*models.PaymentLinkStatus)
 
-	logger := e.Service.L(ctx).WithField("payload", paymentLinkStatus).WithField("type", e.Name())
+	logger := e.Service.Log(ctx).WithField("payload", paymentLinkStatus).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{

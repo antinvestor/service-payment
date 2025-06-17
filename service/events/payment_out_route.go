@@ -39,7 +39,7 @@ func (event *PaymentOutRoute) Validate(ctx context.Context, payload any) error {
 func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	paymentId := *payload.(*string)
 
-	logger := event.Service.L(ctx).WithField("payload", paymentId).WithField("type", event.Name())
+	logger := event.Service.Log(ctx).WithField("payload", paymentId).WithField("type", event.Name())
 	logger.Debug("handling event")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)

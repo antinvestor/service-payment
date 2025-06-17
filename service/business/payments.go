@@ -26,6 +26,7 @@ type PaymentBusiness interface {
 	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
 	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
 	InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error)
+	
 }
 
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
@@ -96,20 +97,20 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	// Emit events for Payment and PaymentStatus
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
+		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
 
 	eventStatus := events.PaymentStatusSave{}
 	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
+		pb.service.Log(ctx).WithError(err).Warn("could not emit payment status event")
 		return nil, err
 	}
 	return pStatus.ToStatusAPI(), nil
 }
 
 func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", message)
+	logger := pb.service.Log(ctx).WithField("request", message)
 	logger.Info("handling receive request")
 	//authClaim := frame.ClaimsFromContext(ctx)
 	//logger.WithField("auth claim", authClaim).Info("handling send request")
@@ -156,13 +157,13 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 
 	event := events.PaymentSave{}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment event")
+		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
 
 	eventStatus := events.PaymentStatusSave{}
 	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
-		pb.service.L(ctx).WithError(err).Warn("could not emit payment status event")
+		pb.service.Log(ctx).WithError(err).Warn("could not emit payment status event")
 		return nil, err
 	}
 
@@ -170,7 +171,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 }
 
 func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", status)
+	logger := pb.service.Log(ctx).WithField("request", status)
 	logger.Info("handling status check request")
 
 	// Define a slice of status handlers that will be tried in order
@@ -197,7 +198,7 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 }
 
 func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", req)
+	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling status update request")
 
 	// Check if the request has an explicit update_type specified
@@ -253,7 +254,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 
 // getPaymentStatus tries to get the status of a payment with the given ID
 func (pb *paymentBusiness) getPaymentStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("paymentId", id)
+	logger := pb.service.Log(ctx).WithField("paymentId", id)
 
 	// Try to find a payment with this ID
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -275,7 +276,7 @@ func (pb *paymentBusiness) getPaymentStatus(ctx context.Context, id string) (*co
 
 // getPromptStatus tries to get the status of a prompt with the given ID
 func (pb *paymentBusiness) getPromptStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("promptId", id)
+	logger := pb.service.Log(ctx).WithField("promptId", id)
 
 	// Try to find a prompt with this ID
 	promptRepo := repository.NewPromptRepository(ctx, pb.service)
@@ -297,7 +298,7 @@ func (pb *paymentBusiness) getPromptStatus(ctx context.Context, id string) (*com
 
 // updatePaymentStatus tries to update the status of a payment with the given ID
 func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("paymentId", req.GetId())
+	logger := pb.service.Log(ctx).WithField("paymentId", req.GetId())
 
 	// Try to find a payment with this ID
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -329,7 +330,7 @@ func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv
 
 // updatePromptStatus tries to update the status of a prompt with the given ID
 func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("promptId", req.GetId())
+	logger := pb.service.Log(ctx).WithField("promptId", req.GetId())
 
 	// Try to find a prompt with this ID
 	promptRepo := repository.NewPromptRepository(ctx, pb.service)
@@ -359,9 +360,38 @@ func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1
 	return pStatus.ToStatusAPI(), nil
 }
 
+//update payment link status
+func (pb *paymentBusiness) updatePaymentLinkStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.Log(ctx).WithField("paymentLinkId", req.GetId())
+
+	// Try to find a payment link with this ID
+	paymentLinkRepo := repository.NewPaymentLinkRepository(ctx, pb.service)
+	paymentLink, err := paymentLinkRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+		}
+	// Create a payment link status update
+	pStatus := models.PaymentLinkStatus{
+		PaymentLinkID: paymentLink.ID,
+		State:         int32(req.GetState()),
+		Status:        int32(req.GetStatus()),
+		Extra:         frame.DBPropertiesFromMap(req.GetExtras()),
+	}
+	pStatus.GenID(ctx)
+
+	// Emit the payment link status event
+	eventStatus := events.PaymentLinkStatusSave{}
+	err = pb.service.Emit(ctx, eventStatus.Name(), pStatus)
+	if err != nil {
+		logger.WithError(err).Error("could not emit payment link status event")
+		return nil, err
+	}
+	return pStatus.ToStatusAPI(), nil
+}
+
 func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	stream paymentV1.PaymentService_SearchServer) error {
-	logger := pb.service.L(stream.Context()).WithField("request", search)
+	logger := pb.service.Log(stream.Context()).WithField("request", search)
 	logger.Debug("handling payment search request")
 
 	// Extract the context and JWT token
@@ -425,7 +455,7 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 }
 
 func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", paymentReq)
+	logger := pb.service.Log(ctx).WithField("request", paymentReq)
 	logger.Debug("handling release request")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
@@ -475,7 +505,7 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 }
 
 func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error) {
-	logger := pb.service.L(ctx).WithField("request", req)
+	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling initiate prompt request")
 
 	account := models.Account{
@@ -520,10 +550,8 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		p.ID = p.GetID()
 	}
 
-	logger.WithFields(map[string]interface{}{
-		"promptId":    p.ID,
-		"baseModelId": p.ID,
-	}).Info("Prompt ID set")
+
+	logger.WithField("promptId", p.ID).Info("Prompt ID set")
 
 	p.Extra["transaction_ref"] = transactionRef
 	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()

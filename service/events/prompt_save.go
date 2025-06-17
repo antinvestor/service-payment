@@ -24,7 +24,7 @@ func (e *PromptSave) PayloadType() any {
 }
 
 func (e *PromptSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.L(ctx).WithField("function", "PromptSave.Validate")
+	logger := e.Service.Log(ctx).WithField("function", "PromptSave.Validate")
 	
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
@@ -33,10 +33,11 @@ func (e *PromptSave) Validate(ctx context.Context, payload any) error {
 	}
 
 	// Log detailed ID information
-	logger.WithFields(map[string]interface{}{
-		"prompt.ID": prompt.ID,
-		"prompt.GetID()": prompt.GetID(),
-	}).Debug("Validating prompt ID")
+	logger.
+		WithField("prompt.ID", prompt.ID).
+		WithField("prompt.GetID()", prompt.GetID()).
+		WithField("prompt.BaseModel.ID", prompt.BaseModel.ID).
+		Debug("Validating prompt ID")
 	
 	// Fix ID issues if possible
 	if prompt.GetID() == "" {
@@ -58,7 +59,7 @@ func (e *PromptSave) Validate(ctx context.Context, payload any) error {
 func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 	prompt := payload.(*models.Prompt)
 
-	logger := e.Service.L(ctx).WithField("payload", prompt).WithField("type", e.Name())
+	logger := e.Service.Log(ctx).WithField("payload", prompt).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	// Attempt to save to database

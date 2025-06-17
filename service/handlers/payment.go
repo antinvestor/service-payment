@@ -101,3 +101,18 @@ func (ps *PaymentServer) InitiatePrompt(ctx context.Context, req *paymentV1.Init
 
 	return &paymentV1.InitiatePromptResponse{Data: response}, nil
 }
+
+// CreatePaymentLink method for client request to create a payment link.
+func (ps *PaymentServer) CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*paymentV1.CreatePaymentLinkResponse, error) {
+	paymentBusiness, err := ps.newPaymentBusiness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	response, err := paymentBusiness.CreatePaymentLink(ctx, req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &paymentV1.CreatePaymentLinkResponse{Data: response}, nil
+}

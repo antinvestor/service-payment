@@ -87,7 +87,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	eventList := frame.WithRegisterEvents(
 		&events.PaymentSave{Service: service},
 		&events.PaymentStatusSave{Service: service})
-	service.Init(ctx , eventList)
+	service.Init(ctx, eventList)
 	_ = service.Run(ctx, "")
 	return &ctxSrv{
 		ctx,

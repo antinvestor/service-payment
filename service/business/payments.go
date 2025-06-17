@@ -26,7 +26,7 @@ type PaymentBusiness interface {
 	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
 	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
 	InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error)
-	
+	CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error)
 }
 
 func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
@@ -178,6 +178,7 @@ func (pb *paymentBusiness) Status(ctx context.Context, status *commonv1.StatusRe
 	statusHandlers := []func(context.Context, string) (*commonv1.StatusResponse, error){
 		pb.getPaymentStatus,
 		pb.getPromptStatus,
+		pb.getPaymentLinkStatus,
 		// Add new handlers here in the future
 	}
 
@@ -207,7 +208,8 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 		logger.WithField("update_type", updateType).Info("Request has explicit update type")
 
 		// Handle explicit prompt update first
-		if updateType == "prompt" {
+		switch updateType {
+		case "prompt":
 			logger.Info("Processing explicit prompt status update")
 			statusResponse, err := pb.updatePromptStatus(ctx, req)
 			if err == nil {
@@ -216,7 +218,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 			logger.WithError(err).Error("Failed to update prompt status despite explicit type")
 			// Return the error since this was explicitly a prompt update
 			return nil, err
-		} else if updateType == "payment" {
+		case "payment":
 			logger.Info("Processing explicit payment status update")
 			statusResponse, err := pb.updatePaymentStatus(ctx, req)
 			if err == nil {
@@ -224,6 +226,15 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 			}
 			logger.WithError(err).Error("Failed to update payment status despite explicit type")
 			// Return the error since this was explicitly a payment update
+			return nil, err
+		case "payment_link":
+			logger.Info("Processing explicit payment link status update")
+			statusResponse, err := pb.updatePaymentLinkStatus(ctx, req)
+			if err == nil {
+				return statusResponse, nil
+			}
+			logger.WithError(err).Error("Failed to update payment link status despite explicit type")
+			// Return the error since this was explicitly a payment link update
 			return nil, err
 		}
 	}
@@ -233,6 +244,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 	statusUpdateHandlers := []func(context.Context, *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error){
 		pb.updatePaymentStatus,
 		pb.updatePromptStatus,
+		pb.updatePaymentLinkStatus,
 		// Add new handlers here in the future
 	}
 
@@ -252,7 +264,7 @@ func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.Statu
 	return nil, fmt.Errorf("no entity found with ID: %s", req.GetId())
 }
 
-// getPaymentStatus tries to get the status of a payment with the given ID
+// getPaymentStatus tries to get the status of a payment with the given ID.
 func (pb *paymentBusiness) getPaymentStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("paymentId", id)
 
@@ -274,7 +286,28 @@ func (pb *paymentBusiness) getPaymentStatus(ctx context.Context, id string) (*co
 	return pStatus.ToStatusAPI(), nil
 }
 
-// getPromptStatus tries to get the status of a prompt with the given ID
+// getPaymentLinkStatus tries to get the status of a payment link with the given ID.
+
+func (pb *paymentBusiness) getPaymentLinkStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
+	logger := pb.service.Log(ctx).WithField("paymentLinkId", id)
+	// Try to find a payment link with this ID
+	paymentLinkRepo := repository.NewPaymentLinkRepository(ctx, pb.service)
+	paymentLink, err := paymentLinkRepo.GetByID(ctx, id)
+	if err != nil {
+		logger.WithError(err).Error("could not get payment link by ID")
+		return nil, err
+	}
+	// Get the payment link status
+	paymentLinkStatusRepo := repository.NewPaymentLinkStatusRepository(ctx, pb.service)
+	pStatus, err := paymentLinkStatusRepo.GetByID(ctx, paymentLink.ID)
+	if err != nil {
+		logger.WithError(err).Error("could not get payment link status")
+		return nil, err
+	}
+	return pStatus.ToStatusAPI(), nil
+}
+
+// getPromptStatus tries to get the status of a prompt with the given ID.
 func (pb *paymentBusiness) getPromptStatus(ctx context.Context, id string) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("promptId", id)
 
@@ -296,7 +329,7 @@ func (pb *paymentBusiness) getPromptStatus(ctx context.Context, id string) (*com
 	return pStatus.ToStatusAPI(), nil
 }
 
-// updatePaymentStatus tries to update the status of a payment with the given ID
+// updatePaymentStatus tries to update the status of a payment with the given ID.
 func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("paymentId", req.GetId())
 
@@ -328,7 +361,7 @@ func (pb *paymentBusiness) updatePaymentStatus(ctx context.Context, req *commonv
 	return pStatus.ToStatusAPI(), nil
 }
 
-// updatePromptStatus tries to update the status of a prompt with the given ID
+// updatePromptStatus tries to update the status of a prompt with the given ID.
 func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("promptId", req.GetId())
 
@@ -360,7 +393,7 @@ func (pb *paymentBusiness) updatePromptStatus(ctx context.Context, req *commonv1
 	return pStatus.ToStatusAPI(), nil
 }
 
-//update payment link status
+// update payment link status.
 func (pb *paymentBusiness) updatePaymentLinkStatus(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("paymentLinkId", req.GetId())
 
@@ -369,7 +402,7 @@ func (pb *paymentBusiness) updatePaymentLinkStatus(ctx context.Context, req *com
 	paymentLink, err := paymentLinkRepo.GetByID(ctx, req.GetId())
 	if err != nil {
 		return nil, err
-		}
+	}
 	// Create a payment link status update
 	pStatus := models.PaymentLinkStatus{
 		PaymentLinkID: paymentLink.ID,
@@ -550,7 +583,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		p.ID = p.GetID()
 	}
 
-
 	logger.WithField("promptId", p.ID).Info("Prompt ID set")
 
 	p.Extra["transaction_ref"] = transactionRef
@@ -601,6 +633,146 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 	return pStatus.ToStatusAPI(), nil
 }
 
+func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error) {
+	logger := pb.service.Log(ctx).WithField("request", req)
+	logger.Info("handling create payment link request")
+
+	// Validate required fields
+	if req == nil || req.GetPaymentLink() == nil {
+		logger.Error("missing payment link payload")
+		return nil, fmt.Errorf("missing payment link payload")
+	}
+
+	plReq := req.GetPaymentLink()
+
+	// Marshal customers to JSON
+	var customersJSON datatypes.JSON
+	if len(req.GetCustomers()) > 0 {
+		customers := make([]models.Customer, 0, len(req.GetCustomers()))
+		for _, c := range req.GetCustomers() {
+			customers = append(customers, models.Customer{
+				FirstName:           c.GetSource().GetProfileName(), // fallback: use ProfileName as FirstName
+				LastName:            "",                             // Not available in proto, unless split from ProfileName
+				Email:               c.GetSource().GetExtras()["email"],
+				PhoneNumber:         c.GetSource().GetContactId(),
+				FirstAddress:        c.GetFirstAddress(),
+				CountryCode:         c.GetCountryCode(),
+				PostalOrZipCode:     c.GetPostalOrZipCode(),
+				CustomerExternalRef: c.GetCustomerExternalRef(),
+			})
+		}
+		b, err := json.Marshal(customers)
+		if err != nil {
+			logger.WithError(err).Error("failed to marshal customers")
+			return nil, err
+		}
+		customersJSON = b
+	}
+
+	// Marshal notifications to JSON
+	var notificationsJSON datatypes.JSON
+	if len(req.GetNotifications()) > 0 {
+		notificationTypes := make([]models.NotificationType, 0, len(req.GetNotifications()))
+		for _, n := range req.GetNotifications() {
+			switch n {
+			case paymentV1.NotificationType_NOTIFICATION_TYPE_EMAIL:
+				notificationTypes = append(notificationTypes, models.NotificationTypeEmail)
+			case paymentV1.NotificationType_NOTIFICATION_TYPE_SMS:
+				notificationTypes = append(notificationTypes, models.NotificationTypeSMS)
+			}
+		}
+		b, err := json.Marshal(notificationTypes)
+		if err != nil {
+			logger.WithError(err).Error("failed to marshal notifications")
+			return nil, err
+		}
+		notificationsJSON = b
+	}
+
+	// Parse dates
+	expiryDate, err := time.Parse("2006-01-02", plReq.GetExpiryDate())
+	if err != nil {
+		expiryDate = time.Now().Add(1 * 24 * time.Hour) // default: 1 days from now
+	}
+	saleDate, err := time.Parse("2006-01-02", plReq.GetSaleDate())
+	if err != nil {
+		saleDate = time.Now()
+	}
+
+	// Parse amount
+	amount := decimal.NewFromInt(0)
+	if plReq.GetAmount() != nil {
+		amount = decimal.NewFromInt(plReq.GetAmount().GetUnits())
+	}
+
+	// Build PaymentLink model
+	paymentLink := &models.PaymentLink{
+		ExpiryDate:      expiryDate,
+		SaleDate:        saleDate,
+		PaymentLinkType: plReq.GetPaymentLinkType(),
+		SaleType:        plReq.GetSaleType(),
+		Name:            plReq.GetName(),
+		Description:     plReq.GetDescription(),
+		ExternalRef:     plReq.GetExternalRef(),
+		PaymentLinkRef:  plReq.GetPaymentLinkRef(),
+		RedirectURL:     plReq.GetRedirectUrl(),
+		AmountOption:    plReq.GetAmountOption(),
+		Amount:          amount,
+		Currency:        plReq.GetCurrency(),
+		Customers:       customersJSON,
+		Notifications:   notificationsJSON,
+	}
+
+	// Set ID if provided
+	if plReq.GetId() != "" {
+		paymentLink.ID = plReq.GetId()
+	}
+
+	// Generate ID if not set
+	if paymentLink.ID == "" {
+		paymentLink.GenID(ctx)
+	}
+
+	// Save PaymentLink (emit event)
+	event := events.PaymentLinkSave{}
+	if err := pb.service.Emit(ctx, event.Name(), paymentLink); err != nil {
+		logger.WithError(err).Warn("could not emit payment link save event")
+		return nil, err
+	}
+
+	// Create PaymentLinkStatus
+	pStatus := models.PaymentLinkStatus{
+		PaymentLinkID: paymentLink.ID,
+		State:         int32(commonv1.STATE_CREATED.Number()),
+		Status:        int32(commonv1.STATUS_QUEUED.Number()),
+		Extra:         make(map[string]interface{}),
+	}
+	pStatus.GenID(ctx)
+
+	// Emit PaymentLinkStatus event
+	eventStatus := events.PaymentLinkStatusSave{}
+	if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+		logger.WithError(err).Warn("could not emit payment link status event")
+		return nil, err
+	}
+
+	err = pb.service.Publish(ctx, "create.payment.link", paymentLink)
+	if err != nil {
+		logger.WithError(err).Warn("could not publish create-payment-link")
+		// Emit the status event even if publish fails
+		eventStatus = events.PaymentLinkStatusSave{}
+		pStatus.State = int32(commonv1.STATE_INACTIVE.Number())
+		pStatus.Status = int32(commonv1.STATUS_FAILED.Number())
+		pStatus.Extra["error"] = err.Error()
+		if err := pb.service.Emit(ctx, eventStatus.Name(), pStatus); err != nil {
+			logger.WithError(err).Warn("could not emit payment link status event after publish failure")
+		}
+		return nil, err
+	}
+
+	return pStatus.ToStatusAPI(), nil
+}
+
 // validateAmountAndCost validates the amount and cost fields of the Payment.
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {
 	if message.GetAmount().Units <= 0 || message.GetAmount().CurrencyCode == "" {
@@ -624,7 +796,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 	c.Currency = message.GetCost().CurrencyCode
 }
 
-// generateTransactionRef creates a unique 6-character reference for Jenga API
+// generateTransactionRef creates a unique 6-character reference for Jenga API.
 func generateTransactionRef() string {
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
 	timeComponent := timestamp % 1000000

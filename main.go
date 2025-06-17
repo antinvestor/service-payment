@@ -32,12 +32,8 @@ func main() {
 
 	logger := srv.Log(ctx).WithField("type", "main")
 
-
-
 	ctx, service := frame.NewService(serviceName, frame.WithConfig(&paymentConfig))
 	defer service.Stop(ctx)
-
-
 
 	logger.Info("starting service...")
 	serviceOptions := []frame.Option{frame.WithDatastore()}

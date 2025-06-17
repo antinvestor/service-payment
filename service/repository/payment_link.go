@@ -13,8 +13,6 @@ type PaymentLinkRepository interface {
 	GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.PaymentLink, error)
 	Search(ctx context.Context, query string) ([]*models.PaymentLink, error)
 	Save(ctx context.Context, link *models.PaymentLink) error
-
-
 }
 
 type paymentLinkRepository struct {
@@ -55,6 +53,3 @@ func (repo *paymentLinkRepository) Search(ctx context.Context, query string) ([]
 func (repo *paymentLinkRepository) Save(ctx context.Context, link *models.PaymentLink) error {
 	return repo.writeDb(ctx).Save(link).Error
 }
-
-
-

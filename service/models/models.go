@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"time"
 
+	"maps"
+
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
-	"maps"
 )
 
 const (
@@ -354,10 +355,10 @@ func (model *PaymentLink) ToApi(message map[string]string) *paymentV1.CreatePaym
 		}
 	}
 
-    createPaymentLinkRequest := &paymentV1.CreatePaymentLinkRequest{
+	createPaymentLinkRequest := &paymentV1.CreatePaymentLinkRequest{
 		PaymentLink:   &paymentLink,
 		Customers:     Customers,
-		Notifications:  make([]paymentV1.NotificationType, 0),
+		Notifications: make([]paymentV1.NotificationType, 0),
 	}
 	if len(model.Notifications) > 0 {
 		var notificationTypes []NotificationType
@@ -370,10 +371,10 @@ func (model *PaymentLink) ToApi(message map[string]string) *paymentV1.CreatePaym
 			}
 		}
 	}
-	return  createPaymentLinkRequest
+	return createPaymentLinkRequest
 }
 
-// Helper to map string to paymentV1.NotificationType enum
+// Helper to map string to paymentV1.NotificationType enum.
 func toPaymentV1NotificationType(s string) paymentV1.NotificationType {
 	switch s {
 	case "email":
@@ -384,8 +385,6 @@ func toPaymentV1NotificationType(s string) paymentV1.NotificationType {
 		return paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED
 	}
 }
-
-
 
 // PaymentLinkStatus tracks the status of a PaymentLink.
 type PaymentLinkStatus struct {

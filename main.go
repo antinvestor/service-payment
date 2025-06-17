@@ -58,7 +58,7 @@ func main() {
 
 	// Ensure all required tables exist - this is critical for service operation
 	logger.Info("Running database auto-migration to ensure tables exist")
-	if err := service.DB(ctx, false).AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}); err != nil {
+	if err := service.DB(ctx, false).AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, &models.PaymentLink{}, &models.PaymentLinkStatus{}); err != nil {
 		logger.WithError(err).Fatal("Failed to auto-migrate database tables - cannot continue")
 		return
 	}
@@ -140,6 +140,8 @@ func main() {
 			&events.PaymentOutRoute{Service: service, ProfileCli: profileCli},
 			&events.PromptSave{Service: service},
 			&events.PromptStatusSave{Service: service},
+			&events.PaymentLinkSave{Service: service},
+			&events.PaymentLinkStatusSave{Service: service},
 		))
 
 	// Check if we should skip NATS and use memory messaging directly

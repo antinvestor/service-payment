@@ -13,6 +13,7 @@ import (
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
 	"github.com/antinvestor/jenga-api/service/events/events_stk"
+	"github.com/antinvestor/jenga-api/service/events/events_link_processing"
 	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
 	"github.com/pitabwire/frame"
@@ -28,7 +29,7 @@ func main() {
 
 	serviceName := "service_jenga_api"
 	var jengaConfig config.JengaConfig
-	err := frame.ConfigFillFromEnv(&jengaConfig)
+	err := frame.WithConfig(&jengaConfig)
 	if err != nil {
 		log.Fatalf("failed to process config: %v", err)
 		return
@@ -43,7 +44,7 @@ func main() {
 	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
 
 	// Initialize payment client
-	ctx, service := frame.NewService(serviceName, frame.Config(&jengaConfig))
+	ctx, service := frame.NewService(serviceName, frame.WithConfig(&jengaConfig))
 	defer service.Stop(ctx)
 	// Use environment variable for the gRPC endpoint or default to container service name
 	paymentServiceEndpoint := os.Getenv("PAYMENT_SERVICE_ENDPOINT")
@@ -64,24 +65,25 @@ func main() {
 
 	// Initialize the payment client variable
 	var paymentClient *paymentV1.PaymentClient
-	
-	// Set up a direct connection to the gRPC server using Dial instead of DialContext
-	conn, err := grpc.Dial(
+	var clientConn *grpc.ClientConn
+	var dialErr error
+
+	// Set up a direct connection to the gRPC server using grpc.Dial
+	clientConn, dialErr = grpc.Dial(
 		paymentServiceEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(1024*1024*16), // 16MB max message size
 			grpc.MaxCallSendMsgSize(1024*1024*16),
 		),
-		// Not using WithBlock to avoid connection timeout
 	)
-	if err != nil {
-		log.Printf("Warning: Failed to create payment client connection: %v", err)
+	if dialErr != nil {
+		log.Printf("Warning: Failed to create payment client connection: %v", dialErr)
 		// Continue execution - we'll handle the nil client in the handlers
 	} else {
-		// Note: we're not deferring conn.Close() here since we need the connection to stay open
+		// Note: we're not deferring clientConn.Close() here since we need the connection to stay open
 		// Create the payment service client
-		paymentServiceClient := paymentV1.NewPaymentServiceClient(conn)
+		paymentServiceClient := paymentV1.NewPaymentServiceClient(clientConn)
 
 		// Create a new PaymentClient with the service client
 		paymentClient = &paymentV1.PaymentClient{
@@ -102,11 +104,11 @@ func main() {
 	var callbackReceive = &events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient}
 	var stkussd = &events_stk.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	var initiatePrompt = &events_stk.InitiatePrompt{Service: service, Client: clientApi, PaymentClient: paymentClient}
-
+	var createPaymentLink = &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	// Create service options
 	serviceOptions := []frame.Option{
-		frame.HttpHandler(router),
-		frame.RegisterEvents(accountBalance, callbackReceive, stkussd),
+		frame.WithHTTPHandler(router),
+		frame.WithRegisterEvents(accountBalance, callbackReceive, stkussd),
 	}
 
 	// Set NATS URL explicitly with proper format for cross-container communication
@@ -157,7 +159,7 @@ func main() {
 		// Register the publisher using the original NATS URL without any manipulation
 		// This is critical: use the exact same URL format for both services
 		log.Printf("Registering publisher for topic '%s' with NATS URL: %s", promptTopic, natsURL)
-		pubOption := frame.RegisterPublisher(promptTopic, natsURL)
+		pubOption := frame.WithRegisterPublisher(promptTopic, natsURL)
 		serviceOptions = append(serviceOptions, pubOption)
 		
 		connected = true
@@ -171,7 +173,7 @@ func main() {
 		// Fall back to memory-based pubsub
 		memURL := "mem://" + promptTopic
 		log.Printf("Using memory-based pubsub as fallback: %s", memURL)
-		serviceOptions = append(serviceOptions, frame.RegisterPublisher(promptTopic, memURL))
+		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(promptTopic, memURL))
 	}
 	
 	// Register the subscriber using the same URL as we used for the publisher
@@ -203,14 +205,14 @@ func main() {
 		topicToSubscribe = promptTopic
 	}
 
-	subOpt := frame.RegisterSubscriber(
+	subOpt := frame.WithRegisterSubscriber(
 		topicToSubscribe, // Must match payment service publisher exactly with same string
 		subURL,           // Use the same URL based on connection status
-		5,                // Number of concurrent handlers
 		initiatePrompt,   // The handler function for processing prompts
+		createPaymentLink, // Register the payment link handler
 	)
 	serviceOptions = append(serviceOptions, subOpt)
-	service.Init(serviceOptions...)
+	service.Init(ctx , serviceOptions...)
 
 	log.Printf("Starting Jenga API service on :8080")
 	if err := service.Run(ctx, ":8080"); err != nil {

@@ -83,7 +83,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Get logger
-	logger := event.Service.L(ctx).WithField("promptId", prompt.ID)
+	logger := event.Service.Log(ctx).WithField("promptId", prompt.ID)
 	logger.Info("Processing initiate.prompt event")
 
 	// Extract account information from JSON

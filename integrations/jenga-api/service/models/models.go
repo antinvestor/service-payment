@@ -1,9 +1,11 @@
 package models
 
 import (
+	"time"
+
 	"github.com/pitabwire/frame"
-	"gorm.io/datatypes"
 	"github.com/shopspring/decimal"
+	"gorm.io/datatypes"
 )
 
 type Merchant struct {
@@ -135,4 +137,76 @@ type Account struct {
 	AccountNumber string `gorm:"type:varchar(50)"`
 	CountryCode   string `gorm:"type:varchar(50)"`
 	Name          string `gorm:"type:varchar(50)"`
+}
+
+type PaymentLink struct {
+	frame.BaseModel
+
+	ExpiryDate      time.Time       `gorm:"type:date" json:"expiryDate"`
+	SaleDate        time.Time       `gorm:"type:date" json:"saleDate"`
+	PaymentLinkType string          `gorm:"type:varchar(20)" json:"paymentLinkType"`
+	SaleType        string          `gorm:"type:varchar(20)" json:"saleType"`
+	Name            string          `gorm:"type:varchar(100)" json:"name"`
+	Description     string          `gorm:"type:text" json:"description"`
+	ExternalRef     string          `gorm:"type:varchar(50)" json:"externalRef"`
+	PaymentLinkRef  string          `gorm:"type:varchar(50)" json:"paymentLinkRef"`
+	RedirectURL     string          `gorm:"type:varchar(255)" json:"redirectURL"`
+	AmountOption    string          `gorm:"type:varchar(20)" json:"amountOption"`
+	Amount          decimal.Decimal `gorm:"type:numeric" json:"amount"`
+	Currency        string          `gorm:"type:varchar(10)" json:"currency"`
+	Customers       datatypes.JSON  `gorm:"type:jsonb" json:"customers"`     // stores []Customer as JSON
+	Notifications   datatypes.JSON  `gorm:"type:jsonb" json:"notifications"` //Notifications are enums
+
+}
+
+// Payment Link API Models
+
+type PaymentLinkCustomer struct {
+	FirstName         string `json:"firstName"`
+	LastName          string `json:"lastName"`
+	Email             string `json:"email"`
+	PhoneNumber       string `json:"phoneNumber"`
+	FirstAddress      string `json:"firstAddress,omitempty"`
+	CountryCode       string `json:"countryCode"`
+	PostalOrZipCode   string `json:"postalOrZipCode,omitempty"`
+	CustomerExternalRef string `json:"customerExternalRef,omitempty"`
+}
+
+type PaymentLinkDetails struct {
+	ExpiryDate      string  `json:"expiryDate"`
+	SaleDate        string  `json:"saleDate"`
+	PaymentLinkType string  `json:"paymentLinkType"`
+	SaleType        string  `json:"saleType"`
+	Name            string  `json:"name"`
+	Description     string  `json:"description"`
+	ExternalRef     string  `json:"externalRef"`
+	PaymentLinkRef  string  `json:"paymentLinkRef,omitempty"`
+	RedirectURL     string  `json:"redirectURL,omitempty"`
+	AmountOption    string  `json:"amountOption"`
+	Amount          float64 `json:"amount"`
+	Currency        string  `json:"currency"`
+}
+
+type PaymentLinkRequest struct {
+	Customers     []PaymentLinkCustomer `json:"customers"`
+	PaymentLink   PaymentLinkDetails    `json:"paymentLink"`
+	Notifications []string              `json:"notifications,omitempty"`
+}
+
+type PaymentLinkResponse struct {
+	Status   bool   `json:"status"`
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Metadata map[string]interface{} `json:"metadata"`
+	Data     *PaymentLinkResponseData `json:"data,omitempty"`
+}
+
+type PaymentLinkResponseData struct {
+	DateCreated     int64  `json:"dateCreated"`
+	PaymentLinkRef  string `json:"paymentLinkRef"`
+	ExternalRef     string `json:"externalRef"`
+	Status          struct {
+		Code string `json:"code"`
+		Name string `json:"name"`
+	} `json:"status"`
 }

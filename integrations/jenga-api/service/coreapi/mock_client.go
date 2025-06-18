@@ -45,3 +45,12 @@ func (m *MockClient) FetchBillers(token string) ([]models.Biller, error) {
 	}
 	return args.Get(0).([]models.Biller), args.Error(1)
 }
+
+// CreatePaymentLink mocks the CreatePaymentLink method
+func (m *MockClient) CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error) {
+	args := m.Called(request, accessToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PaymentLinkResponse), args.Error(1)
+}

@@ -29,7 +29,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	logger := js.Service.L(ctx).WithField("type", "InitiateStkUssd")
+	logger := js.Service.Log(ctx).WithField("type", "InitiateStkUssd")
 
 	var request models.STKUSSDRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -60,7 +60,7 @@ func (js *JobServer) InitiateStkUssd(w http.ResponseWriter, r *http.Request) {
 	go func(req models.STKUSSDRequest) {
 		// Create a new background context for async processing
 		bgCtx := context.Background()
-		bgLogger := js.Service.L(bgCtx).WithField("type", "AsyncInitiateStkUssd")
+		bgLogger := js.Service.Log(bgCtx).WithField("type", "AsyncInitiateStkUssd")
 		bgLogger.WithField("reference", req.Payment.Ref).Info("starting async STK/USSD processing")
 
 		// Create event
@@ -98,7 +98,7 @@ func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 
-	logger := js.Service.L(ctx).WithField("type", "AccountBalanceHandler")
+	logger := js.Service.Log(ctx).WithField("type", "AccountBalanceHandler")
 	logger.Info("processing account balance")
 
 	// https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/{countryCode}/{accountId}

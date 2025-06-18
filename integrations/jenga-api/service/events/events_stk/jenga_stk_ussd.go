@@ -54,7 +54,7 @@ func (event *JengaSTKUSSD) Execute(ctx context.Context, payload any) error {
 	request := payload.(*models.STKUSSDRequest)
 
 	// Get logger first to avoid redefinition
-	logger := event.Service.L(ctx)
+	logger := event.Service.Log(ctx)
 	// Generate bearer token for authorization
 	token, err := event.Client.GenerateBearerToken()
 	if err != nil {

@@ -40,7 +40,7 @@ func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload 
 func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload any) error {
 
 	// Get logger first to avoid redefinition
-	logger := event.Service.L(ctx)
+	logger := event.Service.Log(ctx)
 
 	if event.PaymentClient == nil {
 		return errors.New("payment client not initialized")
@@ -48,11 +48,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 
 	callback := payload.(*models.StkCallback)
 
-	logger.WithFields(map[string]interface{}{
-		"transaction_ref": callback.Transaction,
-		"telco_ref":       callback.Telco,
-		"mobile_number":   callback.MobileNumber,
-	}).Info("Processing STK callback")
+	logger.WithField("callback", callback).Info("Received Jenga STK callback for payment processing")
 
 	// Extract relevant information from callback
 	payment := &paymentV1.Payment{

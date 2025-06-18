@@ -200,3 +200,59 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 
 	return &balanceResponse, nil
 }
+
+// CreatePaymentLink creates a payment link using the Jenga API
+func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error) {
+	// Compose the endpoint URL
+	url := fmt.Sprintf("%s/api/v1/create/payment-link", c.Env)
+
+	// Prepare signature fields as per the formula:
+	// paymentLink.expiryDate+paymentLink.amount+paymentLink.currency+paymentLink.amountOption+paymentLink.externalRef
+	expiryDate := request.PaymentLink.ExpiryDate
+	amount := fmt.Sprintf("%.2f", request.PaymentLink.Amount)
+	currency := request.PaymentLink.Currency
+	amountOption := request.PaymentLink.AmountOption
+	externalRef := request.PaymentLink.ExternalRef
+
+	signature, err := c.GeneratePaymentSignature(
+		expiryDate,
+		amount,
+		currency,
+		amountOption,
+		externalRef,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Signature", signature)
+
+	resp, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var paymentLinkResponse models.PaymentLinkResponse
+	if err := json.Unmarshal(respBody, &paymentLinkResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBody))
+	}
+
+	return &paymentLinkResponse, nil
+}

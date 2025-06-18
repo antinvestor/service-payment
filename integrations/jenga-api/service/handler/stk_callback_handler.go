@@ -10,7 +10,7 @@ import (
 
 func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := js.Service.L(ctx).WithField("type", "CallbackHandler")
+	logger := js.Service.Log(ctx).WithField("type", "CallbackHandler")
 	logger.Info("---------------------------------------callback hit---------------------------------------------------")
 	//log body
 	logger.Info("body: ", r.Body)
@@ -50,11 +50,11 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	logger.WithField("callback", callback).Info("received callback")
 
 	// Add additional information to the callback context for logging
-	logger = logger.WithFields(map[string]interface{}{
-		"transaction_ref": callback.Transaction,
-		"telco_ref": callback.Telco,
-		"status": callback.Status,
-	})
+	logger = logger.
+		WithField("transaction_ref", callback.Transaction).
+		WithField("telco_ref", callback.Telco).
+		WithField("status", callback.Status).
+		WithField("mobile_number", callback.MobileNumber)
 	
 	// Create a background context for the goroutine that won't be canceled when the request ends
 	// Copy any relevant values from the request context
@@ -63,14 +63,12 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	// Queue the callback for processing using the event system in a goroutine
 	go func(callbackData models.StkCallback) {
 		// Use a separate logger for the goroutine to avoid race conditions
-		gLogger := js.Service.L(bgCtx).WithField("type", "CallbackProcessing")
+		gLogger := js.Service.Log(bgCtx).WithField("type", "CallbackProcessing")
 		
 		// Add additional information to the callback context for logging
-		gLogger = gLogger.WithFields(map[string]interface{}{
-			"transaction_ref": callbackData.Transaction,
-			"telco_ref": callbackData.Telco,
-			"status": callbackData.Status,
-		})
+		gLogger = gLogger.WithField("transaction_ref", callbackData.Transaction).
+			WithField("telco_ref", callbackData.Telco).
+			WithField("status", callbackData.Status) 
 		
 		err := js.Service.Emit(bgCtx, "jenga.callback.receive.payment", &callbackData)
 		if err != nil {

@@ -45,7 +45,7 @@ func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) erro
 
 	request := payload.(*models.AccountBalanceRequest)
 
-	logger := event.Service.L(ctx).WithField("type", event.Name()).WithField("AccountBalanceRequest", request)
+	logger := event.Service.Log(ctx).WithField("type", event.Name()).WithField("AccountBalanceRequest", request)
 	logger.WithField("request", request).Debug("processing  account balance")
 
 
@@ -64,7 +64,7 @@ func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) erro
 	// Get account balance
 	balance, err := event.Client.InitiateAccountBalance(request.CountryCode, request.AccountId, token.AccessToken)
 	if err != nil {
-		logger.WithError(err).Error(err)
+		logger.WithError(err).Error("failed to get account balance")
 		return err
 	}
 

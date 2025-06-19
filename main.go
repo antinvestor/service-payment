@@ -26,13 +26,15 @@ import (
 func main() {
 	serviceName := "service_payment"
 	ctx := context.Background()
-	var paymentConfig config.PaymentConfig
-	var err error
-	ctx, srv := frame.NewServiceWithContext(ctx, serviceName, frame.WithConfig(&paymentConfig))
+	paymentConfig, err := frame.ConfigFromEnv[config.PaymentConfig]()
+	if err != nil {
+		fmt.Printf("could not load config: %v\n", err)
+	}
+	ctx, service := frame.NewServiceWithContext(ctx, serviceName, frame.WithConfig(&paymentConfig))
 
-	logger := srv.Log(ctx).WithField("type", "main")
+	logger := service.Log(ctx).WithField("type", "main")
 
-	ctx, service := frame.NewService(serviceName, frame.WithConfig(&paymentConfig))
+	//ctx, service := frame.NewService(serviceName, frame.WithConfig(&paymentConfig))
 	defer service.Stop(ctx)
 
 	logger.Info("starting service...")
@@ -43,7 +45,8 @@ func main() {
 
 	if paymentConfig.DoDatabaseMigrate() {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
-			&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{})
+			&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{},
+			&models.Cost{}, &models.PaymentLink{}, &models.PaymentLinkStatus{})
 
 		if err != nil {
 			logger.WithError(err).Fatal("could not migrate successfully")
@@ -58,7 +61,12 @@ func main() {
 
 	// Ensure all required tables exist - this is critical for service operation
 	logger.Info("Running database auto-migration to ensure tables exist")
-	if err := service.DB(ctx, false).AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, &models.PaymentLink{}, &models.PaymentLinkStatus{}); err != nil {
+	db := service.DB(ctx, false)
+	if db == nil {
+		logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).Fatal("Database connection is nil - check DATABASE_URL and database availability")
+		return
+	}
+	if err := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, &models.PaymentLink{}, &models.PaymentLinkStatus{}); err != nil {
 		logger.WithError(err).Fatal("Failed to auto-migrate database tables - cannot continue")
 		return
 	}
@@ -170,6 +178,43 @@ func main() {
 
 	// Define the prompt topic name consistently across services
 	promptTopic := "initiate.prompt"
+	paymentLinkTopic := "create.payment.link"
+
+	// Helper to ensure the NATS URL has the correct subject query parameter
+	ensureSubject := func(baseURL, subject string) string {
+		if !strings.Contains(baseURL, "nats://") {
+			return baseURL
+		}
+		url := baseURL
+		// Remove any existing subject parameter
+		if strings.Contains(url, "subject=") {
+			parts := strings.Split(url, "?")
+			if len(parts) == 2 {
+				// Remove subject from query string
+				params := strings.Split(parts[1], "&")
+				newParams := make([]string, 0, len(params))
+				for _, p := range params {
+					if !strings.HasPrefix(p, "subject=") {
+						newParams = append(newParams, p)
+					}
+				}
+				url = parts[0]
+				if len(newParams) > 0 {
+					url += "?" + strings.Join(newParams, "&")
+				}
+			}
+		}
+		// Add the correct subject parameter
+		if strings.Contains(url, "?") {
+			url += "&subject=" + subject
+		} else {
+			url += "?subject=" + subject
+		}
+		return url
+	}
+
+	natsPromptURL := ensureSubject(natsURL, promptTopic)
+	natsPaymentLinkURL := ensureSubject(natsURL, paymentLinkTopic)
 
 	// Variable to track connection success
 	connected := false
@@ -178,13 +223,17 @@ func main() {
 	if skipNats && strings.HasPrefix(natsURL, "mem://") {
 		// Using memory-based pubsub directly, skip NATS connection attempts
 		logger.WithField("memoryURL", natsURL).Info("Using in-memory pubsub directly (SKIP_NATS=true)")
-		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(promptTopic, natsURL))
+		serviceOptions = append(
+			serviceOptions,
+			frame.WithRegisterPublisher(promptTopic, natsURL),
+			frame.WithRegisterPublisher(paymentLinkTopic, "mem://"+paymentLinkTopic),
+		)
 		// Update connection status since we're using memory URL
 		connected = true
 	} else {
 		// Try connecting to NATS with retry logic
 		maxRetries := 10
-		for i := 0; i < maxRetries; i++ {
+		for i := range maxRetries {
 			// Test connection to NATS
 			logger.WithField("attempt", i+1).WithField("natsURL", natsURL).Info("Attempting to connect to NATS")
 			nc, err := nats.Connect(natsURL)
@@ -199,8 +248,13 @@ func main() {
 
 			// Register the publisher using the original NATS URL without any manipulation
 			// This is critical: use the exact same URL format for both services
-			logger.WithField("natsURL", natsURL).WithField("topic", promptTopic).Info("Registering publisher with NATS")
-			serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(promptTopic, natsURL))
+			logger.WithField("natsURL", natsPromptURL).WithField("topic", promptTopic).Info("Registering publisher with NATS")
+			logger.WithField("natsURL", natsPaymentLinkURL).WithField("topic", paymentLinkTopic).Info("Registering publisher with NATS")
+			serviceOptions = append(
+				serviceOptions,
+				frame.WithRegisterPublisher(promptTopic, natsPromptURL),
+				frame.WithRegisterPublisher(paymentLinkTopic, natsPaymentLinkURL),
+			)
 
 			connected = true
 			break
@@ -209,9 +263,14 @@ func main() {
 		if !connected {
 			logger.WithField("retries", maxRetries).Warn("Failed to connect to NATS after maximum retries - falling back to memory-based pubsub")
 			// Fall back to memory-based pubsub
-			fallbackNatsURL := "mem://" + promptTopic
-			logger.WithField("fallbackURL", fallbackNatsURL).Info("Using memory-based pubsub as fallback")
-			serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(promptTopic, fallbackNatsURL))
+			fallbackPromptURL := "mem://" + promptTopic
+			fallbackPaymentLinkURL := "mem://" + paymentLinkTopic
+			logger.WithField("fallbackPromptURL", fallbackPromptURL).WithField("fallbackPaymentLinkURL", fallbackPaymentLinkURL).Info("Using memory-based pubsub as fallback")
+			serviceOptions = append(
+				serviceOptions,
+				frame.WithRegisterPublisher(promptTopic, fallbackPromptURL),
+				frame.WithRegisterPublisher(paymentLinkTopic, fallbackPaymentLinkURL),
+			)
 		}
 	}
 

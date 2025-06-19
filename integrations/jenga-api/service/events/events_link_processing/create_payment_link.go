@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -11,6 +13,11 @@ import (
 	models "github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
 )
+
+func GenerateExternalReference() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%013d", rand.Int63n(1e13))
+}
 
 // CreatePaymentLink handles the create.payment_link events
 type CreatePaymentLink struct {
@@ -21,7 +28,7 @@ type CreatePaymentLink struct {
 
 // Name returns the name of the event handler
 func (event *CreatePaymentLink) Name() string {
-	return "create.payment_link"
+	return "create.payment.link"
 }
 
 // PayloadType returns the type of payload this event expects
@@ -157,7 +164,13 @@ func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error 
 
 	// Make the API call to Jenga
 	response, err := event.Client.CreatePaymentLink(requestBody, token.AccessToken)
-	if err != nil {
+	if err != nil || !response.Status {
+		var errorMsg string
+		if err != nil {
+			errorMsg = err.Error()
+		} else {
+			errorMsg = fmt.Sprintf("API call failed with status: %v, message: %s", response.Status, response.Message)
+		}
 		logger.WithError(err).Error("failed to create payment link")
 		statusUpdateRequest := &commonv1.StatusUpdateRequest{
 			Id:     paymentLink.ID,
@@ -165,16 +178,22 @@ func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error 
 			Status: commonv1.STATUS_FAILED,
 			Extras: map[string]string{
 				"update_type": "payment_link",
-				"error":       err.Error(),
+				"error":       errorMsg,
 			},
 		}
 		_, updateErr := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 		if updateErr != nil {
 			logger.WithError(updateErr).Error("failed to update payment link status")
 		}
-		return fmt.Errorf("failed to create payment link: %v", err)
+		//return fmt.Errorf("failed to create payment link: %v", errorMsg)
 	}
 
+	dataJson, err := json.Marshal(response.Data)
+	if err != nil {
+		logger.WithError(err).Error("failed to marshal payment link data")
+	} else {
+		logger.WithField("paymentLinkData", string(dataJson)).Info("Payment link data")
+	}
 	logger.WithField("response", response).Info("Payment link creation response received")
 
 	// Update status to successful
@@ -193,14 +212,4 @@ func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error 
 	}
 
 	return nil
-}
-
-// generatePaymentLinkSignature generates the signature for the payment link request
-func generatePaymentLinkSignature(paymentLink *models.PaymentLink) string {
-	// Formula: paymentLink.expiryDate+paymentLink.amount+paymentLink.currency+paymentLink.amountOption+paymentLink.externalRef
-	return paymentLink.ExpiryDate.Format("2006-01-02") +
-		paymentLink.Amount.String() +
-		paymentLink.Currency +
-		paymentLink.AmountOption +
-		paymentLink.ExternalRef
 }

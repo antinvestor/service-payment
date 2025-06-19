@@ -284,8 +284,8 @@ type Customer struct {
 type NotificationType string
 
 const (
-	NotificationTypeEmail NotificationType = "email"
-	NotificationTypeSMS   NotificationType = "sms"
+	NotificationTypeEmail NotificationType = "EMAIL"
+	NotificationTypeSMS   NotificationType = "SMS"
 )
 
 // String returns the string representation of the NotificationType.

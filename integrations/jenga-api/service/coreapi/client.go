@@ -204,12 +204,12 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 // CreatePaymentLink creates a payment link using the Jenga API
 func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error) {
 	// Compose the endpoint URL
-	url := fmt.Sprintf("%s/api/v1/create/payment-link", c.Env)
+	url := fmt.Sprintf("%s/api-checkout/api/v1/create/payment-link", c.Env)
 
 	// Prepare signature fields as per the formula:
 	// paymentLink.expiryDate+paymentLink.amount+paymentLink.currency+paymentLink.amountOption+paymentLink.externalRef
 	expiryDate := request.PaymentLink.ExpiryDate
-	amount := fmt.Sprintf("%.2f", request.PaymentLink.Amount)
+	amount := fmt.Sprint(request.PaymentLink.Amount) // Convert amount to string for signature generation.request.PaymentLink.Amount
 	currency := request.PaymentLink.Currency
 	amountOption := request.PaymentLink.AmountOption
 	externalRef := request.PaymentLink.ExternalRef

@@ -36,7 +36,7 @@ services:
       - PAYMENT_SERVICE_ENDPOINT=payment_service:50051
       - CALLBACK_URL=https://jenga_service.chamamobile.com/receivepayments
       # include user/pass in the URL
-      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222?subject=initiate.prompt
+      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
       - SKIP_NATS=false
     volumes:
       - ./config.yaml:/app/config.yaml
@@ -89,6 +89,6 @@ services:
       - SECURELY_RUN_SERVICE=false
       - JENGA_API_ENDPOINT=https://jenga_service.chamamobile.com/payments/stk-ussd
       - JENGA_API_TOKEN=${JENGA_API_TOKEN}
-      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222?subject=initiate.prompt
+      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
       - SKIP_NATS=false
     restart: unless-stopped

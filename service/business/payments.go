@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -650,9 +651,23 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 	if len(req.GetCustomers()) > 0 {
 		customers := make([]models.Customer, 0, len(req.GetCustomers()))
 		for _, c := range req.GetCustomers() {
+			profileName := c.GetSource().GetProfileName()
+			firstName := profileName
+			lastName := ""
+			if len(profileName) > 0 {
+				parts := strings.Fields(profileName)
+				if len(parts) > 1 {
+					firstName = parts[0]
+					lastName = strings.Join(parts[1:], " ")
+				} else {
+					firstName = parts[0]
+					lastName = ""
+				}
+			}
+			
 			customers = append(customers, models.Customer{
-				FirstName:           c.GetSource().GetProfileName(), // fallback: use ProfileName as FirstName
-				LastName:            "",                             // Not available in proto, unless split from ProfileName
+				FirstName:           firstName, // fallback: use ProfileName as FirstName
+				LastName:            lastName,                             // Not available in proto, unless split from ProfileName
 				Email:               c.GetSource().GetExtras()["email"],
 				PhoneNumber:         c.GetSource().GetContactId(),
 				FirstAddress:        c.GetFirstAddress(),
@@ -769,7 +784,6 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 		}
 		return nil, err
 	}
-
 	return pStatus.ToStatusAPI(), nil
 }
 

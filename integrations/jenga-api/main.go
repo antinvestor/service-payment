@@ -28,10 +28,9 @@ func main() {
 	}
 
 	serviceName := "service_jenga_api"
-	var jengaConfig config.JengaConfig
-	err := frame.WithConfig(&jengaConfig)
+	jengaConfig , err := frame.ConfigFromEnv[config.JengaConfig]()
 	if err != nil {
-		log.Fatalf("failed to process config: %v", err)
+		log.Fatalf("failed to load config: %v", err)
 		return
 	}
 
@@ -127,46 +126,82 @@ func main() {
 
 	// CRITICAL: Define consistent prompt topic name - must EXACTLY match payment service
 	promptTopic := "initiate.prompt"
+	paymentLinkTopic := "create.payment.link"
 	log.Printf("Using NATS URL: %s for topic: %s", natsURL, promptTopic)
-	
-	// Register subscriber FIRST (before publisher) to ensure it's ready when messages arrive
-	// This is critical for cross-service messaging - subscriber must be registered before any publishing occurs
-	
+
+	// Helper to ensure the NATS URL has the correct subject query parameter
+	ensureSubject := func(baseURL, subject string) string {
+		if !strings.Contains(baseURL, "nats://") {
+			return baseURL
+		}
+		url := baseURL
+		// Remove any existing subject parameter
+		if strings.Contains(url, "subject=") {
+			parts := strings.Split(url, "?")
+			if len(parts) == 2 {
+				// Remove subject from query string
+				params := strings.Split(parts[1], "&")
+				newParams := make([]string, 0, len(params))
+				for _, p := range params {
+					if !strings.HasPrefix(p, "subject=") {
+						newParams = append(newParams, p)
+					}
+				}
+				url = parts[0]
+				if len(newParams) > 0 {
+					url += "?" + strings.Join(newParams, "&")
+				}
+			}
+		}
+		// Add the correct subject parameter
+		if strings.Contains(url, "?") {
+			url += "&subject=" + subject
+		} else {
+			url += "?subject=" + subject
+		}
+		return url
+	}
+
 	// Check if we should skip NATS connection attempts
 	skipNats := os.Getenv("SKIP_NATS") == "true"
-	
+
 	// Connect to NATS with retry logic - unless explicitly skipped
 	connected := false
 	maxRetries := 3
-	
+	var natsPromptURL, natsPaymentLinkURL string
 	if skipNats {
 		log.Printf("SKIP_NATS=true detected, skipping NATS connection attempts and using in-memory messaging")
 		connected = false // Force using memory-based pubsub
 	} else {
-		for i := 0; i < maxRetries; i++ {
-		// Test connection to NATS
-		log.Printf("Attempt %d/%d: Connecting to NATS at %s", i+1, maxRetries, natsURL)
-		nc, err := nats.Connect(natsURL)
-		if err != nil {
-			log.Printf("Failed to connect to NATS (attempt %d/%d): %v", i+1, maxRetries, err)
-			time.Sleep(2 * time.Second) // Wait before retrying
-			continue
-		}
-		// Close connection since we're just testing
-		nc.Close()
-		log.Printf("Successfully connected to NATS server")
-		
-		// Register the publisher using the original NATS URL without any manipulation
-		// This is critical: use the exact same URL format for both services
-		log.Printf("Registering publisher for topic '%s' with NATS URL: %s", promptTopic, natsURL)
-		pubOption := frame.WithRegisterPublisher(promptTopic, natsURL)
-		serviceOptions = append(serviceOptions, pubOption)
-		
-		connected = true
-		break
+		natsPromptURL = ensureSubject(natsURL, promptTopic)
+		natsPaymentLinkURL = ensureSubject(natsURL, paymentLinkTopic)
+		for i := range maxRetries {
+			// Test connection to NATS
+			log.Printf("Attempt %d/%d: Connecting to NATS at %s", i+1, maxRetries, natsURL)
+			nc, err := nats.Connect(natsURL)
+			if err != nil {
+				log.Printf("Failed to connect to NATS (attempt %d/%d): %v", i+1, maxRetries, err)
+				time.Sleep(2 * time.Second) // Wait before retrying
+				continue
+			}
+			// Close connection since we're just testing
+			nc.Close()
+			log.Printf("Successfully connected to NATS server")
+
+			// Register the publisher using the NATS URL with correct subject
+			log.Printf("Registering publisher for topic '%s' with NATS URL: %s", promptTopic, natsPromptURL)
+			pubOption := frame.WithRegisterPublisher(promptTopic, natsPromptURL)
+			serviceOptions = append(serviceOptions, pubOption)
+			// Register publisher for create.payment.link as well
+			log.Printf("Registering publisher for topic 'create.payment.link' with NATS URL: %s", natsPaymentLinkURL)
+			pubCreatePaymentLinkOption := frame.WithRegisterPublisher(paymentLinkTopic, natsPaymentLinkURL)
+			serviceOptions = append(serviceOptions, pubCreatePaymentLinkOption)
+
+			connected = true
+			break
 		}
 	}
-	
+
 	// If we couldn't connect after all retries, log a warning but continue with memory-based pubsub
 	if !connected {
 		log.Printf("WARNING: Failed to connect to NATS after %d attempts - falling back to memory-based pubsub", maxRetries)
@@ -174,32 +209,43 @@ func main() {
 		memURL := "mem://" + promptTopic
 		log.Printf("Using memory-based pubsub as fallback: %s", memURL)
 		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(promptTopic, memURL))
+		// Register publisher for create.payment.link as well (memory fallback)
+		memCreatePaymentLinkURL := "mem://create.payment.link"
+		log.Printf("Using memory-based pubsub as fallback for create.payment.link: %s", memCreatePaymentLinkURL)
+		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher("create.payment.link", memCreatePaymentLinkURL))
 	}
-	
+
 	// Register the subscriber using the same URL as we used for the publisher
 	// If SKIP_NATS=true or NATS connection failed, use memory URL for both publisher and subscriber
-	var subURL string
+
+	var promptSubURL, paymentLinkSubURL string
+
 	if skipNats {
 		// If SKIP_NATS=true, use the exact same memory URL from env for both pub and sub
 		// CRITICAL: Must use the exact same URL format as the payment service
-		subURL = os.Getenv("NATS_URL")
-		log.Printf("SKIP_NATS=true: Registering subscriber with exact URL from env: %s", subURL)
+		promptSubURL = os.Getenv("NATS_URL")
+		paymentLinkSubURL = os.Getenv("NATS_URL")
+		log.Printf("SKIP_NATS=true: Registering subscriber with exact URL from env: %s", promptSubURL)
 	} else if connected {
-		// If we successfully connected to NATS, use the NATS URL
-		subURL = natsURL
-		log.Printf("Registering subscriber for topic '%s' with NATS URL: %s", promptTopic, subURL)
+		// If we successfully connected to NATS, use the NATS URL with correct subject
+		promptSubURL = natsPromptURL
+		paymentLinkSubURL = natsPaymentLinkURL
+		log.Printf("Registering subscriber for topic '%s' with NATS URL: %s", promptTopic, promptSubURL)
+		log.Printf("Registering subscriber for topic '%s' with NATS URL: %s", paymentLinkTopic, paymentLinkSubURL)
 	} else {
 		// If NATS connection failed, use memory-based URL (same as publisher fallback)
-		subURL = "mem://" + promptTopic
-		log.Printf("Registering subscriber for topic '%s' with memory URL: %s (NATS fallback)", promptTopic, subURL)
+		promptSubURL = "mem://" + promptTopic
+		paymentLinkSubURL = "mem://" + paymentLinkTopic
+		log.Printf("Registering subscriber for topic '%s' with memory URL: %s (NATS fallback)", promptTopic, promptSubURL)
+		log.Printf("Registering subscriber for topic '%s' with memory URL: %s (NATS fallback)", paymentLinkTopic, paymentLinkSubURL)
 	}
-	
+
 	// For in-memory messaging with SKIP_NATS=true, the URL already contains the topic
 	// so we need to extract the actual topic name from the URL to ensure exact match
 	var topicToSubscribe string
-	if skipNats && strings.HasPrefix(subURL, "mem://") {
+	if skipNats && strings.HasPrefix(promptSubURL, "mem://") {
 		// Extract topic from the URL
-		topicToSubscribe = strings.TrimPrefix(subURL, "mem://")
+		topicToSubscribe = strings.TrimPrefix(promptSubURL, "mem://")
 		log.Printf("Using exact topic from memory URL: '%s'", topicToSubscribe)
 	} else {
 		topicToSubscribe = promptTopic
@@ -207,11 +253,17 @@ func main() {
 
 	subOpt := frame.WithRegisterSubscriber(
 		topicToSubscribe, // Must match payment service publisher exactly with same string
-		subURL,           // Use the same URL based on connection status
+		promptSubURL,     // Use the same URL based on connection status
 		initiatePrompt,   // The handler function for processing prompts
-		createPaymentLink, // Register the payment link handler
 	)
 	serviceOptions = append(serviceOptions, subOpt)
+	// Register the create.payment.link subscriber
+	createPaymentLinkSubOpt := frame.WithRegisterSubscriber(
+		"create.payment.link", // Must match payment service publisher exactly with same string
+		paymentLinkSubURL,     // Use the same URL based on connection status
+		createPaymentLink,     // The handler function for processing payment links
+	)
+	serviceOptions = append(serviceOptions, createPaymentLinkSubOpt)
 	service.Init(ctx , serviceOptions...)
 
 	log.Printf("Starting Jenga API service on :8080")

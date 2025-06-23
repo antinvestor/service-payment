@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// validateAccountBalanceRequest validates a balance request
+// validateAccountBalanceRequest validates a balance request.
 func validateAccountBalanceRequest(request *models.AccountBalanceRequest) error {
 	if request.CountryCode == "" {
 		return assert.AnError
@@ -22,7 +22,7 @@ func validateAccountBalanceRequest(request *models.AccountBalanceRequest) error 
 	return nil
 }
 
-// executeAccountBalanceRequest simulates executing an account balance request against the API
+// executeAccountBalanceRequest simulates executing an account balance request against the API.
 func executeAccountBalanceRequest(client coreapi.JengaApiClient, request *models.AccountBalanceRequest) error {
 	if client == nil {
 		return assert.AnError
@@ -146,7 +146,7 @@ func TestJengaAccountBalance(t *testing.T) {
 			if !tt.expectValidateError {
 				// Set up client mock expectations
 				mockClient.On("GenerateBearerToken").Return(tt.tokenResponse, tt.tokenError)
-				
+
 				// Only set up InitiateAccountBalance expectation if token generation doesn't fail
 				if tt.tokenError == nil {
 					mockClient.On("InitiateAccountBalance", tt.request.CountryCode, tt.request.AccountId, mock.AnythingOfType("string")).

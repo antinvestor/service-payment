@@ -56,17 +56,17 @@ func TestHandleStkCallback(t *testing.T) {
 			name:   "Error - invalid initiator callback",
 			method: http.MethodPost,
 			requestBody: models.StkCallback{
-				Status:         false,
-				Code:           7,
-				Message:        "The initiator information is invalid.",
-				Transaction:    "M92J43",
-				Telco:          "",
-				MobileNumber:   "254722000000",
-				Currency:       "KES",
-				RequestAmount:  5,
-				DebitedAmount:  5,
-				Charge:         1,
-				TelcoName:      "Safaricom",
+				Status:        false,
+				Code:          7,
+				Message:       "The initiator information is invalid.",
+				Transaction:   "M92J43",
+				Telco:         "",
+				MobileNumber:  "254722000000",
+				Currency:      "KES",
+				RequestAmount: 5,
+				DebitedAmount: 5,
+				Charge:        1,
+				TelcoName:     "Safaricom",
 			},
 			emitError:      nil,
 			expectedStatus: http.StatusOK, // API still returns 200 even for business logic errors
@@ -92,7 +92,6 @@ func TestHandleStkCallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			// Create a direct test handler implementation instead of using the real one
 			// This allows us to test the HTTP flow without worrying about frame.Service internals
 			handlerFunc := func(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +108,7 @@ func TestHandleStkCallback(t *testing.T) {
 					http.Error(w, "Invalid request body format", http.StatusBadRequest)
 					return
 				}
-				
+
 				// Check for required fields in the callback
 				if callback.Transaction == "" || callback.MobileNumber == "" || callback.Currency == "" {
 					http.Error(w, "Missing required fields in callback", http.StatusBadRequest)
@@ -124,10 +123,12 @@ func TestHandleStkCallback(t *testing.T) {
 
 				// Return success response
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{
+				if err := json.NewEncoder(w).Encode(map[string]string{
 					"status":  "success",
 					"message": "Callback received successfully",
-				})
+				}); err != nil {
+					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				}
 			}
 
 			// Create request

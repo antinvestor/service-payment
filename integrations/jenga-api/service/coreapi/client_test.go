@@ -54,7 +54,7 @@ func TestGenerateBearerToken(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Check request method
 				assert.Equal(t, http.MethodPost, r.Method)
-				
+
 				// Check headers
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				assert.NotEmpty(t, r.Header.Get("Api-Key"))
@@ -96,11 +96,11 @@ func TestInitiateSTKUSSD(t *testing.T) {
 	TestMode = true
 	defer func() { TestMode = false }()
 	tests := []struct {
-		name            string
-		request         models.STKUSSDRequest
-		responseStatus  int
-		responseBody    string
-		expectError     bool
+		name             string
+		request          models.STKUSSDRequest
+		responseStatus   int
+		responseBody     string
+		expectError      bool
 		expectedResponse *models.STKUSSDResponse
 	}{
 		{
@@ -156,13 +156,17 @@ func TestInitiateSTKUSSD(t *testing.T) {
 	}
 
 	// Create a temporary file for private key testing
-	tmpFile, err := os.CreateTemp("", "test-private-key")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		err := os.Remove(tmpFile.Name())
+		assert.NoError(t, err)
+	}()
 	// Write dummy key content
 	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
 	assert.NoError(t, err)
-	tmpFile.Close()
+	err = tmpFile.Close()
+	assert.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -218,12 +222,12 @@ func TestInitiateAccountBalance(t *testing.T) {
 	TestMode = true
 	defer func() { TestMode = false }()
 	tests := []struct {
-		name            string
-		countryCode     string
-		accountId       string
-		responseStatus  int
-		responseBody    string
-		expectError     bool
+		name             string
+		countryCode      string
+		accountId        string
+		responseStatus   int
+		responseBody     string
+		expectError      bool
 		expectedResponse *models.BalanceResponse
 	}{
 		{
@@ -273,13 +277,17 @@ func TestInitiateAccountBalance(t *testing.T) {
 	}
 
 	// Create a temporary file for private key testing
-	tmpFile, err := os.CreateTemp("", "test-private-key")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		err := os.Remove(tmpFile.Name())
+		assert.NoError(t, err)
+	}()
 	// Write dummy key content
 	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
 	assert.NoError(t, err)
-	tmpFile.Close()
+	err = tmpFile.Close()
+	assert.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -320,7 +328,7 @@ func TestInitiateAccountBalance(t *testing.T) {
 				assert.Equal(t, tt.expectedResponse.Status, response.Status)
 				assert.Equal(t, tt.expectedResponse.Code, response.Code)
 				assert.Equal(t, tt.expectedResponse.Message, response.Message)
-				
+
 				// Only check data if it's not an error response
 				if tt.expectedResponse.Status {
 					assert.Equal(t, tt.expectedResponse.Data.Currency, response.Data.Currency)
@@ -342,15 +350,19 @@ func TestGenerateSignature(t *testing.T) {
 	TestMode = false
 	defer func() { TestMode = oldTestMode }()
 	// Create a temporary file for testing
-	tmpFile, err := os.CreateTemp("", "test-private-key")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	
+	defer func() {
+		err := os.Remove(tmpFile.Name())
+		assert.NoError(t, err)
+	}()
+
 	// Write dummy key content
 	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
 	assert.NoError(t, err)
-	tmpFile.Close()
-	
+	err = tmpFile.Close()
+	assert.NoError(t, err)
+
 	tests := []struct {
 		name        string
 		message     string
@@ -367,17 +379,17 @@ func TestGenerateSignature(t *testing.T) {
 		// since we're using a dummy private key. We can at least test the function doesn't crash
 		// with a valid file path
 		{
-			name:        "File exists but contains invalid key", 
+			name:        "File exists but contains invalid key",
 			message:     "test message",
 			keyPath:     tmpFile.Name(),
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			signature, err := GenerateSignature(tt.message, tt.keyPath)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Empty(t, signature)

@@ -8,14 +8,15 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"os"
 	"fmt"
+	"os"
+	"strings"
 )
 
-// TestMode is a flag to skip actual signature validation during tests
+// TestMode is a flag to skip actual signature validation during tests.
 var TestMode bool = false
 
-// SignData generates a SHA-256 signature with RSA private key
+// SignData generates a SHA-256 signature with RSA private key.
 func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// For tests, return a dummy signature to avoid actual RSA key parsing
 	if TestMode {
@@ -23,9 +24,14 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	}
 
 	// Read private key file
+	// SECURITY: The privateKeyPath should be set from a trusted source (e.g., environment variable or config file)
+	// and must not be influenced by untrusted user input to avoid file inclusion vulnerabilities (G304).
+	if privateKeyPath == "" || privateKeyPath[0] == '/' || strings.Contains(privateKeyPath, "..") {
+		return "", fmt.Errorf("invalid private key path")
+	}
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read private key: %v", err)
+		return "", fmt.Errorf("failed to read private key: %w", err)
 	}
 
 	// Decode PEM format
@@ -37,7 +43,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Parse RSA private key
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse RSA private key: %v", err)
+		return "", fmt.Errorf("failed to parse RSA private key: %w", err)
 	}
 
 	privateKey, ok := key.(*rsa.PrivateKey)
@@ -51,7 +57,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Sign the hash using RSA PKCS1v15
 	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed[:])
 	if err != nil {
-		return "", fmt.Errorf("failed to sign data: %v", err)
+		return "", fmt.Errorf("failed to sign data: %w", err)
 	}
 
 	// Encode to Base64
@@ -65,10 +71,10 @@ func GenerateBalanceSignature(countryCode, accountId string, privateKeyPath stri
 	if keyPath == "" {
 		keyPath = "app/keys/privatekey.pem"
 	}
-	
+
 	signature, err := GenerateSignature(countryCode+accountId, keyPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %v", err)
+		return "", fmt.Errorf("failed to generate signature: %w", err)
 	}
 	return signature, nil
 }

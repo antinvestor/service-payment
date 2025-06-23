@@ -14,24 +14,24 @@ import (
 	"github.com/pitabwire/frame"
 )
 
-// InitiatePrompt handles the initiate.prompt events
+// InitiatePrompt handles the initiate.prompt events.
 type InitiatePrompt struct {
 	Service       *frame.Service
 	Client        coreapi.JengaApiClient
 	PaymentClient *paymentV1.PaymentClient
 }
 
-// Name returns the name of the event handler
+// Name returns the name of the event handler.
 func (event *InitiatePrompt) Name() string {
 	return "initiate.prompt"
 }
 
-// PayloadType returns the type of payload this event expects
+// PayloadType returns the type of payload this event expects.
 func (event *InitiatePrompt) PayloadType() any {
 	return &models.Prompt{}
 }
 
-// Validate validates the payload
+// Validate validates the payload.
 func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
@@ -52,7 +52,7 @@ func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	return nil
 }
 
-// Handle implements the frame.SubscribeWorker interface
+// Handle implements the frame.SubscribeWorker interface.
 func (event *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
 	// Create a new payload instance
 	payload := event.PayloadType()
@@ -63,19 +63,19 @@ func (event *InitiatePrompt) Handle(ctx context.Context, metadata map[string]str
 
 	// Unmarshal the message into the payload
 	if err := json.Unmarshal(message, prompt); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %v", err)
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
 	// Validate the payload
 	if err := event.Validate(ctx, prompt); err != nil {
-		return fmt.Errorf("payload validation failed: %v", err)
+		return fmt.Errorf("payload validation failed: %w", err)
 	}
 
 	// Execute the business logic
 	return event.Execute(ctx, prompt)
 }
 
-// Execute handles the prompt and initiates the STK/USSD push request
+// Execute handles the prompt and initiates the STK/USSD push request.
 func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
@@ -90,7 +90,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	var account models.Account
 	if err := json.Unmarshal(prompt.Account, &account); err != nil {
 		logger.WithError(err).Error("failed to unmarshal account JSON")
-		return fmt.Errorf("failed to parse account info: %v", err)
+		return fmt.Errorf("failed to parse account info: %w", err)
 	}
 
 	// Get transaction reference from Extra
@@ -175,7 +175,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		if updateErr != nil {
 			logger.WithError(updateErr).Error("failed to update payment status")
 		}
-		return fmt.Errorf("failed to generate bearer token: %v", err)
+		return fmt.Errorf("failed to generate bearer token: %w", err)
 	}
 
 	// Initiate STK/USSD push
@@ -197,7 +197,7 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		if updateErr != nil {
 			logger.WithError(updateErr).Error("failed to update payment status")
 		}
-		return fmt.Errorf("failed to initiate STK/USSD push: %v", err)
+		return fmt.Errorf("failed to initiate STK/USSD push: %w", err)
 	}
 
 	logger.WithField("response", response).Info("STK/USSD push response received")
@@ -221,4 +221,3 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 
 	return nil
 }
-

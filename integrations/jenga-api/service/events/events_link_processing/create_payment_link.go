@@ -2,10 +2,9 @@ package events_link_processing
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
@@ -15,28 +14,37 @@ import (
 )
 
 func GenerateExternalReference() string {
-	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf("%013d", rand.Int63n(1e13))
+	// Use crypto/rand for secure random number generation
+	var n uint64
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// fallback to a fixed value if random fails (should not happen)
+		return "0000000000000"
+	}
+	// Use only the lower 48 bits to ensure the number is less than 1e13
+	n = uint64(b[0])<<40 | uint64(b[1])<<32 | uint64(b[2])<<24 | uint64(b[3])<<16 | uint64(b[4])<<8 | uint64(b[5])
+	n = n % 1e13
+	return fmt.Sprintf("%013d", n)
 }
 
-// CreatePaymentLink handles the create.payment_link events
+// CreatePaymentLink handles the create.payment_link events.
 type CreatePaymentLink struct {
 	Service       *frame.Service
 	Client        coreapi.JengaApiClient
 	PaymentClient *paymentV1.PaymentClient
 }
 
-// Name returns the name of the event handler
+// Name returns the name of the event handler.
 func (event *CreatePaymentLink) Name() string {
 	return "create.payment.link"
 }
 
-// PayloadType returns the type of payload this event expects
+// PayloadType returns the type of payload this event expects.
 func (event *CreatePaymentLink) PayloadType() any {
 	return &models.PaymentLink{}
 }
 
-// Validate validates the payload
+// Validate validates the payload.
 func (event *CreatePaymentLink) Validate(ctx context.Context, payload any) error {
 	paymentLink, ok := payload.(*models.PaymentLink)
 	if !ok {
@@ -77,7 +85,7 @@ func (event *CreatePaymentLink) Validate(ctx context.Context, payload any) error
 	return nil
 }
 
-// Handle implements the frame.SubscribeWorker interface
+// Handle implements the frame.SubscribeWorker interface.
 func (event *CreatePaymentLink) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
 	payload := event.PayloadType()
 	paymentLink, ok := payload.(*models.PaymentLink)
@@ -86,17 +94,17 @@ func (event *CreatePaymentLink) Handle(ctx context.Context, metadata map[string]
 	}
 
 	if err := json.Unmarshal(message, paymentLink); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %v", err)
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
 	if err := event.Validate(ctx, paymentLink); err != nil {
-		return fmt.Errorf("payload validation failed: %v", err)
+		return fmt.Errorf("payload validation failed: %w", err)
 	}
 
 	return event.Execute(ctx, paymentLink)
 }
 
-// Execute handles the payment link creation logic
+// Execute handles the payment link creation logic.
 func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 	paymentLink, ok := payload.(*models.PaymentLink)
 	if !ok {
@@ -110,14 +118,14 @@ func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error 
 	var customers []models.PaymentLinkCustomer
 	if err := json.Unmarshal(paymentLink.Customers, &customers); err != nil {
 		logger.WithError(err).Error("failed to unmarshal customers")
-		return fmt.Errorf("failed to unmarshal customers: %v", err)
+		return fmt.Errorf("failed to unmarshal customers: %w", err)
 	}
 
 	var notifications []string
 	if len(paymentLink.Notifications) > 0 {
 		if err := json.Unmarshal(paymentLink.Notifications, &notifications); err != nil {
 			logger.WithError(err).Error("failed to unmarshal notifications")
-			return fmt.Errorf("failed to unmarshal notifications: %v", err)
+			return fmt.Errorf("failed to unmarshal notifications: %w", err)
 		}
 	}
 
@@ -159,7 +167,7 @@ func (event *CreatePaymentLink) Execute(ctx context.Context, payload any) error 
 		if updateErr != nil {
 			logger.WithError(updateErr).Error("failed to update payment link status")
 		}
-		return fmt.Errorf("failed to generate bearer token: %v", err)
+		return fmt.Errorf("failed to generate bearer token: %w", err)
 	}
 
 	// Make the API call to Jenga

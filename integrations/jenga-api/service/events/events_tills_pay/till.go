@@ -76,7 +76,7 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 	    logger.WithError(err).Error("failed to initiate tills pay")
 	    return err
 	}
-	logger.WithField("response", resp).Debug("tills pay response")
+	logger.WithField("response", resp).Info("tills pay response")
 
 	return nil
 }

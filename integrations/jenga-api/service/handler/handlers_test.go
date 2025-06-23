@@ -14,23 +14,23 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockService mocks the frame.Service
+// MockService mocks the frame.Service.
 type MockService struct {
 	mock.Mock
 }
 
-// Emit mocks the Emit method
+// Emit mocks the Emit method.
 func (m *MockService) Emit(ctx context.Context, eventName string, payload interface{}) error {
 	args := m.Called(ctx, eventName, payload)
 	return args.Error(0)
 }
 
-// L mocks the logger method
+// L mocks the logger method.
 func (m *MockService) L(ctx context.Context) *MockLogger {
 	return &MockLogger{}
 }
 
-// MockLogger mocks the LoggerWrapper
+// MockLogger mocks the LoggerWrapper.
 type MockLogger struct{}
 
 func (m *MockLogger) WithField(key string, value interface{}) *MockLogger {
@@ -40,7 +40,6 @@ func (m *MockLogger) WithField(key string, value interface{}) *MockLogger {
 func (m *MockLogger) WithError(err error) *MockLogger {
 	return m
 }
-
 
 func TestInitiateStkUssd(t *testing.T) {
 	tests := []struct {
@@ -115,7 +114,7 @@ func TestInitiateStkUssd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock service
 			mockService := new(MockService)
-			
+
 			// Set up service mock expectations
 			// Only set up Emit() expectations for valid requests, not for "invalid request body" case
 			if tt.method == http.MethodPost && tt.emitError != nil {
@@ -136,39 +135,42 @@ func TestInitiateStkUssd(t *testing.T) {
 				Service: mockService,
 				Client:  &coreapi.Client{},
 			}
-			
+
 			// Create a handler function that matches the real one
 			handlerFunc := func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPost {
 					http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 					return
 				}
-				
+
 				ctx := r.Context()
-				
+
 				var request models.STKUSSDRequest
 				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 					http.Error(w, "Invalid request body", http.StatusBadRequest)
 					return
 				}
-				
+
 				// Validate the request by checking required fields
 				if request.Merchant.AccountNumber == "" || request.Payment.MobileNumber == "" || request.Payment.Amount == "" {
 					http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
 					return
 				}
-				
+
 				err := jobServer.Service.Emit(ctx, "jenga.stk.ussd", &request)
 				if err != nil {
 					http.Error(w, "Failed to process request", http.StatusInternalServerError)
 					return
 				}
-				
+
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{
+				if err := json.NewEncoder(w).Encode(map[string]string{
 					"status":  "success",
 					"message": "STK/USSD push initiated successfully",
-				})
+				}); err != nil {
+					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+					return
+				}
 			}
 
 			// Create request
@@ -246,12 +248,12 @@ func TestAccountBalanceHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock service
 			mockService := new(MockService)
-			
+
 			// Set up service mock expectations
 			if tt.method == http.MethodGet && tt.queryParams != nil {
 				mockService.On("Emit", mock.Anything, "jenga.account.balance", mock.MatchedBy(func(payload *models.AccountBalanceRequest) bool {
-					return payload.CountryCode == tt.queryParams["countryCode"] && 
-					       payload.AccountId == tt.queryParams["accountId"]
+					return payload.CountryCode == tt.queryParams["countryCode"] &&
+						payload.AccountId == tt.queryParams["accountId"]
 				})).Return(tt.emitError)
 			}
 
@@ -261,30 +263,30 @@ func TestAccountBalanceHandler(t *testing.T) {
 			}{
 				Service: mockService,
 			}
-			
+
 			// Create a handler function that matches the real one
 			handlerFunc := func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
 					http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 					return
 				}
-				
+
 				ctx := r.Context()
-				
+
 				countryCode := r.URL.Query().Get("countryCode")
 				accountNumber := r.URL.Query().Get("accountId")
-				
+
 				eventPayload := &models.AccountBalanceRequest{
 					CountryCode: countryCode,
 					AccountId:   accountNumber,
 				}
-				
+
 				err := jobServer.Service.Emit(ctx, "jenga.account.balance", eventPayload)
 				if err != nil {
 					http.Error(w, "Internal server error", http.StatusInternalServerError)
 					return
 				}
-				
+
 				w.WriteHeader(http.StatusOK)
 			}
 

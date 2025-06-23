@@ -3,17 +3,19 @@ package main
 import (
 	"context"
 	"log"
-	"github.com/nats-io/nats.go"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/nats-io/nats.go"
 
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
-	"github.com/antinvestor/jenga-api/service/events/events_stk"
 	"github.com/antinvestor/jenga-api/service/events/events_link_processing"
+	"github.com/antinvestor/jenga-api/service/events/events_stk"
+	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
 	handler "github.com/antinvestor/jenga-api/service/handler"
 	"github.com/antinvestor/jenga-api/service/router"
 	"github.com/pitabwire/frame"
@@ -28,7 +30,7 @@ func main() {
 	}
 
 	serviceName := "service_jenga_api"
-	jengaConfig , err := frame.ConfigFromEnv[config.JengaConfig]()
+	jengaConfig, err := frame.ConfigFromEnv[config.JengaConfig]()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 		return
@@ -104,25 +106,25 @@ func main() {
 	var stkussd = &events_stk.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	var initiatePrompt = &events_stk.InitiatePrompt{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	var createPaymentLink = &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: paymentClient}
+	var tillsPay = &events_tills_pay.JengaTillsPay{Service: service, Client: clientApi}
 	// Create service options
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
-		frame.WithRegisterEvents(accountBalance, callbackReceive, stkussd),
+		frame.WithRegisterEvents(accountBalance, callbackReceive, stkussd, tillsPay),
 	}
 
 	// Set NATS URL explicitly with proper format for cross-container communication
 	// This matches the same approach used in the payment service
-    raw := os.Getenv("NATS_URL")
-    var natsURL string
-    if raw == "" {
-        // fall back to default service name
-        natsURL = "nats://nats:4222"
-    } else if strings.HasPrefix(raw, "nats://") {
-        natsURL = raw
-    } else {
-        
-        natsURL = "nats://" + raw
-    }
+	raw := os.Getenv("NATS_URL")
+	var natsURL string
+	if raw == "" {
+		// fall back to default service name
+		natsURL = "nats://nats:4222"
+	} else if strings.HasPrefix(raw, "nats://") {
+		natsURL = raw
+	} else {
+		natsURL = "nats://" + raw
+	}
 
 	// CRITICAL: Define consistent prompt topic name - must EXACTLY match payment service
 	promptTopic := "initiate.prompt"
@@ -264,11 +266,10 @@ func main() {
 		createPaymentLink,     // The handler function for processing payment links
 	)
 	serviceOptions = append(serviceOptions, createPaymentLinkSubOpt)
-	service.Init(ctx , serviceOptions...)
+	service.Init(ctx, serviceOptions...)
 
 	log.Printf("Starting Jenga API service on :8080")
 	if err := service.Run(ctx, ":8080"); err != nil {
 		log.Fatalf("failed to run service: %v", err)
 	}
-
 }

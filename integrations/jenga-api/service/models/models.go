@@ -35,14 +35,14 @@ type PaymentResponse struct {
 	} `json:"data"`
 }
 
-// STKUSSDRequest represents the structure for the STK/USSD push request
+// STKUSSDRequest represents the structure for the STK/USSD push request.
 type STKUSSDRequest struct {
 	Merchant Merchant `json:"merchant"`
 	Payment  Payment  `json:"payment"`
-	ID string `json:"id"`
+	ID       string   `json:"id"`
 }
 
-// STKUSSDResponse represents the response structure for the STK/USSD push initiation
+// STKUSSDResponse represents the response structure for the STK/USSD push initiation.
 type STKUSSDResponse struct {
 	Status        bool   `json:"status"`
 	Code          int    `json:"code"`
@@ -87,7 +87,7 @@ type Job struct {
 
 type AccountBalanceRequest struct {
 	CountryCode string `json:"countryCode"`
-	AccountId     string `json:"account"`
+	AccountId   string `json:"account"`
 }
 
 //BalanceResponse represents the response structure for the account balance
@@ -112,20 +112,20 @@ type FetchBillersRequest struct {
 	// Add fields if necessary
 }
 
-// TillsPayRequest represents the request structure for the tills/pay endpoint
+// TillsPayRequest represents the request structure for the tills/pay endpoint.
 type TillsPayRequest struct {
 	Merchant TillsPayMerchant `json:"merchant"`
 	Payment  TillsPayPayment  `json:"payment"`
 	Partner  TillsPayPartner  `json:"partner"`
 }
 
-// TillsPayResponse represents the response structure for the tills/pay endpoint
+// TillsPayResponse represents the response structure for the tills/pay endpoint.
 type TillsPayResponse struct {
-	Status    bool        `json:"status"`
-	Code      int         `json:"code"`
-	MerchantName string      `json:"merchantName"`
-	TransactionID string    `json:"transactionId"`
-	Message   string      `json:"message"`
+	Status        bool   `json:"status"`
+	Code          int    `json:"code"`
+	MerchantName  string `json:"merchantName"`
+	TransactionID string `json:"transactionId"`
+	Message       string `json:"message"`
 }
 
 type TillsPayMerchant struct {
@@ -133,8 +133,8 @@ type TillsPayMerchant struct {
 }
 
 type TillsPayPayment struct {
-	Ref     string `json:"ref"`
-	Amount  string `json:"amount"`
+	Ref      string `json:"ref"`
+	Amount   string `json:"amount"`
 	Currency string `json:"currency"`
 }
 
@@ -145,22 +145,22 @@ type TillsPayPartner struct {
 
 type Prompt struct {
 	frame.BaseModel
-	ID                string `gorm:"type:varchar(50)"`	
+	ID                string `gorm:"type:varchar(50)"`
 	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
 	SourceContactID   string `gorm:"type:varchar(50)"`
 
-	RecipientID          string `gorm:"type:varchar(50)"`
-	RecipientProfileType string `gorm:"type:varchar(50)"`
-	RecipientContactID   string `gorm:"type:varchar(50)"`
-	Amount           decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
-	DateCreated          string            `gorm:"type:varchar(50)"`
-	DeviceID             string            `gorm:"type:varchar(50)"`
-	State                int32             `gorm:"type:integer"`
-	Status               int32             `gorm:"type:integer"`
-	Route                string            `gorm:"type:varchar(50)"`
-	Account     datatypes.JSON `gorm:"type:jsonb"`
-	Extra       datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	RecipientID          string              `gorm:"type:varchar(50)"`
+	RecipientProfileType string              `gorm:"type:varchar(50)"`
+	RecipientContactID   string              `gorm:"type:varchar(50)"`
+	Amount               decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+	DateCreated          string              `gorm:"type:varchar(50)"`
+	DeviceID             string              `gorm:"type:varchar(50)"`
+	State                int32               `gorm:"type:integer"`
+	Status               int32               `gorm:"type:integer"`
+	Route                string              `gorm:"type:varchar(50)"`
+	Account              datatypes.JSON      `gorm:"type:jsonb"`
+	Extra                datatypes.JSONMap   `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 type Account struct {
@@ -193,13 +193,13 @@ type PaymentLink struct {
 // Payment Link API Models
 
 type PaymentLinkCustomer struct {
-	FirstName         string `json:"firstName"`
-	LastName          string `json:"lastName"`
-	Email             string `json:"email"`
-	PhoneNumber       string `json:"phoneNumber"`
-	FirstAddress      string `json:"firstAddress,omitempty"`
-	CountryCode       string `json:"countryCode"`
-	PostalOrZipCode   string `json:"postalOrZipCode,omitempty"`
+	FirstName           string `json:"firstName"`
+	LastName            string `json:"lastName"`
+	Email               string `json:"email"`
+	PhoneNumber         string `json:"phoneNumber"`
+	FirstAddress        string `json:"firstAddress,omitempty"`
+	CountryCode         string `json:"countryCode"`
+	PostalOrZipCode     string `json:"postalOrZipCode,omitempty"`
 	CustomerExternalRef string `json:"customerExternalRef,omitempty"`
 }
 
@@ -225,18 +225,18 @@ type PaymentLinkRequest struct {
 }
 
 type PaymentLinkResponse struct {
-	Status   bool   `json:"status"`
-	Code     int    `json:"code"`
-	Message  string `json:"message"`
-	Metadata map[string]interface{} `json:"metadata"`
+	Status   bool                     `json:"status"`
+	Code     int                      `json:"code"`
+	Message  string                   `json:"message"`
+	Metadata map[string]interface{}   `json:"metadata"`
 	Data     *PaymentLinkResponseData `json:"data,omitempty"`
 }
 
 type PaymentLinkResponseData struct {
-	DateCreated     int64  `json:"dateCreated"`
-	PaymentLinkRef  string `json:"paymentLinkRef"`
-	ExternalRef     string `json:"externalRef"`
-	Status          struct {
+	DateCreated    int64  `json:"dateCreated"`
+	PaymentLinkRef string `json:"paymentLinkRef"`
+	ExternalRef    string `json:"externalRef"`
+	Status         struct {
 		Code string `json:"code"`
 		Name string `json:"name"`
 	} `json:"status"`

@@ -9,9 +9,8 @@ import (
 )
 
 type JengaAccountBalance struct {
-	Service     *frame.Service
-	Client      coreapi.JengaApiClient
-
+	Service *frame.Service
+	Client  coreapi.JengaApiClient
 }
 
 func (event *JengaAccountBalance) Name() string {
@@ -31,24 +30,20 @@ func (event *JengaAccountBalance) Validate(ctx context.Context, payload any) err
 
 	if request.AccountId == "" {
 		return errors.New("account is required")
-	}		
+	}
 
 	return nil
 }
 
-
 func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) error {
-
 	if event.Client == nil {
 		return errors.New("jenga client not initialized")
-	}	
+	}
 
 	request := payload.(*models.AccountBalanceRequest)
 
 	logger := event.Service.Log(ctx).WithField("type", event.Name()).WithField("AccountBalanceRequest", request)
 	logger.WithField("request", request).Debug("processing  account balance")
-
-
 
 	// Generate bearer token for authorization
 	token, err := event.Client.GenerateBearerToken()
@@ -60,7 +55,7 @@ func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) erro
 	}
 	//log token
 	logger.WithField("token", token.AccessToken).Info("---------------generated token--------------------")
-    
+
 	// Get account balance
 	balance, err := event.Client.InitiateAccountBalance(request.CountryCode, request.AccountId, token.AccessToken)
 	if err != nil {
@@ -70,7 +65,5 @@ func (event *JengaAccountBalance) Execute(ctx context.Context, payload any) erro
 
 	logger.WithField("balance", balance).Debug("got account balance")
 
-
 	return nil
 }
-

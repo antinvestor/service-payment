@@ -13,7 +13,7 @@ import (
 	models "github.com/antinvestor/jenga-api/service/models"
 )
 
-// Client represents the Jenga API client
+// Client represents the Jenga API client.
 type Client struct {
 	MerchantCode    string
 	ConsumerSecret  string
@@ -23,7 +23,7 @@ type Client struct {
 	JengaPrivateKey string
 }
 
-// New creates a new instance of the Jenga API client
+// New creates a new instance of the Jenga API client.
 func New(merchantCode, consumerSecret, apiKey, env string, jengaPrivateKey string) *Client {
 	// Create a custom transport with TLS configuration
 	tr := &http.Transport{
@@ -50,7 +50,7 @@ func New(merchantCode, consumerSecret, apiKey, env string, jengaPrivateKey strin
 	}
 }
 
-// BearerTokenResponse represents the response structure for bearer token generation
+// BearerTokenResponse represents the response structure for bearer token generation.
 type BearerTokenResponse struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
@@ -59,7 +59,7 @@ type BearerTokenResponse struct {
 	TokenType    string `json:"tokenType"`
 }
 
-// GenerateBearerToken generates a Bearer token for authorization
+// GenerateBearerToken generates a Bearer token for authorization.
 func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	url := fmt.Sprintf("%s/authentication/api/v3/authenticate/merchant", c.Env)
 	body := map[string]string{
@@ -82,7 +82,11 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("failed to close response body: %v\n", err)
+			}
+		}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -110,12 +114,12 @@ func (c *Client) GeneratePaymentSignature(args ...string) (string, error) {
 
 	signature, err := GenerateSignature(strings.Join(args, ""), privateKeyPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %v", err)
+		return "", fmt.Errorf("failed to generate signature: %w", err)
 	}
 	return signature, nil
 }
 
-// InitiateSTKUSSD initiates an STK/USSD push request
+// InitiateSTKUSSD initiates an STK/USSD push request.
 func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
@@ -149,7 +153,11 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("failed to close response body: %v\n", err)
+			}
+		}()
 
 	var stkUssdResponse models.STKUSSDResponse
 	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
@@ -182,17 +190,21 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("failed to close response body: %v\n", err)
+			}
+		}()
 	// Read the response body for all status codes
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Always parse the response, even for error status codes
 	var balanceResponse models.BalanceResponse
 	if err := json.Unmarshal(respBodyBytes, &balanceResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBodyBytes))
+		return nil, fmt.Errorf("failed to parse response: %w (status: %s, body: %s)", err, resp.Status, string(respBodyBytes))
 	}
 	//print balance response
 	fmt.Println("------------------------------balance response--------------------------------")
@@ -201,7 +213,7 @@ func (c *Client) InitiateAccountBalance(countryCode string, accountId string, ac
 	return &balanceResponse, nil
 }
 
-// CreatePaymentLink creates a payment link using the Jenga API
+// CreatePaymentLink creates a payment link using the Jenga API.
 func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error) {
 	// Compose the endpoint URL
 	url := fmt.Sprintf("%s/api-checkout/api/v1/create/payment-link", c.Env)
@@ -242,7 +254,11 @@ func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToke
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("failed to close response body: %v\n", err)
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -251,25 +267,27 @@ func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToke
 
 	var paymentLinkResponse models.PaymentLinkResponse
 	if err := json.Unmarshal(respBody, &paymentLinkResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBody))
+		return nil, fmt.Errorf("failed to parse response: %w (status: %s, body: %s)", err, resp.Status, string(respBody))
 	}
 
 	return &paymentLinkResponse, nil
 }
 
-// InitiateTillsPay initiates a tills/pay request
+// InitiateTillsPay initiates a tills/pay request.
 func (c *Client) InitiateTillsPay(request models.TillsPayRequest, accessToken string) (*models.TillsPayResponse, error) {
 	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", c.Env)
 
 	// Generate the signature for the request
+	//merchant.till+partner.id+payment.amount+payment.currency+payment.ref
 	signature, err := c.GeneratePaymentSignature(
 		request.Merchant.Till,
-		request.Payment.Ref,
+		request.Partner.ID,
 		request.Payment.Amount,
 		request.Payment.Currency,
-		request.Partner.ID,
-		request.Partner.Ref,
+		request.Payment.Ref,
 	)
+	fmt.Println("------------------------------signature--------------------------------")
+	fmt.Println(signature)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +309,11 @@ func (c *Client) InitiateTillsPay(request models.TillsPayRequest, accessToken st
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Printf("failed to close response body: %v\n", err)
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -300,7 +322,7 @@ func (c *Client) InitiateTillsPay(request models.TillsPayRequest, accessToken st
 
 	var tillsPayResponse models.TillsPayResponse
 	if err := json.Unmarshal(respBody, &tillsPayResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBody))
+		return nil, fmt.Errorf("failed to parse response: %w (status: %s, body: %s)", err, resp.Status, string(respBody))
 	}
 
 	return &tillsPayResponse, nil

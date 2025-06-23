@@ -38,7 +38,6 @@ func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload 
 }
 
 func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload any) error {
-
 	// Get logger first to avoid redefinition
 	logger := event.Service.Log(ctx)
 
@@ -115,14 +114,14 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	// Add a small delay to give time for the payment to be saved to the database
 	// This prevents the race condition where we try to update a payment that hasn't been saved yet
 	time.Sleep(500 * time.Millisecond)
-	
+
 	// Determine payment status based on callback.Status
 	paymentStatus := commonv1.STATUS_SUCCESSFUL
 	if !callback.Status {
 		paymentStatus = commonv1.STATUS_FAILED
 		logger.Info("Callback indicates payment failure, setting status to FAILED")
 	}
-	
+
 	//  status update use commonv1 StatusUpdateRequest
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     receiveResponse.Data.GetId(),
@@ -137,12 +136,12 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to update payment status")
-		
+
 		// If the first attempt fails due to timing, try again with a longer delay
 		if strings.Contains(err.Error(), "no entity found") {
 			logger.Info("First status update attempt failed, retrying after a delay")
 			time.Sleep(1 * time.Second)
-			
+
 			statusUpdateResponse, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 			if err != nil {
 				logger.WithError(err).Error("failed to update payment status after retry")

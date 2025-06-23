@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-// validateStkRequest checks if an STK request has the required fields
+
+// validateStkRequest checks if an STK request has the required fields.
 func validateStkRequest(request *models.STKUSSDRequest) error {
 	// Basic validation
 	if request.Merchant.AccountNumber == "" {
@@ -27,7 +28,7 @@ func validateStkRequest(request *models.STKUSSDRequest) error {
 	return nil
 }
 
-// processStkRequest simulates processing an STK request
+// processStkRequest simulates processing an STK request.
 func processStkRequest(client coreapi.JengaApiClient, request *models.STKUSSDRequest) error {
 	// Get token
 	token, err := client.GenerateBearerToken()
@@ -42,13 +43,13 @@ func processStkRequest(client coreapi.JengaApiClient, request *models.STKUSSDReq
 
 func TestJengaSTKUSSD(t *testing.T) {
 	tests := []struct {
-		name               string
-		request            *models.STKUSSDRequest
-		tokenResponse      *coreapi.BearerTokenResponse
-		tokenError         error
-		stkResponse        *models.STKUSSDResponse
-		stkError           error
-		expectExecuteError bool
+		name                string
+		request             *models.STKUSSDRequest
+		tokenResponse       *coreapi.BearerTokenResponse
+		tokenError          error
+		stkResponse         *models.STKUSSDResponse
+		stkError            error
+		expectExecuteError  bool
 		expectValidateError bool
 	}{
 		{
@@ -60,7 +61,7 @@ func TestJengaSTKUSSD(t *testing.T) {
 					Name:          "Test Merchant",
 				},
 				Payment: models.Payment{
-					Ref:          "ABCDE1",  // Note: Using the format from the memory about unique refs
+					Ref:          "ABCDE1", // Note: Using the format from the memory about unique refs
 					Amount:       "1000",
 					Currency:     "KES",
 					Telco:        "Safaricom",
@@ -81,8 +82,8 @@ func TestJengaSTKUSSD(t *testing.T) {
 				Reference:     "ABCDE1",
 				TransactionID: "TRX123",
 			},
-			stkError:           nil,
-			expectExecuteError: false,
+			stkError:            nil,
+			expectExecuteError:  false,
 			expectValidateError: false,
 		},
 		{
@@ -100,11 +101,11 @@ func TestJengaSTKUSSD(t *testing.T) {
 					MobileNumber: "254712345678",
 				},
 			},
-			tokenResponse:      nil,
-			tokenError:         assert.AnError,
-			stkResponse:        nil,
-			stkError:           nil,
-			expectExecuteError: true,
+			tokenResponse:       nil,
+			tokenError:          assert.AnError,
+			stkResponse:         nil,
+			stkError:            nil,
+			expectExecuteError:  true,
 			expectValidateError: false,
 		},
 		{
@@ -125,10 +126,10 @@ func TestJengaSTKUSSD(t *testing.T) {
 			tokenResponse: &coreapi.BearerTokenResponse{
 				AccessToken: "test-token",
 			},
-			tokenError:         nil,
-			stkResponse:        nil,
-			stkError:           assert.AnError,
-			expectExecuteError: true,
+			tokenError:          nil,
+			stkResponse:         nil,
+			stkError:            assert.AnError,
+			expectExecuteError:  true,
 			expectValidateError: false,
 		},
 		{
@@ -145,11 +146,11 @@ func TestJengaSTKUSSD(t *testing.T) {
 					MobileNumber: "254712345678",
 				},
 			},
-			tokenResponse:      nil,
-			tokenError:         nil,
-			stkResponse:        nil,
-			stkError:           nil,
-			expectExecuteError: false,
+			tokenResponse:       nil,
+			tokenError:          nil,
+			stkResponse:         nil,
+			stkError:            nil,
+			expectExecuteError:  false,
 			expectValidateError: true,
 		},
 		{
@@ -166,11 +167,11 @@ func TestJengaSTKUSSD(t *testing.T) {
 					Telco:    "Safaricom",
 				},
 			},
-			tokenResponse:      nil,
-			tokenError:         nil,
-			stkResponse:        nil,
-			stkError:           nil,
-			expectExecuteError: false,
+			tokenResponse:       nil,
+			tokenError:          nil,
+			stkResponse:         nil,
+			stkError:            nil,
+			expectExecuteError:  false,
 			expectValidateError: true,
 		},
 	}
@@ -184,7 +185,7 @@ func TestJengaSTKUSSD(t *testing.T) {
 			if !tt.expectValidateError {
 				// Set up client mock expectations
 				mockClient.On("GenerateBearerToken").Return(tt.tokenResponse, tt.tokenError)
-				
+
 				// Only set up InitiateSTKUSSD expectation if token generation doesn't fail
 				if tt.tokenError == nil {
 					mockClient.On("InitiateSTKUSSD", *tt.request, mock.AnythingOfType("string")).

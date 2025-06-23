@@ -54,3 +54,12 @@ func (m *MockClient) CreatePaymentLink(request models.PaymentLinkRequest, access
 	}
 	return args.Get(0).(*models.PaymentLinkResponse), args.Error(1)
 }
+
+// InitiateTillsPay mocks the InitiateTillsPay method
+func (m *MockClient) InitiateTillsPay(request models.TillsPayRequest, accessToken string) (*models.TillsPayResponse, error) {
+	args := m.Called(request, accessToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TillsPayResponse), args.Error(1)
+}

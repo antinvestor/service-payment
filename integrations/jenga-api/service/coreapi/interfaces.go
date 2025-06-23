@@ -7,4 +7,5 @@ type JengaApiClient interface {
 	InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error)
 	InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error)
 	CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error)
+	InitiateTillsPay(request models.TillsPayRequest, accessToken string) (*models.TillsPayResponse, error)
 }

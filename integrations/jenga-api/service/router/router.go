@@ -18,6 +18,7 @@ func NewRouter(js *handlers.JobServer) *mux.Router {
 	
 	// Callback endpoint
 	router.HandleFunc("/receivepayments", js.HandleStkCallback).Methods("POST")
+	router.HandleFunc("/payments/tills-pay", js.InitiateTillsPay).Methods("POST")
 
 	return router
 }

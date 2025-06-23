@@ -256,3 +256,52 @@ func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToke
 
 	return &paymentLinkResponse, nil
 }
+
+// InitiateTillsPay initiates a tills/pay request
+func (c *Client) InitiateTillsPay(request models.TillsPayRequest, accessToken string) (*models.TillsPayResponse, error) {
+	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", c.Env)
+
+	// Generate the signature for the request
+	signature, err := c.GeneratePaymentSignature(
+		request.Merchant.Till,
+		request.Payment.Ref,
+		request.Payment.Amount,
+		request.Payment.Currency,
+		request.Partner.ID,
+		request.Partner.Ref,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Signature", signature)
+
+	resp, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var tillsPayResponse models.TillsPayResponse
+	if err := json.Unmarshal(respBody, &tillsPayResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v (status: %s, body: %s)", err, resp.Status, string(respBody))
+	}
+
+	return &tillsPayResponse, nil
+}

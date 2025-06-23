@@ -12,6 +12,7 @@ import (
 	"github.com/pitabwire/frame"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
 )
 
 //job server handlers
@@ -128,10 +129,66 @@ func (js *JobServer) AccountBalanceHandler(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 }
 
+func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	//background context for async processing
+	ctx := r.Context()
+	logger := js.Service.Log(ctx).WithField("type", "InitiateTillsPay")
+
+	var request models.TillsPayRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		logger.WithError(err).Error("failed to decode request")
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields (basic check, event will do full validation)
+	if request.Merchant.Till == "" || request.Payment.Ref == "" || request.Payment.Amount == "" || request.Payment.Currency == "" || request.Partner.ID == "" || request.Partner.Ref == "" {
+		http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Make a copy for async processing
+	requestCopy := request
+
+	// Return immediate success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "Tills pay request accepted for processing",
+		"referenceId": request.Payment.Ref,
+	})
+
+	// Process the request asynchronously in a goroutine
+	go func(req models.TillsPayRequest) {
+		bgCtx := context.Background()
+		bgLogger := js.Service.Log(bgCtx).WithField("type", "AsyncInitiateTillsPay")
+		bgLogger.WithField("reference", req.Payment.Ref).Info("starting async tills pay processing")
+
+		// Create event
+		event := &events_tills_pay.JengaTillsPay{
+			Service: js.Service,
+			Client:  js.Client,
+		}
+
+		// Execute event
+		err := js.Service.Emit(bgCtx, event.Name(), &req)
+		if err != nil {
+			bgLogger.WithError(err).WithField("reference", req.Payment.Ref).Error("failed to process async tills pay request")
+			// Optionally: update status in external system if needed
+		} else {
+			bgLogger.WithField("reference", req.Payment.Ref).Info("successfully processed async tills pay request")
+		}
+	}(requestCopy)
+}
+
 // HealthHandler is a simple health check handler
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-
 }

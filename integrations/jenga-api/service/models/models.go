@@ -112,6 +112,37 @@ type FetchBillersRequest struct {
 	// Add fields if necessary
 }
 
+// TillsPayRequest represents the request structure for the tills/pay endpoint
+type TillsPayRequest struct {
+	Merchant TillsPayMerchant `json:"merchant"`
+	Payment  TillsPayPayment  `json:"payment"`
+	Partner  TillsPayPartner  `json:"partner"`
+}
+
+// TillsPayResponse represents the response structure for the tills/pay endpoint
+type TillsPayResponse struct {
+	Status    bool        `json:"status"`
+	Code      int         `json:"code"`
+	MerchantName string      `json:"merchantName"`
+	TransactionID string    `json:"transactionId"`
+	Message   string      `json:"message"`
+}
+
+type TillsPayMerchant struct {
+	Till string `json:"till"`
+}
+
+type TillsPayPayment struct {
+	Ref     string `json:"ref"`
+	Amount  string `json:"amount"`
+	Currency string `json:"currency"`
+}
+
+type TillsPayPartner struct {
+	ID  string `json:"id"`
+	Ref string `json:"ref"`
+}
+
 type Prompt struct {
 	frame.BaseModel
 	ID                string `gorm:"type:varchar(50)"`	

@@ -4,7 +4,6 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/events/events_account_balance"
 	"github.com/antinvestor/jenga-api/service/events/events_link_processing"
 	"github.com/antinvestor/jenga-api/service/events/events_stk"
 	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
@@ -63,17 +62,13 @@ func main() {
 	router := router.NewRouter(js)
 
 	// Create event handlers
-	accountBalance := &events_account_balance.JengaAccountBalance{Service: service, Client: clientApi}
-	callbackReceive := &events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient}
-	stkussd := &events_stk.JengaSTKUSSD{Service: service, Client: clientApi, PaymentClient: paymentClient}
+    callbackReceive := &events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient}
 	initiatePrompt := &events_stk.InitiatePrompt{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	createPaymentLink := &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	tillsPay := &events_tills_pay.JengaTillsPay{Service: service, Client: clientApi}
 
 	eventHandlers := []frame.EventI{
-		accountBalance,
 		callbackReceive,
-		stkussd,
 		initiatePrompt,
 		createPaymentLink,
 		tillsPay,

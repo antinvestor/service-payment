@@ -64,17 +64,3 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	return base64.StdEncoding.EncodeToString(signature), nil
 }
 
-func GenerateBalanceSignature(countryCode, accountId string, privateKeyPath string) (string, error) {
-	// Generate signature
-	// Use the provided key path or fall back to default
-	keyPath := privateKeyPath
-	if keyPath == "" {
-		keyPath = "app/keys/privatekey.pem"
-	}
-
-	signature, err := GenerateSignature(countryCode+accountId, keyPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %w", err)
-	}
-	return signature, nil
-}

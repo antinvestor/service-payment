@@ -1,6 +1,9 @@
+version: '3.9'
+
 networks:
-  common_network:
+  jenga_network:
     driver: bridge
+
 services:
   payment_db:
     image: postgres:16.3
@@ -11,19 +14,28 @@ services:
     ports:
       - "5436:5432"
     networks:
-      - common_network
+      - jenga_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ant -d service_payment"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   payment_service:
     build: ./
     ports:
-      - "50051:50051"  # Map the port where the gRPC server listens
-      - "8081:8081"    # HTTP port
+      - "50051:50051"
+      - "8081:8081"
     depends_on:
-      - payment_db
+      payment_db:
+        condition: service_healthy
+    networks:
+      - jenga_network
     environment:
       - LOG_LEVEL=debug
       - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DATABASE_URI=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_DSN=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
       - SECURELY_RUN_SERVICE=false
     restart: unless-stopped
-    networks:
-      - common_network

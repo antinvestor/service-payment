@@ -1,4 +1,7 @@
-version: '3.8'
+version: '3.9'
+
+include:
+  - ../../docker-compose.yml
 
 networks:
   jenga_network:
@@ -53,42 +56,3 @@ services:
       - jenga_service
     networks:
       - jenga_network
-
-  payment_db:
-    image: postgres:16.3
-    environment:
-      POSTGRES_DB: service_payment
-      POSTGRES_USER: ant
-      POSTGRES_PASSWORD: secret
-    ports:
-      - "5436:5432"
-    networks:
-      - jenga_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ant -d service_payment"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  payment_service:
-    build: ../../
-    ports:
-      - "50051:50051"
-    depends_on:
-      payment_db:
-        condition: service_healthy
-      nats-server:
-        condition: service_started
-    networks:
-      - jenga_network
-    env_file:
-      - .env
-    environment:
-      - LOG_LEVEL=debug
-      - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
-      - SECURELY_RUN_SERVICE=false
-      - JENGA_API_ENDPOINT=https://jenga_service.chamamobile.com/payments/stk-ussd
-      - JENGA_API_TOKEN=${JENGA_API_TOKEN}
-      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
-      - SKIP_NATS=false
-    restart: unless-stopped

@@ -166,52 +166,6 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 	return &stkUssdResponse, nil
 }
 
-func (c *Client) InitiateAccountBalance(countryCode string, accountId string, accessToken string) (*models.BalanceResponse, error) {
-	//https://uat.finserve.africa/v3-apis/account-api/v3.0/accounts/balances/KE/00201XXXX14605
-	url := fmt.Sprintf("%s/v3-apis/account-api/v3.0/accounts/balances/%s/%s", c.Env, countryCode, accountId)
-
-	// Generate the signature for the request
-	signature, err := GenerateBalanceSignature(countryCode, accountId, c.JengaPrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	//print signature
-	fmt.Println("------------------------------signature--------------------------------")
-	fmt.Println(signature)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Signature", signature)
-	resp, err := c.HttpClient.Do(req)
-
-	if err != nil {
-		return nil, err
-	}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				fmt.Printf("failed to close response body: %v\n", err)
-			}
-		}()
-	// Read the response body for all status codes
-	respBodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Always parse the response, even for error status codes
-	var balanceResponse models.BalanceResponse
-	if err := json.Unmarshal(respBodyBytes, &balanceResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w (status: %s, body: %s)", err, resp.Status, string(respBodyBytes))
-	}
-	//print balance response
-	fmt.Println("------------------------------balance response--------------------------------")
-	fmt.Println(balanceResponse)
-
-	return &balanceResponse, nil
-}
 
 // CreatePaymentLink creates a payment link using the Jenga API.
 func (c *Client) CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error) {

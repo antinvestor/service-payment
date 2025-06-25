@@ -306,39 +306,6 @@ func TestInitiateAccountBalance(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// Create client pointing to test server
-			client := &Client{
-				MerchantCode:    "TEST_MERCHANT",
-				ConsumerSecret:  "TEST_SECRET",
-				ApiKey:          "TEST_API_KEY",
-				HttpClient:      server.Client(),
-				Env:             server.URL, // Use test server URL
-				JengaPrivateKey: tmpFile.Name(),
-			}
-
-			// Call the method
-			response, err := client.InitiateAccountBalance(tt.countryCode, tt.accountId, "test-token")
-
-			// Check expectations
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, response)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedResponse.Status, response.Status)
-				assert.Equal(t, tt.expectedResponse.Code, response.Code)
-				assert.Equal(t, tt.expectedResponse.Message, response.Message)
-
-				// Only check data if it's not an error response
-				if tt.expectedResponse.Status {
-					assert.Equal(t, tt.expectedResponse.Data.Currency, response.Data.Currency)
-					assert.Equal(t, len(tt.expectedResponse.Data.Balances), len(response.Data.Balances))
-					if len(tt.expectedResponse.Data.Balances) > 0 {
-						assert.Equal(t, tt.expectedResponse.Data.Balances[0].Amount, response.Data.Balances[0].Amount)
-						assert.Equal(t, tt.expectedResponse.Data.Balances[0].Type, response.Data.Balances[0].Type)
-					}
-				}
-			}
 		})
 	}
 }

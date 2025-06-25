@@ -16,5 +16,6 @@ type JengaConfig struct {
 	SecurelyRunService  bool   `envDefault:"false" env:"SECURELY_RUN_SERVICE"`
 	PaymentServiceURI    string `envDefault:"localhost:50051" env:"PAYMENT_SERVICE_URI" required:"true"`
 	//NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
-	NATS_URL string `envDefault:"nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222" env:"NATS_URL" required:"true"`
+	NATS_URL string `envDefault:"nats://ant:secret@nats-server:4222" env:"NATS_URL" required:"true"`
+	DATABASE_URL string `envDefault:"postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable" env:"DATABASE_URL" required:"true"`
 }

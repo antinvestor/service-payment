@@ -15,6 +15,7 @@ import (
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/pitabwire/frame"
 	"google.golang.org/grpc"
+	_ "gorm.io/driver/postgres"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 	logger := service.Log(ctx).WithField("type", "main")
 
 	// Database migration if requested
-	if paymentConfig.DoDatabaseMigrate() {
+	if paymentConfig.DoDatabaseMigrate {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
 			&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{},
 			&models.Cost{}, &models.PaymentLink{}, &models.PaymentLinkStatus{})
@@ -128,10 +129,7 @@ func main() {
 	}
 
 	// Use NATS for pub/sub messaging
-	natsURL := os.Getenv("NATS_URL")
-	if natsURL == "" {
-		natsURL = "nats://nats:4222"
-	}
+	natsURL := paymentConfig.NATS_URL
 	promptTopic := "initiate.prompt"
 	paymentLinkTopic := "create.payment.link"
 

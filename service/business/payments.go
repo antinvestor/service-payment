@@ -14,6 +14,7 @@ import (
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/service/utility"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
@@ -66,7 +67,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	c := &models.Cost{
 		Amount: decimal.NullDecimal{
 			Valid:   true,
-			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+			Decimal: utility.FromMoney(message.GetCost()),
 		},
 		Currency: message.GetCost().CurrencyCode,
 	}
@@ -127,7 +128,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	c := &models.Cost{
 		Amount: decimal.NullDecimal{
 			Valid:   true,
-			Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+			Decimal: utility.FromMoney(message.GetCost()),
 		},
 		Currency: message.GetCost().CurrencyCode,
 	}
@@ -373,7 +374,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount:               decimal.NullDecimal{Valid: true, Decimal: decimal.NewFromFloat(float64(req.GetAmount().GetUnits()))},
+		Amount:               decimal.NullDecimal{Valid: true, Decimal: utility.FromMoney(req.GetAmount())},
 		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
@@ -527,7 +528,7 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 	// Parse amount
 	amount := decimal.NewFromInt(0)
 	if plReq.GetAmount() != nil {
-		amount = decimal.NewFromInt(plReq.GetAmount().GetUnits())
+		amount = utility.FromMoney(plReq.GetAmount())
 	}
 
 	// Build PaymentLink model
@@ -608,7 +609,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 
 	p.Amount = decimal.NullDecimal{
 		Valid:   true,
-		Decimal: decimal.NewFromFloat(float64(message.GetAmount().Units)),
+		Decimal: utility.FromMoney(message.GetAmount()),
 	}
 	p.Currency = message.GetAmount().CurrencyCode
 
@@ -618,7 +619,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 
 	c.Amount = decimal.NullDecimal{
 		Valid:   true,
-		Decimal: decimal.NewFromFloat(float64(message.GetCost().Units)),
+		Decimal: utility.FromMoney(message.GetCost()),
 	}
 	c.Currency = message.GetCost().CurrencyCode
 }

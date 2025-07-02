@@ -8,9 +8,9 @@ import (
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	"github.com/antinvestor/service-payments/service/utility"
 	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
-	money "google.golang.org/genproto/googleapis/type/money"
 	"gorm.io/datatypes"
 )
 
@@ -76,11 +76,14 @@ func (model *Payment) ToApi(status *Status, message map[string]string) *paymentV
 		ContactId:   model.RecipientContactID,
 	}
 
+	amountMoney := utility.ToMoney(model.Currency, model.Amount.Decimal)
+	costMoney := utility.ToMoney(model.Cost.Currency, model.Cost.Amount.Decimal)
+
 	payment := paymentV1.Payment{
 		Id:            model.ID,
 		Source:        source,
 		Recipient:     recipient,
-		Amount:        &money.Money{CurrencyCode: model.Currency, Units: model.Amount.Decimal.CoefficientInt64()},
+		Amount:        &amountMoney,
 		TransactionId: model.TransactionId,
 		ReferenceId:   model.ReferenceId,
 		BatchId:       model.BatchId,
@@ -88,10 +91,7 @@ func (model *Payment) ToApi(status *Status, message map[string]string) *paymentV
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.OutBound,
 		Extra:         extra,
-		Cost: &money.Money{
-			CurrencyCode: model.Cost.Currency,
-			Units:        model.Cost.Amount.Decimal.CoefficientInt64(),
-		},
+		Cost:          &costMoney,
 	}
 
 	return &payment
@@ -184,6 +184,8 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 		maps.Copy(extra, message)
 	}
 
+	amountMoney := utility.ToMoney(extra["currency"], model.Amount.Decimal)
+
 	prompt := paymentV1.InitiatePromptRequest{
 		Id: model.ID,
 		Source: &commonv1.ContactLink{
@@ -196,7 +198,7 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:           &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
+		Amount:           &amountMoney,
 		DateCreated:      model.DateCreated,
 		DeviceId:         model.DeviceID,
 		State:            commonv1.STATE(model.State),
@@ -293,6 +295,8 @@ func (model *PaymentLink) ToApi(message map[string]string) *paymentV1.CreatePaym
 		maps.Copy(extra, message)
 	}
 
+	amountMoney := utility.ToMoney(model.Currency, model.Amount)
+
 	paymentLink := paymentV1.PaymentLink{
 		Id:              model.ID,
 		ExpiryDate:      model.ExpiryDate.String(),
@@ -305,7 +309,7 @@ func (model *PaymentLink) ToApi(message map[string]string) *paymentV1.CreatePaym
 		PaymentLinkRef:  model.PaymentLinkRef,
 		RedirectUrl:     model.RedirectURL,
 		AmountOption:    model.AmountOption,
-		Amount:          &money.Money{CurrencyCode: model.Currency, Units: model.Amount.CoefficientInt64()},
+		Amount:          &amountMoney,
 		Currency:        model.Currency,
 	}
 

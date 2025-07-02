@@ -52,7 +52,7 @@ type Payment struct {
 func (model *Payment) IsReleased() bool {
 	return model.ReleasedAt != nil && !model.ReleasedAt.IsZero()
 }
-func (model *Payment) ToApi(status *PaymentStatus, message map[string]string) *paymentV1.Payment {
+func (model *Payment) ToApi(status *Status, message map[string]string) *paymentV1.Payment {
 	extra := make(map[string]string)
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
@@ -105,27 +105,22 @@ type Cost struct {
 	Extra     datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
-type PaymentStatus struct {
+// Unified Status model for all entities
+// Replaces PaymentStatus, PromptStatus, PaymentLinkStatus
+
+type Status struct {
 	frame.BaseModel
-	PaymentID string            `gorm:"type:varchar(50)"`
-	Extra     datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
-	State     int32
-	Status    int32
+	EntityID   string            `gorm:"type:varchar(50)"`
+	EntityType string            `gorm:"type:varchar(50)"`
+	Extra      datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	State      int32
+	Status     int32
 }
 
-func (model *PaymentStatus) ToStatusAPI() *commonv1.StatusResponse {
-	extra := frame.DBPropertiesToMap(model.Extra)
-	extra["CreatedAt"] = model.CreatedAt.String()
-	extra["StatusID"] = model.PaymentID
-
-	status := commonv1.StatusResponse{
-		Id:     model.PaymentID,
-		State:  commonv1.STATE(model.State),
-		Status: commonv1.STATUS(model.Status),
-		Extras: extra,
-	}
-	return &status
-}
+// Deprecated: Use Status instead
+// type PaymentStatus struct { ... }
+// type PromptStatus struct { ... }
+// type PaymentLinkStatus struct { ... }
 
 type Route struct {
 	frame.BaseModel
@@ -161,8 +156,21 @@ type Prompt struct {
 	State                int32               `gorm:"type:integer"`
 	Status               int32               `gorm:"type:integer"`
 	Route                string              `gorm:"type:varchar(50)"`
-	Account              datatypes.JSON      `gorm:"type:jsonb"`
+	AccountID            string              `gorm:"type:varchar(50)"`
+	Account              Account             `gorm:"foreignKey:AccountID;references:ID"`
 	Extra                datatypes.JSONMap   `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+}
+
+func (model *Prompt) getRecipientAccount() *paymentV1.Account {
+	// This function no longer fetches from the database. Ensure the Account field is preloaded if needed.
+	if model.AccountID != "" && model.Account.ID != "" {
+		return &paymentV1.Account{
+			AccountNumber: model.Account.AccountNumber,
+			CountryCode:   model.Account.CountryCode,
+			Name:          model.Account.Name,
+		}
+	}
+	return &paymentV1.Account{}
 }
 
 func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptRequest {
@@ -188,27 +196,14 @@ func (model *Prompt) ToApi(message map[string]string) *paymentV1.InitiatePromptR
 			ProfileId:   model.RecipientID,
 			ContactId:   model.RecipientContactID,
 		},
-		Amount:      &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
-		DateCreated: model.DateCreated,
-		DeviceId:    model.DeviceID,
-		State:       commonv1.STATE(model.State),
-		Status:      commonv1.STATUS(model.Status),
-		Route:       model.Route,
-		RecipientAccount: func() *paymentV1.Account {
-			var account Account
-			if len(model.Account) > 0 {
-				err := json.Unmarshal(model.Account, &account)
-				if err == nil {
-					return &paymentV1.Account{
-						AccountNumber: account.AccountNumber,
-						CountryCode:   account.CountryCode,
-						Name:          account.Name,
-					}
-				}
-			}
-			return &paymentV1.Account{}
-		}(),
-		Extra: extra,
+		Amount:           &money.Money{CurrencyCode: extra["currency"], Units: model.Amount.Decimal.CoefficientInt64()},
+		DateCreated:      model.DateCreated,
+		DeviceId:         model.DeviceID,
+		State:            commonv1.STATE(model.State),
+		Status:           commonv1.STATUS(model.Status),
+		Route:            model.Route,
+		RecipientAccount: model.getRecipientAccount(),
+		Extra:            extra,
 	}
 
 	return &prompt
@@ -220,29 +215,6 @@ func (model *Prompt) ToApiStatus() *commonv1.StatusResponse {
 		State:  commonv1.STATE(model.State),
 		Status: commonv1.STATUS(model.Status),
 	}
-}
-
-type PromptStatus struct {
-	frame.BaseModel
-
-	PromptID string            `gorm:"type:varchar(50)"`
-	Extra    datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
-	State    int32
-	Status   int32
-}
-
-func (model *PromptStatus) ToStatusAPI() *commonv1.StatusResponse {
-	extra := frame.DBPropertiesToMap(model.Extra)
-	extra["CreatedAt"] = model.CreatedAt.String()
-	extra["PromptID"] = model.PromptID
-
-	status := commonv1.StatusResponse{
-		Id:     model.PromptID,
-		State:  commonv1.STATE(model.State),
-		Status: commonv1.STATUS(model.Status),
-		Extras: extra,
-	}
-	return &status
 }
 
 // PaymentLink represents a payment link with associated customers and notifications.
@@ -261,9 +233,8 @@ type PaymentLink struct {
 	AmountOption    string          `gorm:"type:varchar(20)" json:"amountOption"`
 	Amount          decimal.Decimal `gorm:"type:numeric" json:"amount"`
 	Currency        string          `gorm:"type:varchar(10)" json:"currency"`
-	Customers       datatypes.JSON  `gorm:"type:jsonb" json:"customers"`     // stores []Customer as JSON
-	Notifications   datatypes.JSON  `gorm:"type:jsonb" json:"notifications"` //Notifications are enums
-
+	Customers       datatypes.JSON  `gorm:"type:jsonb" json:"customers"` // stores []Customer as JSON
+	Notifications   datatypes.JSON  `gorm:"type:jsonb" json:"notifications"`
 }
 
 // Customer represents a customer for a payment link.
@@ -384,29 +355,4 @@ func toPaymentV1NotificationType(s string) paymentV1.NotificationType {
 	default:
 		return paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED
 	}
-}
-
-// PaymentLinkStatus tracks the status of a PaymentLink.
-type PaymentLinkStatus struct {
-	frame.BaseModel
-
-	PaymentLinkID string            `gorm:"type:varchar(50)" json:"paymentLinkId"`
-	Extra         datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
-	State         int32             `json:"state"`
-	Status        int32             `json:"status"`
-}
-
-// ToStatusAPI converts PaymentLinkStatus to a commonv1.StatusResponse for API use.
-func (model *PaymentLinkStatus) ToStatusAPI() *commonv1.StatusResponse {
-	extra := frame.DBPropertiesToMap(model.Extra)
-	extra["CreatedAt"] = model.CreatedAt.String()
-	extra["PaymentLinkID"] = model.PaymentLinkID
-
-	status := commonv1.StatusResponse{
-		Id:     model.PaymentLinkID,
-		State:  commonv1.STATE(model.State),
-		Status: commonv1.STATUS(model.Status),
-		Extras: extra,
-	}
-	return &status
 }

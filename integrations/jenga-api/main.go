@@ -60,25 +60,21 @@ func main() {
 		Service: service,
 	}
 	router := router.NewRouter(js)
-
-	// Create event handlers
-    callbackReceive := &events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient}
 	initiatePrompt := &events_stk.InitiatePrompt{Service: service, Client: clientApi, PaymentClient: paymentClient}
 	createPaymentLink := &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: paymentClient}
-	tillsPay := &events_tills_pay.JengaTillsPay{Service: service, Client: clientApi}
 
 	eventHandlers := []frame.EventI{
-		callbackReceive,
+		&events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
 		initiatePrompt,
 		createPaymentLink,
-		tillsPay,
+		&events_tills_pay.JengaTillsPay{Service: service, Client: clientApi},
 	}
 
 	// NATS-only configuration
 	natsURL := jengaConfig.NATS_URL
 	promptTopic := "initiate.prompt"
 	paymentLinkTopic := "create.payment.link"
-
+    //TODO to ensure to put the topics and the urls in the config file
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
 		frame.WithRegisterEvents(eventHandlers...),

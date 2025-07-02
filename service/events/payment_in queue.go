@@ -68,17 +68,19 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 		WithField("route", p.RouteID).
 		Debug(" Successfully routed in payment")
 
-	pStatus := models.PaymentStatus{
-		PaymentID: p.GetID(),
-		State:     int32(commonv1.STATE_ACTIVE),
-		Status:    int32(commonv1.STATUS_IN_PROCESS),
+	// Unified status
+	status := models.Status{
+		EntityID:   p.GetID(),
+		EntityType: "payment",
+		State:      int32(commonv1.STATE_ACTIVE),
+		Status:     int32(commonv1.STATUS_IN_PROCESS),
+		Extra:      make(map[string]interface{}),
 	}
-
-	pStatus.GenID(ctx)
+	status.GenID(ctx)
 
 	// Queue out payment status for further processing
-	eventStatus := PaymentStatusSave{}
-	err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
+	statusEvent := StatusSave{Service: event.Service}
+	err = event.Service.Emit(ctx, statusEvent.Name(), &status)
 	if err != nil {
 		return err
 	}

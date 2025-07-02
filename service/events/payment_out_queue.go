@@ -46,16 +46,16 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Fetch payment status
-	paymentStatusRepo := repository.NewPaymentStatusRepository(ctx, event.Service)
-	pStatus, err := paymentStatusRepo.GetByID(ctx, payment.ID)
+	statusRepo := repository.NewStatusRepository(ctx, event.Service)
+	status, err := statusRepo.GetByEntity(ctx, payment.ID, "payment")
 	if err != nil {
-		logger.WithError(err).WithField("status_id", pStatus.PaymentID).Warn("could not get payment status")
+		logger.WithError(err).WithField("status_id", payment.ID).Warn("could not get payment status")
 		return err
 	}
 
 	paymentMap := event.formatOutboundPayment(payment)
 
-	apiPayment := payment.ToApi(pStatus, paymentMap)
+	apiPayment := payment.ToApi(status, paymentMap)
 
 	binaryProto, err := proto.Marshal(apiPayment)
 	if err != nil {
@@ -78,18 +78,19 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	// Update payment status
-	pStatus = &models.PaymentStatus{
-		PaymentID: payment.GetID(),
-		State:     int32(commonv1.STATE_ACTIVE),
-		Status:    int32(commonv1.STATUS_IN_PROCESS),
+	// Update payment status using unified Status
+	status = &models.Status{
+		EntityID:   payment.GetID(),
+		EntityType: "payment",
+		State:      int32(commonv1.STATE_ACTIVE),
+		Status:     int32(commonv1.STATUS_IN_PROCESS),
+		Extra:      make(map[string]interface{}),
 	}
+	status.GenID(ctx)
 
-	pStatus.GenID(ctx)
-
-	// Emit payment status event
-	eventStatus := PaymentStatusSave{}
-	err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
+	// Emit status event
+	statusEvent := StatusSave{Service: event.Service}
+	err = event.Service.Emit(ctx, statusEvent.Name(), status)
 	if err != nil {
 		return err
 	}

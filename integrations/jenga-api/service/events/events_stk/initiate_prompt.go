@@ -122,9 +122,11 @@ func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Format the amount for the API
+	//changes the inconcistencies in Amount
 	amountStr := fmt.Sprintf("%.2f", prompt.Amount.Decimal.InexactFloat64())
 
 	// Get callback URL from environment variable
+	//Add in configuration file
 	callbackURL := os.Getenv("CALLBACK_URL")
 	if callbackURL == "" {
 		callbackURL = "https://callback.example.com" // Default callback URL

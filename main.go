@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	apis "github.com/antinvestor/apis/go/common"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
+	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/config"
 	"github.com/antinvestor/service-payments/service/events"
@@ -24,15 +24,15 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not load config: %v", err))
 	}
-	ctx, service := frame.NewService(serviceName, frame.WithConfig(&paymentConfig))
+	ctx, service := frame.NewService(serviceName, frame.WithConfig(&paymentConfig), frame.WithDatastore())
 	defer service.Stop(ctx)
 	logger := service.Log(ctx).WithField("type", "main")
 
 	// Database migration if requested
-	if paymentConfig.DoDatabaseMigrate {
+	if paymentConfig.DoDatabaseMigrate() {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
-			&models.Route{}, &models.Payment{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{},
-			&models.Cost{}, &models.PaymentLink{}, &models.PaymentLinkStatus{})
+			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
+			&models.Cost{}, &models.PaymentLink{})
 		if err != nil {
 			logger.WithError(err).Fatal("could not migrate successfully")
 		}
@@ -45,7 +45,7 @@ func main() {
 		logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).Fatal("Database connection is nil - check DATABASE_URL and database availability")
 		return
 	}
-	if err := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.PaymentStatus{}, &models.Prompt{}, &models.PromptStatus{}, &models.PaymentLink{}, &models.PaymentLinkStatus{}); err != nil {
+	if err := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.Status{}, &models.Prompt{},  &models.PaymentLink{}); err != nil {
 		logger.WithError(err).Fatal("Failed to auto-migrate database tables - cannot continue")
 		return
 	}
@@ -116,15 +116,13 @@ func main() {
 		frame.WithEnableGRPCServerReflection(),
 		frame.WithRegisterEvents(
 			&events.PaymentSave{Service: service},
-			&events.PaymentStatusSave{Service: service},
 			&events.PaymentInQueue{Service: service},
 			&events.PaymentOutQueue{Service: service},
 			&events.PaymentInRoute{Service: service},
 			&events.PaymentOutRoute{Service: service, ProfileCli: profileCli},
 			&events.PromptSave{Service: service},
-			&events.PromptStatusSave{Service: service},
 			&events.PaymentLinkSave{Service: service},
-			&events.PaymentLinkStatusSave{Service: service},
+			&events.StatusSave{Service: service},
 		),
 	}
 

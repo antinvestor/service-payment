@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
@@ -46,6 +45,7 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	callback := payload.(*models.StkCallback)
+	//TODO put payload to an extra
 
 	logger.WithField("callback", callback).Info("Received Jenga STK callback for payment processing")
 
@@ -62,13 +62,14 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 			CurrencyCode: callback.Currency,
 		},
 		Source: &commonv1.ContactLink{
-			ContactId: callback.MobileNumber,
+			Detail: callback.MobileNumber,
 			Extras: map[string]string{
 				"mobile_number": callback.MobileNumber,
+				"telco": callback.Telco,
 			},
 		},
 		Recipient: &commonv1.ContactLink{
-			ContactId: callback.Telco,
+		    Detail: callback.Telco,
 			Extras: map[string]string{
 				"telco": callback.Telco,
 			},
@@ -96,63 +97,12 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	// Invoke the GRPC receive method
-	receiveResponse, err := event.PaymentClient.Client.Receive(ctx, receiveRequest)
+	_ , err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
 	if err != nil {
 		logger.WithError(err).Error("failed to receive payment")
-		return nil
+		return err
 	}
-
-	// Log the receive response
-	logger.WithField("receive_response", receiveResponse).Info("Received receive response from payment service")
-
-	// Verify payment ID exists before proceeding
-	if receiveResponse.Data == nil || receiveResponse.Data.GetId() == "" {
-		logger.Error("received empty payment ID from payment service")
-		return nil
-	}
-
-	// Add a small delay to give time for the payment to be saved to the database
-	// This prevents the race condition where we try to update a payment that hasn't been saved yet
-	time.Sleep(500 * time.Millisecond)
-
-	// Determine payment status based on callback.Status
-	paymentStatus := commonv1.STATUS_SUCCESSFUL
-	if !callback.Status {
-		paymentStatus = commonv1.STATUS_FAILED
-		logger.Info("Callback indicates payment failure, setting status to FAILED")
-	}
-
-	//  status update use commonv1 StatusUpdateRequest
-	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id:     receiveResponse.Data.GetId(),
-		State:  commonv1.STATE_ACTIVE,
-		Status: paymentStatus,
-		Extras: map[string]string{
-			"raw_callback": string(callbackJSON),
-		},
-	}
-
-	// Invoke the GRPC status update method
-	statusUpdateResponse, err := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
-	if err != nil {
-		logger.WithError(err).Error("failed to update payment status")
-
-		// If the first attempt fails due to timing, try again with a longer delay
-		if strings.Contains(err.Error(), "no entity found") {
-			logger.Info("First status update attempt failed, retrying after a delay")
-			time.Sleep(1 * time.Second)
-
-			statusUpdateResponse, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
-			if err != nil {
-				logger.WithError(err).Error("failed to update payment status after retry")
-				return nil
-			}
-		} else {
-			return nil
-		}
-	}
-	// Log the status update response
-	logger.WithField("status_update_response", statusUpdateResponse).Info("Status update response from payment service")
-
 	return nil
+
+
 }

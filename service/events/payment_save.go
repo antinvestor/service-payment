@@ -74,17 +74,17 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 			return err
 		}
 	} else {
-		pStatus := models.PaymentStatus{
-			PaymentID: payment.GetID(),
-			State:     int32(commonv1.STATE_CHECKED.Number()),
-			Status:    int32(commonv1.STATUS_QUEUED.Number()),
+		status := models.Status{
+			EntityID:   payment.GetID(),
+			EntityType: "payment",
+			State:      int32(commonv1.STATE_CHECKED.Number()),
+			Status:     int32(commonv1.STATUS_QUEUED.Number()),
+			Extra:      make(map[string]interface{}),
 		}
-
-		pStatus.GenID(ctx)
-
+		status.GenID(ctx)
 		// Queue out payment status for further processing
-		eventStatus := PaymentStatusSave{Service: event.Service}
-		err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
+		statusEvent := StatusSave{Service: event.Service}
+		err = event.Service.Emit(ctx, statusEvent.Name(), &status)
 		if err != nil {
 			logger.WithError(err).Warn("could not emit status")
 			return err

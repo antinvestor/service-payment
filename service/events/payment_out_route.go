@@ -69,24 +69,20 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("could not route payment")
 
 		if strings.Contains(err.Error(), "no routes matched for payment") {
-			pStatus := models.PaymentStatus{
-				PaymentID: p.GetID(),
-				State:     int32(commonv1.STATE_INACTIVE),
-				Status:    int32(commonv1.STATUS_FAILED),
-				Extra: frame.DBPropertiesFromMap(map[string]string{
-					"error": err.Error(),
-				}),
+			status := models.Status{
+				EntityID:   p.GetID(),
+				EntityType: "payment",
+				State:      int32(commonv1.STATE_INACTIVE),
+				Status:     int32(commonv1.STATUS_FAILED),
+				Extra:      frame.DBPropertiesFromMap(map[string]string{"error": err.Error()}),
 			}
-
-			pStatus.GenID(ctx)
-
-			eventStatus := PaymentStatusSave{}
-			err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
+			status.GenID(ctx)
+			statusEvent := StatusSave{Service: event.Service}
+			err = event.Service.Emit(ctx, statusEvent.Name(), &status)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
 			}
-
 			return nil
 		}
 
@@ -107,17 +103,16 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	pStatus := models.PaymentStatus{
-		PaymentID: p.GetID(),
-		State:     int32(commonv1.STATE_ACTIVE),
-		Status:    int32(commonv1.STATUS_QUEUED),
+	status := models.Status{
+		EntityID:   p.GetID(),
+		EntityType: "payment",
+		State:      int32(commonv1.STATE_ACTIVE),
+		Status:     int32(commonv1.STATUS_QUEUED),
+		Extra:      make(map[string]interface{}),
 	}
-
-	pStatus.GenID(ctx)
-
-	// Queue out payment status for further processing
-	eventStatus := PaymentStatusSave{}
-	err = event.Service.Emit(ctx, eventStatus.Name(), pStatus)
+	status.GenID(ctx)
+	statusEvent := StatusSave{Service: event.Service}
+	err = event.Service.Emit(ctx, statusEvent.Name(), &status)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit status for save")
 		return err

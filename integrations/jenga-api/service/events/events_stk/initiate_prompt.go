@@ -4,41 +4,63 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
-	models "github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
+	"gorm.io/datatypes"
+)
+
+const (
+	defaultCurrency  = "KES"
+	defaultTelco     = "Safaricom"
+	defaultPushType  = "STK"
+	dateFormat       = "2006-01-02"
+	amountFormat     = "%.2f"
+	updateTypePrompt = "prompt"
+	statusActive     = commonv1.STATE_ACTIVE
+	statusFailed     = commonv1.STATUS_FAILED
+	statusSuccessful = commonv1.STATUS_SUCCESSFUL
 )
 
 // InitiatePrompt handles the initiate.prompt events.
 type InitiatePrompt struct {
-	Service       *frame.Service
-	Client        coreapi.JengaApiClient
-	PaymentClient *paymentV1.PaymentClient
+	Service *frame.Service
+	Client coreapi.JengaApiClient
+	PaymentClient paymentV1.PaymentClient
+	CallbackURL string
+}
+
+// NewInitiatePrompt creates a new InitiatePrompt handler with dependencies.
+func NewInitiatePrompt(service *frame.Service, client coreapi.JengaApiClient, paymentClient paymentV1.PaymentClient, callbackURL string) *InitiatePrompt {
+	return &InitiatePrompt{
+		Service: service,
+		Client: client,
+		PaymentClient: paymentClient,
+		CallbackURL: callbackURL,
+	}
 }
 
 // Name returns the name of the event handler.
-func (event *InitiatePrompt) Name() string {
+func (h *InitiatePrompt) Name() string {
 	return "initiate.prompt"
 }
 
 // PayloadType returns the type of payload this event expects.
-func (event *InitiatePrompt) PayloadType() any {
+func (h *InitiatePrompt) PayloadType() any {
 	return &models.Prompt{}
 }
 
 // Validate validates the payload.
-func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
+func (h *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
-		return fmt.Errorf("invalid payload type, expected Prompt")
+		return fmt.Errorf("invalid payload type, expected *models.Prompt")
 	}
 
-	// Basic validation
 	if prompt.ID == "" {
 		return fmt.Errorf("prompt ID is required")
 	}
@@ -53,172 +75,158 @@ func (event *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 }
 
 // Handle implements the frame.SubscribeWorker interface.
-func (event *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
-	// Create a new payload instance
-	payload := event.PayloadType()
-	prompt, ok := payload.(*models.Prompt)
-	if !ok {
-		return fmt.Errorf("invalid payload type, expected Prompt")
-	}
-
-	// Unmarshal the message into the payload
-	if err := json.Unmarshal(message, prompt); err != nil {
+func (h *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
+	payload := h.PayloadType()
+	if err := json.Unmarshal(message, payload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	// Validate the payload
-	if err := event.Validate(ctx, prompt); err != nil {
+	if err := h.Validate(ctx, payload); err != nil {
 		return fmt.Errorf("payload validation failed: %w", err)
 	}
 
-	// Execute the business logic
-	return event.Execute(ctx, prompt)
+	return h.Execute(ctx, payload)
 }
 
 // Execute handles the prompt and initiates the STK/USSD push request.
-func (event *InitiatePrompt) Execute(ctx context.Context, payload any) error {
+func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
-		return fmt.Errorf("invalid payload type")
+		return fmt.Errorf("invalid payload type, expected *models.Prompt")
 	}
 
-	// Get logger
-	logger := event.Service.Log(ctx).WithField("promptId", prompt.ID)
+	logger := h.Service.Log(ctx).WithField("promptId", prompt.ID)
 	logger.Info("Processing initiate.prompt event")
 
-	// Extract account information from JSON
-	var account models.Account
-	if err := json.Unmarshal(prompt.Account, &account); err != nil {
-		logger.WithError(err).Error("failed to unmarshal account JSON")
-		return fmt.Errorf("failed to parse account info: %w", err)
+	account, err := parseAccountInfo(prompt.Account)
+	if err != nil {
+		logger.WithError(err).Error("failed to parse account info")
+		return fmt.Errorf("parse account info: %w", err)
 	}
 
-	// Get transaction reference from Extra
-	transactionRef, ok := prompt.Extra["transaction_ref"].(string)
-	if !ok || transactionRef == "" {
+	transactionRef, ok := getStringFromExtra(prompt.Extra, "transaction_ref")
+	if !ok {
 		logger.Error("transaction reference is missing or invalid")
 		return fmt.Errorf("transaction reference is required")
 	}
 
-	// Get currency from Extra
-	currency, ok := prompt.Extra["currency"].(string)
-	if !ok || currency == "" {
-		currency = "KES" // Default to KES if not provided
-		logger.WithField("currency", currency).Info("Using default currency")
-	}
+	currency := getStringWithDefault(prompt.Extra, "currency", defaultCurrency)
+	telco := getStringWithDefault(prompt.Extra, "telco", defaultTelco)
+	pushType := getStringWithDefault(prompt.Extra, "pushType", defaultPushType)
 
-	// Get telco from Extra
-	telco, ok := prompt.Extra["telco"].(string)
-	if !ok || telco == "" {
-		telco = "Safaricom" // Default to Safaricom if not provided
-		logger.WithField("telco", telco).Info("Using default telco")
-	}
+	amountStr := fmt.Sprintf(amountFormat, prompt.Amount.Decimal.InexactFloat64())
+	currentDate := time.Now().Format(dateFormat)
 
-	// Get pushType from Extra
-	pushType, ok := prompt.Extra["pushType"].(string)
-	if !ok || pushType == "" {
-		pushType = "STK" // Default to STK if not provided
-		logger.WithField("pushType", pushType).Info("Using default push type")
-	}
-
-	// Format the amount for the API
-	//changes the inconcistencies in Amount
-	amountStr := fmt.Sprintf("%.2f", prompt.Amount.Decimal.InexactFloat64())
-
-	// Get callback URL from environment variable
-	//Add in configuration file
-	callbackURL := os.Getenv("CALLBACK_URL")
-	if callbackURL == "" {
-		callbackURL = "https://callback.example.com" // Default callback URL
-		logger.WithField("callbackURL", callbackURL).Warn("Using default callback URL")
-	}
-
-	// Format current date for the API
-	currentDate := time.Now().Format("2006-01-02")
-
-	// Prepare the STK/USSD push request
 	stkRequest := &models.STKUSSDRequest{
 		Merchant: models.Merchant{
 			AccountNumber: account.AccountNumber,
-			CountryCode:   account.CountryCode,
-			Name:          account.Name,
+			CountryCode: account.CountryCode,
+			Name: account.Name,
 		},
 		Payment: models.Payment{
-			Ref:          transactionRef,
-			Amount:       amountStr,
-			Currency:     currency,
-			Telco:        telco,
+			Ref: transactionRef,
+			Amount: amountStr,
+			Currency: currency,
+			Telco: telco,
 			MobileNumber: prompt.SourceContactID,
-			Date:         currentDate,
-			CallBackUrl:  callbackURL,
-			PushType:     pushType,
+			Date: currentDate,
+			CallBackUrl: h.CallbackURL,
+			PushType: pushType,
 		},
 		ID: prompt.ID,
 	}
 
 	logger.WithField("stkRequest", stkRequest).Info("Prepared STK request")
 
-	// Generate bearer token for authorization
-	token, err := event.Client.GenerateBearerToken()
+	token, err := h.Client.GenerateBearerToken()
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token")
-		// Update status to failed
-		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id:     prompt.ID,
-			State:  commonv1.STATE_ACTIVE,
-			Status: commonv1.STATUS_FAILED,
-			Extras: map[string]string{
-				"update_type":     "prompt",
-				"transaction_ref": transactionRef,
-				"error":           fmt.Sprintf("failed to generate token: %v", err),
-			},
-		}
-		_, updateErr := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
-		if updateErr != nil {
-			logger.WithError(updateErr).Error("failed to update payment status")
-		}
-		return fmt.Errorf("failed to generate bearer token: %w", err)
+		return h.handleError(ctx, prompt.ID, transactionRef,
+			fmt.Errorf("generate bearer token: %w", err))
 	}
 
-	// Initiate STK/USSD push
-	response, err := event.Client.InitiateSTKUSSD(*stkRequest, token.AccessToken)
+	response, err := h.Client.InitiateSTKUSSD(*stkRequest, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
-		// Update status to failed
-		statusUpdateRequest := &commonv1.StatusUpdateRequest{
-			Id:     prompt.ID,
-			State:  commonv1.STATE_ACTIVE,
-			Status: commonv1.STATUS_FAILED,
-			Extras: map[string]string{
-				"update_type":     "prompt",
-				"transaction_ref": transactionRef,
-				"error":           err.Error(),
-			},
-		}
-		_, updateErr := event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
-		if updateErr != nil {
-			logger.WithError(updateErr).Error("failed to update payment status")
-		}
-		return fmt.Errorf("failed to initiate STK/USSD push: %w", err)
+		return h.handleError(ctx, prompt.ID, transactionRef,
+			fmt.Errorf("initiate STK/USSD push: %w", err))
 	}
 
 	logger.WithField("response", response).Info("STK/USSD push response received")
 
-	// Update status to processing
+	if err := h.updateStatus(ctx, prompt.ID, transactionRef, response.TransactionID, response.Message); err != nil {
+		logger.WithError(err).Error("failed to update payment status")
+		return fmt.Errorf("update payment status: %w", err)
+	}
+
+	return nil
+}
+
+// parseAccountInfo unmarshals the account JSON from the prompt.
+func parseAccountInfo(accountJSON datatypes.JSON) (*models.Account, error) {
+	var account models.Account
+	if err := json.Unmarshal(accountJSON, &account); err != nil {
+		return nil, fmt.Errorf("unmarshal account JSON: %w", err)
+	}
+	return &account, nil
+}
+
+// getStringFromExtra safely extracts a string value from the extras map.
+func getStringFromExtra(extras map[string]interface{}, key string) (string, bool) {
+	if extras == nil {
+		return "", false
+	}
+	val, ok := extras[key].(string)
+	return val, ok && val != ""
+}
+
+// getStringWithDefault extracts a string with a default value if not found.
+func getStringWithDefault(extras map[string]interface{}, key, defaultValue string) string {
+	if val, ok := getStringFromExtra(extras, key); ok {
+		return val
+	}
+	return defaultValue
+}
+
+// handleError updates the status to failed and returns the error.
+func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionRef string, err error) error {
+	logger := h.Service.Log(ctx).WithField("promptId", promptID)
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id:     prompt.ID,
-		State:  commonv1.STATE_ACTIVE,
-		Status: commonv1.STATUS_SUCCESSFUL,
+		Id: promptID,
+		State: statusActive,
+		Status: statusFailed,
 		Extras: map[string]string{
-			"update_type":     "prompt",
+			"update_type": updateTypePrompt,
 			"transaction_ref": transactionRef,
-			"transaction_id":  response.TransactionID,
-			"message":         response.Message,
+			"error": err.Error(),
 		},
 	}
-	_, err = event.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
+
+	if _, updateErr := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest); updateErr != nil {
+		logger.WithError(updateErr).Error("failed to update payment status")
+		return fmt.Errorf("update payment status: %w", updateErr)
+	}
+
+	return err
+}
+
+// updateStatus updates the payment status to successful.
+func (h *InitiatePrompt) updateStatus(ctx context.Context, promptID, transactionRef, transactionID, message string) error {
+	statusUpdateRequest := &commonv1.StatusUpdateRequest{
+		Id: promptID,
+		State: statusActive,
+		Status: statusSuccessful,
+		Extras: map[string]string{
+			"update_type": updateTypePrompt,
+			"transaction_ref": transactionRef,
+			"transaction_id": transactionID,
+			"message": message,
+		},
+	}
+
+	_, err := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
-		logger.WithError(err).Error("failed to update payment status")
+		return fmt.Errorf("payment client status update: %w", err)
 	}
 
 	return nil

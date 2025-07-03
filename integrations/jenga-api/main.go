@@ -4,6 +4,7 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
+	"github.com/antinvestor/jenga-api/service/events/events_callback"
 	"github.com/antinvestor/jenga-api/service/events/events_link_processing"
 	"github.com/antinvestor/jenga-api/service/events/events_stk"
 	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
@@ -60,11 +61,16 @@ func main() {
 		Service: service,
 	}
 	router := router.NewRouter(js)
-	initiatePrompt := &events_stk.InitiatePrompt{Service: service, Client: clientApi, PaymentClient: paymentClient}
-	createPaymentLink := &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: paymentClient}
+	initiatePrompt := &events_stk.InitiatePrompt{
+		Service:       service,
+		Client:        clientApi,
+		PaymentClient: *paymentClient,
+		CallbackURL:   jengaConfig.JengaCallbackURL,
+	}
+	createPaymentLink := &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: *paymentClient}
 
 	eventHandlers := []frame.EventI{
-		&events_stk.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
+		&events_callback.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
 		initiatePrompt,
 		createPaymentLink,
 		&events_tills_pay.JengaTillsPay{Service: service, Client: clientApi},
@@ -74,7 +80,7 @@ func main() {
 	natsURL := jengaConfig.NATS_URL
 	promptTopic := "initiate.prompt"
 	paymentLinkTopic := "create.payment.link"
-    //TODO to ensure to put the topics and the urls in the config file
+	//TODO to ensure to put the topics and the urls in the config file
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
 		frame.WithRegisterEvents(eventHandlers...),

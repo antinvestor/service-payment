@@ -1,19 +1,17 @@
 package models
 
-
-
 type StkCallback struct {
-	Status       bool   `json:"status"`
-	Code         int    `json:"code"`
-	Message      string `json:"message"`
-	Transaction  string `json:"transactionReference"`
-	Telco        string `json:"telcoReference"`
-	MobileNumber string `json:"mobileNumber"`
-	Currency     string `json:"currency"`
+	Status        bool    `json:"status"`
+	Code          int     `json:"code"`
+	Message       string  `json:"message"`
+	Transaction   string  `json:"transactionReference"`
+	Telco         string  `json:"telcoReference"`
+	MobileNumber  string  `json:"mobileNumber"`
+	Currency      string  `json:"currency"`
 	RequestAmount float64 `json:"requestAmount"`
 	DebitedAmount float64 `json:"debitedAmount"`
-	Charge float64 `json:"charge"`
-	TelcoName string `json:"telco"`
+	Charge        float64 `json:"charge"`
+	TelcoName     string  `json:"telco"`
 }
 type CallbackRequest struct {
 	CallbackType string `json:"callbackType"`
@@ -38,8 +36,8 @@ type CallbackRequest struct {
 		Remarks        string  `json:"remarks"`
 	} `json:"transaction"`
 	Bank struct {
-		Reference       string `json:"reference"`
-		TransactionType string `json:"transactionType"`
-		Account        *string `json:"account"`
+		Reference       string  `json:"reference"`
+		TransactionType string  `json:"transactionType"`
+		Account         string `json:"account"`
 	} `json:"bank"`
 }

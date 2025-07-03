@@ -78,16 +78,16 @@ func main() {
 
 	// NATS-only configuration
 	natsURL := jengaConfig.NATS_URL
-	promptTopic := "initiate.prompt"
-	paymentLinkTopic := "create.payment.link"
+	promptTopic := initiatePrompt.Name()
+	paymentLinkTopic := createPaymentLink.Name()
 	//TODO to ensure to put the topics and the urls in the config file
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
 		frame.WithRegisterEvents(eventHandlers...),
-		frame.WithRegisterPublisher(promptTopic, natsURL+"?subject="+promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+"?subject="+paymentLinkTopic),
-		frame.WithRegisterSubscriber(promptTopic, natsURL+"?subject="+promptTopic, initiatePrompt),
-		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL+"?subject="+paymentLinkTopic, createPaymentLink),
+		frame.WithRegisterPublisher(promptTopic, natsURL + promptTopic),
+		frame.WithRegisterPublisher(paymentLinkTopic, natsURL + paymentLinkTopic),
+		frame.WithRegisterSubscriber(promptTopic, natsURL + promptTopic, initiatePrompt),
+		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL + paymentLinkTopic, createPaymentLink),
 	}
 
 	service.Init(ctx, serviceOptions...)

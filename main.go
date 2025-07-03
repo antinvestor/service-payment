@@ -128,12 +128,12 @@ func main() {
 
 	// Use NATS for pub/sub messaging
 	natsURL := paymentConfig.NATS_URL
-	promptTopic := "initiate.prompt"
-	paymentLinkTopic := "create.payment.link"
+	promptTopic := paymentConfig.PromptTopic
+	paymentLinkTopic := paymentConfig.PaymentLinkTopic
 
 	serviceOptions = append(serviceOptions,
-		frame.WithRegisterPublisher(promptTopic, natsURL+"?subject="+promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+"?subject="+paymentLinkTopic),
+		frame.WithRegisterPublisher(promptTopic, natsURL + promptTopic),
+		frame.WithRegisterPublisher(paymentLinkTopic, natsURL + paymentLinkTopic),
 	)
 
 	service.Init(ctx, serviceOptions...)

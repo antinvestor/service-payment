@@ -18,10 +18,6 @@ const (
 	RouteModeTransmit   = "tx"
 	RouteModeReceive    = "rx"
 	RouteModeTransceive = "trx"
-
-	RouteTypeAny       = "any"
-	RouteTypeLongForm  = "l"
-	RouteTypeShortForm = "s"
 )
 
 // Payment Table holds the payment details.
@@ -43,7 +39,7 @@ type Payment struct {
 	RouteID       string              `gorm:"type:varchar(50)"`
 	Currency      string              `gorm:"type:varchar(10)"`
 	PaymentType   string              `gorm:"type:varchar(10)"`
-	Cost          *Cost
+	CostIDs       []string            `gorm:"type:text[]" json:"cost_ids"`
 	ReleasedAt    *time.Time
 	OutBound      bool
 	Extra         datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
@@ -77,8 +73,7 @@ func (model *Payment) ToApi(status *Status, message map[string]string) *paymentV
 	}
 
 	amountMoney := utility.ToMoney(model.Currency, model.Amount.Decimal)
-	costMoney := utility.ToMoney(model.Cost.Currency, model.Cost.Amount.Decimal)
-
+	
 	payment := paymentV1.Payment{
 		Id:            model.ID,
 		Source:        source,
@@ -91,8 +86,9 @@ func (model *Payment) ToApi(status *Status, message map[string]string) *paymentV
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.OutBound,
 		Extra:         extra,
-		Cost:          &costMoney,
 	}
+	
+	// Costs will be added separately after fetching from repository
 
 	return &payment
 }

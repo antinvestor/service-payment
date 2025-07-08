@@ -53,10 +53,14 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	paymentMap := event.formatOutboundPayment(payment)
+	
 
-	apiPayment := payment.ToApi(status, paymentMap)
+	apiPayment := payment.ToApi(status , nil)
 
+	// Set the payment release date
+	if payment.IsReleased() {
+		apiPayment.Extra["ReleaseDate"] = payment.ReleasedAt.Format(time.RFC3339)
+	}
 	binaryProto, err := proto.Marshal(apiPayment)
 	if err != nil {
 		return err
@@ -98,16 +102,4 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	return nil
 }
 
-func (event *PaymentOutQueue) formatOutboundPayment(p *models.Payment) map[string]string {
-	paymentMap := make(map[string]string)
-	paymentMap["id"] = p.GetID()
-	paymentMap["created_at"] = p.CreatedAt.Format(time.RFC3339Nano)
-	if p.Amount.Valid {
-		paymentMap["amount"] = p.Amount.Decimal.String()
-	} else {
-		paymentMap["amount"] = "0"
-	}
-	paymentMap["currency"] = p.Currency
 
-	return paymentMap
-}

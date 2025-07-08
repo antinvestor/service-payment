@@ -17,13 +17,13 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 # Build the application binary
 RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o jenga_binary . && chmod +x jenga_binary
 
-# Final stage with Alpine
-FROM alpine:3.18
+# Final stage with Distroless
+FROM gcr.io/distroless/static:latest
 
 # Install certificates for HTTPS support
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-# Copy the binary to the Alpine image
+# Copy the binary to the image
 COPY --from=builder /app/jenga_binary /jenga
 
 # Copy the keys directory

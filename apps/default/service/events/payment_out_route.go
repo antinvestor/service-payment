@@ -50,19 +50,6 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	pr, err := event.ProfileCli.GetProfileByID(ctx, p.RecipientProfileID)
-	if err != nil {
-		logger.WithError(err).WithField("profile_id", p.RecipientProfileID).Warn("could not get profile by id")
-		return err
-	}
-
-	contact := filterContactFromProfileByID(pr, p.RecipientContactID)
-	switch contact.Type {
-	case profileV1.ContactType_MSISDN:
-		p.PaymentType = models.RouteTypeShortForm
-	default:
-		p.PaymentType = models.RouteTypeAny
-	}
 
 	route, err := routePayment(ctx, event.Service, models.RouteModeTransmit, p)
 	if err != nil {

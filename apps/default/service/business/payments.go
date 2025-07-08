@@ -71,15 +71,23 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		},
 		Currency: message.GetCost().CurrencyCode,
 	}
-	p.Cost = c
+	c.GenID(ctx)
 
 	if message.GetId() == "" {
 		p.GenID(ctx)
 	}
 
 	pb.validateAmountAndCost(message, p, c)
+	
+	// Save cost separately and add its ID to payment
+	costEvent := events.CostSave{Service: pb.service }
+	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
+		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
+		return nil, err
+	}
+	p.CostIDs = []string{c.ID}
 
-	event := events.PaymentSave{}
+	event := events.PaymentSave{Service: pb.service}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
@@ -132,14 +140,22 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		},
 		Currency: message.GetCost().CurrencyCode,
 	}
-	p.Cost = c
+	c.GenID(ctx)
 
 	if message.GetId() == "" {
 		p.GenID(ctx)
 	}
 	pb.validateAmountAndCost(message, p, c)
+	
+	// Save cost separately and add its ID to payment
+	costEvent := events.CostSave{Service: pb.service }
+	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
+		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
+		return nil, err
+	}
+	p.CostIDs = []string{c.ID}
 
-	event := events.PaymentSave{}
+	event := events.PaymentSave{Service: pb.service}
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
@@ -295,7 +311,7 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 		releaseDate := time.Now()
 		p.ReleasedAt = &releaseDate
 
-		event := events.PaymentSave{}
+		event := events.PaymentSave{Service: pb.service}
 		err = pb.service.Emit(ctx, event.Name(), p)
 		if err != nil {
 			logger.WithError(err).Warn("could not emit payment save")
@@ -401,10 +417,10 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 
 	p.Extra["transaction_ref"] = transactionRef
 	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()
-	p.Extra["mobile_number"] = req.GetSource().GetContactId()
+	p.Extra["mobile_number"] = req.GetSource().GetDetail()
 	// Add telco and pushType information if provided
 
-	event := events.PromptSave{}
+	event := events.PromptSave{Service: pb.service}
 	err = pb.service.Emit(ctx, event.Name(), p)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit prompt save")
@@ -430,6 +446,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		logger.WithError(err).Warn("could not emit status save")
 		return nil, err
 	}
+
 
 	err = pb.service.Publish(ctx, "initiate.prompt", p)
 	if err != nil {
@@ -560,7 +577,7 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 	}
 
 	// Save PaymentLink (emit event)
-	event := events.PaymentLinkSave{}
+	event := events.PaymentLinkSave{Service: pb.service}
 	if err := pb.service.Emit(ctx, event.Name(), paymentLink); err != nil {
 		logger.WithError(err).Warn("could not emit payment link save event")
 		return nil, err

@@ -21,6 +21,7 @@ import (
 func main() {
 	serviceName := "service_payment"
 	paymentConfig, err := frame.ConfigFromEnv[config.PaymentConfig]()
+
 	if err != nil {
 		panic(fmt.Sprintf("could not load config: %v", err))
 	}
@@ -28,14 +29,15 @@ func main() {
 	defer service.Stop(ctx)
 	logger := service.Log(ctx).WithField("type", "main")
 
-	// Database migration if requested
-	if paymentConfig.DoDatabaseMigrate() {
+	// Run migrations if DO_MIGRATION=true
+	if paymentConfig.DO_MIGRATION {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
 			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
 			&models.Cost{}, &models.PaymentLink{})
 		if err != nil {
 			logger.WithError(err).Fatal("could not migrate successfully")
 		}
+		logger.Info("Migrations completed successfully")
 		return
 	}
 
@@ -130,6 +132,7 @@ func main() {
 	natsURL := paymentConfig.NATS_URL
 	promptTopic := paymentConfig.PromptTopic
 	paymentLinkTopic := paymentConfig.PaymentLinkTopic
+
 
 	serviceOptions = append(serviceOptions,
 		frame.WithRegisterPublisher(promptTopic, natsURL + promptTopic),

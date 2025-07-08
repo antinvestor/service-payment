@@ -30,7 +30,7 @@ func main() {
 	logger := service.Log(ctx).WithField("type", "main")
 
 	// Run migrations if DO_MIGRATION=true
-	if paymentConfig.DO_MIGRATION {
+	if paymentConfig.{
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
 			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
 			&models.Cost{}, &models.PaymentLink{})

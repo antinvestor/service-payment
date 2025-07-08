@@ -22,7 +22,7 @@ services:
       retries: 5
 
   payment_service:
-    build: ./
+    build: apps/default/
     ports:
       - "50051:50051"
       - "8081:8081"

@@ -1,0 +1,7 @@
+**/testdata/**
+**/*.md
+Dockerfile
+README*
+LICENSE
+.git
+*.log

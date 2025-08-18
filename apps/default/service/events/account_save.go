@@ -5,8 +5,9 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type AccountSave struct {
@@ -40,7 +41,10 @@ func (e *AccountSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (e *AccountSave) Execute(ctx context.Context, payload any) error {
-	account := payload.(*models.Account)
+	account, ok := payload.(*models.Account)
+	if !ok {
+		return errors.New("payload is not of type models.Account")
+	}
 
 	logger := e.Service.Log(ctx).WithField("payload", account).WithField("type", e.Name())
 	logger.Debug("handling event")

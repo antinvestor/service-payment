@@ -5,8 +5,9 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type CostSave struct {
@@ -40,7 +41,10 @@ func (e *CostSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (e *CostSave) Execute(ctx context.Context, payload any) error {
-	cost := payload.(*models.Cost)
+	cost, ok := payload.(*models.Cost)
+	if !ok {
+		return errors.New("payload is not of type models.Cost")
+	}
 
 	logger := e.Service.Log(ctx).WithField("payload", cost).WithField("type", e.Name())
 	logger.Debug("handling event")

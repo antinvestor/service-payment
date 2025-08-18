@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"net"
 
 	"github.com/antinvestor/apis/go/common"
 
@@ -21,10 +21,11 @@ import (
 	"github.com/antinvestor/service-payments/config"
 	business "github.com/antinvestor/service-payments/service/business"
 	"github.com/antinvestor/service-payments/service/events"
-	"github.com/pitabwire/frame"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/mock/gomock"
+
+	"github.com/pitabwire/frame"
 )
 
 func getService(serviceName string) (*ctxSrv, error) {
@@ -48,11 +49,9 @@ func getService(serviceName string) (*ctxSrv, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
-	// Ensure the container is shut down at the end
+	// return
 	defer func() {
-		fmt.Println("Shutting down Postgres container...")
 		if terminateErr := postgresC.Terminate(ctx); terminateErr != nil {
-			fmt.Printf("failed to terminate container: %s\n", err.Error())
 		}
 	}()
 
@@ -65,15 +64,16 @@ func getService(serviceName string) (*ctxSrv, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get container host: %w", err)
 	}
-
-	dbURL := fmt.Sprintf("postgres://ant:secret@%s:%s/service_payment?sslmode=disable", hostIP, mappedPort.Port())
-	testDb := frame.WithDatastoreConnection(dbURL, false)
+	dbURL := fmt.Sprintf(
+		"postgres://ant:secret@%s/service_payment?sslmode=disable",
+		net.JoinHostPort(hostIP, mappedPort.Port()),
+	)
+	testDB := frame.WithDatastoreConnection(dbURL, false)
 
 	var pcfg config.PaymentConfig
-	//_ = frame.ConfigFillFromEnv(&pcfg)
+	// _ = frame.ConfigFillFromEnv(&pcfg)
 
-	ctx, service := frame.NewService(serviceName, testDb, frame.WithConfig(&pcfg), frame.WithNoopDriver())
-	log.Printf("New Service = %v", ctx)
+	ctx2, service := frame.NewService(serviceName, testDB, frame.WithConfig(&pcfg), frame.WithNoopDriver())
 
 	m := make(map[string]string)
 	m["sub"] = "testing"
@@ -82,7 +82,7 @@ func getService(serviceName string) (*ctxSrv, error) {
 	m["access_id"] = "test_access-id"
 
 	claims := frame.ClaimsFromMap(m)
-	ctx = claims.ClaimsToContext(ctx)
+	ctx = claims.ClaimsToContext(ctx2)
 
 	eventList := frame.WithRegisterEvents(
 		&events.PaymentSave{Service: service},
@@ -169,7 +169,6 @@ func TestNewPaymentBusiness_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service, err := getService(tt.name)
-			log.Printf("ctxService = %v", service.ctx)
 			if err != nil {
 				t.Errorf("failed to get service: %v", err)
 			}
@@ -219,8 +218,8 @@ func TestNewPaymentBusinessWithNils(t *testing.T) {
 			}
 			pb, err := business.NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
 
-			if !errors.Is(err, business.ErrorInitializationFail) {
-				t.Errorf("expected ErrorInitializationFail, got %v", err)
+			if !errors.Is(err, business.ErrInitializationFail) {
+				t.Errorf("expected ErrInitializationFail, got %v", err)
 			}
 
 			if pb != nil {
@@ -293,14 +292,18 @@ func TestSendPaymentWithValidData(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctxService, err := getService(tt.name)
-			//log ctxService
-			log.Printf("ctxService = %v", ctxService.ctx)
+			// log ctxService
 			if err != nil {
 				t.Errorf("getService() error = %v", err)
 				return
 			}
 
-			pb, err := business.NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			pb, err := business.NewPaymentBusiness(
+				ctxService.ctx,
+				ctxService.srv,
+				tt.fields.profileCli,
+				tt.fields.partitionCli,
+			)
 
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
@@ -312,20 +315,18 @@ func TestSendPaymentWithValidData(t *testing.T) {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			//log status
+			// log status			log.Printf("Dispatch() status = %v", status)
 
-			log.Printf("Dispatch() status = %v", status)
-
-			if status.Id != tt.want.Id {
-				t.Errorf("Dispatch() status.Id = %v, want %v", status.Id, tt.want.Id)
+			if status.GetId() != tt.want.GetId() {
+				t.Errorf("Dispatch() status.Id = %v, want %v", status.GetId(), tt.want.GetId())
 			}
 
-			if status.State != tt.want.State {
-				t.Errorf("Dispatch() status.State = %v, want %v", status.State, tt.want.State)
+			if status.GetState() != tt.want.GetState() {
+				t.Errorf("Dispatch() status.State = %v, want %v", status.GetState(), tt.want.GetState())
 			}
 
-			if status.Status != tt.want.Status {
-				t.Errorf("Dispatch() status.Status = %v, want %v", status.Status, tt.want.Status)
+			if status.GetStatus() != tt.want.GetStatus() {
+				t.Errorf("Dispatch() status.Status = %v, want %v", status.GetStatus(), tt.want.GetStatus())
 			}
 		})
 	}
@@ -399,7 +400,12 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 				return
 			}
 
-			pb, err := business.NewPaymentBusiness(ctxService.ctx, ctxService.srv, tt.fields.profileCli, tt.fields.partitionCli)
+			pb, err := business.NewPaymentBusiness(
+				ctxService.ctx,
+				ctxService.srv,
+				tt.fields.profileCli,
+				tt.fields.partitionCli,
+			)
 
 			if err != nil {
 				t.Errorf("NewPaymentBusiness() error = %v", err)
@@ -410,12 +416,12 @@ func TestSendPaymentWithAmountMissing(t *testing.T) {
 
 			if err != nil {
 				t.Errorf("Dispatch() error = %v, wantErr %v", err, tt.wantErr)
-				//return
+				// return
 			}
 
 			if status == nil {
 				t.Errorf("Dispatch() status = %v, want %v", status, nil)
-				//return
+				// return
 			}
 		})
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
@@ -17,13 +18,13 @@ type accountRepository struct {
 	abstractRepository
 }
 
-func NewAccountRepository(ctx context.Context, service *frame.Service) AccountRepository {
+func NewAccountRepository(_ context.Context, service *frame.Service) AccountRepository {
 	return &accountRepository{abstractRepository{service: service}}
 }
 
 func (repo *accountRepository) GetByID(ctx context.Context, id string) (*models.Account, error) {
 	account := models.Account{}
-	err := repo.readDb(ctx).First(&account, "id = ?", id).Error
+	err := repo.readDB(ctx).First(&account, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +33,7 @@ func (repo *accountRepository) GetByID(ctx context.Context, id string) (*models.
 
 func (repo *accountRepository) GetByAccountNumber(ctx context.Context, accountNumber string) (*models.Account, error) {
 	account := models.Account{}
-	err := repo.readDb(ctx).First(&account, "account_number = ? ", accountNumber).Error
+	err := repo.readDB(ctx).First(&account, "account_number = ? ", accountNumber).Error
 	if err != nil {
 		return nil, err
 	}
@@ -40,5 +41,5 @@ func (repo *accountRepository) GetByAccountNumber(ctx context.Context, accountNu
 }
 
 func (repo *accountRepository) Save(ctx context.Context, account *models.Account) error {
-	return repo.writeDb(ctx).Save(account).Error
+	return repo.writeDB(ctx).Save(account).Error
 }

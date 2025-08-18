@@ -6,8 +6,9 @@ import (
 
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type PaymentLinkSave struct {
@@ -57,7 +58,10 @@ func (e *PaymentLinkSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (e *PaymentLinkSave) Execute(ctx context.Context, payload any) error {
-	paymentLink := payload.(*models.PaymentLink)
+	paymentLink, ok := payload.(*models.PaymentLink)
+	if !ok {
+		return errors.New("payload is not of type models.PaymentLink")
+	}
 
 	logger := e.Service.Log(ctx).WithField("payload", paymentLink).WithField("type", e.Name())
 	logger.Debug("handling event")

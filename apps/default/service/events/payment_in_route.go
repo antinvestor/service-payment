@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
-
-	"strings"
 
 	"github.com/pitabwire/frame"
 )
 
+// filterContactFromProfileByID finds a contact by ID in a profile
+// Currently unused but may be needed for future functionality
+/*
 func filterContactFromProfileByID(profile *profileV1.ProfileObject, contactID string) *profileV1.ContactObject {
 	for _, contact := range profile.GetContacts() {
 		if contact.GetId() == contactID {
@@ -24,6 +25,7 @@ func filterContactFromProfileByID(profile *profileV1.ProfileObject, contactID st
 
 	return nil
 }
+*/
 
 type PaymentInRoute struct {
 	Service *frame.Service
@@ -47,7 +49,11 @@ func (event *PaymentInRoute) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
-	paymentID := *payload.(*string)
+	paymentIDPtr, ok := payload.(*string)
+	if !ok {
+		return errors.New("payload is not of type *string")
+	}
+	paymentID := *paymentIDPtr
 	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
@@ -116,7 +122,12 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 	return nil
 }
 
-func routePayment(ctx context.Context, service *frame.Service, routeMode string, payment *models.Payment) (*models.Route, error) {
+func routePayment(
+	ctx context.Context,
+	service *frame.Service,
+	routeMode string,
+	payment *models.Payment,
+) (*models.Route, error) {
 	routeRepository := repository.NewRouteRepository(ctx, service)
 	if payment.RouteID != "" {
 		route, err := routeRepository.GetByID(ctx, payment.RouteID)
@@ -149,7 +160,7 @@ func routePayment(ctx context.Context, service *frame.Service, routeMode string,
 
 func loadRoute(ctx context.Context, service *frame.Service, routeId string) (*models.Route, error) {
 	if routeId == "" {
-		return nil, fmt.Errorf("no route id provided")
+		return nil, errors.New("no route id provided")
 	}
 
 	routeRepository := repository.NewRouteRepository(ctx, service)
@@ -159,7 +170,7 @@ func loadRoute(ctx context.Context, service *frame.Service, routeId string) (*mo
 		return nil, err
 	}
 
-	err = service.AddPublisher(ctx, route.ID, route.Uri)
+	err = service.AddPublisher(ctx, route.ID, route.URI)
 	if err != nil {
 		return route, err
 	}

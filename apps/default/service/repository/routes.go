@@ -4,12 +4,18 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
 type RouteRepository interface {
 	GetByID(ctx context.Context, id string) (*models.Route, error)
-	GetByModeTypeAndPartitionID(ctx context.Context, mode string, routeType string, partitionId string) ([]*models.Route, error)
+	GetByModeTypeAndPartitionID(
+		ctx context.Context,
+		mode string,
+		routeType string,
+		partitionID string,
+	) ([]*models.Route, error)
 	GetByMode(ctx context.Context, mode string) ([]*models.Route, error)
 	Save(ctx context.Context, channel *models.Route) error
 }
@@ -24,7 +30,7 @@ func NewRouteRepository(_ context.Context, service *frame.Service) RouteReposito
 
 func (repo *routeRepository) GetByID(ctx context.Context, id string) (*models.Route, error) {
 	route := models.Route{}
-	err := repo.readDb(ctx).First(&route, "id = ?", id).Error
+	err := repo.readDB(ctx).First(&route, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +40,7 @@ func (repo *routeRepository) GetByID(ctx context.Context, id string) (*models.Ro
 func (repo *routeRepository) GetByMode(ctx context.Context, mode string) ([]*models.Route, error) {
 	var routes []*models.Route
 
-	err := repo.readDb(ctx).Find(&routes,
+	err := repo.readDB(ctx).Find(&routes,
 		"mode = ? OR ( mode = ?)", mode, models.RouteModeTransceive).Error
 	if err != nil {
 		return nil, err
@@ -42,12 +48,17 @@ func (repo *routeRepository) GetByMode(ctx context.Context, mode string) ([]*mod
 	return routes, nil
 }
 
-func (repo *routeRepository) GetByModeTypeAndPartitionID(ctx context.Context, mode string, routeType string, partitionId string) ([]*models.Route, error) {
+func (repo *routeRepository) GetByModeTypeAndPartitionID(
+	ctx context.Context,
+	mode string,
+	routeType string,
+	partitionID string,
+) ([]*models.Route, error) {
 	var routes []*models.Route
 
-	err := repo.readDb(ctx).Find(&routes,
+	err := repo.readDB(ctx).Find(&routes,
 		"partition_id = ? AND ( route_type = ? OR route_type = ? ) AND (mode = ? OR ( mode = ?))",
-		partitionId, "any", routeType, mode, models.RouteModeTransceive).Error
+		partitionID, "any", routeType, mode, models.RouteModeTransceive).Error
 	if err != nil {
 		return nil, err
 	}
@@ -55,5 +66,5 @@ func (repo *routeRepository) GetByModeTypeAndPartitionID(ctx context.Context, mo
 }
 
 func (repo *routeRepository) Save(ctx context.Context, route *models.Route) error {
-	return repo.writeDb(ctx).Save(route).Error
+	return repo.writeDB(ctx).Save(route).Error
 }

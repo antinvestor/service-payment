@@ -28,7 +28,7 @@ func (event *PaymentInQueue) PayloadType() any {
 	return &pType
 }
 
-func (event *PaymentInQueue) Validate(ctx context.Context, payload any) error {
+func (event *PaymentInQueue) Validate(_ context.Context, payload any) error {
 	if _, ok := payload.(*string); !ok {
 		return errors.New(" payload is not of type string")
 	}
@@ -37,7 +37,11 @@ func (event *PaymentInQueue) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
-	paymentID := *payload.(*string)
+	paymentIDPtr, ok := payload.(*string)
+	if !ok {
+		return errors.New("payload is not of type *string")
+	}
+	paymentID := *paymentIDPtr
 	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 

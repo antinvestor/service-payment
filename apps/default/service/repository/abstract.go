@@ -3,18 +3,19 @@ package repository
 import (
 	"context"
 
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm"
+
+	"github.com/pitabwire/frame"
 )
 
 type abstractRepository struct {
 	service *frame.Service
 }
 
-func (ar *abstractRepository) readDb(ctx context.Context) *gorm.DB {
+func (ar *abstractRepository) readDB(ctx context.Context) *gorm.DB {
 	return ar.service.DB(ctx, true)
 }
 
-func (ar *abstractRepository) writeDb(ctx context.Context) *gorm.DB {
+func (ar *abstractRepository) writeDB(ctx context.Context) *gorm.DB {
 	return ar.service.DB(ctx, true)
 }

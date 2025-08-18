@@ -8,8 +8,9 @@ import (
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
-	"github.com/pitabwire/frame"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/pitabwire/frame"
 )
 
 type PaymentOutQueue struct {
@@ -33,7 +34,14 @@ func (event *PaymentOutQueue) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
-	paymentID := *payload.(*string)
+	paymentIDPtr, ok := payload.(*string)
+	if !ok {
+		return errors.New("payload is not of type *string")
+	}
+	if paymentIDPtr == nil {
+		return errors.New("payload is nil")
+	}
+	paymentID := *paymentIDPtr
 
 	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling payment event")
@@ -53,9 +61,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	
-
-	apiPayment := payment.ToApi(status , nil)
+	apiPayment := payment.ToAPI(status, nil)
 
 	// Set the payment release date
 	if payment.IsReleased() {
@@ -101,5 +107,3 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 
 	return nil
 }
-
-

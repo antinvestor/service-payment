@@ -6,8 +6,9 @@ import (
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type PaymentSave struct {
@@ -22,7 +23,7 @@ func (event *PaymentSave) PayloadType() any {
 	return &models.Payment{}
 }
 
-func (event *PaymentSave) Validate(ctx context.Context, payload any) error {
+func (event *PaymentSave) Validate(_ context.Context, payload any) error {
 	payment, ok := payload.(*models.Payment)
 	if !ok {
 		return errors.New(" payload is not of type models.Payment")
@@ -36,7 +37,10 @@ func (event *PaymentSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
-	payment := payload.(*models.Payment)
+	payment, ok := payload.(*models.Payment)
+	if !ok {
+		return errors.New("payload is not of type models.Payment")
+	}
 
 	logger := event.Service.Log(ctx).WithField("type", event.Name())
 	logger.WithField("payload", payment).Debug("handling event")

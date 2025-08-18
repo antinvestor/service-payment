@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
@@ -18,7 +19,7 @@ type costRepository struct {
 	abstractRepository
 }
 
-func NewCostRepository(ctx context.Context, service *frame.Service) CostRepository {
+func NewCostRepository(_ context.Context, service *frame.Service) CostRepository {
 	return &costRepository{
 		abstractRepository: abstractRepository{service: service},
 	}
@@ -26,23 +27,23 @@ func NewCostRepository(ctx context.Context, service *frame.Service) CostReposito
 
 func (r *costRepository) Get(ctx context.Context, id string) (*models.Cost, error) {
 	var cost models.Cost
-	if err := r.readDb(ctx).WithContext(ctx).Where("id = ?", id).First(&cost).Error; err != nil {
+	if err := r.readDB(ctx).WithContext(ctx).Where("id = ?", id).First(&cost).Error; err != nil {
 		return nil, err
 	}
 	return &cost, nil
 }
 
 func (r *costRepository) Save(ctx context.Context, cost *models.Cost) error {
-	return r.writeDb(ctx).WithContext(ctx).Save(cost).Error
+	return r.writeDB(ctx).WithContext(ctx).Save(cost).Error
 }
 
 func (r *costRepository) Delete(ctx context.Context, id string) error {
-	return r.writeDb(ctx).WithContext(ctx).Delete(&models.Cost{}, "id = ?", id).Error
+	return r.writeDB(ctx).WithContext(ctx).Delete(&models.Cost{}, "id = ?", id).Error
 }
 
 func (r *costRepository) GetByPaymentID(ctx context.Context, paymentID string) ([]*models.Cost, error) {
 	var costs []*models.Cost
-	if err := r.readDb(ctx).WithContext(ctx).Where("payment_id = ?", paymentID).Find(&costs).Error; err != nil {
+	if err := r.readDB(ctx).WithContext(ctx).Where("payment_id = ?", paymentID).Find(&costs).Error; err != nil {
 		return nil, err
 	}
 	return costs, nil

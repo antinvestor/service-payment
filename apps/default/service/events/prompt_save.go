@@ -6,8 +6,9 @@ import (
 
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type PromptSave struct {
@@ -57,7 +58,10 @@ func (e *PromptSave) Validate(ctx context.Context, payload any) error {
 }
 
 func (e *PromptSave) Execute(ctx context.Context, payload any) error {
-	prompt := payload.(*models.Prompt)
+	prompt, ok := payload.(*models.Prompt)
+	if !ok {
+		return errors.New("payload is not of type models.Prompt")
+	}
 
 	logger := e.Service.Log(ctx).WithField("payload", prompt).WithField("type", e.Name())
 	logger.Debug("handling event")

@@ -5,8 +5,9 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"gorm.io/gorm/clause"
+
+	"github.com/pitabwire/frame"
 )
 
 type StatusSave struct {
@@ -33,7 +34,10 @@ func (e *StatusSave) Validate(_ context.Context, payload any) error {
 }
 
 func (e *StatusSave) Execute(ctx context.Context, payload any) error {
-	status := payload.(*models.Status)
+	status, ok := payload.(*models.Status)
+	if !ok {
+		return errors.New("payload is not of type models.Status")
+	}
 
 	logger := e.Service.Log(ctx).WithField("payload", status).WithField("type", e.Name())
 	logger.Debug("handling event")

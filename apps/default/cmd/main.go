@@ -13,9 +13,10 @@ import (
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/handlers"
 	"github.com/antinvestor/service-payments/service/models"
-	"github.com/pitabwire/frame"
 	"google.golang.org/grpc"
 	_ "gorm.io/driver/postgres"
+
+	"github.com/pitabwire/frame"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 	logger := service.Log(ctx).WithField("type", "main")
 
 	// Run migrations if DO_MIGRATION=true
-	if paymentConfig.{
+	if !paymentConfig.DoMigration {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
 			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
 			&models.Cost{}, &models.PaymentLink{})
@@ -44,11 +45,12 @@ func main() {
 	// Ensure all required tables exist
 	db := service.DB(ctx, false)
 	if db == nil {
-		logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).Fatal("Database connection is nil - check DATABASE_URL and database availability")
+		logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).
+			Fatal("Database connection is nil - check DATABASE_URL and database availability")
 		return
 	}
-	if err := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.Status{}, &models.Prompt{},  &models.PaymentLink{}); err != nil {
-		logger.WithError(err).Fatal("Failed to auto-migrate database tables - cannot continue")
+	if migrateErr := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.Status{}, &models.Prompt{}, &models.PaymentLink{}); migrateErr != nil {
+		logger.WithError(migrateErr).Fatal("Failed to auto-migrate database tables - cannot continue")
 		return
 	}
 
@@ -93,8 +95,16 @@ func main() {
 
 	if paymentConfig.SecurelyRunService {
 		logger.Info("Running service securely with TLS")
-		unaryInterceptors = append([]grpc.UnaryServerInterceptor{service.UnaryAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer)}, unaryInterceptors...)
-		streamInterceptors = append([]grpc.StreamServerInterceptor{service.StreamAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer)}, streamInterceptors...)
+		unaryInterceptors = append(
+			[]grpc.UnaryServerInterceptor{
+				service.UnaryAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer),
+			},
+			unaryInterceptors...)
+		streamInterceptors = append(
+			[]grpc.StreamServerInterceptor{
+				service.StreamAuthInterceptor(jwtAudience, paymentConfig.Oauth2JwtVerifyIssuer),
+			},
+			streamInterceptors...)
 	} else {
 		logger.Warn("Service is running insecurely: secure by setting SECURELY_RUN_SERVICE=True")
 	}
@@ -129,14 +139,13 @@ func main() {
 	}
 
 	// Use NATS for pub/sub messaging
-	natsURL := paymentConfig.NATS_URL
+	natsURL := paymentConfig.NatsURL
 	promptTopic := paymentConfig.PromptTopic
 	paymentLinkTopic := paymentConfig.PaymentLinkTopic
 
-
 	serviceOptions = append(serviceOptions,
-		frame.WithRegisterPublisher(promptTopic, natsURL + promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL + paymentLinkTopic),
+		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
+		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
 	)
 
 	service.Init(ctx, serviceOptions...)
@@ -145,7 +154,7 @@ func main() {
 		WithField("server grpc port", paymentConfig.GrpcServerPort).
 		Info("Initiating server operations")
 
-	if err := service.Run(ctx, ":8081"); err != nil {
-		logger.WithError(err).Fatal("could not run Server")
+	if runErr := service.Run(ctx, ":8081"); runErr != nil {
+		logger.WithError(runErr).Fatal("could not run Server")
 	}
 }

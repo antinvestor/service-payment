@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
@@ -19,22 +20,26 @@ type promptRepository struct {
 	abstractRepository
 }
 
-func NewPromptRepository(ctx context.Context, service *frame.Service) PromptRepository {
+func NewPromptRepository(_ context.Context, service *frame.Service) PromptRepository {
 	return &promptRepository{abstractRepository{service: service}}
 }
 
 func (repo *promptRepository) GetByID(ctx context.Context, id string) (*models.Prompt, error) {
 	prompt := models.Prompt{}
-	err := repo.readDb(ctx).First(&prompt, "id = ?", id).Error
+	err := repo.readDB(ctx).First(&prompt, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &prompt, nil
 }
 
-func (repo *promptRepository) GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.Prompt, error) {
+func (repo *promptRepository) GetByPartitionAndID(
+	ctx context.Context,
+	partitionID string,
+	id string,
+) (*models.Prompt, error) {
 	prompt := models.Prompt{}
-	err := repo.readDb(ctx).First(&prompt, "partition_id = ? AND id = ?", partitionID, id).Error
+	err := repo.readDB(ctx).First(&prompt, "partition_id = ? AND id = ?", partitionID, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +48,7 @@ func (repo *promptRepository) GetByPartitionAndID(ctx context.Context, partition
 
 func (repo *promptRepository) Search(ctx context.Context, query string) ([]*models.Prompt, error) {
 	var prompts []*models.Prompt
-	err := repo.readDb(ctx).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&prompts).Error
+	err := repo.readDB(ctx).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&prompts).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,5 +56,5 @@ func (repo *promptRepository) Search(ctx context.Context, query string) ([]*mode
 }
 
 func (repo *promptRepository) Save(ctx context.Context, prompt *models.Prompt) error {
-	return repo.writeDb(ctx).Save(prompt).Error
+	return repo.writeDB(ctx).Save(prompt).Error
 }

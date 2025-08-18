@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
@@ -20,13 +21,17 @@ type paymentRepository struct {
 	abstractRepository
 }
 
-func NewPaymentRepository(ctx context.Context, service *frame.Service) PaymentRepository {
+func NewPaymentRepository(_ context.Context, service *frame.Service) PaymentRepository {
 	return &paymentRepository{abstractRepository{service: service}}
 }
 
-func (repo *paymentRepository) GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.Payment, error) {
+func (repo *paymentRepository) GetByPartitionAndID(
+	ctx context.Context,
+	partitionID string,
+	id string,
+) (*models.Payment, error) {
 	payment := models.Payment{}
-	err := repo.readDb(ctx).First(&payment, "partition_id = ? AND id = ?", partitionID, id).Error
+	err := repo.readDB(ctx).First(&payment, "partition_id = ? AND id = ?", partitionID, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +40,7 @@ func (repo *paymentRepository) GetByPartitionAndID(ctx context.Context, partitio
 
 func (repo *paymentRepository) GetByID(ctx context.Context, id string) (*models.Payment, error) {
 	payment := models.Payment{}
-	err := repo.readDb(ctx).First(&payment, "id = ?", id).Error
+	err := repo.readDB(ctx).First(&payment, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +50,7 @@ func (repo *paymentRepository) GetByID(ctx context.Context, id string) (*models.
 func (repo *paymentRepository) Search(ctx context.Context, query string) ([]*models.Payment, error) {
 	query = strings.TrimSpace(query)
 	var payments []*models.Payment
-	paymentQuery := repo.readDb(ctx)
+	paymentQuery := repo.readDB(ctx)
 	if query != "" {
 		searchQ := fmt.Sprintf("%%%s%%", query)
 
@@ -60,5 +65,5 @@ func (repo *paymentRepository) Search(ctx context.Context, query string) ([]*mod
 	return payments, nil
 }
 func (repo *paymentRepository) Save(ctx context.Context, payment *models.Payment) error {
-	return repo.writeDb(ctx).Save(payment).Error
+	return repo.writeDB(ctx).Save(payment).Error
 }

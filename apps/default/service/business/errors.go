@@ -6,23 +6,32 @@ import (
 )
 
 var (
-	ErrorInitializationFail = status.Error(codes.Internal, "Internal configuration is invalid")
+	ErrInitializationFail = status.Error(codes.Internal, "Internal configuration is invalid")
 
-	ErrorInvalidPaymentRequest = status.Error(codes.InvalidArgument, "Invalid payment request")
+	ErrInvalidPaymentRequest = status.Error(codes.InvalidArgument, "Invalid payment request")
 
-	ErrorPaymentDoesNotExist = status.Error(codes.NotFound, "Specified payment does not exist")
+	ErrPaymentDoesNotExist = status.Error(codes.NotFound, "Specified payment does not exist")
 
-	ErrorPaymentAlreadyProcessed = status.Error(codes.FailedPrecondition, "Specified payment has already been processed")
+	ErrPaymentAlreadyProcessed = status.Error(
+		codes.FailedPrecondition,
+		"Specified payment has already been processed",
+	)
 
-	ErrorPaymentAlreadyReleased = status.Error(codes.FailedPrecondition, "Specified payment has already been released")
+	ErrPaymentAlreadyReleased = status.Error(codes.FailedPrecondition, "Specified payment has already been released")
 
-	ErrorPaymentAlreadyRefunded = status.Error(codes.FailedPrecondition, "Specified payment has already been refunded")
+	ErrPaymentAlreadyRefunded = status.Error(codes.FailedPrecondition, "Specified payment has already been refunded")
 
-	ErrorPaymentAlreadyCanceled = status.Error(codes.FailedPrecondition, "Specified payment has already been canceled")
+	ErrPaymentAlreadyCanceled = status.Error(codes.FailedPrecondition, "Specified payment has already been canceled")
 
-	ErrorPaymentAlreadySettled = status.Error(codes.FailedPrecondition, "Specified payment has already been settled")
+	ErrPaymentAlreadySettled = status.Error(codes.FailedPrecondition, "Specified payment has already been settled")
 
-	ErrorPaymentAlreadyPartiallySettled = status.Error(codes.FailedPrecondition, "Specified payment has already been partially settled")
+	ErrPaymentAlreadyPartiallySettled = status.Error(
+		codes.FailedPrecondition,
+		"Specified payment has already been partially settled",
+	)
 
-	ErrorPaymentAlreadyPartiallyRefunded = status.Error(codes.FailedPrecondition, "Specified payment has already been partially refunded")
+	ErrPaymentAlreadyPartiallyRefunded = status.Error(
+		codes.FailedPrecondition,
+		"Specified payment has already been partially refunded",
+	)
 )

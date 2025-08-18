@@ -3,6 +3,7 @@ package business
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,9 +16,10 @@ import (
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/antinvestor/service-payments/service/utility"
-	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
+
+	"github.com/pitabwire/frame"
 )
 
 type PaymentBusiness interface {
@@ -31,10 +33,15 @@ type PaymentBusiness interface {
 	CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error)
 }
 
-func NewPaymentBusiness(_ context.Context, service *frame.Service, profileCli *profileV1.ProfileClient, partitionCli *partitionV1.PartitionClient) (PaymentBusiness, error) {
-	//initialize the service
-	if service == nil || profileCli == nil || partitionCli == nil {
-		return nil, ErrorInitializationFail
+func NewPaymentBusiness(
+	_ context.Context,
+	service *frame.Service,
+	profileCli *profileV1.ProfileClient,
+	partitionCli *partitionV1.PartitionClient,
+) (PaymentBusiness, error) {
+	// initialize the service
+	if service == nil {
+		return nil, ErrInitializationFail
 	}
 	return &paymentBusiness{
 		service:      service,
@@ -57,8 +64,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		RecipientProfileType: message.GetRecipient().GetProfileType(),
 		RecipientProfileID:   message.GetRecipient().GetProfileId(),
 		RecipientContactID:   message.GetRecipient().GetContactId(),
-		ReferenceId:          message.GetReferenceId(),
-		BatchId:              message.GetBatchId(),
+		ReferenceID:          message.GetReferenceId(),
+		BatchID:              message.GetBatchId(),
 		RouteID:              message.GetRoute(),
 		PaymentType:          "Bank Transfers",
 		OutBound:             true,
@@ -69,7 +76,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 			Valid:   true,
 			Decimal: utility.FromMoney(message.GetCost()),
 		},
-		Currency: message.GetCost().CurrencyCode,
+		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
 
@@ -78,9 +85,9 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	}
 
 	pb.validateAmountAndCost(message, p, c)
-	
+
 	// Save cost separately and add its ID to payment
-	costEvent := events.CostSave{Service: pb.service }
+	costEvent := events.CostSave{Service: pb.service}
 	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
@@ -127,8 +134,8 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		RecipientProfileType: message.GetRecipient().GetProfileType(),
 		RecipientProfileID:   message.GetRecipient().GetProfileId(),
 		RecipientContactID:   message.GetRecipient().GetContactId(),
-		ReferenceId:          message.GetReferenceId(),
-		BatchId:              message.GetBatchId(),
+		ReferenceID:          message.GetReferenceId(),
+		BatchID:              message.GetBatchId(),
 		RouteID:              message.GetRoute(),
 		OutBound:             false,
 	}
@@ -138,7 +145,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 			Valid:   true,
 			Decimal: utility.FromMoney(message.GetCost()),
 		},
-		Currency: message.GetCost().CurrencyCode,
+		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
 
@@ -146,9 +153,9 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		p.GenID(ctx)
 	}
 	pb.validateAmountAndCost(message, p, c)
-	
+
 	// Save cost separately and add its ID to payment
-	costEvent := events.CostSave{Service: pb.service }
+	costEvent := events.CostSave{Service: pb.service}
 	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
@@ -184,7 +191,10 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	}, nil
 }
 
-func (pb *paymentBusiness) Status(ctx context.Context, statusReq *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Status(
+	ctx context.Context,
+	statusReq *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", statusReq)
 	logger.Info("handling status check request")
 
@@ -202,14 +212,17 @@ func (pb *paymentBusiness) Status(ctx context.Context, statusReq *commonv1.Statu
 	}, nil
 }
 
-func (pb *paymentBusiness) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) StatusUpdate(
+	ctx context.Context,
+	req *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling unified status update request")
 
 	entityType := req.GetExtras()["entity_type"]
 	if entityType == "" {
 		logger.Error("entity_type must be provided in extras for status update")
-		return nil, fmt.Errorf("entity_type must be provided in extras for status update")
+		return nil, errors.New("entity_type must be provided in extras for status update")
 	}
 
 	status := &models.Status{
@@ -283,7 +296,7 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 			}
 		}
 		// Convert the payment model to the API response format
-		result := p.ToApi(status, nil)
+		result := p.ToAPI(status, nil)
 		responsesList = append(responsesList, result)
 	}
 
@@ -296,7 +309,10 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	return nil
 }
 
-func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Release(
+	ctx context.Context,
+	paymentReq *paymentV1.ReleaseRequest,
+) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", paymentReq)
 	logger.Debug("handling release request")
 
@@ -356,7 +372,10 @@ func (pb *paymentBusiness) Release(ctx context.Context, paymentReq *paymentV1.Re
 	}
 }
 
-func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) InitiatePrompt(
+	ctx context.Context,
+	req *paymentV1.InitiatePromptRequest,
+) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling initiate prompt request")
 
@@ -397,7 +416,7 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
 		AccountID:            accountPtr.ID,
 		Account:              *accountPtr,
-		Extra:                frame.DBPropertiesFromMap(req.Extra),
+		Extra:                frame.DBPropertiesFromMap(req.GetExtra()),
 	}
 
 	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
@@ -447,7 +466,6 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 		return nil, err
 	}
 
-
 	err = pb.service.Publish(ctx, "initiate.prompt", p)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish initiate-prompt")
@@ -462,14 +480,17 @@ func (pb *paymentBusiness) InitiatePrompt(ctx context.Context, req *paymentV1.In
 	}, nil
 }
 
-func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) CreatePaymentLink(
+	ctx context.Context,
+	req *paymentV1.CreatePaymentLinkRequest,
+) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling create payment link request")
 
 	// Validate required fields
 	if req == nil || req.GetPaymentLink() == nil {
 		logger.Error("missing payment link payload")
-		return nil, fmt.Errorf("missing payment link payload")
+		return nil, errors.New("missing payment link payload")
 	}
 
 	plReq := req.GetPaymentLink()
@@ -522,6 +543,9 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 				notificationTypes = append(notificationTypes, models.NotificationTypeEmail)
 			case paymentV1.NotificationType_NOTIFICATION_TYPE_SMS:
 				notificationTypes = append(notificationTypes, models.NotificationTypeSMS)
+			case paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED:
+				// Skip unspecified notification types
+				continue
 			}
 		}
 		b, err := json.Marshal(notificationTypes)
@@ -578,9 +602,9 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 
 	// Save PaymentLink (emit event)
 	event := events.PaymentLinkSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, event.Name(), paymentLink); err != nil {
-		logger.WithError(err).Warn("could not emit payment link save event")
-		return nil, err
+	if emitErr := pb.service.Emit(ctx, event.Name(), paymentLink); emitErr != nil {
+		logger.WithError(emitErr).Warn("could not emit payment link save event")
+		return nil, emitErr
 	}
 
 	// Create PaymentLinkStatus
@@ -593,9 +617,9 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 	}
 	status.GenID(ctx)
 	statusEvent := events.StatusSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, statusEvent.Name(), status); err != nil {
-		logger.WithError(err).Warn("could not emit payment link status event")
-		return nil, err
+	if statusEmitErr := pb.service.Emit(ctx, statusEvent.Name(), status); statusEmitErr != nil {
+		logger.WithError(statusEmitErr).Warn("could not emit payment link status event")
+		return nil, statusEmitErr
 	}
 
 	err = pb.service.Publish(ctx, "create.payment.link", paymentLink)
@@ -605,8 +629,8 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 		status.State = int32(commonv1.STATE_INACTIVE.Number())
 		status.Status = int32(commonv1.STATUS_FAILED.Number())
 		status.Extra["error"] = err.Error()
-		if err := pb.service.Emit(ctx, statusEvent.Name(), status); err != nil {
-			logger.WithError(err).Warn("could not emit payment link status event after publish failure")
+		if statusFailErr := pb.service.Emit(ctx, statusEvent.Name(), status); statusFailErr != nil {
+			logger.WithError(statusFailErr).Warn("could not emit payment link status event after publish failure")
 		}
 		return nil, err
 	}
@@ -620,7 +644,7 @@ func (pb *paymentBusiness) CreatePaymentLink(ctx context.Context, req *paymentV1
 
 // validateAmountAndCost validates the amount and cost fields of the Payment.
 func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {
-	if message.GetAmount().Units <= 0 || message.GetAmount().CurrencyCode == "" {
+	if message.GetAmount().GetUnits() <= 0 || message.GetAmount().GetCurrencyCode() == "" {
 		return
 	}
 
@@ -628,9 +652,9 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 		Valid:   true,
 		Decimal: utility.FromMoney(message.GetAmount()),
 	}
-	p.Currency = message.GetAmount().CurrencyCode
+	p.Currency = message.GetAmount().GetCurrencyCode()
 
-	if message.GetCost().CurrencyCode == "" {
+	if message.GetCost().GetCurrencyCode() == "" {
 		return
 	}
 
@@ -638,13 +662,21 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *
 		Valid:   true,
 		Decimal: utility.FromMoney(message.GetCost()),
 	}
-	c.Currency = message.GetCost().CurrencyCode
+	c.Currency = message.GetCost().GetCurrencyCode()
 }
+
+const (
+	// Transaction reference generation constants
+	millionMod    = 1000000 // Modulo for time component
+	asciiCharBase = 65      // ASCII A for character generation
+	alphabetSize  = 26      // Number of letters in alphabet
+	hundredKMod   = 100000  // Modulo for final component
+)
 
 // generateTransactionRef creates a unique 6-character reference for Jenga API.
 func generateTransactionRef() string {
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-	timeComponent := timestamp % 1000000
-	asciiChar := 65 + ((timestamp / 1000000) % 26)
-	return fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%100000)
+	timeComponent := timestamp % millionMod
+	asciiChar := asciiCharBase + ((timestamp / millionMod) % 26)
+	return fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%hundredKMod)
 }

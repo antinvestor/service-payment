@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
+
 	"github.com/pitabwire/frame"
 )
 
@@ -16,13 +17,13 @@ type statusRepository struct {
 	abstractRepository
 }
 
-func NewStatusRepository(ctx context.Context, service *frame.Service) StatusRepository {
+func NewStatusRepository(_ context.Context, service *frame.Service) StatusRepository {
 	return &statusRepository{abstractRepository{service: service}}
 }
 
 func (repo *statusRepository) GetByEntity(ctx context.Context, entityID, entityType string) (*models.Status, error) {
 	status := models.Status{}
-	err := repo.readDb(ctx).First(&status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
+	err := repo.readDB(ctx).First(&status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
 	if err != nil {
 		return nil, err
 	}
@@ -30,5 +31,5 @@ func (repo *statusRepository) GetByEntity(ctx context.Context, entityID, entityT
 }
 
 func (repo *statusRepository) Save(ctx context.Context, status *models.Status) error {
-	return repo.writeDb(ctx).Save(status).Error
+	return repo.writeDB(ctx).Save(status).Error
 }

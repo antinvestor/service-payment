@@ -37,19 +37,25 @@ func (event *PaymentOutRoute) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
-	paymentId := *payload.(*string)
+	paymentPtr, ok := payload.(*string)
+	if !ok {
+		return errors.New("payload is not of type *string")
+	}
+	if paymentPtr == nil {
+		return errors.New("payload is nil")
+	}
+	paymentID := *paymentPtr
 
-	logger := event.Service.Log(ctx).WithField("payload", paymentId).WithField("type", event.Name())
+	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
 
-	p, err := paymentRepo.GetByID(ctx, paymentId)
+	p, err := paymentRepo.GetByID(ctx, paymentID)
 	if err != nil {
 		logger.WithError(err).Warn("could not get payment from db")
 		return err
 	}
-
 
 	route, err := routePayment(ctx, event.Service, models.RouteModeTransmit, p)
 	if err != nil {

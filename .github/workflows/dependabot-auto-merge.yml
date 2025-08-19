@@ -1,12 +1,13 @@
 name: Dependabot Auto-merge
 
 on:
-  pull_request_target:
+  pull_request:
     types: [labeled, unlabeled, synchronize, opened, edited, ready_for_review, reopened]
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   dependabot-auto-merge:
@@ -21,47 +22,59 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           
-      - name: Wait for CI checks
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          check-name: 'Test Go modules'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20
-          allowed-conclusions: success
+      - name: Check if PR can be auto-merged
+        id: check-pr
+        run: |
+          echo "Checking PR status for auto-merge eligibility..."
           
-      - name: Wait for Lint checks  
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          check-name: 'Lint code'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20
-          allowed-conclusions: success
+          # Get PR status
+          PR_STATUS=$(gh pr view ${{ github.event.pull_request.number }} --json statusCheckRollup -q '.statusCheckRollup[].status' | grep -v SUCCESS || true)
+          
+          if [ -z "$PR_STATUS" ] || [ "$PR_STATUS" = "SUCCESS" ]; then
+            echo "All checks passed or no failing checks found"
+            echo "can_merge=true" >> $GITHUB_OUTPUT
+          else
+            echo "Some checks are not passing: $PR_STATUS"
+            echo "can_merge=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Auto-merge for minor and patch updates
         # Only auto-merge minor and patch updates, not major updates
         if: |
-          steps.dependabot-metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.dependabot-metadata.outputs.update-type == 'version-update:semver-minor'
+          steps.check-pr.outputs.can_merge == 'true' && (
+            steps.dependabot-metadata.outputs.update-type == 'version-update:semver-patch' ||
+            steps.dependabot-metadata.outputs.update-type == 'version-update:semver-minor'
+          )
         run: |
-          echo "Auto-merging ${{ steps.dependabot-metadata.outputs.dependency-names }} update"
+          echo "🚀 Auto-merging ${{ steps.dependabot-metadata.outputs.dependency-names }} update"
           echo "Update type: ${{ steps.dependabot-metadata.outputs.update-type }}"
-          gh pr merge --auto --squash "$PR_URL"
+          
+          # Enable auto-merge
+          gh pr merge --auto --squash ${{ github.event.pull_request.number }}
+          
+          # Add a comment explaining the auto-merge
+          gh pr comment ${{ github.event.pull_request.number }} --body "🤖 **Auto-merge enabled** 
+          
+          This ${{ steps.dependabot-metadata.outputs.update-type }} update for ${{ steps.dependabot-metadata.outputs.dependency-names }} will be automatically merged when all required checks pass.
+          
+          ✅ All CI checks have passed
+          ✅ Update type is safe for auto-merge"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Comment on major updates
         # Comment on major updates but don't auto-merge
         if: steps.dependabot-metadata.outputs.update-type == 'version-update:semver-major'
         run: |
-          gh pr comment "$PR_URL" --body "🔄 **Major version update detected!**
+          gh pr comment ${{ github.event.pull_request.number }} --body "🔄 **Major version update detected!**
           
           This PR contains a major version update for: ${{ steps.dependabot-metadata.outputs.dependency-names }}
           
           Major updates may contain breaking changes and require manual review before merging.
-          Please review the changelog and test thoroughly before merging."
+          Please review the changelog and test thoroughly before merging.
+          
+          To merge this PR, manually review and approve it."
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

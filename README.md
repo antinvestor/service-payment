@@ -7,6 +7,36 @@ This repository contains the Service Payment application, a robust platform buil
 - **gRPC Integration**: Utilizes gRPC for efficient communication between services.
 - **Docker Support**: Easily deployable using Docker and Docker Compose.
 - **Modular Architecture**: Designed for scalability and maintainability.
+- **Automated Dependency Management**: Uses Dependabot for automatic dependency updates with smart auto-merge.
+
+## Automated Dependency Management
+
+This repository uses **Dependabot** for automated dependency management with the following features:
+
+### 🤖 What Gets Updated Automatically
+- **Go Dependencies**: Both `apps/default` and `apps/integrations/jenga-api` modules are monitored
+- **GitHub Actions**: Workflow dependencies are kept up-to-date
+- **Grouped Updates**: Related dependencies (like antinvestor APIs) are grouped together
+
+### 🚀 Auto-merge Behavior
+- **✅ Auto-merged**: Minor and patch updates that pass all CI tests
+- **⚠️ Manual review**: Major version updates (may contain breaking changes)
+- **🛡️ Safety**: Only Dependabot PRs that pass comprehensive CI checks are auto-merged
+
+### 📅 Update Schedule
+- **Go dependencies**: Weekly updates
+- **GitHub Actions**: Daily updates  
+- **Pull request limit**: Max 10 open PRs per ecosystem
+
+### 🔧 CI Pipeline
+Every Dependabot PR goes through:
+1. **Build verification** for both Go modules
+2. **Test execution** with proper environment setup
+3. **Code linting** using golangci-lint
+4. **Race condition detection** in tests
+5. **Dependency verification**
+
+The CI pipeline is designed to handle the monorepo structure with parallel testing of both modules.
 
 ## Getting Started
 

@@ -5,3 +5,31 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    
+  # Maintain Go dependencies for default app
+  - package-ecosystem: "gomod"
+    directory: "/apps/default"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      antinvestor-apis:
+        patterns:
+          - "github.com/antinvestor/apis/*"
+      go-dependencies:
+        patterns:
+          - "*"
+    
+  # Maintain Go dependencies for jenga-api integration
+  - package-ecosystem: "gomod"
+    directory: "/apps/integrations/jenga-api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      antinvestor-apis:
+        patterns:
+          - "github.com/antinvestor/apis/*"
+      go-dependencies:
+        patterns:
+          - "*"

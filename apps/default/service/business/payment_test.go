@@ -52,6 +52,8 @@ func getService(serviceName string) (*ctxSrv, error) {
 	// return
 	defer func() {
 		if terminateErr := postgresC.Terminate(ctx); terminateErr != nil {
+			// Log error but continue cleanup
+			fmt.Printf("Error terminating postgres container: %v\n", terminateErr)
 		}
 	}()
 

@@ -13,7 +13,6 @@ const NanoSize = 1000000000
 var MaxDecimalValue = decimal.NewFromInt(math.MaxInt64).Add(decimal.New(999999999, -9))
 
 func ToMoney(currency string, amount decimal.Decimal) money.Money {
-
 	amount = CleanDecimal(amount)
 
 	// Split the decimal value into units and nanos
@@ -43,7 +42,6 @@ func CompareMoney(a, b *money.Money) bool {
 }
 
 func CleanDecimal(d decimal.Decimal) decimal.Decimal {
-
 	truncatedStr := d.StringFixed(9)
 
 	// Convert the string back to a decimal

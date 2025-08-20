@@ -160,11 +160,13 @@ func TestInitiateSTKUSSD(t *testing.T) {
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
 	defer func() {
-		err := os.Remove(tmpFile.Name())
-		assert.NoError(t, err)
+		removeErr := os.Remove(tmpFile.Name())
+		assert.NoError(t, removeErr)
 	}()
 	// Write dummy key content
-	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
+	_, err = tmpFile.WriteString(
+		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
+	)
 	assert.NoError(t, err)
 	err = tmpFile.Close()
 	assert.NoError(t, err)
@@ -226,7 +228,7 @@ func TestInitiateAccountBalance(t *testing.T) {
 		name        string
 		countryCode string
 		//nolint:revive // accountId follows API convention in test
-		accountId        string
+		accountId        string //nolint:staticcheck // API field name
 		responseStatus   int
 		responseBody     string
 		expectError      bool
@@ -282,11 +284,13 @@ func TestInitiateAccountBalance(t *testing.T) {
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
 	defer func() {
-		err := os.Remove(tmpFile.Name())
-		assert.NoError(t, err)
+		removeErr := os.Remove(tmpFile.Name())
+		assert.NoError(t, removeErr)
 	}()
 	// Write dummy key content
-	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
+	_, err = tmpFile.WriteString(
+		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
+	)
 	assert.NoError(t, err)
 	err = tmpFile.Close()
 	assert.NoError(t, err)
@@ -307,7 +311,6 @@ func TestInitiateAccountBalance(t *testing.T) {
 				assert.NoError(t, err)
 			}))
 			defer server.Close()
-
 		})
 	}
 }
@@ -322,12 +325,14 @@ func TestGenerateSignature(t *testing.T) {
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	assert.NoError(t, err)
 	defer func() {
-		err := os.Remove(tmpFile.Name())
-		assert.NoError(t, err)
+		removeErr := os.Remove(tmpFile.Name())
+		assert.NoError(t, removeErr)
 	}()
 
 	// Write dummy key content
-	_, err = tmpFile.WriteString("-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----")
+	_, err = tmpFile.WriteString(
+		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
+	)
 	assert.NoError(t, err)
 	err = tmpFile.Close()
 	assert.NoError(t, err)

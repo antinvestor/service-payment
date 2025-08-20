@@ -1,5 +1,5 @@
 //nolint:revive // package name matches directory structure
-package events_callback
+package events_callback //nolint:staticcheck // underscore package name required by project structure
 
 import (
 	"context"
@@ -27,7 +27,10 @@ func (event *JengaStkCallback) PayloadType() any {
 }
 
 func (event *JengaStkCallback) Validate(ctx context.Context, payload any) error {
-	callback := payload.(*models.StkCallback)
+	callback, ok := payload.(*models.StkCallback)
+	if !ok {
+		return errors.New("invalid payload type")
+	}
 
 	if callback.Transaction == "" {
 		return errors.New("transaction reference is required")
@@ -46,7 +49,10 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 		return errors.New("payment client not initialized")
 	}
 
-	callback := payload.(*models.StkCallback)
+	callback, ok := payload.(*models.StkCallback)
+	if !ok {
+		return errors.New("invalid payload type")
+	}
 	logger.WithField("callback", callback).Info("Received Jenga STK callback")
 
 	amount := utility.ToMoney(callback.Currency, decimal.NewFromFloat(callback.RequestAmount))

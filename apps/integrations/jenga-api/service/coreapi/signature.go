@@ -19,7 +19,7 @@ import (
 //nolint:revive // TestMode follows standard naming
 var TestMode bool = false
 
-// SignData generates a SHA-256 signature with RSA private key.
+// GenerateSignature generates a SHA-256 signature with RSA private key.
 //
 //nolint:revive // GenerateSignature follows standard naming
 func GenerateSignature(message, privateKeyPath string) (string, error) {

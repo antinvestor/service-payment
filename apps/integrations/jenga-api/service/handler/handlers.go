@@ -37,7 +37,10 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields (basic check, event will do full validation)
-	if request.Merchant.Till == "" || request.Payment.Ref == "" || request.Payment.Amount == "" || request.Payment.Currency == "" || request.Partner.ID == "" || request.Partner.Ref == "" {
+	if request.Merchant.Till == "" || request.Payment.Ref == "" || request.Payment.Amount == "" ||
+		request.Payment.Currency == "" ||
+		request.Partner.ID == "" ||
+		request.Partner.Ref == "" {
 		http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
 		return
 	}

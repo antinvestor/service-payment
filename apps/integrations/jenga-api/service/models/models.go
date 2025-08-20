@@ -30,7 +30,7 @@ type PaymentResponse struct {
 	Message   string `json:"message"`
 	Reference string `json:"reference"`
 	Data      struct {
-		TransactionId string `json:"transactionId"` //nolint:revive // API field name
+		TransactionId string `json:"transactionId"` //nolint:revive,staticcheck // API field name
 		Status        string `json:"status"`
 	} `json:"data"`
 }
@@ -58,7 +58,7 @@ type Payment struct {
 	Telco        string `json:"telco"`
 	MobileNumber string `json:"mobileNumber"`
 	Date         string `json:"date"`
-	CallBackUrl  string `json:"callBackUrl"` //nolint:revive // API field name
+	CallBackUrl  string `json:"callBackUrl"` //nolint:revive,staticcheck // API field name
 	PushType     string `json:"pushType"`
 }
 
@@ -87,7 +87,7 @@ type Job struct {
 
 type AccountBalanceRequest struct {
 	CountryCode string `json:"countryCode"`
-	AccountId   string `json:"account"` //nolint:revive // API field name
+	AccountId   string `json:"account"` //nolint:revive,staticcheck // API field name
 }
 
 //BalanceResponse represents the response structure for the account balance
@@ -153,7 +153,7 @@ type Prompt struct {
 	RecipientID          string              `gorm:"type:varchar(50)"`
 	RecipientProfileType string              `gorm:"type:varchar(50)"`
 	RecipientContactID   string              `gorm:"type:varchar(50)"`
-	Amount               decimal.NullDecimal `gorm:"type:numeric" json:"amount"`
+	Amount               decimal.NullDecimal `gorm:"type:numeric"                          json:"amount"`
 	DateCreated          string              `gorm:"type:varchar(50)"`
 	DeviceID             string              `gorm:"type:varchar(50)"`
 	State                int32               `gorm:"type:integer"`
@@ -173,20 +173,20 @@ type Account struct {
 type PaymentLink struct {
 	frame.BaseModel
 
-	ExpiryDate      time.Time       `gorm:"type:date" json:"expiryDate"`
-	SaleDate        time.Time       `gorm:"type:date" json:"saleDate"`
-	PaymentLinkType string          `gorm:"type:varchar(20)" json:"paymentLinkType"`
-	SaleType        string          `gorm:"type:varchar(20)" json:"saleType"`
+	ExpiryDate      time.Time       `gorm:"type:date"         json:"expiryDate"`
+	SaleDate        time.Time       `gorm:"type:date"         json:"saleDate"`
+	PaymentLinkType string          `gorm:"type:varchar(20)"  json:"paymentLinkType"`
+	SaleType        string          `gorm:"type:varchar(20)"  json:"saleType"`
 	Name            string          `gorm:"type:varchar(100)" json:"name"`
-	Description     string          `gorm:"type:text" json:"description"`
-	ExternalRef     string          `gorm:"type:varchar(50)" json:"externalRef"`
-	PaymentLinkRef  string          `gorm:"type:varchar(50)" json:"paymentLinkRef"`
+	Description     string          `gorm:"type:text"         json:"description"`
+	ExternalRef     string          `gorm:"type:varchar(50)"  json:"externalRef"`
+	PaymentLinkRef  string          `gorm:"type:varchar(50)"  json:"paymentLinkRef"`
 	RedirectURL     string          `gorm:"type:varchar(255)" json:"redirectURL"`
-	AmountOption    string          `gorm:"type:varchar(20)" json:"amountOption"`
-	Amount          decimal.Decimal `gorm:"type:numeric" json:"amount"`
-	Currency        string          `gorm:"type:varchar(10)" json:"currency"`
-	Customers       datatypes.JSON  `gorm:"type:jsonb" json:"customers"`     // stores []Customer as JSON
-	Notifications   datatypes.JSON  `gorm:"type:jsonb" json:"notifications"` //Notifications are enums
+	AmountOption    string          `gorm:"type:varchar(20)"  json:"amountOption"`
+	Amount          decimal.Decimal `gorm:"type:numeric"      json:"amount"`
+	Currency        string          `gorm:"type:varchar(10)"  json:"currency"`
+	Customers       datatypes.JSON  `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
+	Notifications   datatypes.JSON  `gorm:"type:jsonb"        json:"notifications"` //Notifications are enums
 
 }
 

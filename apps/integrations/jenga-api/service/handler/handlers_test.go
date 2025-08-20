@@ -153,7 +153,8 @@ func TestInitiateStkUssd(t *testing.T) {
 				}
 
 				// Validate the request by checking required fields
-				if request.Merchant.AccountNumber == "" || request.Payment.MobileNumber == "" || request.Payment.Amount == "" {
+				if request.Merchant.AccountNumber == "" || request.Payment.MobileNumber == "" ||
+					request.Payment.Amount == "" {
 					http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
 					return
 				}
@@ -255,7 +256,8 @@ func TestAccountBalanceHandler(t *testing.T) {
 				mockService.On("Emit", mock.Anything, "jenga.account.balance", mock.MatchedBy(func(payload *models.AccountBalanceRequest) bool {
 					return payload.CountryCode == tt.queryParams["countryCode"] &&
 						payload.AccountId == tt.queryParams["accountId"]
-				})).Return(tt.emitError)
+				})).
+					Return(tt.emitError)
 			}
 
 			// Create a test version of the handler that works with our mock service

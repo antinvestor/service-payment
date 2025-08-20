@@ -1,5 +1,5 @@
 //nolint:revive // package name matches directory structure
-package events_stk
+package events_stk //nolint:staticcheck // underscore package name required by project structure
 
 import (
 	"context"
@@ -37,7 +37,12 @@ type InitiatePrompt struct {
 }
 
 // NewInitiatePrompt creates a new InitiatePrompt handler with dependencies.
-func NewInitiatePrompt(service *frame.Service, client coreapi.JengaApiClient, paymentClient paymentV1.PaymentClient, callbackURL string) *InitiatePrompt {
+func NewInitiatePrompt(
+	service *frame.Service,
+	client coreapi.JengaApiClient,
+	paymentClient paymentV1.PaymentClient,
+	callbackURL string,
+) *InitiatePrompt {
 	return &InitiatePrompt{
 		Service:       service,
 		Client:        client,
@@ -213,7 +218,10 @@ func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionR
 }
 
 // updateStatus updates the payment status to successful.
-func (h *InitiatePrompt) updateStatus(ctx context.Context, promptID, transactionRef, transactionID, message string) error {
+func (h *InitiatePrompt) updateStatus(
+	ctx context.Context,
+	promptID, transactionRef, transactionID, message string,
+) error {
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     promptID,
 		State:  statusActive,

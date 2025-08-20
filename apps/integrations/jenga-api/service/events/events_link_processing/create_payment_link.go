@@ -1,5 +1,5 @@
 //nolint:revive // package name matches directory structure
-package events_link_processing
+package events_link_processing //nolint:staticcheck // underscore package name required by project structure
 
 import (
 	"context"

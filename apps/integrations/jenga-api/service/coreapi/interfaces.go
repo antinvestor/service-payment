@@ -3,7 +3,7 @@ package coreapi
 import "github.com/antinvestor/jenga-api/service/models"
 
 //nolint:revive // JengaApiClient follows original API naming convention
-type JengaApiClient interface {
+type JengaApiClient interface { //nolint:staticcheck // API interface name
 	GenerateBearerToken() (*BearerTokenResponse, error)
 	InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error)
 	CreatePaymentLink(request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error)

@@ -158,14 +158,14 @@ func routePayment(
 	return route, nil
 }
 
-func loadRoute(ctx context.Context, service *frame.Service, routeId string) (*models.Route, error) {
-	if routeId == "" {
+func loadRoute(ctx context.Context, service *frame.Service, routeID string) (*models.Route, error) {
+	if routeID == "" {
 		return nil, errors.New("no route id provided")
 	}
 
 	routeRepository := repository.NewRouteRepository(ctx, service)
 
-	route, err := routeRepository.GetByID(ctx, routeId)
+	route, err := routeRepository.GetByID(ctx, routeID)
 	if err != nil {
 		return nil, err
 	}

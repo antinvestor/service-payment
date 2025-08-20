@@ -23,8 +23,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	//nolint:revive // clientApi more readable than clientAPI
-	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
+	//nolint:revive,staticcheck // clientApi more readable than clientAPI
+	clientApi := coreapi.New(
+		jengaConfig.MerchantCode,
+		jengaConfig.ConsumerSecret,
+		jengaConfig.ApiKey,
+		jengaConfig.Env,
+		jengaConfig.JengaPrivateKey,
+	)
 	ctx, service := frame.NewService(serviceName, frame.WithConfig(&jengaConfig))
 	defer service.Stop(ctx)
 	logger := service.Log(ctx).WithField("type", "main")
@@ -37,6 +43,7 @@ func main() {
 	var dialErr error
 
 	// Set up a direct connection to the gRPC server using grpc.DialContext
+	//nolint:staticcheck // DialContext deprecated but still supported in 1.x
 	clientConn, dialErr = grpc.DialContext(
 		ctx,
 		paymentServiceEndpoint,
@@ -49,7 +56,6 @@ func main() {
 	if dialErr != nil {
 		logger.WithError(dialErr).Error("Failed to connect to payment service")
 	} else {
-
 		paymentServiceClient := paymentV1.NewPaymentServiceClient(clientConn)
 
 		paymentClient = &paymentV1.PaymentClient{
@@ -68,7 +74,11 @@ func main() {
 		PaymentClient: *paymentClient,
 		CallbackURL:   jengaConfig.JengaCallbackURL,
 	}
-	createPaymentLink := &events_link_processing.CreatePaymentLink{Service: service, Client: clientApi, PaymentClient: *paymentClient}
+	createPaymentLink := &events_link_processing.CreatePaymentLink{
+		Service:       service,
+		Client:        clientApi,
+		PaymentClient: *paymentClient,
+	}
 
 	eventHandlers := []frame.EventI{
 		&events_callback.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},

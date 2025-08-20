@@ -1,4 +1,4 @@
-package events_callback
+package events_callback //nolint:staticcheck // underscore package name required by project structure
 
 import (
 	"context"
@@ -27,7 +27,10 @@ func (event *JengaCallbackReceivePayment) PayloadType() any {
 }
 
 func (event *JengaCallbackReceivePayment) Validate(_ context.Context, payload any) error {
-	req := payload.(*models.CallbackRequest)
+	req, ok := payload.(*models.CallbackRequest)
+	if !ok {
+		return errors.New("invalid payload type")
+	}
 
 	if req.Transaction.Reference == "" {
 		return errors.New("transaction reference is required")
@@ -44,7 +47,10 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		return errors.New("payment client not initialized")
 	}
 
-	req := payload.(*models.CallbackRequest)
+	req, ok := payload.(*models.CallbackRequest)
+	if !ok {
+		return errors.New("invalid payload type")
+	}
 
 	logger.WithField("callback", req).Info("Received Jenga callback for payment processing")
 
@@ -79,5 +85,4 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		return err
 	}
 	return nil
-
 }

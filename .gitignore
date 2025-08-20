@@ -6,7 +6,6 @@ vendor
 # User-specific stuff:
 .idea/
 .qodo/
-keys/
 
 #.env
 .env

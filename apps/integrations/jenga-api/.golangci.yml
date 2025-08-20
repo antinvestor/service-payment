@@ -18,21 +18,6 @@ issues:
   # Default: 3
   max-same-issues: 50
 
-  # Exclude specific issues that are acceptable for API consistency
-  exclude-rules:
-    # Allow ALL_CAPS for environment variables
-    - text: "should not use ALL_CAPS in Go names"
-      linters: [staticcheck]
-    # Allow API naming conventions for external API compatibility  
-    - text: "should be.*API"
-      linters: [staticcheck, revive]
-    # Allow ID suffix variations for API compatibility
-    - text: "should be.*ID"
-      linters: [staticcheck, revive]
-    # Allow deprecated grpc.DialContext until migration is complete
-    - text: "grpc.DialContext is deprecated"
-      linters: [staticcheck]
-
 formatters:
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
@@ -416,37 +401,3 @@ linters:
       # Enable/disable `os.TempDir()` detections.
       # Default: false
       os-temp-dir: true
-
-  exclusions:
-    # Log a warning if an exclusion rule is unused.
-    # Default: false
-    warn-unused: true
-    # Predefined exclusion rules.
-    # Default: []
-    presets:
-      - std-error-handling
-      - common-false-positives
-    # Excluding configuration per-path, per-linter, per-text and per-source.
-    rules:
-      - source: 'TODO'
-        linters: [ godot ]
-      - text: 'should have a package comment'
-        linters: [ revive ]
-      - text: 'exported \S+ \S+ should have comment( \(or a comment on this block\))? or be unexported'
-        linters: [ revive ]
-      - text: 'package comment should be of the form ".+"'
-        source: '// ?(nolint|TODO)'
-        linters: [ revive ]
-      - text: 'comment on exported \S+ \S+ should be of the form ".+"'
-        source: '// ?(nolint|TODO)'
-        linters: [ revive, staticcheck ]
-      - path: '_test\.go'
-        linters:
-          - bodyclose
-          - dupl
-          - errcheck
-          - funlen
-          - goconst
-          - gosec
-          - noctx
-          - wrapcheck

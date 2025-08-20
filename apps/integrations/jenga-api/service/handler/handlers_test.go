@@ -12,6 +12,7 @@ import (
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockService mocks the frame.Service.
@@ -26,18 +27,18 @@ func (m *MockService) Emit(ctx context.Context, eventName string, payload interf
 }
 
 // L mocks the logger method.
-func (m *MockService) L(ctx context.Context) *MockLogger {
+func (m *MockService) L(_ context.Context) *MockLogger {
 	return &MockLogger{}
 }
 
 // MockLogger mocks the LoggerWrapper.
 type MockLogger struct{}
 
-func (m *MockLogger) WithField(key string, value interface{}) *MockLogger {
+func (m *MockLogger) WithField(_ string, _ interface{}) *MockLogger {
 	return m
 }
 
-func (m *MockLogger) WithError(err error) *MockLogger {
+func (m *MockLogger) WithError(_ error) *MockLogger {
 	return m
 }
 
@@ -178,11 +179,11 @@ func TestInitiateStkUssd(t *testing.T) {
 			var err error
 			if tt.requestBody != nil {
 				reqBody, err = json.Marshal(tt.requestBody)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			req, err := http.NewRequest(tt.method, "/payments/stk-ussd", bytes.NewBuffer(reqBody))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Create response recorder
 			rr := httptest.NewRecorder()
@@ -197,7 +198,7 @@ func TestInitiateStkUssd(t *testing.T) {
 			if tt.expectedBody != nil {
 				var responseBody map[string]string
 				err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedBody, responseBody)
 			}
 
@@ -292,7 +293,7 @@ func TestAccountBalanceHandler(t *testing.T) {
 
 			// Create request with query params
 			req, err := http.NewRequest(tt.method, "/account-balance", nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			q := req.URL.Query()
 			for key, val := range tt.queryParams {
 				q.Add(key, val)
@@ -317,7 +318,7 @@ func TestAccountBalanceHandler(t *testing.T) {
 func TestHealthHandler(t *testing.T) {
 	// Create request
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create response recorder
 	rr := httptest.NewRecorder()
@@ -332,6 +333,6 @@ func TestHealthHandler(t *testing.T) {
 	// Parse response body
 	var responseBody map[string]string
 	err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "ok", responseBody["status"])
 }

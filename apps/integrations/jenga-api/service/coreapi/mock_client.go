@@ -29,7 +29,11 @@ func (m *MockClient) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken 
 }
 
 // InitiateAccountBalance mocks the InitiateAccountBalance method.
-func (m *MockClient) InitiateAccountBalance(countryCode, accountId, accessToken string) (*models.BalanceResponse, error) {
+//
+//nolint:revive // accountId follows API parameter naming convention
+func (m *MockClient) InitiateAccountBalance(
+	countryCode, accountId, accessToken string,
+) (*models.BalanceResponse, error) {
 	args := m.Called(countryCode, accountId, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

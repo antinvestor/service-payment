@@ -35,7 +35,7 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		logger.Error("missing required fields in callback")
 		http.Error(w, "Missing required fields in callback", http.StatusBadRequest)
 		return
-	} 
+	}
 
 	// Log the callback for debugging
 	logger.WithField("callback", callback).Info("received callback")
@@ -60,7 +60,7 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	// Return success response
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]string{
-		"status": "success",
+		"status":  "success",
 		"message": "Callback received successfully",
 	}); err != nil {
 		logger.WithError(err).Error("failed to encode success response")

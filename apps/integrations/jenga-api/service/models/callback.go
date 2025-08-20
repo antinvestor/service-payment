@@ -36,8 +36,8 @@ type CallbackRequest struct {
 		Remarks        string  `json:"remarks"`
 	} `json:"transaction"`
 	Bank struct {
-		Reference       string  `json:"reference"`
-		TransactionType string  `json:"transactionType"`
+		Reference       string `json:"reference"`
+		TransactionType string `json:"transactionType"`
 		Account         string `json:"account"`
 	} `json:"bank"`
 }

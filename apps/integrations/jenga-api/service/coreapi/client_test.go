@@ -9,6 +9,7 @@ import (
 
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateBearerToken(t *testing.T) {
@@ -81,7 +82,7 @@ func TestGenerateBearerToken(t *testing.T) {
 
 			// Check expectations
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, token)
 			} else {
 				assert.NoError(t, err)
@@ -207,7 +208,7 @@ func TestInitiateSTKUSSD(t *testing.T) {
 
 			// Check expectations
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, response)
 			} else {
 				assert.NoError(t, err)
@@ -222,8 +223,9 @@ func TestInitiateAccountBalance(t *testing.T) {
 	TestMode = true
 	defer func() { TestMode = false }()
 	tests := []struct {
-		name             string
-		countryCode      string
+		name        string
+		countryCode string
+		//nolint:revive // accountId follows API convention in test
 		accountId        string
 		responseStatus   int
 		responseBody     string
@@ -358,7 +360,7 @@ func TestGenerateSignature(t *testing.T) {
 			signature, err := GenerateSignature(tt.message, tt.keyPath)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Empty(t, signature)
 			} else {
 				assert.NoError(t, err)

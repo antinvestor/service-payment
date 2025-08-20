@@ -8,15 +8,20 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 )
 
 // TestMode is a flag to skip actual signature validation during tests.
+//
+//nolint:revive // TestMode follows standard naming
 var TestMode bool = false
 
 // SignData generates a SHA-256 signature with RSA private key.
+//
+//nolint:revive // GenerateSignature follows standard naming
 func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// For tests, return a dummy signature to avoid actual RSA key parsing
 	if TestMode {
@@ -27,7 +32,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// SECURITY: The privateKeyPath should be set from a trusted source (e.g., environment variable or config file)
 	// and must not be influenced by untrusted user input to avoid file inclusion vulnerabilities (G304).
 	if privateKeyPath == "" || privateKeyPath[0] == '/' || strings.Contains(privateKeyPath, "..") {
-		return "", fmt.Errorf("invalid private key path")
+		return "", errors.New("invalid private key path")
 	}
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
@@ -37,7 +42,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Decode PEM format
 	block, _ := pem.Decode(privateKeyBytes)
 	if block == nil {
-		return "", fmt.Errorf("failed to decode private key PEM")
+		return "", errors.New("failed to decode private key PEM")
 	}
 
 	// Parse RSA private key
@@ -48,7 +53,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 
 	privateKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("failed to cast parsed key to RSA private key")
+		return "", errors.New("failed to cast parsed key to RSA private key")
 	}
 
 	// Compute SHA-256 hash
@@ -63,4 +68,3 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// Encode to Base64
 	return base64.StdEncoding.EncodeToString(signature), nil
 }
-

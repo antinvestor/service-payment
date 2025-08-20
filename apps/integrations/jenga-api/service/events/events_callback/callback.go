@@ -26,7 +26,7 @@ func (event *JengaCallbackReceivePayment) PayloadType() any {
 	return &models.CallbackRequest{}
 }
 
-func (event *JengaCallbackReceivePayment) Validate(ctx context.Context, payload any) error {
+func (event *JengaCallbackReceivePayment) Validate(_ context.Context, payload any) error {
 	req := payload.(*models.CallbackRequest)
 
 	if req.Transaction.Reference == "" {

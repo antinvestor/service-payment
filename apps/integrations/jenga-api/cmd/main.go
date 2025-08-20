@@ -23,6 +23,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	//nolint:revive // clientApi more readable than clientAPI
 	clientApi := coreapi.New(jengaConfig.MerchantCode, jengaConfig.ConsumerSecret, jengaConfig.ApiKey, jengaConfig.Env, jengaConfig.JengaPrivateKey)
 	ctx, service := frame.NewService(serviceName, frame.WithConfig(&jengaConfig))
 	defer service.Stop(ctx)
@@ -84,16 +85,16 @@ func main() {
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
 		frame.WithRegisterEvents(eventHandlers...),
-		frame.WithRegisterPublisher(promptTopic, natsURL + promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL + paymentLinkTopic),
-		frame.WithRegisterSubscriber(promptTopic, natsURL + promptTopic, initiatePrompt),
-		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL + paymentLinkTopic, createPaymentLink),
+		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
+		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
+		frame.WithRegisterSubscriber(promptTopic, natsURL+promptTopic, initiatePrompt),
+		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL+paymentLinkTopic, createPaymentLink),
 	}
 
 	service.Init(ctx, serviceOptions...)
 
 	logger.Info("Jenga API service started successfully on port 8080")
-	if err := service.Run(ctx, ":8080"); err != nil {
-		logger.WithError(err).Fatal("Failed to run Jenga API service")
+	if runErr := service.Run(ctx, ":8080"); runErr != nil {
+		logger.WithError(runErr).Fatal("Failed to run Jenga API service")
 	}
 }

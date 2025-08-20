@@ -19,8 +19,6 @@ type JobServer struct {
 	PaymentClient *paymentV1.PaymentClient
 }
 
-
-
 func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -72,7 +70,7 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 }
 
 // HealthHandler is a simple health check handler.
-func HealthHandler(w http.ResponseWriter, r *http.Request) {
+func HealthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {

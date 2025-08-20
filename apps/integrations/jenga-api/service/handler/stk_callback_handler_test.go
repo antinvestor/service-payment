@@ -9,6 +9,7 @@ import (
 
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandleStkCallback(t *testing.T) {
@@ -136,11 +137,11 @@ func TestHandleStkCallback(t *testing.T) {
 			var err error
 			if tt.requestBody != nil {
 				reqBody, err = json.Marshal(tt.requestBody)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			req, err := http.NewRequest(tt.method, "/receivepayments", bytes.NewBuffer(reqBody))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Create response recorder
 			rr := httptest.NewRecorder()

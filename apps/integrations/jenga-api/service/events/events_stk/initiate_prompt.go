@@ -1,8 +1,10 @@
+//nolint:revive // package name matches directory structure
 package events_stk
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -28,19 +30,19 @@ const (
 
 // InitiatePrompt handles the initiate.prompt events.
 type InitiatePrompt struct {
-	Service *frame.Service
-	Client coreapi.JengaApiClient
+	Service       *frame.Service
+	Client        coreapi.JengaApiClient
 	PaymentClient paymentV1.PaymentClient
-	CallbackURL string
+	CallbackURL   string
 }
 
 // NewInitiatePrompt creates a new InitiatePrompt handler with dependencies.
 func NewInitiatePrompt(service *frame.Service, client coreapi.JengaApiClient, paymentClient paymentV1.PaymentClient, callbackURL string) *InitiatePrompt {
 	return &InitiatePrompt{
-		Service: service,
-		Client: client,
+		Service:       service,
+		Client:        client,
 		PaymentClient: paymentClient,
-		CallbackURL: callbackURL,
+		CallbackURL:   callbackURL,
 	}
 }
 
@@ -58,17 +60,17 @@ func (h *InitiatePrompt) PayloadType() any {
 func (h *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
-		return fmt.Errorf("invalid payload type, expected *models.Prompt")
+		return errors.New("invalid payload type, expected *models.Prompt")
 	}
 
 	if prompt.ID == "" {
-		return fmt.Errorf("prompt ID is required")
+		return errors.New("prompt ID is required")
 	}
 	if !prompt.Amount.Valid {
-		return fmt.Errorf("payment amount is required")
+		return errors.New("payment amount is required")
 	}
 	if prompt.SourceContactID == "" {
-		return fmt.Errorf("source contact ID (mobile number) is required")
+		return errors.New("source contact ID (mobile number) is required")
 	}
 
 	return nil
@@ -92,7 +94,7 @@ func (h *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string,
 func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
-		return fmt.Errorf("invalid payload type, expected *models.Prompt")
+		return errors.New("invalid payload type, expected *models.Prompt")
 	}
 
 	logger := h.Service.Log(ctx).WithField("promptId", prompt.ID)
@@ -107,7 +109,7 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	transactionRef, ok := getStringFromExtra(prompt.Extra, "transaction_ref")
 	if !ok {
 		logger.Error("transaction reference is missing or invalid")
-		return fmt.Errorf("transaction reference is required")
+		return errors.New("transaction reference is required")
 	}
 
 	currency := getStringWithDefault(prompt.Extra, "currency", defaultCurrency)
@@ -120,18 +122,18 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	stkRequest := &models.STKUSSDRequest{
 		Merchant: models.Merchant{
 			AccountNumber: account.AccountNumber,
-			CountryCode: account.CountryCode,
-			Name: account.Name,
+			CountryCode:   account.CountryCode,
+			Name:          account.Name,
 		},
 		Payment: models.Payment{
-			Ref: transactionRef,
-			Amount: amountStr,
-			Currency: currency,
-			Telco: telco,
+			Ref:          transactionRef,
+			Amount:       amountStr,
+			Currency:     currency,
+			Telco:        telco,
 			MobileNumber: prompt.SourceContactID,
-			Date: currentDate,
-			CallBackUrl: h.CallbackURL,
-			PushType: pushType,
+			Date:         currentDate,
+			CallBackUrl:  h.CallbackURL,
+			PushType:     pushType,
 		},
 		ID: prompt.ID,
 	}
@@ -192,13 +194,13 @@ func getStringWithDefault(extras map[string]interface{}, key, defaultValue strin
 func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionRef string, err error) error {
 	logger := h.Service.Log(ctx).WithField("promptId", promptID)
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id: promptID,
-		State: statusActive,
+		Id:     promptID,
+		State:  statusActive,
 		Status: statusFailed,
 		Extras: map[string]string{
-			"update_type": updateTypePrompt,
+			"update_type":     updateTypePrompt,
 			"transaction_ref": transactionRef,
-			"error": err.Error(),
+			"error":           err.Error(),
 		},
 	}
 
@@ -213,14 +215,14 @@ func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionR
 // updateStatus updates the payment status to successful.
 func (h *InitiatePrompt) updateStatus(ctx context.Context, promptID, transactionRef, transactionID, message string) error {
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
-		Id: promptID,
-		State: statusActive,
+		Id:     promptID,
+		State:  statusActive,
 		Status: statusSuccessful,
 		Extras: map[string]string{
-			"update_type": updateTypePrompt,
+			"update_type":     updateTypePrompt,
 			"transaction_ref": transactionRef,
-			"transaction_id": transactionID,
-			"message": message,
+			"transaction_id":  transactionID,
+			"message":         message,
 		},
 	}
 

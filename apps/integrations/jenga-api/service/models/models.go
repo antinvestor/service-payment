@@ -30,7 +30,7 @@ type PaymentResponse struct {
 	Message   string `json:"message"`
 	Reference string `json:"reference"`
 	Data      struct {
-		TransactionId string `json:"transactionId"`
+		TransactionId string `json:"transactionId"` //nolint:revive // API field name
 		Status        string `json:"status"`
 	} `json:"data"`
 }
@@ -58,7 +58,7 @@ type Payment struct {
 	Telco        string `json:"telco"`
 	MobileNumber string `json:"mobileNumber"`
 	Date         string `json:"date"`
-	CallBackUrl  string `json:"callBackUrl"`
+	CallBackUrl  string `json:"callBackUrl"` //nolint:revive // API field name
 	PushType     string `json:"pushType"`
 }
 
@@ -87,7 +87,7 @@ type Job struct {
 
 type AccountBalanceRequest struct {
 	CountryCode string `json:"countryCode"`
-	AccountId   string `json:"account"`
+	AccountId   string `json:"account"` //nolint:revive // API field name
 }
 
 //BalanceResponse represents the response structure for the account balance

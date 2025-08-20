@@ -1,8 +1,10 @@
+//nolint:revive // package name matches directory structure
 package events_tills_pay
 
 import (
 	"context"
 	"errors"
+
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
@@ -73,8 +75,8 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 	// TODO: Implement the actual tills/pay API call using event.Client
 	resp, err := event.Client.InitiateTillsPay(*request, token.AccessToken)
 	if err != nil {
-	    logger.WithError(err).Error("failed to initiate tills pay")
-	    return err
+		logger.WithError(err).Error("failed to initiate tills pay")
+		return err
 	}
 	logger.WithField("response", resp).Info("tills pay response")
 

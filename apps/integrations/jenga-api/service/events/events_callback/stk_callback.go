@@ -1,3 +1,4 @@
+//nolint:revive // package name matches directory structure
 package events_callback
 
 import (
@@ -7,8 +8,8 @@ import (
 
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/pitabwire/frame"
 	"github.com/antinvestor/jenga-api/service/utility"
+	"github.com/pitabwire/frame"
 	"github.com/shopspring/decimal"
 )
 
@@ -53,10 +54,9 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 
 	payment := &paymentV1.Payment{
 		TransactionId: callback.Transaction,
-		Amount: &amount,
-		Cost: &cost,
+		Amount:        &amount,
+		Cost:          &cost,
 	}
-
 
 	if callbackJSON, err := json.Marshal(callback); err == nil {
 		payment.Extra["additional_info"] = string(callbackJSON)

@@ -14,8 +14,8 @@ COPY . .
 # Set environment variables for static binary and architecture compatibility
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
-# Build the application binary
-RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o jenga_binary . && chmod +x jenga_binary
+# Build the application binary from the main package
+RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o jenga_binary ./cmd/main.go && chmod +x jenga_binary
 
 # Final stage with Distroless
 FROM gcr.io/distroless/static:latest

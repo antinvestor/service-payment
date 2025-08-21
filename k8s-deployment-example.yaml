@@ -1,0 +1,85 @@
+# Example Kubernetes deployment for service-payment (Default and Jenga API)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-payment-default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-payment-default
+  template:
+    metadata:
+      labels:
+        app: service-payment-default
+    spec:
+      containers:
+        - name: default
+          image: ghcr.io/antinvestor/service-payment/default:latest
+          ports:
+            - containerPort: 8020
+          env:
+            # Add your environment variables here
+            - name: EXAMPLE_ENV
+              value: "value"
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+      volumes:
+        - name: keys
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-payment-jenga-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-payment-jenga-api
+  template:
+    metadata:
+      labels:
+        app: service-payment-jenga-api
+    spec:
+      containers:
+        - name: jenga-api
+          image: ghcr.io/antinvestor/service-payment/jenga-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            # Add your environment variables here
+            - name: EXAMPLE_ENV
+              value: "value"
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+      volumes:
+        - name: keys
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-payment-default
+spec:
+  selector:
+    app: service-payment-default
+  ports:
+    - protocol: TCP
+      port: 8020
+      targetPort: 8020
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-payment-jenga-api
+spec:
+  selector:
+    app: service-payment-jenga-api
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

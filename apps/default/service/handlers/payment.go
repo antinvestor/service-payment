@@ -8,6 +8,7 @@ import (
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/business"
+	ledgerv1 "github.com/antinvestor/apis/go/ledger/v1"
 
 	"github.com/pitabwire/frame"
 )
@@ -16,12 +17,13 @@ type PaymentServer struct {
 	Service      *frame.Service
 	ProfileCli   *profileV1.ProfileClient
 	PartitionCli *partitionv1.PartitionClient
+	LedgerCli   *ledgerv1.LedgerClient // Uncomment if LedgerClient is needed
 
 	paymentV1.UnimplementedPaymentServiceServer
 }
 
 func (ps *PaymentServer) newPaymentBusiness(ctx context.Context) (business.PaymentBusiness, error) {
-	return business.NewPaymentBusiness(ctx, ps.Service, ps.ProfileCli, ps.PartitionCli)
+	return business.NewPaymentBusiness(ctx, ps.Service, ps.ProfileCli, ps.PartitionCli, ps.LedgerCli)
 }
 
 func (ps *PaymentServer) Send(ctx context.Context, req *paymentV1.SendRequest) (*paymentV1.SendResponse, error) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	apis "github.com/antinvestor/apis/go/common"
+	ledgerv1 "github.com/antinvestor/apis/go/ledger/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
@@ -85,6 +86,16 @@ func main() {
 		logger.WithError(err).Fatal("could not setup partition client")
 	}
 
+	ledgerCli, err := ledgerv1.NewLedgerClient(ctx,
+		apis.WithEndpoint(paymentConfig.LedgerServiceURI),
+		apis.WithTokenEndpoint(oauth2ServiceURL),
+		apis.WithTokenUsername(service.JwtClientID()),
+		apis.WithTokenPassword(oauth2ServiceSecret),
+		apis.WithAudiences(audienceList...))
+	if err != nil {
+		logger.WithError(err).Fatal("could not setup ledger client")
+	}
+
 	jwtAudience := paymentConfig.Oauth2JwtVerifyAudience
 	if jwtAudience == "" {
 		jwtAudience = serviceName
@@ -118,6 +129,7 @@ func main() {
 		Service:      service,
 		ProfileCli:   profileCli,
 		PartitionCli: partitionCli,
+		LedgerCli:    ledgerCli,
 	}
 
 	paymentV1.RegisterPaymentServiceServer(grpcServer, implementation)

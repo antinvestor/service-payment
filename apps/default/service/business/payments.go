@@ -9,6 +9,7 @@ import (
 	"time"
 
 	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	ledgerv1 "github.com/antinvestor/apis/go/ledger/v1"
 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
@@ -38,6 +39,7 @@ func NewPaymentBusiness(
 	service *frame.Service,
 	profileCli *profileV1.ProfileClient,
 	partitionCli *partitionV1.PartitionClient,
+	ledgerCli *ledgerv1.LedgerClient,
 ) (PaymentBusiness, error) {
 	// initialize the service
 	if service == nil {
@@ -47,6 +49,7 @@ func NewPaymentBusiness(
 		service:      service,
 		profileCli:   profileCli,
 		partitionCli: partitionCli,
+		ledgerCli:    ledgerCli,
 	}, nil
 }
 
@@ -54,6 +57,7 @@ type paymentBusiness struct {
 	service      *frame.Service
 	profileCli   *profileV1.ProfileClient
 	partitionCli *partitionV1.PartitionClient
+	ledgerCli    *ledgerv1.LedgerClient
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
@@ -98,6 +102,40 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
+	}
+
+	senderTel := ""
+	if message.GetSource() != nil {
+		senderTel = message.GetSource().GetDetail()
+	}
+
+	// try member name from source profile name or extras
+	memberName := ""
+	if message.GetSource() != nil {
+		memberName = message.GetSource().GetProfileName()
+		if memberName == "" {
+			if v, ok := message.GetSource().GetExtras()["member_name"]; ok {
+				memberName = v
+			}
+		}
+	}
+
+	// try group name from payment-level extras first, then source extras
+	groupName := ""
+	if v, ok := message.GetSource().GetExtras()["group_name"]; ok && v != "" {
+		groupName = v
+	} else if message.GetSource() != nil {
+		if v, ok := message.GetSource().GetExtras()["group_name"]; ok {
+			groupName = v
+		}
+	}
+
+	// Create ledger transaction for outbound payment
+	if pb.ledgerCli != nil && p.Amount.Valid {
+		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
+			pb.service.Log(ctx).WithError(err).Warn("could not create ledger transaction for send")
+			// Don't fail the payment if ledger fails, just log the error
+		}
 	}
 
 	// Unified status
@@ -166,6 +204,40 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
+	}
+
+	senderTel := ""
+	if message.GetSource() != nil {
+		senderTel = message.GetSource().GetDetail()
+	}
+
+	// try member name from source profile name or extras
+	memberName := ""
+	if message.GetSource() != nil {
+		memberName = message.GetSource().GetProfileName()
+		if memberName == "" {
+			if v, ok := message.GetSource().GetExtras()["member_name"]; ok {
+				memberName = v
+			}
+		}
+	}
+
+	// try group name from payment-level extras first, then source extras
+	groupName := ""
+	if v, ok := message.GetSource().GetExtras()["group_name"]; ok && v != "" {
+		groupName = v
+	} else if message.GetSource() != nil {
+		if v, ok := message.GetSource().GetExtras()["group_name"]; ok {
+			groupName = v
+		}
+	}
+
+	// Create ledger transaction for inbound payment
+	if pb.ledgerCli != nil && p.Amount.Valid {
+		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
+			pb.service.Log(ctx).WithError(err).Warn("could not create ledger transaction for receive")
+			// Don't fail the payment if ledger fails, just log the error
+		}
 	}
 
 	// Unified status
@@ -679,4 +751,130 @@ func generateTransactionRef() string {
 	timeComponent := timestamp % millionMod
 	asciiChar := asciiCharBase + ((timestamp / millionMod) % 26)
 	return fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%hundredKMod)
+}
+
+// createDepositStep1 creates the initial receipt transaction:
+// DR – Mobile Operator
+// CR - Unidentified Deposits
+func (pb *paymentBusiness) createDepositStep1(ctx context.Context, payment *models.Payment, senderTel, groupName, memberName string) error {
+	if pb.ledgerCli == nil {
+		return nil
+	}
+	logger := pb.service.Log(ctx).WithField("payment_id", payment.ID)
+
+	// prepare account refs (pick consistent canonical refs)
+	mobileOpRef := "mobile_operator"
+	unidentifiedRef := "unidentified_deposits"
+
+	// ensure accounts exist
+	ledgerRef := "main_ledger" // adjust if you have ledger identifiers
+	if err := pb.ensureLedgerAccount(ctx, mobileOpRef, ledgerRef, "mobile_operator"); err != nil {
+		logger.WithError(err).Error("ensure mobile operator account")
+		return err
+	}
+	if err := pb.ensureLedgerAccount(ctx, unidentifiedRef, ledgerRef, "suspense"); err != nil {
+		logger.WithError(err).Error("ensure unidentified deposits account")
+		return err
+	}
+
+	// amount as Money (reuse your utility)
+	amount := utility.ToMoney(payment.Currency, payment.Amount.Decimal)
+
+	// transaction reference (idempotency key)
+	txRef := fmt.Sprintf("%s-deposit-step1", payment.ID)
+
+	// OPTIONAL: idempotency check - depends on ledger API support
+	// TODO: implement SearchTransactions or get by reference if ledger API has it.
+	// if exists { log and return nil }
+
+	// Build entries: DR MobileOperator, CR UnidentifiedDeposits
+	entries := []*ledgerv1.TransactionEntry{
+		{
+			Account:      mobileOpRef,
+			Transaction:  txRef,
+			TransactedAt: time.Now().Format(time.RFC3339),
+			Amount:       &amount,
+			Credit:       false, // debit
+		},
+		{
+			Account:      unidentifiedRef,
+			Transaction:  txRef,
+			TransactedAt: time.Now().Format(time.RFC3339),
+			Amount:       &amount,
+			Credit:       true, // credit
+		},
+	}
+
+	// Create transaction
+	transaction := &ledgerv1.Transaction{
+		Reference:    txRef,
+		Currency:     payment.Currency,
+		TransactedAt: time.Now().Format(time.RFC3339),
+		Data: map[string]string{
+			"payment_id":     payment.ID,
+			"payment_type":   "DEPOSIT_STEP1",
+			"narrative":      fmt.Sprintf("Funds deposited: %s", senderTel),
+			"comments":       fmt.Sprintf("Funds deposited from %s", senderTel),
+			"sender_tel":     senderTel,
+			"member_name":    memberName,
+			"group_name":     groupName,
+			"original_ref":   payment.ReferenceID,
+		},
+		Entries: entries,
+		Cleared: false,
+		Type:    ledgerv1.TransactionType_NORMAL,
+	}
+
+	if _, err := pb.ledgerCli.Svc().CreateTransaction(ctx, transaction); err != nil {
+		logger.WithError(err).Error("failed to create deposit step1 transaction")
+		return err
+	}
+	logger.Info("created deposit step1 transaction (MobileOperator -> UnidentifiedDeposits)")
+	return nil
+}
+
+// ensureLedgerAccount ensures that an account exists in the ledger service
+func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, ledgerRef string, profileType string) error {
+	if pb.ledgerCli == nil {
+		return nil
+	}
+
+	logger := pb.service.Log(ctx).WithField("account_ref", accountRef)
+
+	// Check if account already exists
+	searchReq := &commonv1.SearchRequest{
+		Query: fmt.Sprintf("reference:%s", accountRef),
+	}
+
+	accountStream, err := pb.ledgerCli.Svc().SearchAccounts(ctx, searchReq)
+	if err != nil {
+		logger.WithError(err).Error("failed to search for existing account")
+		return err
+	}
+
+	// Try to receive one account to see if it exists
+	_, err = accountStream.Recv()
+	if err == nil {
+		// Account exists, no need to create
+		return nil
+	}
+
+	// Account doesn't exist, create it
+	account := &ledgerv1.Account{
+		Reference: accountRef,
+		Ledger:    ledgerRef,
+		Data: map[string]string{
+			"profile_type": profileType,
+			"created_by":   "payment_service",
+		},
+	}
+
+	_, err = pb.ledgerCli.Svc().CreateAccount(ctx, account)
+	if err != nil {
+		logger.WithError(err).Error("failed to create ledger account")
+		return err
+	}
+
+	logger.Info("successfully created ledger account")
+	return nil
 }

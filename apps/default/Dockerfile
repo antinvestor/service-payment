@@ -30,8 +30,19 @@ COPY --from=builder /app/payment_binary /payment
 # Copy the keys directory
 COPY keys /keys
 
+# Set default environment variables for Kubernetes compatibility
+ENV LOG_LEVEL=info
+ENV SECURELY_RUN_SERVICE=false
+ENV NATS_URL=nats://ant:secret@nats-server:4222?subject=
+ENV PROMPT_TOPIC=initiate.prompt
+ENV PAYMENT_LINK_TOPIC=create.payment.link
+ENV DO_MIGRATION=false
+ENV PROFILE_SERVICE_URI=127.0.0.1:7005
+ENV PARTITION_SERVICE_URI=127.0.0.1:7003
+ENV LEDGER_SERVICE_URI=127.0.0.1:7004
+
 # Set entry point to the binary
 ENTRYPOINT ["/payment"]
 
 # Expose the application port
-EXPOSE 8020
+EXPOSE 80

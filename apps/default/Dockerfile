@@ -28,7 +28,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /app/payment_binary /payment
 
 # Copy the keys directory
-COPY --chown=nonroot:nonroot keys /keys
+COPY --chown=65532:65532 keys /keys
 
 # Set default environment variables for Kubernetes compatibility
 ENV LOG_LEVEL=info
@@ -41,8 +41,8 @@ ENV PROFILE_SERVICE_URI=127.0.0.1:7005
 ENV PARTITION_SERVICE_URI=127.0.0.1:7003
 ENV LEDGER_SERVICE_URI=127.0.0.1:7004
 
-# Use non-root user
-USER nonroot:nonroot
+# Use non-root user (UID 65532 is the nonroot user in distroless)
+USER 65532:65532
 
 # Set entry point to the binary
 ENTRYPOINT ["/payment"]

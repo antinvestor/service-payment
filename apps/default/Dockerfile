@@ -19,7 +19,7 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o payment_binary ./cmd/main.go && chmod +x payment_binary
 
 # Final stage with Distroless
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 
 # Install certificates for HTTPS support
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -28,7 +28,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /app/payment_binary /payment
 
 # Copy the keys directory
-COPY keys /keys
+COPY --chown=nonroot:nonroot keys /keys
 
 # Set default environment variables for Kubernetes compatibility
 ENV LOG_LEVEL=info
@@ -40,6 +40,9 @@ ENV DO_MIGRATION=false
 ENV PROFILE_SERVICE_URI=127.0.0.1:7005
 ENV PARTITION_SERVICE_URI=127.0.0.1:7003
 ENV LEDGER_SERVICE_URI=127.0.0.1:7004
+
+# Use non-root user
+USER nonroot:nonroot
 
 # Set entry point to the binary
 ENTRYPOINT ["/payment"]

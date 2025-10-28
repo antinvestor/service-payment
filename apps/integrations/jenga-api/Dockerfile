@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24 as builder
+FROM golang:1.25 AS builder
 
 # Set the working directory
 WORKDIR /app
@@ -18,7 +18,7 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o jenga_binary ./cmd/main.go && chmod +x jenga_binary
 
 # Final stage with Distroless
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 
 # Install certificates for HTTPS support
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -27,7 +27,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /app/jenga_binary /jenga
 
 # Copy the keys directory
-COPY keys /keys
+COPY --chown=nonroot:nonroot keys /keys
 
 # Set default environment variables for Kubernetes compatibility
 ENV LOG_LEVEL=info
@@ -43,6 +43,9 @@ ENV PARTITION_SERVICE_URI=127.0.0.1:7003
 ENV PAYMENT_SERVICE_URI=localhost:50051
 ENV NATS_URL=nats://ant:secret@nats-server:4222?subject=
 ENV DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+
+# Use non-root user
+USER nonroot:nonroot
 
 # Set entry point to the binary
 ENTRYPOINT ["/jenga"]

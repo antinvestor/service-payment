@@ -12,7 +12,7 @@ type PaymentConfig struct {
 	NatsURL            string `envDefault:"nats://ant:secret@nats-server:4222?subject=" env:"NATS_URL"             required:"true"`
 	PromptTopic        string `envDefault:"initiate.prompt"                             env:"PROMPT_TOPIC"         required:"true"`
 	PaymentLinkTopic   string `envDefault:"create.payment.link"                         env:"PAYMENT_LINK_TOPIC"   required:"true"`
-	DoMigration        bool   `envDefault:"false"                                       env:"DO_MIGRATION"`
+	// DoMigration        bool   `envDefault:"false"                                       env:"DO_MIGRATION"`
 	// The callback URL for Jenga STK push notifications
 	// DATABASE_URL string `envDefault:"postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable" env:"DATABASE_URL" required:"true"`
 

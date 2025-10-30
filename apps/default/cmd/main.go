@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	apis "github.com/antinvestor/apis/go/common"
@@ -32,7 +31,7 @@ func main() {
 	logger := service.Log(ctx).WithField("type", "main")
 
 	// Run migrations if DO_MIGRATION=true
-	if !paymentConfig.DoMigration {
+	if paymentConfig.DoDatabaseMigrate() {
 		err = service.MigrateDatastore(ctx, paymentConfig.GetDatabaseMigrationPath(),
 			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
 			&models.Cost{}, &models.PaymentLink{})
@@ -42,18 +41,19 @@ func main() {
 		logger.Info("Migrations completed successfully")
 		return
 	}
+	logger.Info("Skipping migrations")
 
 	// Ensure all required tables exist
-	db := service.DB(ctx, false)
-	if db == nil {
-		logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).
-			Fatal("Database connection is nil - check DATABASE_URL and database availability")
-		return
-	}
-	if migrateErr := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.Status{}, &models.Prompt{}, &models.PaymentLink{}); migrateErr != nil {
-		logger.WithError(migrateErr).Fatal("Failed to auto-migrate database tables - cannot continue")
-		return
-	}
+	// db := service.DB(ctx, false)
+	// if db == nil {
+	// 	logger.WithField("DATABASE_URL", os.Getenv("DATABASE_URL")).
+	// 		Fatal("Database connection is nil - check DATABASE_URL and database availability")
+	// 	return
+	// }
+	// if migrateErr := db.AutoMigrate(&models.Route{}, &models.Payment{}, &models.Cost{}, &models.Status{}, &models.Prompt{}, &models.PaymentLink{}); migrateErr != nil {
+	// 	logger.WithError(migrateErr).Fatal("Failed to auto-migrate database tables - cannot continue")
+	// 	return
+	// }
 
 	// OAuth2 and service clients
 	oauth2ServiceHost := paymentConfig.GetOauth2ServiceURI()

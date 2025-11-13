@@ -6,11 +6,10 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"gorm.io/datatypes"
-
-	"github.com/antinvestor/service-payments/service/utility"
+	"github.com/antinvestor/service-payments/apps/default/service/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/shopspring/decimal"
+	"gorm.io/datatypes"
 )
 
 const (

@@ -9,10 +9,12 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/pitabwire/frame"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/util"
 	"gorm.io/datatypes"
 )
 
@@ -30,24 +32,21 @@ const (
 
 // InitiatePrompt handles the initiate.prompt events.
 type InitiatePrompt struct {
-	Service       *frame.Service
-	Client        coreapi.JengaApiClient
-	PaymentClient paymentv1.PaymentClient
-	CallbackURL   string
+	client        coreapi.JengaApiClient
+	paymentClient paymentv1connect.PaymentServiceClient
+	callbackURL   string
 }
 
 // NewInitiatePrompt creates a new InitiatePrompt handler with dependencies.
 func NewInitiatePrompt(
-	service *frame.Service,
 	client coreapi.JengaApiClient,
-	paymentClient paymentv1.PaymentClient,
+	paymentClient paymentv1connect.PaymentServiceClient,
 	callbackURL string,
 ) *InitiatePrompt {
 	return &InitiatePrompt{
-		Service:       service,
-		Client:        client,
-		PaymentClient: paymentClient,
-		CallbackURL:   callbackURL,
+		client:        client,
+		paymentClient: paymentClient,
+		callbackURL:   callbackURL,
 	}
 }
 
@@ -102,7 +101,7 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type, expected *models.Prompt")
 	}
 
-	logger := h.Service.Log(ctx).WithField("promptId", prompt.ID)
+	logger := util.Log(ctx).WithField("promptId", prompt.ID)
 	logger.Info("Processing initiate.prompt event")
 
 	account, err := parseAccountInfo(prompt.Account)
@@ -137,7 +136,7 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 			Telco:        telco,
 			MobileNumber: prompt.SourceContactID,
 			Date:         currentDate,
-			CallBackUrl:  h.CallbackURL,
+			CallBackUrl:  h.callbackURL,
 			PushType:     pushType,
 		},
 		ID: prompt.ID,
@@ -145,14 +144,14 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 
 	logger.WithField("stkRequest", stkRequest).Info("Prepared STK request")
 
-	token, err := h.Client.GenerateBearerToken()
+	token, err := h.client.GenerateBearerToken()
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token")
 		return h.handleError(ctx, prompt.ID, transactionRef,
 			fmt.Errorf("generate bearer token: %w", err))
 	}
 
-	response, err := h.Client.InitiateSTKUSSD(*stkRequest, token.AccessToken)
+	response, err := h.client.InitiateSTKUSSD(*stkRequest, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("failed to initiate STK/USSD push")
 		return h.handleError(ctx, prompt.ID, transactionRef,
@@ -197,19 +196,23 @@ func getStringWithDefault(extras map[string]interface{}, key, defaultValue strin
 
 // handleError updates the status to failed and returns the error.
 func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionRef string, err error) error {
-	logger := h.Service.Log(ctx).WithField("promptId", promptID)
+	logger := util.Log(ctx).WithField("promptId", promptID)
+
+	extras := data.JSONMap{
+		"update_type":     updateTypePrompt,
+		"entity_type":     updateTypePrompt,
+		"transaction_ref": transactionRef,
+		"error":           err.Error(),
+	}
+
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     promptID,
 		State:  statusActive,
 		Status: statusFailed,
-		Extras: map[string]string{
-			"update_type":     updateTypePrompt,
-			"transaction_ref": transactionRef,
-			"error":           err.Error(),
-		},
+		Extras: extras.ToProtoStruct(),
 	}
 
-	if _, updateErr := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest); updateErr != nil {
+	if _, updateErr := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest)); updateErr != nil {
 		logger.WithError(updateErr).Error("failed to update payment status")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
@@ -222,19 +225,22 @@ func (h *InitiatePrompt) updateStatus(
 	ctx context.Context,
 	promptID, transactionRef, transactionID, message string,
 ) error {
+	extras := data.JSONMap{
+		"update_type":     updateTypePrompt,
+		"entity_type":     updateTypePrompt,
+		"transaction_ref": transactionRef,
+		"transaction_id":  transactionID,
+		"message":         message,
+	}
+
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     promptID,
 		State:  statusActive,
 		Status: statusSuccessful,
-		Extras: map[string]string{
-			"update_type":     updateTypePrompt,
-			"transaction_ref": transactionRef,
-			"transaction_id":  transactionID,
-			"message":         message,
-		},
+		Extras: extras.ToProtoStruct(),
 	}
 
-	_, err := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
+	_, err := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest))
 	if err != nil {
 		return fmt.Errorf("payment client status update: %w", err)
 	}

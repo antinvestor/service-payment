@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -20,8 +20,13 @@ type PaymentOutQueue struct {
 	statusRepo  repository.StatusRepository
 }
 
-// NewPaymentOutQueue creates a new PaymentOutQueue event handler with the required dependencies
-func NewPaymentOutQueue(qMan queue.Manager, eventMan events.Manager, paymentRepo repository.PaymentRepository, statusRepo repository.StatusRepository) *PaymentOutQueue {
+// NewPaymentOutQueue creates a new PaymentOutQueue event handler with the required dependencies.
+func NewPaymentOutQueue(
+	qMan queue.Manager,
+	eventMan events.Manager,
+	paymentRepo repository.PaymentRepository,
+	statusRepo repository.StatusRepository,
+) *PaymentOutQueue {
 	return &PaymentOutQueue{
 		qMan:        qMan,
 		eventMan:    eventMan,

@@ -1,7 +1,7 @@
 package router
 
 import (
-	handlers "github.com/antinvestor/jenga-api/service/handler"
+	handlers "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/gorilla/mux"
 )
 

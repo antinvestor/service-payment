@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/util"
 )
 
@@ -13,7 +13,7 @@ type AccountSave struct {
 	accountRepo repository.AccountRepository
 }
 
-// NewAccountSave creates a new AccountSave event handler with the required dependencies
+// NewAccountSave creates a new AccountSave event handler with the required dependencies.
 func NewAccountSave(accountRepo repository.AccountRepository) *AccountSave {
 	return &AccountSave{
 		accountRepo: accountRepo,

@@ -10,7 +10,7 @@ import (
 
 const NanoSize = 1000000000
 
-// maxDecimalValue returns the maximum decimal value supported
+// maxDecimalValue returns the maximum decimal value supported.
 func maxDecimalValue() decimal.Decimal {
 	return decimal.NewFromInt(math.MaxInt64).Add(decimal.New(999999999, -9))
 }

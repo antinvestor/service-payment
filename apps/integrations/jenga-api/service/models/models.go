@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/data"
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
 )

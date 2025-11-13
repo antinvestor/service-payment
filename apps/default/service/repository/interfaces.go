@@ -3,11 +3,10 @@ package repository
 import (
 	"context"
 
+	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/workerpool"
-
-	"github.com/antinvestor/service-payments/service/models"
 )
 
 type PaymentRepository interface {

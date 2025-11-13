@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/util"
 )
 
-// Migrate runs database migrations for all payment service models
+// Migrate runs database migrations for all payment service models.
 func Migrate(ctx context.Context, dsMan datastore.Manager, migrationPath string) error {
 	logger := util.Log(ctx).WithField("function", "Migrate")
 

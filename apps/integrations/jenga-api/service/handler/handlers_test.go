@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

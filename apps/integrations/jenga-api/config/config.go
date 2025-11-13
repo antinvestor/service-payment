@@ -1,11 +1,13 @@
 package config
 
-import "github.com/pitabwire/frame"
+import (
+	"github.com/pitabwire/frame/config"
+)
 
 type JengaConfig struct {
-	frame.ConfigurationDefault
-	//JENGA_PRIVATE_KEY_PATH=/app/keys/privatekey.pem
-	//JENGA_PUBLIC_KEY_PATH=/app/keys/publickey.pem
+	config.ConfigurationDefault
+	// JENGA_PRIVATE_KEY_PATH=/app/keys/privatekey.pem
+	// JENGA_PUBLIC_KEY_PATH=/app/keys/publickey.pem
 	JengaPrivateKey string `envDefault:"/app/keys/privatekey.pem"                                                                 env:"JENGA_PRIVATE_KEY_PATH" required:"true"`
 	//nolint:revive // ApiKey follows external API naming convention
 	ApiKey              string `envDefault:"SZq0WmmtX6mfo3fARW7yHeEzhfs3sOiEj2TgS2jb9gFz80JPfvTF1g4nr1uziA1meg3uFB1/Cm+ZXdTDob4z0Q==" env:"JENGA_API_KEY"          required:"true"` //nolint:staticcheck // API field name
@@ -17,7 +19,7 @@ type JengaConfig struct {
 	PartitionServiceURI string `envDefault:"127.0.0.1:7003"                                                                           env:"PARTITION_SERVICE_URI"`
 	SecurelyRunService  bool   `envDefault:"false"                                                                                    env:"SECURELY_RUN_SERVICE"`
 	PaymentServiceURI   string `envDefault:"localhost:50051"                                                                          env:"PAYMENT_SERVICE_URI"    required:"true"`
-	//NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
+	// NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
 	//nolint:revive,staticcheck // NATS_URL follows environment variable ALL_CAPS convention
 	NATS_URL string `envDefault:"nats://ant:secret@nats-server:4222?subject="                                              env:"NATS_URL"               required:"true"`
 	//nolint:revive,staticcheck // DATABASE_URL follows environment variable ALL_CAPS convention

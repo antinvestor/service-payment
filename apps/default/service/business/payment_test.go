@@ -18,9 +18,9 @@ package business_test
 // 	"testing"
 // 	"time"
 
-// 	"github.com/antinvestor/service-payments/config"
-// 	business "github.com/antinvestor/service-payments/service/business"
-// 	"github.com/antinvestor/service-payments/service/events"
+// 	"github.com/antinvestor/service-payments/apps/default/config"
+// 	business "github.com/antinvestor/service-payments/apps/default/service/business"
+// 	"github.com/antinvestor/service-payments/apps/default/service/events"
 // 	"github.com/testcontainers/testcontainers-go"
 // 	"github.com/testcontainers/testcontainers-go/wait"
 // 	"go.uber.org/mock/gomock"

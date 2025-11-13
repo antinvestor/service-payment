@@ -23,19 +23,19 @@ func ToMoney(currency string, amount decimal.Decimal) money.Money {
 }
 
 func FromMoney(m *money.Money) (naive decimal.Decimal) {
-	units := decimal.NewFromInt(m.Units)
-	nanos := decimal.NewFromInt(int64(m.Nanos)).Div(decimal.NewFromInt(NanoSize))
+	units := decimal.NewFromInt(m.GetUnits())
+	nanos := decimal.NewFromInt(int64(m.GetNanos())).Div(decimal.NewFromInt(NanoSize))
 	return units.Add(nanos)
 }
 
 func CompareMoney(a, b *money.Money) bool {
-	if a.CurrencyCode != b.CurrencyCode {
+	if a.GetCurrencyCode() != b.GetCurrencyCode() {
 		return false
 	}
-	if a.Units != b.Units {
+	if a.GetUnits() != b.GetUnits() {
 		return false
 	}
-	if a.Nanos != b.Nanos {
+	if a.GetNanos() != b.GetNanos() {
 		return false
 	}
 	return true

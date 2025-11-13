@@ -1,7 +1,7 @@
 package coreapi
 
 import (
-	"github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/mock"
 )
 

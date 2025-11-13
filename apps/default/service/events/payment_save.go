@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
 )
@@ -16,7 +16,7 @@ type PaymentSave struct {
 	eventMan    events.Manager
 }
 
-// NewPaymentSave creates a new PaymentSave event handler with the required dependencies
+// NewPaymentSave creates a new PaymentSave event handler with the required dependencies.
 func NewPaymentSave(paymentRepo repository.PaymentRepository, eventMan events.Manager) *PaymentSave {
 	return &PaymentSave{
 		paymentRepo: paymentRepo,

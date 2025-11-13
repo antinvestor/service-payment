@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/util"
 )
 
@@ -13,7 +13,7 @@ type PaymentLinkSave struct {
 	paymentLinkRepo repository.PaymentLinkRepository
 }
 
-// NewPaymentLinkSave creates a new PaymentLinkSave event handler with the required dependencies
+// NewPaymentLinkSave creates a new PaymentLinkSave event handler with the required dependencies.
 func NewPaymentLinkSave(paymentLinkRepo repository.PaymentLinkRepository) *PaymentLinkSave {
 	return &PaymentLinkSave{
 		paymentLinkRepo: paymentLinkRepo,

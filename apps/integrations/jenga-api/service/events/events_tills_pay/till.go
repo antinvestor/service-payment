@@ -5,14 +5,22 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/pitabwire/frame"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/util"
 )
 
 type JengaTillsPay struct {
-	Service *frame.Service
-	Client  coreapi.JengaApiClient
+	client coreapi.JengaApiClient
+}
+
+// NewJengaTillsPay creates a new tills pay handler with dependencies.
+func NewJengaTillsPay(
+	client coreapi.JengaApiClient,
+) *JengaTillsPay {
+	return &JengaTillsPay{
+		client: client,
+	}
 }
 
 func (event *JengaTillsPay) Name() string {
@@ -52,10 +60,6 @@ func (event *JengaTillsPay) Validate(ctx context.Context, payload any) error {
 }
 
 func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
-	if event.Client == nil {
-		return errors.New("jenga client not initialized")
-	}
-
 	request, ok := payload.(*models.TillsPayRequest)
 	if !ok {
 		return errors.New("invalid payload type")
@@ -65,15 +69,15 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 	logger.WithField("request", request).Debug("processing tills pay")
 
 	// Generate bearer token for authorization
-	token, err := event.Client.GenerateBearerToken()
+	token, err := event.client.GenerateBearerToken()
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token")
 		return err
 	}
 	logger.WithField("token", token.AccessToken).Info("generated token for tills pay")
 
-	// TODO: Implement the actual tills/pay API call using event.Client
-	resp, err := event.Client.InitiateTillsPay(*request, token.AccessToken)
+	// Initiate the tills/pay API call
+	resp, err := event.client.InitiateTillsPay(*request, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("failed to initiate tills pay")
 		return err

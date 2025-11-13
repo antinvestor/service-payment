@@ -9,10 +9,12 @@ import (
 	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	models "github.com/antinvestor/jenga-api/service/models"
-	"github.com/pitabwire/frame"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/util"
 )
 
 const (
@@ -39,17 +41,18 @@ func GenerateExternalReference() string {
 }
 
 type CreatePaymentLink struct {
-	Service       *frame.Service
-	Client        coreapi.JengaApiClient
-	PaymentClient paymentv1.PaymentClient
+	client        coreapi.JengaApiClient
+	paymentClient paymentv1connect.PaymentServiceClient
 }
 
-func NewCreatePaymentLink(service *frame.Service, client coreapi.JengaApiClient,
-	paymentClient paymentv1.PaymentClient) *CreatePaymentLink {
+// NewCreatePaymentLink creates a new payment link handler with dependencies.
+func NewCreatePaymentLink(
+	client coreapi.JengaApiClient,
+	paymentClient paymentv1connect.PaymentServiceClient,
+) *CreatePaymentLink {
 	return &CreatePaymentLink{
-		Service:       service,
-		Client:        client,
-		PaymentClient: paymentClient,
+		client:        client,
+		paymentClient: paymentClient,
 	}
 }
 
@@ -108,7 +111,7 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 	if !ok {
 		return errors.New("invalid payload type, expected *models.PaymentLink")
 	}
-	logger := h.Service.Log(ctx).WithField("paymentLinkId", paymentLink.ID)
+	logger := util.Log(ctx).WithField("paymentLinkId", paymentLink.ID)
 	logger.Info("Processing create.payment_link event")
 
 	requestBody, err := h.prepareRequest(paymentLink)
@@ -117,13 +120,13 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 		return h.handleError(ctx, paymentLink.ID, fmt.Errorf("prepare request: %w", err))
 	}
 
-	token, err := h.Client.GenerateBearerToken()
+	token, err := h.client.GenerateBearerToken()
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token")
 		return h.handleError(ctx, paymentLink.ID, fmt.Errorf("generate bearer token: %w", err))
 	}
 
-	response, err := h.Client.CreatePaymentLink(requestBody, token.AccessToken)
+	response, err := h.client.CreatePaymentLink(requestBody, token.AccessToken)
 	if err != nil || !response.Status {
 		errorMsg := h.getErrorResponse(err, response)
 		logger.WithError(err).Error("failed to create payment link")
@@ -180,7 +183,7 @@ func (h *CreatePaymentLink) getErrorResponse(err error, response *models.Payment
 }
 
 func (h *CreatePaymentLink) logResponse(response *models.PaymentLinkResponse) {
-	logger := h.Service.Log(context.Background())
+	logger := util.Log(context.Background())
 	dataJSON, err := json.Marshal(response.Data)
 	if err != nil {
 		logger.WithError(err).Error("failed to marshal payment link data")
@@ -191,18 +194,22 @@ func (h *CreatePaymentLink) logResponse(response *models.PaymentLinkResponse) {
 }
 
 func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err error) error {
-	logger := h.Service.Log(ctx)
+	logger := util.Log(ctx)
+
+	extras := data.JSONMap{
+		"update_type": updateTypePaymentLink,
+		"entity_type": updateTypePaymentLink,
+		"error":       err.Error(),
+	}
+
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     id,
 		State:  statusActive,
 		Status: statusFailed,
-		Extras: map[string]string{
-			"update_type": updateTypePaymentLink,
-			"error":       err.Error(),
-		},
+		Extras: extras.ToProtoStruct(),
 	}
 
-	if _, updateErr := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest); updateErr != nil {
+	if _, updateErr := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest)); updateErr != nil {
 		logger.WithError(updateErr).Error("failed to update payment link status")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
@@ -210,17 +217,20 @@ func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err erro
 }
 
 func (h *CreatePaymentLink) updateStatusSuccess(ctx context.Context, id string) error {
+	extras := data.JSONMap{
+		"update_type": updateTypePaymentLink,
+		"entity_type": updateTypePaymentLink,
+		"message":     "Payment link successfully generated",
+	}
+
 	statusUpdateRequest := &commonv1.StatusUpdateRequest{
 		Id:     id,
 		State:  statusActive,
 		Status: statusSuccessful,
-		Extras: map[string]string{
-			"update_type": updateTypePaymentLink,
-			"message":     "Payment link successfully generated",
-		},
+		Extras: extras.ToProtoStruct(),
 	}
 
-	_, err := h.PaymentClient.StatusUpdate(ctx, statusUpdateRequest)
+	_, err := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest))
 	if err != nil {
 		return fmt.Errorf("payment client status update: %w", err)
 	}

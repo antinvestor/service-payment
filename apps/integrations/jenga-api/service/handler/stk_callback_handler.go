@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/util"
 )
 
 func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := js.Service.Log(ctx).WithField("type", "CallbackHandler")
+	logger := util.Log(ctx).WithField("type", "CallbackHandler")
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -48,7 +49,7 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		WithField("mobile_number", callback.MobileNumber)
 
 	// Process the callback synchronously using the request's context
-	err := js.Service.Emit(ctx, "jenga.callback.receive.payment", &callback)
+	err := js.eventMan.Emit(ctx, "jenga.callback.receive.payment", &callback)
 	if err != nil {
 		logger.WithError(err).Error("failed to emit callback event")
 		http.Error(w, "Failed to process callback", http.StatusInternalServerError)

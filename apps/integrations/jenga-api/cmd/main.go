@@ -1,99 +1,102 @@
 package main
 
 import (
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"github.com/antinvestor/jenga-api/config"
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/events/events_callback"
-	"github.com/antinvestor/jenga-api/service/events/events_link_processing"
-	"github.com/antinvestor/jenga-api/service/events/events_stk"
-	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
-	handler "github.com/antinvestor/jenga-api/service/handler"
-	"github.com/antinvestor/jenga-api/service/router"
+	"context"
+
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	apis "github.com/antinvestor/apis/go/common"
+	"github.com/antinvestor/apis/go/payment"
+	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_callback"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_link_processing"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_stk"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_tills_pay"
+	handler "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/router"
 	"github.com/pitabwire/frame"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"github.com/pitabwire/frame/config"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/security"
+	"github.com/pitabwire/frame/security/openid"
+	"github.com/pitabwire/util"
 )
 
 func main() {
-	// Set config file path
+	ctx := context.Background()
 
-	serviceName := "service_jenga_api"
-	jengaConfig, err := frame.ConfigFromEnv[config.JengaConfig]()
+	cfg, err := config.LoadWithOIDC[aconfig.JengaConfig](ctx)
 	if err != nil {
 		panic(err)
 	}
+
+	if cfg.Name() == "" {
+		cfg.ServiceName = "service_jenga_api"
+	}
+
+	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
+	defer svc.Stop(ctx)
+	logger := util.Log(ctx).WithField("type", "main")
+
+	// Setup Jenga API client
 	//nolint:revive,staticcheck // clientApi more readable than clientAPI
 	clientApi := coreapi.New(
-		jengaConfig.MerchantCode,
-		jengaConfig.ConsumerSecret,
-		jengaConfig.ApiKey,
-		jengaConfig.Env,
-		jengaConfig.JengaPrivateKey,
+		cfg.MerchantCode,
+		cfg.ConsumerSecret,
+		cfg.ApiKey,
+		cfg.Env,
+		cfg.JengaPrivateKey,
 	)
-	ctx, service := frame.NewService(serviceName, frame.WithConfig(&jengaConfig))
-	defer service.Stop(ctx)
-	logger := service.Log(ctx).WithField("type", "main")
-	// Use environment variable for the gRPC endpoint or default to container service name
-	paymentServiceEndpoint := jengaConfig.PaymentServiceURI
 
-	// Initialize the payment client variable
-	var paymentClient *paymentv1.PaymentClient
-	var clientConn *grpc.ClientConn
-	var dialErr error
+	// Get managers
+	evtsMan := svc.EventsManager()
+	sm := svc.SecurityManager()
+	// Setup payment service client using Connect RPC
+	paymentCli := setupPaymentClient(ctx, sm, cfg)
 
-	// Set up a direct connection to the gRPC server using grpc.DialContext
-	//nolint:staticcheck // DialContext deprecated but still supported in 1.x
-	clientConn, dialErr = grpc.DialContext(
-		ctx,
-		paymentServiceEndpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(1024*1024*16), // 16MB max message size
-			grpc.MaxCallSendMsgSize(1024*1024*16),
-		),
+	// Initialize event handlers using constructors
+	initiatePrompt := events_stk.NewInitiatePrompt(
+		clientApi,
+		paymentCli,
+		cfg.JengaCallbackURL,
 	)
-	if dialErr != nil {
-		logger.WithError(dialErr).Error("Failed to connect to payment service")
-	} else {
-		paymentServiceClient := paymentv1.NewPaymentServiceClient(clientConn)
 
-		paymentClient = &paymentv1.PaymentClient{
-			Client: paymentServiceClient,
-		}
-		logger.Info("Successfully connected to payment service at ", paymentServiceEndpoint)
-	}
-	// Initialize JobServer
-	js := &handler.JobServer{
-		Service: service,
-	}
-	router := router.NewRouter(js)
-	initiatePrompt := &events_stk.InitiatePrompt{
-		Service:       service,
-		Client:        clientApi,
-		PaymentClient: *paymentClient,
-		CallbackURL:   jengaConfig.JengaCallbackURL,
-	}
-	createPaymentLink := &events_link_processing.CreatePaymentLink{
-		Service:       service,
-		Client:        clientApi,
-		PaymentClient: *paymentClient,
-	}
+	createPaymentLink := events_link_processing.NewCreatePaymentLink(
+		clientApi,
+		paymentCli,
+	)
 
-	eventHandlers := []frame.EventI{
-		&events_callback.JengaCallbackReceivePayment{Service: service, PaymentClient: paymentClient},
+	callbackHandler := events_callback.NewJengaCallbackReceivePayment(
+		paymentCli,
+	)
+
+	tillsPayHandler := events_tills_pay.NewJengaTillsPay(
+		clientApi,
+	)
+
+	// Initialize JobServer with dependencies
+	js := handler.NewJobServer(
+		evtsMan,
+		clientApi,
+		paymentCli,
+	)
+
+	httpRouter := router.NewRouter(js)
+
+	eventHandlers := []events.EventI{
+		callbackHandler,
 		initiatePrompt,
 		createPaymentLink,
-		&events_tills_pay.JengaTillsPay{Service: service, Client: clientApi},
+		tillsPayHandler,
 	}
 
-	// NATS-only configuration
-	natsURL := jengaConfig.NATS_URL
+	// NATS configuration
+	natsURL := cfg.NATS_URL
 	promptTopic := initiatePrompt.Name()
 	paymentLinkTopic := createPaymentLink.Name()
-	// TODO to ensure to put the topics and the urls in the config file
+
 	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(router),
+		frame.WithHTTPHandler(httpRouter),
 		frame.WithRegisterEvents(eventHandlers...),
 		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
 		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
@@ -101,10 +104,28 @@ func main() {
 		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL+paymentLinkTopic, createPaymentLink),
 	}
 
-	service.Init(ctx, serviceOptions...)
+	svc.Init(ctx, serviceOptions...)
 
 	logger.Info("Jenga API service started successfully on port 8080")
-	if runErr := service.Run(ctx, ":8080"); runErr != nil {
+	if runErr := svc.Run(ctx, ":8080"); runErr != nil {
 		logger.WithError(runErr).Fatal("Failed to run Jenga API service")
 	}
+}
+
+func setupPaymentClient(
+	ctx context.Context,
+	clHolder security.InternalOauth2ClientHolder,
+	cfg aconfig.JengaConfig,
+) paymentv1connect.PaymentServiceClient {
+	ledgerCli, err := payment.NewClient(ctx,
+		apis.WithEndpoint(cfg.PaymentServiceURI),
+		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
+		apis.WithTokenUsername(clHolder.JwtClientID()),
+		apis.WithTokenPassword(clHolder.JwtClientSecret()),
+		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithAudiences("service_payment"))
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
+	}
+	return ledgerCli
 }

@@ -4,19 +4,33 @@ import (
 	"encoding/json"
 	"net/http"
 
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"github.com/antinvestor/jenga-api/service/coreapi"
-	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
-	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/pitabwire/frame"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_tills_pay"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/util"
 )
 
 // job server handlers
 
 type JobServer struct {
-	Service       *frame.Service
-	Client        *coreapi.Client
-	PaymentClient *paymentv1.PaymentClient
+	eventMan      events.Manager
+	client        coreapi.JengaApiClient
+	paymentClient paymentv1connect.PaymentServiceClient
+}
+
+// NewJobServer creates a new JobServer with dependencies.
+func NewJobServer(
+	eventMan events.Manager,
+	client coreapi.JengaApiClient,
+	paymentClient paymentv1connect.PaymentServiceClient,
+) *JobServer {
+	return &JobServer{
+		eventMan:      eventMan,
+		client:        client,
+		paymentClient: paymentClient,
+	}
 }
 
 func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +41,7 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 
 	// background context for async processing
 	ctx := r.Context()
-	logger := js.Service.Log(ctx).WithField("type", "InitiateTillsPay")
+	logger := util.Log(ctx).WithField("type", "InitiateTillsPay")
 
 	var request models.TillsPayRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -45,14 +59,11 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create event
-	event := &events_tills_pay.JengaTillsPay{
-		Service: js.Service,
-		Client:  js.Client,
-	}
+	// Create event handler
+	event := events_tills_pay.NewJengaTillsPay(js.client)
 
 	// Execute event synchronously with request context
-	err := js.Service.Emit(ctx, event.Name(), &request)
+	err := js.eventMan.Emit(ctx, event.Name(), &request)
 	if err != nil {
 		logger.WithError(err).WithField("reference", request.Payment.Ref).Error("failed to process tills pay request")
 		http.Error(w, "Failed to process tills pay request", http.StatusInternalServerError)

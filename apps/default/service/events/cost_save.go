@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/util"
 )
 
@@ -13,7 +13,7 @@ type CostSave struct {
 	costRepo repository.CostRepository
 }
 
-// NewCostSave creates a new CostSave event handler with the required dependencies
+// NewCostSave creates a new CostSave event handler with the required dependencies.
 func NewCostSave(costRepo repository.CostRepository) *CostSave {
 	return &CostSave{
 		costRepo: costRepo,

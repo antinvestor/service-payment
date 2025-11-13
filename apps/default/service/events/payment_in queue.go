@@ -7,8 +7,8 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -22,8 +22,14 @@ type PaymentInQueue struct {
 	profileCli  profilev1connect.ProfileServiceClient
 }
 
-// NewPaymentInQueue creates a new PaymentInQueue event handler with the required dependencies
-func NewPaymentInQueue(qMan queue.Manager, eventMan events.Manager, paymentRepo repository.PaymentRepository, routeRepo repository.RouteRepository, profileCli profilev1connect.ProfileServiceClient) *PaymentInQueue {
+// NewPaymentInQueue creates a new PaymentInQueue event handler with the required dependencies.
+func NewPaymentInQueue(
+	qMan queue.Manager,
+	eventMan events.Manager,
+	paymentRepo repository.PaymentRepository,
+	routeRepo repository.RouteRepository,
+	profileCli profilev1connect.ProfileServiceClient,
+) *PaymentInQueue {
 	return &PaymentInQueue{
 		qMan:        qMan,
 		eventMan:    eventMan,

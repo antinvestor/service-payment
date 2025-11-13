@@ -1,0 +1,94 @@
+version: '3.9'
+
+networks:
+  jenga_network:
+    driver: bridge
+
+services:
+  payment_db:
+    image: postgres:16.3
+    environment:
+      POSTGRES_DB: service_payment
+      POSTGRES_USER: ant
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5436:5432"
+    networks:
+      - jenga_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ant -d service_payment"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  payment_service:
+    image: ghcr.io/antinvestor/service-payment/default:latest
+    ports:
+      - "50051:50051"
+      - "8081:8081"
+    depends_on:
+      payment_db:
+        condition: service_healthy
+    networks:
+      - jenga_network
+    environment:
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DATABASE_URI=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_DSN=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - SECURELY_RUN_SERVICE=false
+    restart: unless-stopped
+
+  jenga_api_service:
+    image: ghcr.io/antinvestor/service-payment/jenga-api:latest
+    ports:
+      - "8082:8082"
+    depends_on:
+      payment_db:
+        condition: service_healthy
+    networks:
+      - jenga_network
+    environment:
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DATABASE_URI=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - DB_DSN=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
+      - SECURELY_RUN_SERVICE=false
+    restart: unless-stopped
+
+  jenga_service:
+    build:
+      context: ./
+      no_cache: true
+    ports:
+      - "8080:8080"
+    depends_on:
+      - payment_service
+      - nats-server
+    networks:
+      - jenga_network
+    env_file:
+      - .env
+    environment:
+      - PAYMENT_SERVICE_ENDPOINT=payment_service:50051
+      - CALLBACK_URL=https://jenga_service.chamamobile.com/receivepayments
+      # include user/pass in the URL
+      - NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
+      - SKIP_NATS=false
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./keys:/app/keys
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run --token ${TUNNEL_TOKEN}
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - jenga_service
+    networks:
+      - jenga_network

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/util"
 )
 
@@ -13,7 +13,7 @@ type PromptSave struct {
 	promptRepo repository.PromptRepository
 }
 
-// NewPromptSave creates a new PromptSave event handler with the required dependencies
+// NewPromptSave creates a new PromptSave event handler with the required dependencies.
 func NewPromptSave(promptRepo repository.PromptRepository) *PromptSave {
 	return &PromptSave{
 		promptRepo: promptRepo,

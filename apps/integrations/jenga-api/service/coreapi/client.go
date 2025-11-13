@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	models "github.com/antinvestor/jenga-api/service/models"
+	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 )
 
 // Client represents the Jenga API client.
@@ -244,7 +244,7 @@ func (c *Client) InitiateTillsPay(
 	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", c.Env)
 
 	// Generate the signature for the request
-	//merchant.till+partner.id+payment.amount+payment.currency+payment.ref
+	// merchant.till+partner.id+payment.amount+payment.currency+payment.ref
 	signature, err := c.GeneratePaymentSignature(
 		request.Merchant.Till,
 		request.Partner.ID,

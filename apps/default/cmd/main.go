@@ -14,11 +14,11 @@ import (
 	"github.com/antinvestor/apis/go/ledger"
 	"github.com/antinvestor/apis/go/partition"
 	"github.com/antinvestor/apis/go/profile"
-	aconfig "github.com/antinvestor/service-payments/config"
-	"github.com/antinvestor/service-payments/service/business"
-	"github.com/antinvestor/service-payments/service/events"
-	"github.com/antinvestor/service-payments/service/handlers"
-	"github.com/antinvestor/service-payments/service/repository"
+	aconfig "github.com/antinvestor/service-payments/apps/default/config"
+	"github.com/antinvestor/service-payments/apps/default/service/business"
+	"github.com/antinvestor/service-payments/apps/default/service/events"
+	"github.com/antinvestor/service-payments/apps/default/service/handlers"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
@@ -26,11 +26,9 @@ import (
 	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
-	_ "gorm.io/driver/postgres"
 )
 
 func main() {
-
 	ctx := context.Background()
 
 	// Initialize configuration
@@ -216,7 +214,6 @@ func setupConnectServer(
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) http.Handler {
-
 	otelInterceptor, err := otelconnect.NewInterceptor()
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")

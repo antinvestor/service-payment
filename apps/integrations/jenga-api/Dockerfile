@@ -1,30 +1,25 @@
-# Build stage
+
 FROM golang:1.25 AS builder
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy go.mod and go.sum and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the application code
-COPY . .
+# Copy project files
+COPY ./apps/integrations/jenga-api ./apps/integrations/jenga-api
+#COPY ./internal ./internal
 
-# Set environment variables for static binary and architecture compatibility
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags '-extldflags "-static"' -o binary ./apps/integrations/jenga-api/cmd/main.go
 
-# Build the application binary from the main package
-RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o jenga_binary ./cmd/main.go && chmod +x jenga_binary
-
-# Final stage with Distroless
+# Final minimal image
 FROM gcr.io/distroless/static:nonroot
 
-# Install certificates for HTTPS support
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-# Copy the binary to the image
-COPY --from=builder /app/jenga_binary /jenga
+# Copy from builder stage
+COPY --from=builder /app/binary /jenga-api
 
 # Copy the keys directory
 COPY --chown=65532:65532 keys /keys
@@ -41,14 +36,19 @@ ENV JENGA_ENV=https://uat.finserve.africa
 ENV PROFILE_SERVICE_URI=127.0.0.1:7005
 ENV PARTITION_SERVICE_URI=127.0.0.1:7003
 ENV PAYMENT_SERVICE_URI=localhost:50051
-ENV NATS_URL=nats://ant:secret@nats-server:4222?subject=
 ENV DATABASE_URL=postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable
 
-# Use non-root user (UID 65532 is the nonroot user in distroless)
+
+# Run as non-root user
 USER 65532:65532
 
-# Set entry point to the binary
-ENTRYPOINT ["/jenga"]
-
-# Expose the application port
+# Document ports
 EXPOSE 80
+EXPOSE 50051
+
+# Set working directory
+WORKDIR /
+
+# Run the binary
+ENTRYPOINT ["/jenga-api"]
+

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
@@ -26,4 +26,23 @@ func (sr *statusRepository) GetByEntity(ctx context.Context, entityID, entityTyp
 	status := &models.Status{}
 	err := sr.Pool().DB(ctx, true).First(status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
 	return status, err
+}
+
+func (sr *statusRepository) GetByEntityIDList(
+	ctx context.Context,
+	entityIDs []string,
+	entityType string,
+) (map[string]*models.Status, error) {
+	var statusList []*models.Status
+	err := sr.Pool().DB(ctx, true).Find(statusList, "entity_id IN ? AND entity_type = ?", entityIDs, entityType).Error
+	if err != nil {
+		return nil, err
+	}
+
+	statusMap := map[string]*models.Status{}
+	for _, status := range statusList {
+		statusMap[status.EntityID] = status
+	}
+
+	return statusMap, err
 }

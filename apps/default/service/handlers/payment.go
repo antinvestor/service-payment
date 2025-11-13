@@ -10,7 +10,7 @@ import (
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
-	"github.com/antinvestor/service-payments/service/business"
+	"github.com/antinvestor/service-payments/apps/default/service/business"
 )
 
 var _ paymentv1connect.PaymentServiceHandler = (*PaymentServer)(nil)
@@ -22,7 +22,7 @@ type PaymentServer struct {
 	PartitionCli    partitionv1connect.PartitionServiceClient
 }
 
-// NewPaymentServer creates a new PaymentServer with the required dependencies
+// NewPaymentServer creates a new PaymentServer with the required dependencies.
 func NewPaymentServer(
 	paymentBusiness business.PaymentBusiness,
 	profileCli profilev1connect.ProfileServiceClient,
@@ -37,7 +37,10 @@ func NewPaymentServer(
 	}
 }
 
-func (ps *PaymentServer) Send(ctx context.Context, req *connect.Request[paymentv1.SendRequest]) (*connect.Response[paymentv1.SendResponse], error) {
+func (ps *PaymentServer) Send(
+	ctx context.Context,
+	req *connect.Request[paymentv1.SendRequest],
+) (*connect.Response[paymentv1.SendResponse], error) {
 	response, err := ps.PaymentBusiness.Send(ctx, req.Msg.GetData())
 	if err != nil {
 		return nil, err
@@ -45,7 +48,10 @@ func (ps *PaymentServer) Send(ctx context.Context, req *connect.Request[paymentv
 	return connect.NewResponse(&paymentv1.SendResponse{Data: response}), nil
 }
 
-func (ps *PaymentServer) Status(ctx context.Context, req *connect.Request[commonv1.StatusRequest]) (*connect.Response[commonv1.StatusResponse], error) {
+func (ps *PaymentServer) Status(
+	ctx context.Context,
+	req *connect.Request[commonv1.StatusRequest],
+) (*connect.Response[commonv1.StatusResponse], error) {
 	response, err := ps.PaymentBusiness.Status(ctx, req.Msg)
 	if err != nil {
 		return nil, err
@@ -85,7 +91,6 @@ func (ps *PaymentServer) Receive(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ReceiveRequest],
 ) (*connect.Response[paymentv1.ReceiveResponse], error) {
-
 	response, err := ps.PaymentBusiness.Receive(ctx, req.Msg.GetData())
 
 	if err != nil {
@@ -136,7 +141,6 @@ func (ps *PaymentServer) Search(
 
 	// Read from the result pipe and stream back to client
 	for {
-
 		result, ok := resultPipe.ReadResult(ctx)
 		if !ok {
 			return nil
@@ -154,7 +158,10 @@ func (ps *PaymentServer) Search(
 	}
 }
 
-func (ps *PaymentServer) Reconcile(ctx context.Context, req *connect.Request[paymentv1.ReconcileRequest]) (*connect.Response[paymentv1.ReconcileResponse], error) {
+func (ps *PaymentServer) Reconcile(
+	ctx context.Context,
+	req *connect.Request[paymentv1.ReconcileRequest],
+) (*connect.Response[paymentv1.ReconcileResponse], error) {
 	response, err := ps.PaymentBusiness.Reconcile(ctx, req.Msg)
 
 	if err != nil {

@@ -1,51 +1,35 @@
-
-# Build stage
 FROM golang:1.25 AS builder
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy go.mod and go.sum and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the application code
-COPY . .
+# Copy project files
+COPY ./apps/default ./apps/default
+COPY ./internal ./internal
 
-# Set environment variables for static binary and architecture compatibility
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags '-extldflags "-static"' -o binary ./apps/default/cmd/main.go
 
-# Build the application binary
-RUN go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o payment_binary ./cmd/main.go && chmod +x payment_binary
-
-# Final stage with Distroless
+# Final minimal image
 FROM gcr.io/distroless/static:nonroot
 
-# Install certificates for HTTPS support
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+# Copy from builder stage
+COPY --from=builder /app/binary /default
+COPY --from=builder /app/apps/default/migrations /migrations
 
-# Copy the binary to the image
-COPY --from=builder /app/payment_binary /payment
-
-# Copy the keys directory
-COPY --chown=65532:65532 keys /keys
-
-# Set default environment variables for Kubernetes compatibility
-ENV LOG_LEVEL=info
-ENV SECURELY_RUN_SERVICE=false
-ENV NATS_URL=nats://ant:secret@nats-server:4222?subject=
-ENV PROMPT_TOPIC=initiate.prompt
-ENV PAYMENT_LINK_TOPIC=create.payment.link
-ENV DO_MIGRATION=false
-ENV PROFILE_SERVICE_URI=127.0.0.1:7005
-ENV PARTITION_SERVICE_URI=127.0.0.1:7003
-ENV LEDGER_SERVICE_URI=127.0.0.1:7004
-
-# Use non-root user (UID 65532 is the nonroot user in distroless)
+# Run as non-root user
 USER 65532:65532
 
-# Set entry point to the binary
-ENTRYPOINT ["/payment"]
-
-# Expose the application port
+# Document ports
 EXPOSE 80
+EXPOSE 50051
+
+# Set working directory
+WORKDIR /
+
+# Run the binary
+ENTRYPOINT ["/default"]

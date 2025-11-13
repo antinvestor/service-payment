@@ -1,6 +1,6 @@
 package coreapi
 
-import "github.com/antinvestor/jenga-api/service/models"
+import "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 
 //nolint:revive // JengaApiClient follows original API naming convention
 type JengaApiClient interface { //nolint:staticcheck // API interface name

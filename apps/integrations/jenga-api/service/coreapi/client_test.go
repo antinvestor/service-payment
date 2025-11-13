@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

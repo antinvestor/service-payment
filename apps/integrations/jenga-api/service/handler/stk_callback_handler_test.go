@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/antinvestor/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -153,7 +153,7 @@ func TestHandleStkCallback(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 
 			// Verify mock expectations
-			//mockService.AssertExpectations(t)
+			// mockService.AssertExpectations(t)
 		})
 	}
 }

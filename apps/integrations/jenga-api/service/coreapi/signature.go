@@ -21,7 +21,7 @@ var TestMode bool = false
 
 // GenerateSignature generates a SHA-256 signature with RSA private key.
 //
-//nolint:revive // GenerateSignature follows standard naming
+
 func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// For tests, return a dummy signature to avoid actual RSA key parsing
 	if TestMode {

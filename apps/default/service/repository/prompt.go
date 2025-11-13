@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
@@ -41,7 +41,7 @@ func (pr *promptRepository) GetByProfileID(ctx context.Context, profileID string
 	return prompts, err
 }
 
-// Legacy method for backward compatibility
+// Legacy method for backward compatibility.
 func (pr *promptRepository) SearchLegacy(ctx context.Context, query string) ([]*models.Prompt, error) {
 	var prompts []*models.Prompt
 	err := pr.Pool().DB(ctx, true).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&prompts).Error

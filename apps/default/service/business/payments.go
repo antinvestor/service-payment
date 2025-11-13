@@ -15,10 +15,10 @@ import (
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
-	"github.com/antinvestor/service-payments/service/events"
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
-	"github.com/antinvestor/service-payments/service/utility"
+	"github.com/antinvestor/service-payments/apps/default/service/events"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/utility"
 	"github.com/pitabwire/frame/data"
 	fevents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
@@ -42,7 +42,6 @@ func NewPaymentBusiness(
 	promptRepo repository.PromptRepository,
 	paymentLinkRepo repository.PaymentLinkRepository,
 ) (PaymentBusiness, error) {
-
 	return &paymentBusiness{
 		eventMan:        eventMan,
 		profileCli:      profileCli,
@@ -311,8 +310,10 @@ func (pb *paymentBusiness) StatusUpdate(
 	return status.ToAPI(), nil
 }
 
-func (pb *paymentBusiness) convertPaymentsToApi(ctx context.Context, paymentList []*models.Payment) ([]*paymentv1.Payment, error) {
-
+func (pb *paymentBusiness) convertPaymentsToApi(
+	ctx context.Context,
+	paymentList []*models.Payment,
+) ([]*paymentv1.Payment, error) {
 	var responsesList []*paymentv1.Payment
 
 	var paymentIDList []string
@@ -337,7 +338,10 @@ func (pb *paymentBusiness) convertPaymentsToApi(ctx context.Context, paymentList
 	return responsesList, nil
 }
 
-func (pb *paymentBusiness) Search(ctx context.Context, searchQuery *commonv1.SearchRequest) (workerpool.JobResultPipe[[]*paymentv1.Payment], error) {
+func (pb *paymentBusiness) Search(
+	ctx context.Context,
+	searchQuery *commonv1.SearchRequest,
+) (workerpool.JobResultPipe[[]*paymentv1.Payment], error) {
 	logger := util.Log(ctx).WithField("request", searchQuery)
 	logger.Debug("handling payment search request")
 
@@ -349,14 +353,25 @@ func (pb *paymentBusiness) Search(ctx context.Context, searchQuery *commonv1.Sea
 	}
 
 	if searchQuery.GetIdQuery() != "" {
-		searchOpts = append(searchOpts, data.WithSearchFiltersAndByValue(map[string]any{"id": searchQuery.GetIdQuery()}))
+		searchOpts = append(
+			searchOpts,
+			data.WithSearchFiltersAndByValue(map[string]any{"id": searchQuery.GetIdQuery()}),
+		)
 	}
 
 	if searchQuery.GetQuery() != "" {
-		searchOpts = append(searchOpts, data.WithSearchFiltersOrByValue(map[string]any{"searchable @@ websearch_to_tsquery( 'english', ?) ": searchQuery.GetQuery()}))
+		searchOpts = append(
+			searchOpts,
+			data.WithSearchFiltersOrByValue(
+				map[string]any{"searchable @@ websearch_to_tsquery( 'english', ?) ": searchQuery.GetQuery()},
+			),
+		)
 
 		for _, filter := range searchQuery.GetProperties() {
-			searchOpts = append(searchOpts, data.WithSearchFiltersOrByValue(map[string]any{fmt.Sprintf(" %s = ?", filter): searchQuery.GetQuery()}))
+			searchOpts = append(
+				searchOpts,
+				data.WithSearchFiltersOrByValue(map[string]any{fmt.Sprintf(" %s = ?", filter): searchQuery.GetQuery()}),
+			)
 		}
 	}
 
@@ -367,35 +382,33 @@ func (pb *paymentBusiness) Search(ctx context.Context, searchQuery *commonv1.Sea
 		return nil, err
 	}
 
-	processRes := workerpool.NewJob[[]*paymentv1.Payment](func(ctx context.Context, pipe workerpool.JobResultPipe[[]*paymentv1.Payment]) error {
+	processRes := workerpool.NewJob[[]*paymentv1.Payment](
+		func(ctx context.Context, pipe workerpool.JobResultPipe[[]*paymentv1.Payment]) error {
+			cancelCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
 
-		cancelCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+			for {
+				res, ok := results.ReadResult(cancelCtx)
+				if !ok {
+					return nil
+				}
 
-		for {
+				if res.IsError() {
+					return res.Error()
+				}
 
-			res, ok := results.ReadResult(cancelCtx)
-			if !ok {
-				return nil
+				finalRes, convErr := pb.convertPaymentsToApi(cancelCtx, res.Item())
+				if convErr != nil {
+					return convErr
+				}
+
+				writeErr := pipe.WriteResult(cancelCtx, finalRes)
+				if writeErr != nil {
+					return writeErr
+				}
 			}
-
-			if res.IsError() {
-				return res.Error()
-			}
-
-			finalRes, convErr := pb.convertPaymentsToApi(cancelCtx, res.Item())
-			if convErr != nil {
-				return convErr
-			}
-
-			writeErr := pipe.WriteResult(cancelCtx, finalRes)
-			if writeErr != nil {
-				return writeErr
-			}
-
-		}
-
-	})
+		},
+	)
 
 	return processRes, nil
 }
@@ -735,7 +748,7 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentv1.Payment, p *
 }
 
 const (
-	// Transaction reference generation constants
+	// Transaction reference generation constants.
 	millionMod    = 1000000 // Modulo for time component
 	asciiCharBase = 65      // ASCII A for character generation
 	alphabetSize  = 26      // Number of letters in alphabet
@@ -752,8 +765,12 @@ func generateTransactionRef() string {
 
 // createDepositStep1 creates the initial receipt transaction:
 // DR – Mobile Operator
-// CR - Unidentified Deposits
-func (pb *paymentBusiness) createDepositStep1(ctx context.Context, payment *models.Payment, senderTel, groupName, memberName string) error {
+// CR - Unidentified Deposits.
+func (pb *paymentBusiness) createDepositStep1(
+	ctx context.Context,
+	payment *models.Payment,
+	senderTel, groupName, memberName string,
+) error {
 	if pb.ledgerCli == nil {
 		return nil
 	}
@@ -832,8 +849,12 @@ func (pb *paymentBusiness) createDepositStep1(ctx context.Context, payment *mode
 	return nil
 }
 
-// ensureLedgerAccount ensures that an account exists in the ledger service
-func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, ledgerRef string, profileType string) error {
+// ensureLedgerAccount ensures that an account exists in the ledger service.
+func (pb *paymentBusiness) ensureLedgerAccount(
+	ctx context.Context,
+	accountRef, ledgerRef string,
+	profileType string,
+) error {
 	if pb.ledgerCli == nil {
 		return nil
 	}
@@ -853,14 +874,12 @@ func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, 
 
 	var accounts []*ledgerv1.Account
 	for accountStream.Receive() {
-
 		if accountStream.Err() != nil {
 			logger.WithError(accountStream.Err()).Error("failed to receive account")
 			return accountStream.Err()
 		}
 
 		accounts = append(accounts, accountStream.Msg())
-
 	}
 
 	if len(accounts) > 0 {
@@ -890,7 +909,10 @@ func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, 
 	return nil
 }
 
-func (pb *paymentBusiness) Reconcile(ctx context.Context, msg *paymentv1.ReconcileRequest) (*paymentv1.ReconcileResponse, error) {
+func (pb *paymentBusiness) Reconcile(
+	ctx context.Context,
+	msg *paymentv1.ReconcileRequest,
+) (*paymentv1.ReconcileResponse, error) {
 	// TODO implement me
 	panic("implement me")
 }

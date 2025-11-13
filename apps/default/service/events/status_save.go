@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/util"
 )
 
@@ -13,7 +13,7 @@ type StatusSave struct {
 	statusRepo repository.StatusRepository
 }
 
-// NewStatusSave creates a new StatusSave event handler with the required dependencies
+// NewStatusSave creates a new StatusSave event handler with the required dependencies.
 func NewStatusSave(statusRepo repository.StatusRepository) *StatusSave {
 	return &StatusSave{
 		statusRepo: statusRepo,

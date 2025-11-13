@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"github.com/antinvestor/service-payments/service/models"
-	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/antinvestor/service-payments/apps/default/service/models"
+	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
@@ -35,8 +35,12 @@ type PaymentInRoute struct {
 	routeRepo   repository.RouteRepository
 }
 
-// NewPaymentInRoute creates a new PaymentInRoute event handler with the required dependencies
-func NewPaymentInRoute(eventMan events.Manager, paymentRepo repository.PaymentRepository, routeRepo repository.RouteRepository) *PaymentInRoute {
+// NewPaymentInRoute creates a new PaymentInRoute event handler with the required dependencies.
+func NewPaymentInRoute(
+	eventMan events.Manager,
+	paymentRepo repository.PaymentRepository,
+	routeRepo repository.RouteRepository,
+) *PaymentInRoute {
 	return &PaymentInRoute{
 		eventMan:    eventMan,
 		paymentRepo: paymentRepo,
@@ -167,7 +171,12 @@ func routePayment(
 	return route, nil
 }
 
-func loadRoute(ctx context.Context, qMan queue.Manager, routeRepo repository.RouteRepository, routeID string) (*models.Route, error) {
+func loadRoute(
+	ctx context.Context,
+	qMan queue.Manager,
+	routeRepo repository.RouteRepository,
+	routeID string,
+) (*models.Route, error) {
 	if routeID == "" {
 		return nil, errors.New("no route id provided")
 	}

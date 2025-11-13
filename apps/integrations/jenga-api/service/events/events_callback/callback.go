@@ -6,16 +6,27 @@ import (
 	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	"github.com/antinvestor/jenga-api/service/models"
-	"github.com/antinvestor/jenga-api/service/utility"
-	"github.com/pitabwire/frame"
+	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/utility"
+	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/util"
 	"github.com/shopspring/decimal"
 )
 
 type JengaCallbackReceivePayment struct {
-	Service       *frame.Service
-	PaymentClient *paymentv1.PaymentClient
+	paymentClient paymentv1connect.PaymentServiceClient
+}
+
+// NewJengaCallbackReceivePayment creates a new callback handler with dependencies.
+func NewJengaCallbackReceivePayment(
+	paymentClient paymentv1connect.PaymentServiceClient,
+) *JengaCallbackReceivePayment {
+	return &JengaCallbackReceivePayment{
+		paymentClient: paymentClient,
+	}
 }
 
 func (event *JengaCallbackReceivePayment) Name() string {
@@ -40,12 +51,7 @@ func (event *JengaCallbackReceivePayment) Validate(_ context.Context, payload an
 }
 
 func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload any) error {
-	// Get logger first to avoid redefinition
 	logger := util.Log(ctx)
-
-	if event.PaymentClient == nil {
-		return errors.New("payment client not initialized")
-	}
 
 	req, ok := payload.(*models.CallbackRequest)
 	if !ok {
@@ -53,6 +59,16 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	logger.WithField("callback", req).Info("Received Jenga callback for payment processing")
+
+	callbackJSON, err := json.Marshal(req)
+	if err != nil {
+		logger.WithError(err).Error("failed to marshal callback")
+		return nil
+	}
+
+	cbJSON := data.JSONMap{
+		"additional_info": string(callbackJSON),
+	}
 
 	// Create base payment structure
 	amount := utility.ToMoney(req.Transaction.Currency, decimal.NewFromFloat(req.Transaction.Amount))
@@ -67,19 +83,15 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		TransactionId: req.Transaction.Reference,
 		Amount:        &amount,
 		Cost:          &cost,
+		Extra:         cbJSON.ToProtoStruct(),
 	}
 
-	var callbackJSON []byte
-	var err error
-	if callbackJSON, err = json.Marshal(req); err == nil {
-		payment.Extra["additional_info"] = string(callbackJSON)
-	}
 	receiveRequest := &paymentv1.ReceiveRequest{
 		Data: payment,
 	}
 
-	// Invoke the GRPC receive method
-	_, err = event.PaymentClient.Client.Receive(ctx, receiveRequest)
+	// Invoke the Connect RPC receive method
+	_, err = event.paymentClient.Receive(ctx, connect.NewRequest(receiveRequest))
 	if err != nil {
 		logger.WithError(err).Error("failed to receive payment")
 		return err

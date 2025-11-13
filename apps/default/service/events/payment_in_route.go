@@ -9,9 +9,10 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
-
-	"github.com/pitabwire/frame"
 )
 
 // filterContactFromProfileByID finds a contact by ID in a profile
@@ -29,11 +30,22 @@ func filterContactFromProfileByID(profile *profilev1.ProfileObject, contactID st
 */
 
 type PaymentInRoute struct {
-	Service *frame.Service
+	eventMan    events.Manager
+	paymentRepo repository.PaymentRepository
+	routeRepo   repository.RouteRepository
+}
+
+// NewPaymentInRoute creates a new PaymentInRoute event handler with the required dependencies
+func NewPaymentInRoute(eventMan events.Manager, paymentRepo repository.PaymentRepository, routeRepo repository.RouteRepository) *PaymentInRoute {
+	return &PaymentInRoute{
+		eventMan:    eventMan,
+		paymentRepo: paymentRepo,
+		routeRepo:   routeRepo,
+	}
 }
 
 func (event *PaymentInRoute) Name() string {
-	return "payment.in.route"
+	return EventNamePaymentInRoute
 }
 
 func (event *PaymentInRoute) PayloadType() any {
@@ -58,28 +70,26 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
-	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
-
-	n, err := paymentRepo.GetByID(ctx, paymentID)
+	p, err := event.paymentRepo.GetByID(ctx, paymentID)
 	if err != nil {
 		return err
 	}
 
-	route, err := routePayment(ctx, event.Service, models.RouteModeReceive, n)
+	route, err := routePayment(ctx, event.routeRepo, models.RouteModeReceive, p)
 	if err != nil {
 		logger.WithError(err).Warn("could not route payment")
 
 		if strings.Contains(err.Error(), "no routes matched for payment") {
 			status := models.Status{
-				EntityID:   n.GetID(),
+				EntityID:   p.GetID(),
 				EntityType: "payment",
 				State:      int32(commonv1.STATE_INACTIVE),
 				Status:     int32(commonv1.STATUS_FAILED),
-				Extra:      frame.DBPropertiesFromMap(map[string]string{"error": err.Error()}),
+				Extra:      data.JSONMap{"error": err.Error()},
 			}
 			status.GenID(ctx)
 
-			err = event.Service.Emit(ctx, EventNameStatusSave, &status)
+			err = event.eventMan.Emit(ctx, EventNameStatusSave, &status)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
@@ -90,31 +100,30 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	n.RouteID = route.ID
+	p.RouteID = route.ID
 
-	err = paymentRepo.Save(ctx, n)
+	_, err = event.paymentRepo.Update(ctx, p, "route_id")
 	if err != nil {
 		logger.WithError(err).Warn("could not save routed payment to db")
 		return err
 	}
 
 	evt := PaymentInQueue{}
-	err = event.Service.Emit(ctx, evt.Name(), n.GetID())
+	err = event.eventMan.Emit(ctx, evt.Name(), p.GetID())
 	if err != nil {
 		logger.WithError(err).Warn("could not queue out payment")
 		return err
 	}
 
 	status := models.Status{
-		EntityID:   n.GetID(),
+		EntityID:   p.GetID(),
 		EntityType: "payment",
 		State:      int32(commonv1.STATE_ACTIVE),
 		Status:     int32(commonv1.STATUS_QUEUED),
 		Extra:      make(map[string]interface{}),
 	}
 	status.GenID(ctx)
-	statusEvent := StatusSave{Service: event.Service}
-	err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+	err = event.eventMan.Emit(ctx, EventNameStatusSave, &status)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit status for save")
 		return err
@@ -125,20 +134,19 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 
 func routePayment(
 	ctx context.Context,
-	service *frame.Service,
+	routeRepo repository.RouteRepository,
 	routeMode string,
 	payment *models.Payment,
 ) (*models.Route, error) {
-	routeRepository := repository.NewRouteRepository(ctx, service)
 	if payment.RouteID != "" {
-		route, err := routeRepository.GetByID(ctx, payment.RouteID)
+		route, err := routeRepo.GetByID(ctx, payment.RouteID)
 		if err != nil {
 			return nil, err
 		}
 		return route, nil
 	}
 
-	routes, err := routeRepository.GetByModeTypeAndPartitionID(ctx,
+	routes, err := routeRepo.GetByModeTypeAndPartitionID(ctx,
 		routeMode, payment.PaymentType, payment.PartitionID)
 	if err != nil {
 		return nil, err
@@ -159,19 +167,17 @@ func routePayment(
 	return route, nil
 }
 
-func loadRoute(ctx context.Context, service *frame.Service, routeID string) (*models.Route, error) {
+func loadRoute(ctx context.Context, qMan queue.Manager, routeRepo repository.RouteRepository, routeID string) (*models.Route, error) {
 	if routeID == "" {
 		return nil, errors.New("no route id provided")
 	}
 
-	routeRepository := repository.NewRouteRepository(ctx, service)
-
-	route, err := routeRepository.GetByID(ctx, routeID)
+	route, err := routeRepo.GetByID(ctx, routeID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = service.AddPublisher(ctx, route.ID, route.URI)
+	err = qMan.AddPublisher(ctx, route.ID, route.URI)
 	if err != nil {
 		return route, err
 	}

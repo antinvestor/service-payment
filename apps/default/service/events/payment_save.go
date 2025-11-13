@@ -6,18 +6,26 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
 )
 
 type PaymentSave struct {
-	Service *frame.Service
+	paymentRepo repository.PaymentRepository
+	eventMan    events.Manager
+}
+
+// NewPaymentSave creates a new PaymentSave event handler with the required dependencies
+func NewPaymentSave(paymentRepo repository.PaymentRepository, eventMan events.Manager) *PaymentSave {
+	return &PaymentSave{
+		paymentRepo: paymentRepo,
+		eventMan:    eventMan,
+	}
 }
 
 func (event *PaymentSave) Name() string {
-	return "payment.save"
+	return EventNamePaymentSave
 }
 
 func (event *PaymentSave) PayloadType() any {
@@ -46,23 +54,16 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	logger := util.Log(ctx).WithField("type", event.Name())
 	logger.WithField("payload", payment).Debug("handling event")
 
-	result := event.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(payment)
-
-	err := result.Error
-
+	err := event.paymentRepo.Create(ctx, payment)
 	if err != nil {
 		logger.WithError(err).Warn("could not save to db")
 		return err
 	}
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 
 	if !payment.OutBound {
-		// Use the parent event's Service field instead of creating a new uninitialized event
-		inRouteEvent := PaymentInRoute{Service: event.Service}
-		err = event.Service.Emit(ctx, inRouteEvent.Name(), payment.GetID())
+		// Emit payment in route event
+		err = event.eventMan.Emit(ctx, EventNamePaymentInRoute, payment.GetID())
 		if err != nil {
 			return err
 		}
@@ -71,15 +72,14 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	}
 
 	if payment.IsReleased() {
-		// Use the parent event's Service field instead of creating a new uninitialized event
-		outRouteEvent := PaymentOutRoute{Service: event.Service}
-		err = event.Service.Emit(ctx, outRouteEvent.Name(), payment.GetID())
+		// Emit payment out route event
+		err = event.eventMan.Emit(ctx, EventNamePaymentOutRoute, payment.GetID())
 		if err != nil {
 			logger.WithError(err).Warn("could not emit for queue out")
 			return err
 		}
 	} else {
-		status := models.Status{
+		status := &models.Status{
 			EntityID:   payment.GetID(),
 			EntityType: "payment",
 			State:      int32(commonv1.STATE_CHECKED.Number()),
@@ -87,8 +87,8 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 			Extra:      make(map[string]interface{}),
 		}
 		status.GenID(ctx)
-		// Queue out payment status for further processing
-		err = event.Service.Emit(ctx, EventNameStatusSave, &status)
+		// Emit status save event
+		err = event.eventMan.Emit(ctx, EventNameStatusSave, status)
 		if err != nil {
 			logger.WithError(err).Warn("could not emit status")
 			return err

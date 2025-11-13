@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/util"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
 )
 
 type PromptSave struct {
-	Service    *frame.Service
-	ProfileCli *profilev1.ProfileClient
+	promptRepo repository.PromptRepository
+}
+
+// NewPromptSave creates a new PromptSave event handler with the required dependencies
+func NewPromptSave(promptRepo repository.PromptRepository) *PromptSave {
+	return &PromptSave{
+		promptRepo: promptRepo,
+	}
 }
 
 func (e *PromptSave) Name() string {
-	return "prompt.save"
+	return EventNamePromptSave
 }
 
 func (e *PromptSave) PayloadType() any {
@@ -68,18 +71,13 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 	logger.Debug("handling event")
 
 	// Attempt to save to database
-	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(prompt)
-
-	err := result.Error
+	err := e.promptRepo.Create(ctx, prompt)
 	if err != nil {
 		logger.WithError(err).Error("could not save prompt to db")
 		// Return the error so the caller knows the save failed
 		return err
 	}
 
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 	return nil
 }

@@ -9,10 +9,15 @@ import (
 	"github.com/pitabwire/util"
 )
 
-const EventNameStatusSave = "status.save"
-
 type StatusSave struct {
 	statusRepo repository.StatusRepository
+}
+
+// NewStatusSave creates a new StatusSave event handler with the required dependencies
+func NewStatusSave(statusRepo repository.StatusRepository) *StatusSave {
+	return &StatusSave{
+		statusRepo: statusRepo,
+	}
 }
 
 func (e *StatusSave) Name() string {

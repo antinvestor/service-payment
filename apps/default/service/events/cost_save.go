@@ -5,18 +5,23 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/util"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
 )
 
 type CostSave struct {
-	Service *frame.Service
+	costRepo repository.CostRepository
+}
+
+// NewCostSave creates a new CostSave event handler with the required dependencies
+func NewCostSave(costRepo repository.CostRepository) *CostSave {
+	return &CostSave{
+		costRepo: costRepo,
+	}
 }
 
 func (e *CostSave) Name() string {
-	return "cost.save"
+	return EventNameCostSave
 }
 
 func (e *CostSave) PayloadType() any {
@@ -50,17 +55,12 @@ func (e *CostSave) Execute(ctx context.Context, payload any) error {
 	logger := util.Log(ctx).WithField("payload", cost).WithField("type", e.Name())
 	logger.Debug("handling event")
 
-	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(cost)
-
-	err := result.Error
+	err := e.costRepo.Create(ctx, cost)
 	if err != nil {
 		logger.WithError(err).Error("could not save cost to db")
 		return err
 	}
 
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 	return nil
 }

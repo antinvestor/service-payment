@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/util"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
 )
 
 type PaymentLinkSave struct {
-	Service    *frame.Service
-	ProfileCli *profilev1.ProfileClient
+	paymentLinkRepo repository.PaymentLinkRepository
+}
+
+// NewPaymentLinkSave creates a new PaymentLinkSave event handler with the required dependencies
+func NewPaymentLinkSave(paymentLinkRepo repository.PaymentLinkRepository) *PaymentLinkSave {
+	return &PaymentLinkSave{
+		paymentLinkRepo: paymentLinkRepo,
+	}
 }
 
 func (e *PaymentLinkSave) Name() string {
-	return "payment_link.save"
+	return EventNamePaymentLinkSave
 }
 
 func (e *PaymentLinkSave) PayloadType() any {
@@ -68,18 +71,13 @@ func (e *PaymentLinkSave) Execute(ctx context.Context, payload any) error {
 	logger.Debug("handling event")
 
 	// Attempt to save to database
-	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(paymentLink)
-
-	err := result.Error
+	err := e.paymentLinkRepo.Create(ctx, paymentLink)
 	if err != nil {
 		logger.WithError(err).Error("could not save payment link to db")
 		// Return the error so the caller knows the save failed
 		return err
 	}
 
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 	return nil
 }

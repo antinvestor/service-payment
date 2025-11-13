@@ -3,23 +3,35 @@ package events
 import (
 	"context"
 	"errors"
-	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/pitabwire/frame"
 )
 
 type PaymentOutQueue struct {
-	Service *frame.Service
+	qMan        queue.Manager
+	eventMan    events.Manager
+	paymentRepo repository.PaymentRepository
+	statusRepo  repository.StatusRepository
+}
+
+// NewPaymentOutQueue creates a new PaymentOutQueue event handler with the required dependencies
+func NewPaymentOutQueue(qMan queue.Manager, eventMan events.Manager, paymentRepo repository.PaymentRepository, statusRepo repository.StatusRepository) *PaymentOutQueue {
+	return &PaymentOutQueue{
+		qMan:        qMan,
+		eventMan:    eventMan,
+		paymentRepo: paymentRepo,
+		statusRepo:  statusRepo,
+	}
 }
 
 func (event *PaymentOutQueue) Name() string {
-	return "payment.out.queue"
+	return EventNamePaymentOutQueue
 }
 
 func (event *PaymentOutQueue) PayloadType() any {
@@ -48,15 +60,13 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	logger.Debug("handling payment event")
 
 	// Fetch payment record by ID
-	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
-	payment, err := paymentRepo.GetByID(ctx, paymentID)
+	payment, err := event.paymentRepo.GetByID(ctx, paymentID)
 	if err != nil {
 		return err
 	}
 
 	// Fetch payment status
-	statusRepo := repository.NewStatusRepository(ctx, event.Service)
-	status, err := statusRepo.GetByEntity(ctx, payment.ID, "payment")
+	status, err := event.statusRepo.GetByEntity(ctx, payment.ID, "payment")
 	if err != nil {
 		logger.WithError(err).WithField("status_id", payment.ID).Warn("could not get payment status")
 		return err
@@ -64,17 +74,13 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 
 	apiPayment := payment.ToAPI(status, nil)
 
-	// Set the payment release date
-	if payment.IsReleased() {
-		apiPayment.Extra["ReleaseDate"] = payment.ReleasedAt.Format(time.RFC3339)
-	}
 	binaryProto, err := proto.Marshal(apiPayment)
 	if err != nil {
 		return err
 	}
 
 	// Publish the payment message for further processing
-	err = event.Service.Publish(ctx, payment.RouteID, binaryProto)
+	err = event.qMan.Publish(ctx, payment.RouteID, binaryProto)
 	if err != nil {
 		return err
 	}
@@ -82,12 +88,6 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	logger.WithField("payment_id", payment.GetID()).
 		WithField("route", payment.RouteID).
 		Debug("Payment message successfully queued")
-
-	// Save payment status
-	err = paymentRepo.Save(ctx, payment)
-	if err != nil {
-		return err
-	}
 
 	// Update payment status using unified Status
 	status = &models.Status{
@@ -100,8 +100,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	status.GenID(ctx)
 
 	// Emit status event
-	statusEvent := StatusSave{Service: event.Service}
-	err = event.Service.Emit(ctx, statusEvent.Name(), status)
+	err = event.eventMan.Emit(ctx, EventNameStatusSave, status)
 	if err != nil {
 		return err
 	}

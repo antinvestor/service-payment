@@ -3,28 +3,38 @@ package events
 import (
 	"context"
 	"errors"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/apis/go/profile"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
-
-	"strings"
 )
 
 type PaymentInQueue struct {
 	qMan        queue.Manager
 	eventMan    events.Manager
 	paymentRepo repository.PaymentRepository
+	routeRepo   repository.RouteRepository
 	ProfileCli  *profile.Client
 }
 
+// NewPaymentInQueue creates a new PaymentInQueue event handler with the required dependencies
+func NewPaymentInQueue(qMan queue.Manager, eventMan events.Manager, paymentRepo repository.PaymentRepository, routeRepo repository.RouteRepository, profileCli *profile.Client) *PaymentInQueue {
+	return &PaymentInQueue{
+		qMan:        qMan,
+		eventMan:    eventMan,
+		paymentRepo: paymentRepo,
+		routeRepo:   routeRepo,
+		ProfileCli:  profileCli,
+	}
+}
+
 func (event *PaymentInQueue) Name() string {
-	return "payment.in.queue"
+	return EventNamePaymentInQueue
 }
 
 func (event *PaymentInQueue) PayloadType() any {
@@ -59,7 +69,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference does not exist") {
 			if p.RouteID != "" {
-				_, err = loadRoute(ctx, event.Service, p.RouteID)
+				_, err = loadRoute(ctx, event.qMan, event.routeRepo, p.RouteID)
 				if err != nil {
 					return err
 				}

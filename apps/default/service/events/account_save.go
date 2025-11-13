@@ -9,10 +9,15 @@ import (
 	"github.com/pitabwire/util"
 )
 
-const EventNameAccountSave = "account.save"
-
 type AccountSave struct {
 	accountRepo repository.AccountRepository
+}
+
+// NewAccountSave creates a new AccountSave event handler with the required dependencies
+func NewAccountSave(accountRepo repository.AccountRepository) *AccountSave {
+	return &AccountSave{
+		accountRepo: accountRepo,
+	}
 }
 
 func (e *AccountSave) Name() string {

@@ -3,26 +3,38 @@ package events
 import (
 	"context"
 	"errors"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
-
-	"strings"
-
-	"github.com/pitabwire/frame"
 )
 
 type PaymentOutRoute struct {
-	Service    *frame.Service
-	ProfileCli *profilev1.ProfileClient
+	qMan        queue.Manager
+	eventMan    events.Manager
+	paymentRepo repository.PaymentRepository
+	routeRepo   repository.RouteRepository
+	statusRepo  repository.StatusRepository
+}
+
+// NewPaymentOutRoute creates a new PaymentOutRoute event handler with the required dependencies
+func NewPaymentOutRoute(qMan queue.Manager, eventMan events.Manager, paymentRepo repository.PaymentRepository, routeRepo repository.RouteRepository, statusRepo repository.StatusRepository) *PaymentOutRoute {
+	return &PaymentOutRoute{
+		qMan:        qMan,
+		eventMan:    eventMan,
+		paymentRepo: paymentRepo,
+		routeRepo:   routeRepo,
+		statusRepo:  statusRepo,
+	}
 }
 
 func (event *PaymentOutRoute) Name() string {
-	return "payment.out.route"
+	return EventNamePaymentOutRoute
 }
 
 func (event *PaymentOutRoute) PayloadType() any {
@@ -51,15 +63,13 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
-	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
-
-	p, err := paymentRepo.GetByID(ctx, paymentID)
+	p, err := event.paymentRepo.GetByID(ctx, paymentID)
 	if err != nil {
 		logger.WithError(err).Warn("could not get payment from db")
 		return err
 	}
 
-	route, err := routePayment(ctx, event.Service, models.RouteModeTransmit, p)
+	route, err := routePayment(ctx, event.routeRepo, models.RouteModeTransmit, p)
 	if err != nil {
 		logger.WithError(err).Error("could not route payment")
 
@@ -73,7 +83,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 			}
 			status.GenID(ctx)
 
-			err = event.Service.Emit(ctx, EventNameStatusSave, &status)
+			err = event.eventMan.Emit(ctx, EventNameStatusSave, &status)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
@@ -85,14 +95,14 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	}
 
 	p.RouteID = route.ID
-	err = paymentRepo.Save(ctx, p)
+	_, err = event.paymentRepo.Update(ctx, p, "route_id")
 	if err != nil {
 		logger.WithError(err).Warn("could not save routed payment to db")
 		return err
 	}
 
 	evt := PaymentOutQueue{}
-	err = event.Service.Emit(ctx, evt.Name(), p.GetID())
+	err = event.eventMan.Emit(ctx, evt.Name(), p.GetID())
 	if err != nil {
 		logger.WithError(err).Warn("could not queue out payment")
 		return err
@@ -107,7 +117,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	}
 	status.GenID(ctx)
 
-	err = event.Service.Emit(ctx, EventNameStatusSave, &status)
+	err = event.eventMan.Emit(ctx, EventNameStatusSave, &status)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit status for save")
 		return err

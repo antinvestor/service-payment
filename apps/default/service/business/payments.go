@@ -9,8 +9,11 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/apis/go/ledger"
@@ -33,9 +36,9 @@ import (
 func NewPaymentBusiness(
 	ctx context.Context,
 	service *frame.Service,
-	profileCli *profile.Client,
-	partitionCli *partition.Client,
-	ledgerCli *ledger.Client,
+	profileCli profilev1connect.ProfileServiceClient,
+	partitionCli partitionv1connect.PartitionServiceClient,
+	ledgerCli ledgerv1connect.LedgerServiceClient,
 	paymentRepo repository.PaymentRepository,
 	statusRepo repository.StatusRepository,
 	costRepo repository.CostRepository,
@@ -67,9 +70,9 @@ func NewPaymentBusiness(
 type paymentBusiness struct {
 	service         *frame.Service
 	eventMan        fevents.Manager
-	profileCli      *profile.Client
-	partitionCli    *partition.Client
-	ledgerCli       *ledger.Client
+	profileCli      profilev1connect.ProfileServiceClient
+	partitionCli    partitionv1connect.PartitionServiceClient
+	ledgerCli       ledgerv1connect.LedgerServiceClient
 	paymentRepo     repository.PaymentRepository
 	statusRepo      repository.StatusRepository
 	costRepo        repository.CostRepository
@@ -77,16 +80,6 @@ type paymentBusiness struct {
 	promptRepo      repository.PromptRepository
 	paymentLinkRepo repository.PaymentLinkRepository
 	workMan         workerpool.Manager
-}
-
-func (pb *paymentBusiness) ToAPI(ctx context.Context, payment *models.Payment) (*paymentv1.Payment, error) {
-	// Get status for the payment
-	status, err := pb.statusRepo.GetByEntity(ctx, payment.ID, "payment")
-	if err != nil {
-		return nil, err
-	}
-
-	return payment.ToAPI(status, nil), nil
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
@@ -875,4 +868,10 @@ func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, 
 
 	logger.Info("successfully created ledger account")
 	return nil
+}
+
+
+func (pb *paymentBusiness) Reconcile(ctx context.Context, msg *paymentv1.ReconcileRequest) (*paymentv1.ReconcileResponse, error) {
+	// TODO implement me
+	panic("implement me")
 }

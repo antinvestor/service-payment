@@ -2,64 +2,73 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"net/http"
 
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/apis/go/common"
-	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
-	partitionv1 "buf.build/gen/go/antinvestor/partition/protocolbuffers/go/partition/v1"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
+	"github.com/antinvestor/apis/go/ledger"
+	"github.com/antinvestor/apis/go/partition"
+	"github.com/antinvestor/apis/go/profile"
 	aconfig "github.com/antinvestor/service-payments/config"
 	"github.com/antinvestor/service-payments/service/business"
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/handlers"
-	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/datastore/pool"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/profiling/service"
+	"github.com/pitabwire/frame/security"
+	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
+	"github.com/pitabwire/frame/security/openid"
+	"github.com/pitabwire/util"
 	_ "gorm.io/driver/postgres"
-
-	"github.com/pitabwire/frame"
 )
 
 func main() {
 
 	ctx := context.Background()
 
+	// Initialize configuration
 	cfg, err := config.LoadWithOIDC[aconfig.PaymentConfig](ctx)
-
 	if err != nil {
-		panic(fmt.Sprintf("could not load config: %v", err))
+		util.Log(ctx).With("err", err).Error("could not process configs")
+		return
 	}
 
 	if cfg.Name() == "" {
 		cfg.ServiceName = "service_payment"
 	}
 
-	ctx, svc := frame.NewService(frame.WithConfig(&cfg), frame.WithRegisterServerOauth2Client(), frame.WithDatastore())
+	// Create service
+	ctx, svc := frame.NewServiceWithContext(
+		ctx,
+		frame.WithConfig(&cfg),
+		frame.WithRegisterServerOauth2Client(),
+	)
 	defer svc.Stop(ctx)
-	logger := svc.Log(ctx).WithField("type", "main")
+	log := svc.Log(ctx)
 
-	// Run migrations if DO_MIGRATION=true
-	if cfg.DoDatabaseMigrate() {
-		err = svc.MigrateDatastore(ctx, cfg.GetDatabaseMigrationPath(),
-			&models.Route{}, &models.Payment{}, &models.Status{}, &models.Prompt{},
-			&models.Cost{}, &models.PaymentLink{})
-		if err != nil {
-			logger.WithError(err).Fatal("could not migrate successfully")
-		}
-		logger.Info("Migrations completed successfully")
+	// Handle database migration if requested
+	if handleDatabaseMigration(ctx, svc, cfg, log) {
 		return
 	}
-	logger.Info("Skipping migrations")
 
-	// Initialize database pool and work manager
+	sm := svc.SecurityManager()
+
+	// Setup clients
+	profileCli := setupProfileClient(ctx, sm, cfg)
+	ledgerCli := setupLedgerClient(ctx, sm, cfg)
+	partitionCli := setupPartitionClient(ctx, sm, cfg)
+
 	workMan := svc.WorkManager()
 	dbPool := svc.DatastoreManager().GetPool(ctx, datastore.DefaultPoolName)
+	evtsMan := svc.EventsManager()
+	qMan := svc.QueueManager()
 
 	// Initialize repositories
 	paymentRepo := repository.NewPaymentRepository(ctx, dbPool, workMan)
@@ -70,128 +79,169 @@ func main() {
 	paymentLinkRepo := repository.NewPaymentLinkRepository(ctx, dbPool, workMan)
 	routeRepo := repository.NewRouteRepository(ctx, dbPool, workMan)
 
-	// OAuth2 and svc clients
-	oauth2ServiceHost := cfg.GetOauth2ServiceURI()
-	oauth2ServiceURL := fmt.Sprintf("%s/oauth2/token", oauth2ServiceHost)
-	oauth2ServiceSecret := cfg.Oauth2ServiceClientSecret
-
-	audienceList := []string{}
-	if cfg.Oauth2ServiceAudience != "" {
-		audienceList = strings.Split(cfg.Oauth2ServiceAudience, ",")
-	}
-
-	profileCli, err := profilev1.NewProfileClient(ctx,
-		apis.WithEndpoint(cfg.ProfileServiceURI),
-		apis.WithTokenEndpoint(oauth2ServiceURL),
-		apis.WithTokenUsername(svc.JwtClientID()),
-		apis.WithTokenPassword(oauth2ServiceSecret),
-		apis.WithAudiences(audienceList...))
-	if err != nil {
-		logger.WithError(err).Fatal("could not setup profile client")
-	}
-
-	partitionCli, err := partitionV1.NewPartitionsClient(
-		ctx,
-		apis.WithEndpoint(cfg.PartitionServiceURI),
-		apis.WithTokenEndpoint(oauth2ServiceURL),
-		apis.WithTokenUsername(svc.JwtClientID()),
-		apis.WithTokenPassword(oauth2ServiceSecret),
-		apis.WithAudiences(audienceList...))
-	if err != nil {
-		logger.WithError(err).Fatal("could not setup partition client")
-	}
-
-	ledgerCli, err := ledgerv1.NewLedgerClient(ctx,
-		apis.WithEndpoint(cfg.LedgerServiceURI),
-		apis.WithTokenEndpoint(oauth2ServiceURL),
-		apis.WithTokenUsername(svc.JwtClientID()),
-		apis.WithTokenPassword(oauth2ServiceSecret),
-		apis.WithAudiences(audienceList...))
-	if err != nil {
-		logger.WithError(err).Fatal("could not setup ledger client")
-	}
-
-	// Initialize business layer with proper dependency injection
+	// Initialize business layer
 	paymentBusiness, err := business.NewPaymentBusiness(
 		ctx, svc, profileCli, partitionCli, ledgerCli,
 		paymentRepo, statusRepo, costRepo, accountRepo, promptRepo, paymentLinkRepo,
 	)
 	if err != nil {
-		logger.WithError(err).Fatal("could not initialize payment business")
+		util.Log(ctx).WithError(err).Fatal("could not initialize payment business")
 	}
 
-	jwtAudience := cfg.Oauth2JwtVerifyAudience
-	if jwtAudience == "" {
-		jwtAudience = serviceName
-	}
+	// Setup Connect server
+	connectHandler := setupConnectServer(ctx, sm, paymentBusiness, profileCli, ledgerCli, partitionCli)
 
-	unaryInterceptors := []grpc.UnaryServerInterceptor{}
-	streamInterceptors := []grpc.StreamServerInterceptor{}
+	// Setup HTTP handlers
+	serviceOptions := []frame.Option{frame.WithDatastore(), frame.WithHTTPHandler(connectHandler)}
 
-	if cfg.SecurelyRunService {
-		logger.Info("Running svc securely with TLS")
-		unaryInterceptors = append(
-			[]grpc.UnaryServerInterceptor{
-				svc.UnaryAuthInterceptor(jwtAudience, cfg.Oauth2JwtVerifyIssuer),
-			},
-			unaryInterceptors...)
-		streamInterceptors = append(
-			[]grpc.StreamServerInterceptor{
-				svc.StreamAuthInterceptor(jwtAudience, cfg.Oauth2JwtVerifyIssuer),
-			},
-			streamInterceptors...)
-	} else {
-		logger.Warn("Service is running insecurely: secure by setting SECURELY_RUN_SERVICE=True")
-	}
+	// Register queue publishers
 
-	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(unaryInterceptors...),
-		grpc.ChainStreamInterceptor(streamInterceptors...),
-	)
+	promptPublisher := frame.WithRegisterPublisher(cfg.InitiatePromptTopicName, cfg.InitiatePromptTopicURI)
+	paymentLinkPublisher := frame.WithRegisterPublisher(cfg.PaymentLinkTopicName, cfg.PaymentLinkTopicURI)
 
-	implementation := &handlers.PaymentServer{
-		Service:         svc,
-		PaymentBusiness: paymentBusiness,
-		ProfileCli:      profileCli,
-		PartitionCli:    partitionCli,
-		LedgerCli:       ledgerCli,
-	}
-
-	paymentv1.RegisterPaymentServiceServer(grpcServer, implementation)
-
-	serviceOptions := []frame.Option{
-		frame.WithDatastore(),
-		frame.WithGRPCServer(grpcServer),
-		frame.WithEnableGRPCServerReflection(),
-		frame.WithRegisterEvents(
-			&events.PaymentSave{Service: svc},
-			&events.PaymentInQueue{Service: svc},
-			&events.PaymentOutQueue{Service: svc},
-			&events.PaymentInRoute{Service: svc},
-			&events.PaymentOutRoute{Service: svc, ProfileCli: profileCli},
-			&events.PromptSave{Service: svc},
-			&events.PaymentLinkSave{Service: svc},
-			&events.StatusSave{Service: svc},
-		),
-	}
-
-	// Use NATS for pub/sub messaging
-	natsURL := cfg.NatsURL
-	promptTopic := cfg.PromptTopic
-	paymentLinkTopic := cfg.PaymentLinkTopic
-
+	// Register event handlers with proper constructors
 	serviceOptions = append(serviceOptions,
-		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
-	)
+		promptPublisher, paymentLinkPublisher,
+		frame.WithRegisterEvents(
+			events.NewPaymentSave(paymentRepo, evtsMan),
+			events.NewPaymentInQueue(qMan, evtsMan, paymentRepo, routeRepo, profileCli),
+			events.NewPaymentOutQueue(qMan, evtsMan, paymentRepo, statusRepo),
+			events.NewPaymentInRoute(evtsMan, paymentRepo, routeRepo),
+			events.NewPaymentOutRoute(qMan, evtsMan, paymentRepo, routeRepo, statusRepo),
+			events.NewPromptSave(promptRepo),
+			events.NewPaymentLinkSave(paymentLinkRepo),
+			events.NewAccountSave(accountRepo),
+			events.NewCostSave(costRepo),
+			events.NewStatusSave(statusRepo),
+		))
 
+	// Initialize the service with all options
 	svc.Init(ctx, serviceOptions...)
 
-	logger.WithField("server http port", cfg.HTTPServerPort).
-		WithField("server grpc port", cfg.GrpcServerPort).
-		Info("Initiating server operations")
+	// Start the service
+	log.WithField("server http port", cfg.HTTPPort()).
+		WithField("server grpc port", cfg.GrpcPort()).
+		Info(" Initiating server operations")
 
-	if runErr := svc.Run(ctx, ":8081"); runErr != nil {
-		logger.WithError(runErr).Fatal("could not run Server")
+	err = svc.Run(ctx, "")
+	if err != nil {
+		log.WithError(err).Fatal("could not run Server")
 	}
+}
+
+// handleDatabaseMigration performs database migration if configured to do so.
+func handleDatabaseMigration(
+	ctx context.Context,
+	svc *frame.Service,
+	cfg aconfig.PaymentConfig,
+	log *util.LogEntry,
+) bool {
+	serviceOptions := []frame.Option{frame.WithDatastore()}
+
+	if cfg.DoDatabaseMigrate() {
+		svc.Init(ctx, serviceOptions...)
+
+		err := repository.Migrate(ctx, svc.DatastoreManager(), cfg.GetDatabaseMigrationPath())
+		if err != nil {
+			log.WithError(err).Fatal("main -- Could not migrate successfully")
+		}
+		return true
+	}
+	return false
+}
+
+// setupProfileClient creates and configures the profile service client.
+func setupProfileClient(
+	ctx context.Context,
+	clHolder security.InternalOauth2ClientHolder,
+	cfg aconfig.PaymentConfig,
+) profilev1connect.ProfileServiceClient {
+	profileCli, err := profile.NewClient(ctx,
+		apis.WithEndpoint(cfg.ProfileServiceURI),
+		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
+		apis.WithTokenUsername(clHolder.JwtClientID()),
+		apis.WithTokenPassword(clHolder.JwtClientSecret()),
+		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithAudiences("service_profile"))
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not setup profile client")
+	}
+	return profileCli
+}
+
+// setupLedgerClient creates and configures the ledger service client.
+func setupLedgerClient(
+	ctx context.Context,
+	clHolder security.InternalOauth2ClientHolder,
+	cfg aconfig.PaymentConfig,
+) ledgerv1connect.LedgerServiceClient {
+	ledgerCli, err := ledger.NewClient(ctx,
+		apis.WithEndpoint(cfg.LedgerServiceURI),
+		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
+		apis.WithTokenUsername(clHolder.JwtClientID()),
+		apis.WithTokenPassword(clHolder.JwtClientSecret()),
+		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithAudiences("service_ledger"))
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
+	}
+	return ledgerCli
+}
+
+// setupPartitionClient creates and configures the partition service client.
+func setupPartitionClient(
+	ctx context.Context,
+	clHolder security.InternalOauth2ClientHolder,
+	cfg aconfig.PaymentConfig,
+) partitionv1connect.PartitionServiceClient {
+	partitionCli, err := partition.NewClient(ctx,
+		apis.WithEndpoint(cfg.PartitionServiceURI),
+		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
+		apis.WithTokenUsername(clHolder.JwtClientID()),
+		apis.WithTokenPassword(clHolder.JwtClientSecret()),
+		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithAudiences("service_partition"))
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not setup partition client")
+	}
+	return partitionCli
+}
+
+// setupConnectServer initializes and configures the Connect RPC server.
+func setupConnectServer(
+	ctx context.Context,
+	securityMan security.Manager,
+	paymentBusiness business.PaymentBusiness,
+	profileCli profilev1connect.ProfileServiceClient,
+	ledgerCli ledgerv1connect.LedgerServiceClient,
+	partitionCli partitionv1connect.PartitionServiceClient,
+) http.Handler {
+
+	otelInterceptor, err := otelconnect.NewInterceptor()
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
+	}
+
+	validateInterceptor, err := securityconnect.NewValidationInterceptor()
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not configure validation interceptor")
+	}
+
+	authenticator := securityMan.GetAuthenticator(ctx)
+	authInterceptor := securityconnect.NewAuthInterceptor(authenticator)
+
+	implementation := handlers.NewPaymentServer(
+		paymentBusiness,
+		profileCli,
+		ledgerCli,
+		partitionCli,
+	)
+
+	_, serverHandler := paymentv1connect.NewPaymentServiceHandler(
+		implementation, connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor))
+
+	mux := http.NewServeMux()
+	mux.Handle("/", serverHandler)
+
+	return mux
 }

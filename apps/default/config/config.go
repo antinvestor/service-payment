@@ -10,12 +10,9 @@ type PaymentConfig struct {
 	PartitionServiceURI string `envDefault:"127.0.0.1:7003" env:"PARTITION_SERVICE_URI"`
 	LedgerServiceURI    string `envDefault:"127.0.0.1:7004" env:"LEDGER_SERVICE_URI"`
 
-	SecurelyRunService bool   `envDefault:"true"                                        env:"SECURELY_RUN_SERVICE"`
-	NatsURL            string `envDefault:"nats://ant:secret@nats-server:4222?subject=" env:"NATS_URL"             required:"true"`
-	PromptTopic        string `envDefault:"initiate.prompt"                             env:"PROMPT_TOPIC"         required:"true"`
-	PaymentLinkTopic   string `envDefault:"create.payment.link"                         env:"PAYMENT_LINK_TOPIC"   required:"true"`
-	// DoMigration        bool   `envDefault:"false"                                       env:"DO_MIGRATION"`
-	// The callback URL for Jenga STK push notifications
-	// DATABASE_URL string `envDefault:"postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable" env:"DATABASE_URL" required:"true"`
-
+	SecurelyRunService      bool   `envDefault:"true"                                        env:"SECURELY_RUN_SERVICE"`
+	InitiatePromptTopicName string `envDefault:"initiate_prompt"                             env:"INITIATE_PROMPT_TOPIC_NAME"         required:"true"`
+	InitiatePromptTopicURI  string `envDefault:"mem://initiate_prompt"                             env:"INITIATE_PROMPT_TOPIC_URi"         required:"true"`
+	PaymentLinkTopicName    string `envDefault:"create_payment_link"                         env:"PAYMENT_LINK_TOPIC_NAME"   required:"true"`
+	PaymentLinkTopicURI     string `envDefault:"mem://create_payment_link"                         env:"PAYMENT_LINK_TOPIC_URi"   required:"true"`
 }

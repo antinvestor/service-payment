@@ -5,17 +5,18 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
+	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/util"
 )
 
+const EventNameAccountSave = "account.save"
+
 type AccountSave struct {
-	Service *frame.Service
+	accountRepo repository.AccountRepository
 }
 
 func (e *AccountSave) Name() string {
-	return "account.save"
+	return EventNameAccountSave
 }
 
 func (e *AccountSave) PayloadType() any {
@@ -23,7 +24,7 @@ func (e *AccountSave) PayloadType() any {
 }
 
 func (e *AccountSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.Log(ctx).WithField("function", "AccountSave.Validate")
+	logger := util.Log(ctx).WithField("function", "AccountSave.Validate")
 
 	account, ok := payload.(*models.Account)
 	if !ok {
@@ -46,20 +47,19 @@ func (e *AccountSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Account")
 	}
 
-	logger := e.Service.Log(ctx).WithField("payload", account).WithField("type", e.Name())
+	logger := util.Log(ctx).WithField("payload", account).WithField("type", e.Name())
 	logger.Debug("handling event")
 
-	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(account)
+	if account.Version > 0 {
+		return nil
+	}
 
-	err := result.Error
+	err := e.accountRepo.Create(ctx, account)
 	if err != nil {
 		logger.WithError(err).Error("could not save account to db")
 		return err
 	}
 
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 	return nil
 }

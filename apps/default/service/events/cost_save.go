@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm/clause"
 
 	"github.com/pitabwire/frame"
@@ -23,7 +24,7 @@ func (e *CostSave) PayloadType() any {
 }
 
 func (e *CostSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.Log(ctx).WithField("function", "CostSave.Validate")
+	logger := util.Log(ctx).WithField("function", "CostSave.Validate")
 
 	cost, ok := payload.(*models.Cost)
 	if !ok {
@@ -46,7 +47,7 @@ func (e *CostSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Cost")
 	}
 
-	logger := e.Service.Log(ctx).WithField("payload", cost).WithField("type", e.Name())
+	logger := util.Log(ctx).WithField("payload", cost).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{

@@ -4,42 +4,26 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
-
-	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/frame/workerpool"
 )
 
-type AccountRepository interface {
-	GetByID(ctx context.Context, id string) (*models.Account, error)
-	GetByAccountNumber(ctx context.Context, accountNumber string) (*models.Account, error)
-	Save(ctx context.Context, account *models.Account) error
-}
-
 type accountRepository struct {
-	abstractRepository
+	datastore.BaseRepository[*models.Account]
 }
 
-func NewAccountRepository(_ context.Context, service *frame.Service) AccountRepository {
-	return &accountRepository{abstractRepository{service: service}}
-}
-
-func (repo *accountRepository) GetByID(ctx context.Context, id string) (*models.Account, error) {
-	account := models.Account{}
-	err := repo.readDB(ctx).First(&account, "id = ?", id).Error
-	if err != nil {
-		return nil, err
+func NewAccountRepository(ctx context.Context, dbPool pool.Pool, workMan workerpool.Manager) AccountRepository {
+	repo := accountRepository{
+		BaseRepository: datastore.NewBaseRepository[*models.Account](
+			ctx, dbPool, workMan, func() *models.Account { return &models.Account{} },
+		),
 	}
-	return &account, nil
+	return &repo
 }
 
-func (repo *accountRepository) GetByAccountNumber(ctx context.Context, accountNumber string) (*models.Account, error) {
-	account := models.Account{}
-	err := repo.readDB(ctx).First(&account, "account_number = ? ", accountNumber).Error
-	if err != nil {
-		return nil, err
-	}
-	return &account, nil
-}
-
-func (repo *accountRepository) Save(ctx context.Context, account *models.Account) error {
-	return repo.writeDB(ctx).Save(account).Error
+func (ar *accountRepository) GetByAccountNumber(ctx context.Context, accountNumber string) (*models.Account, error) {
+	account := &models.Account{}
+	err := ar.Pool().DB(ctx, true).First(account, "account_number = ?", accountNumber).Error
+	return account, err
 }

@@ -4,15 +4,13 @@ import (
 	"encoding/json"
 	"time"
 
-	"maps"
-
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
-	"github.com/antinvestor/service-payments/service/utility"
-	"github.com/shopspring/decimal"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"gorm.io/datatypes"
 
-	"github.com/pitabwire/frame"
+	"github.com/antinvestor/service-payments/service/utility"
+	"github.com/pitabwire/frame/data"
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -23,7 +21,7 @@ const (
 
 // Payment Table holds the payment details.
 type Payment struct {
-	frame.BaseModel
+	data.BaseModel
 
 	SenderProfileID   string `gorm:"type:varchar(250)"`
 	SenderProfileType string `gorm:"type:varchar(50)"`
@@ -43,22 +41,22 @@ type Payment struct {
 	CostIDs       []string            `gorm:"type:text[]"                           json:"cost_ids"`
 	ReleasedAt    *time.Time
 	OutBound      bool
-	Extra         datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	Extra         data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 func (model *Payment) IsReleased() bool {
 	return model.ReleasedAt != nil && !model.ReleasedAt.IsZero()
 }
-func (model *Payment) ToAPI(status *Status, message map[string]string) *paymentV1.Payment {
-	extra := make(map[string]string)
+func (model *Payment) ToAPI(status *Status, message map[string]string) *paymentv1.Payment {
+	extra := data.JSONMap{}
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
 	if model.IsReleased() {
 		extra["ReleaseDate"] = model.ReleasedAt.String()
 	}
-	if len(message) != 0 {
-		maps.Copy(extra, message)
+	for k, v := range message {
+		extra[k] = v
 	}
 
 	source := &commonv1.ContactLink{
@@ -75,7 +73,7 @@ func (model *Payment) ToAPI(status *Status, message map[string]string) *paymentV
 
 	amountMoney := utility.ToMoney(model.Currency, model.Amount.Decimal)
 
-	payment := paymentV1.Payment{
+	payment := paymentv1.Payment{
 		Id:            model.ID,
 		Source:        source,
 		Recipient:     recipient,
@@ -86,7 +84,7 @@ func (model *Payment) ToAPI(status *Status, message map[string]string) *paymentV
 		Route:         model.RouteID,
 		Status:        commonv1.STATUS(status.Status),
 		Outbound:      model.OutBound,
-		Extra:         extra,
+		Extra:         extra.ToProtoStruct(),
 	}
 
 	// Costs will be added separately after fetching from repository
@@ -95,23 +93,32 @@ func (model *Payment) ToAPI(status *Status, message map[string]string) *paymentV
 }
 
 type Cost struct {
-	frame.BaseModel
+	data.BaseModel
 	PaymentID string              `gorm:"type:varchar(50)"`
 	Amount    decimal.NullDecimal `gorm:"type:numeric"                          json:"amount"`
 	Currency  string
-	Extra     datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	Extra     data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 // Unified Status model for all entities
 // Replaces PaymentStatus, PromptStatus, PaymentLinkStatus
 
 type Status struct {
-	frame.BaseModel
-	EntityID   string            `gorm:"type:varchar(50)"`
-	EntityType string            `gorm:"type:varchar(50)"`
-	Extra      datatypes.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	data.BaseModel
+	EntityID   string       `gorm:"type:varchar(50)"`
+	EntityType string       `gorm:"type:varchar(50)"`
+	Extra      data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 	State      int32
 	Status     int32
+}
+
+func (s *Status) ToAPI() *commonv1.StatusResponse {
+	return &commonv1.StatusResponse{
+		Id:     s.EntityID,
+		State:  commonv1.STATE(s.State),
+		Status: commonv1.STATUS(s.Status),
+		Extras: s.Extra.ToProtoStruct(),
+	}
 }
 
 // Deprecated: Use Status instead
@@ -120,7 +127,7 @@ type Status struct {
 // type PaymentLinkStatus struct { ... }
 
 type Route struct {
-	frame.BaseModel
+	data.BaseModel
 
 	CounterID   string `gorm:"type:varchar(50)"`
 	Name        string `gorm:"type:varchar(50)"`
@@ -131,14 +138,22 @@ type Route struct {
 }
 
 type Account struct {
-	frame.BaseModel
+	data.BaseModel
 	AccountNumber string `gorm:"type:varchar(50)"`
 	CountryCode   string `gorm:"type:varchar(50)"`
 	Name          string `gorm:"type:varchar(50)"`
 }
 
+func (a *Account) ToAPI() *paymentv1.Account {
+	return &paymentv1.Account{
+		AccountNumber: a.AccountNumber,
+		CountryCode:   a.CountryCode,
+		Name:          a.Name,
+	}
+}
+
 type Prompt struct {
-	frame.BaseModel
+	data.BaseModel
 	ID                string `gorm:"type:varchar(50)"`
 	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
@@ -155,35 +170,35 @@ type Prompt struct {
 	Route                string              `gorm:"type:varchar(50)"`
 	AccountID            string              `gorm:"type:varchar(50)"`
 	Account              Account             `gorm:"foreignKey:AccountID;references:ID"`
-	Extra                datatypes.JSONMap   `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	Extra                data.JSONMap        `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
-func (model *Prompt) getRecipientAccount() *paymentV1.Account {
+func (model *Prompt) getRecipientAccount() *paymentv1.Account {
 	// This function no longer fetches from the database. Ensure the Account field is preloaded if needed.
 	if model.AccountID != "" && model.Account.ID != "" {
-		return &paymentV1.Account{
+		return &paymentv1.Account{
 			AccountNumber: model.Account.AccountNumber,
 			CountryCode:   model.Account.CountryCode,
 			Name:          model.Account.Name,
 		}
 	}
-	return &paymentV1.Account{}
+	return &paymentv1.Account{}
 }
 
-func (model *Prompt) ToAPI(message map[string]string) *paymentV1.InitiatePromptRequest {
-	extra := make(map[string]string)
+func (model *Prompt) ToAPI(message map[string]string) *paymentv1.InitiatePromptRequest {
+	extra := make(data.JSONMap)
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
 	extra["PromptID"] = model.ID
 
-	if len(message) != 0 {
-		maps.Copy(extra, message)
+	for k, v := range message {
+		extra[k] = v
 	}
 
-	amountMoney := utility.ToMoney(extra["currency"], model.Amount.Decimal)
+	amountMoney := utility.ToMoney(extra.GetString("currency"), model.Amount.Decimal)
 
-	prompt := paymentV1.InitiatePromptRequest{
+	prompt := paymentv1.InitiatePromptRequest{
 		Id: model.ID,
 		Source: &commonv1.ContactLink{
 			ProfileType: model.SourceProfileType,
@@ -202,7 +217,7 @@ func (model *Prompt) ToAPI(message map[string]string) *paymentV1.InitiatePromptR
 		Status:           commonv1.STATUS(model.Status),
 		Route:            model.Route,
 		RecipientAccount: model.getRecipientAccount(),
-		Extra:            extra,
+		Extra:            extra.ToProtoStruct(),
 	}
 
 	return &prompt
@@ -218,7 +233,7 @@ func (model *Prompt) ToAPIStatus() *commonv1.StatusResponse {
 
 // PaymentLink represents a payment link with associated customers and notifications.
 type PaymentLink struct {
-	frame.BaseModel
+	data.BaseModel
 
 	ExpiryDate      time.Time       `gorm:"type:date"         json:"expiryDate"`
 	SaleDate        time.Time       `gorm:"type:date"         json:"saleDate"`
@@ -281,20 +296,20 @@ func (n NotificationType) IsValid() bool {
 	}
 }
 
-func (model *PaymentLink) ToAPI(message map[string]string) *paymentV1.CreatePaymentLinkRequest {
-	extra := make(map[string]string)
+func (model *PaymentLink) ToAPI(message map[string]string) *paymentv1.CreatePaymentLinkRequest {
+	extra := make(data.JSONMap)
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID
 	extra["PaymentLinkID"] = model.ID
 
-	if len(message) != 0 {
-		maps.Copy(extra, message)
+	for k, v := range message {
+		extra[k] = v
 	}
 
 	amountMoney := utility.ToMoney(model.Currency, model.Amount)
 
-	paymentLink := paymentV1.PaymentLink{
+	paymentLink := paymentv1.PaymentLink{
 		Id:              model.ID,
 		ExpiryDate:      model.ExpiryDate.String(),
 		SaleDate:        model.SaleDate.String(),
@@ -310,17 +325,18 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentV1.CreatePaym
 		Currency:        model.Currency,
 	}
 
-	customers := make([]*paymentV1.Customer, 0)
+	customers := make([]*paymentv1.Customer, 0)
 	if len(model.Customers) > 0 {
 		var customerList []Customer
 		err := json.Unmarshal(model.Customers, &customerList)
 		if err == nil {
 			for _, customer := range customerList {
-				customers = append(customers, &paymentV1.Customer{
+				extraC := data.JSONMap{"email": customer.Email}
+				customers = append(customers, &paymentv1.Customer{
 					Source: &commonv1.ContactLink{
 						ProfileName: customer.FirstName + " " + customer.LastName,
 						ContactId:   customer.PhoneNumber,
-						Extras:      map[string]string{"email": customer.Email},
+						Extras:      extraC.ToProtoStruct(),
 					},
 					FirstAddress:        customer.FirstAddress,
 					CountryCode:         customer.CountryCode,
@@ -331,10 +347,10 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentV1.CreatePaym
 		}
 	}
 
-	createPaymentLinkRequest := &paymentV1.CreatePaymentLinkRequest{
+	createPaymentLinkRequest := &paymentv1.CreatePaymentLinkRequest{
 		PaymentLink:   &paymentLink,
 		Customers:     customers,
-		Notifications: make([]paymentV1.NotificationType, 0),
+		Notifications: make([]paymentv1.NotificationType, 0),
 	}
 	if len(model.Notifications) > 0 {
 		var notificationTypes []NotificationType
@@ -344,7 +360,7 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentV1.CreatePaym
 				if notificationType.IsValid() {
 					createPaymentLinkRequest.Notifications = append(
 						createPaymentLinkRequest.Notifications,
-						toPaymentV1NotificationType(notificationType.String()),
+						topaymentv1NotificationType(notificationType.String()),
 					)
 				}
 			}
@@ -353,14 +369,14 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentV1.CreatePaym
 	return createPaymentLinkRequest
 }
 
-// Helper to map string to paymentV1.NotificationType enum.
-func toPaymentV1NotificationType(s string) paymentV1.NotificationType {
+// Helper to map string to paymentv1.NotificationType enum.
+func topaymentv1NotificationType(s string) paymentv1.NotificationType {
 	switch s {
 	case "email":
-		return paymentV1.NotificationType_NOTIFICATION_TYPE_EMAIL
+		return paymentv1.NotificationType_NOTIFICATION_TYPE_EMAIL
 	case "sms":
-		return paymentV1.NotificationType_NOTIFICATION_TYPE_SMS
+		return paymentv1.NotificationType_NOTIFICATION_TYPE_SMS
 	default:
-		return paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED
+		return paymentv1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED
 	}
 }

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/util"
 
 	"strings"
 
@@ -16,7 +18,7 @@ import (
 
 type PaymentOutRoute struct {
 	Service    *frame.Service
-	ProfileCli *profileV1.ProfileClient
+	ProfileCli *profilev1.ProfileClient
 }
 
 func (event *PaymentOutRoute) Name() string {
@@ -46,7 +48,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	}
 	paymentID := *paymentPtr
 
-	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
@@ -67,11 +69,11 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 				EntityType: "payment",
 				State:      int32(commonv1.STATE_INACTIVE),
 				Status:     int32(commonv1.STATUS_FAILED),
-				Extra:      frame.DBPropertiesFromMap(map[string]string{"error": err.Error()}),
+				Extra:      data.JSONMap{"error": err.Error()},
 			}
 			status.GenID(ctx)
-			statusEvent := StatusSave{Service: event.Service}
-			err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+
+			err = event.Service.Emit(ctx, EventNameStatusSave, &status)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
@@ -104,8 +106,8 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 		Extra:      make(map[string]interface{}),
 	}
 	status.GenID(ctx)
-	statusEvent := StatusSave{Service: event.Service}
-	err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+
+	err = event.Service.Emit(ctx, EventNameStatusSave, &status)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit status for save")
 		return err

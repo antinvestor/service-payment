@@ -1,7 +1,7 @@
 package main
 
 import (
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"github.com/antinvestor/jenga-api/config"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events/events_callback"
@@ -38,7 +38,7 @@ func main() {
 	paymentServiceEndpoint := jengaConfig.PaymentServiceURI
 
 	// Initialize the payment client variable
-	var paymentClient *paymentV1.PaymentClient
+	var paymentClient *paymentv1.PaymentClient
 	var clientConn *grpc.ClientConn
 	var dialErr error
 
@@ -56,9 +56,9 @@ func main() {
 	if dialErr != nil {
 		logger.WithError(dialErr).Error("Failed to connect to payment service")
 	} else {
-		paymentServiceClient := paymentV1.NewPaymentServiceClient(clientConn)
+		paymentServiceClient := paymentv1.NewPaymentServiceClient(clientConn)
 
-		paymentClient = &paymentV1.PaymentClient{
+		paymentClient = &paymentv1.PaymentClient{
 			Client: paymentServiceClient,
 		}
 		logger.Info("Successfully connected to payment service at ", paymentServiceEndpoint)
@@ -91,7 +91,7 @@ func main() {
 	natsURL := jengaConfig.NATS_URL
 	promptTopic := initiatePrompt.Name()
 	paymentLinkTopic := createPaymentLink.Name()
-	//TODO to ensure to put the topics and the urls in the config file
+	// TODO to ensure to put the topics and the urls in the config file
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(router),
 		frame.WithRegisterEvents(eventHandlers...),

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/antinvestor/jenga-api/service/utility"
 	"github.com/pitabwire/frame"
@@ -15,7 +15,7 @@ import (
 
 type JengaStkCallback struct {
 	Service       *frame.Service
-	PaymentClient *paymentV1.PaymentClient
+	PaymentClient *paymentv1.PaymentClient
 }
 
 func (event *JengaStkCallback) Name() string {
@@ -43,7 +43,7 @@ func (event *JengaStkCallback) Validate(ctx context.Context, payload any) error 
 }
 
 func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
-	logger := event.Service.Log(ctx)
+	logger := util.Log(ctx)
 
 	if event.PaymentClient == nil {
 		return errors.New("payment client not initialized")
@@ -58,7 +58,7 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 	amount := utility.ToMoney(callback.Currency, decimal.NewFromFloat(callback.RequestAmount))
 	cost := utility.ToMoney(callback.Currency, decimal.NewFromFloat(callback.Charge))
 
-	payment := &paymentV1.Payment{
+	payment := &paymentv1.Payment{
 		TransactionId: callback.Transaction,
 		Amount:        &amount,
 		Cost:          &cost,
@@ -67,7 +67,7 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 	if callbackJSON, err := json.Marshal(callback); err == nil {
 		payment.Extra["additional_info"] = string(callbackJSON)
 	}
-	_, err := event.PaymentClient.Client.Receive(ctx, &paymentV1.ReceiveRequest{
+	_, err := event.PaymentClient.Client.Receive(ctx, &paymentv1.ReceiveRequest{
 		Data: payment,
 	})
 	if err != nil {

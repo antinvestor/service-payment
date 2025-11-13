@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm/clause"
 
 	"github.com/pitabwire/frame"
@@ -42,7 +43,7 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Payment")
 	}
 
-	logger := event.Service.Log(ctx).WithField("type", event.Name())
+	logger := util.Log(ctx).WithField("type", event.Name())
 	logger.WithField("payload", payment).Debug("handling event")
 
 	result := event.Service.DB(ctx, false).Clauses(clause.OnConflict{
@@ -87,8 +88,7 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		}
 		status.GenID(ctx)
 		// Queue out payment status for further processing
-		statusEvent := StatusSave{Service: event.Service}
-		err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+		err = event.Service.Emit(ctx, EventNameStatusSave, &status)
 		if err != nil {
 			logger.WithError(err).Warn("could not emit status")
 			return err

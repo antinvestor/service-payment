@@ -4,19 +4,23 @@ import (
 	"context"
 	"errors"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
+	"github.com/antinvestor/apis/go/profile"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/queue"
+	"github.com/pitabwire/util"
 
 	"strings"
-
-	"github.com/pitabwire/frame"
 )
 
 type PaymentInQueue struct {
-	Service    *frame.Service
-	ProfileCli *profileV1.ProfileClient
+	qMan        queue.Manager
+	eventMan    events.Manager
+	paymentRepo repository.PaymentRepository
+	ProfileCli  *profile.Client
 }
 
 func (event *PaymentInQueue) Name() string {
@@ -42,18 +46,16 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type *string")
 	}
 	paymentID := *paymentIDPtr
-	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
-	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
-
-	p, err := paymentRepo.GetByID(ctx, paymentID)
+	p, err := event.paymentRepo.GetByID(ctx, paymentID)
 	if err != nil {
 		return err
 	}
 
 	// Queue a payment for further processing by peripheral services
-	err = event.Service.Publish(ctx, p.RouteID, p)
+	err = event.qMan.Publish(ctx, p.RouteID, p)
 	if err != nil {
 		if !strings.Contains(err.Error(), "reference does not exist") {
 			if p.RouteID != "" {
@@ -83,8 +85,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 	status.GenID(ctx)
 
 	// Queue out payment status for further processing
-	statusEvent := StatusSave{Service: event.Service}
-	err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+	err = event.eventMan.Emit(ctx, EventNameStatusSave, &status)
 	if err != nil {
 		return err
 	}

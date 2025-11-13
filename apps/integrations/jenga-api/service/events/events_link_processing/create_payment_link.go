@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	models "github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
@@ -41,11 +41,11 @@ func GenerateExternalReference() string {
 type CreatePaymentLink struct {
 	Service       *frame.Service
 	Client        coreapi.JengaApiClient
-	PaymentClient paymentV1.PaymentClient
+	PaymentClient paymentv1.PaymentClient
 }
 
 func NewCreatePaymentLink(service *frame.Service, client coreapi.JengaApiClient,
-	paymentClient paymentV1.PaymentClient) *CreatePaymentLink {
+	paymentClient paymentv1.PaymentClient) *CreatePaymentLink {
 	return &CreatePaymentLink{
 		Service:       service,
 		Client:        client,

@@ -3,47 +3,37 @@ package handlers
 import (
 	"context"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	partitionv1 "github.com/antinvestor/apis/go/partition/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
-	"github.com/antinvestor/service-payments/service/business"
-	ledgerv1 "github.com/antinvestor/apis/go/ledger/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"github.com/antinvestor/apis/go/ledger"
+	"github.com/antinvestor/apis/go/partition"
+	"github.com/antinvestor/apis/go/profile"
 
+	"github.com/antinvestor/service-payments/service/business"
 	"github.com/pitabwire/frame"
 )
 
 type PaymentServer struct {
-	Service      *frame.Service
-	ProfileCli   *profileV1.ProfileClient
-	PartitionCli *partitionv1.PartitionClient
-	LedgerCli   *ledgerv1.LedgerClient // Uncomment if LedgerClient is needed
+	Service         *frame.Service
+	PaymentBusiness business.PaymentBusiness
+	ProfileCli      profile.Client
+	PartitionCli    partition.Client
+	LedgerCli       ledger.Client
 
-	paymentV1.UnimplementedPaymentServiceServer
+	paymentv1connect.UnimplementedPaymentServiceHandler
 }
 
-func (ps *PaymentServer) newPaymentBusiness(ctx context.Context) (business.PaymentBusiness, error) {
-	return business.NewPaymentBusiness(ctx, ps.Service, ps.ProfileCli, ps.PartitionCli, ps.LedgerCli)
-}
-
-func (ps *PaymentServer) Send(ctx context.Context, req *paymentV1.SendRequest) (*paymentV1.SendResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
+func (ps *PaymentServer) Send(ctx context.Context, req *paymentv1.SendRequest) (*paymentv1.SendResponse, error) {
+	response, err := ps.PaymentBusiness.Send(ctx, req.GetData())
 	if err != nil {
 		return nil, err
 	}
-	response, err := paymentBusiness.Send(ctx, req.GetData())
-	if err != nil {
-		return nil, err
-	}
-	return &paymentV1.SendResponse{Data: response}, nil
+	return &paymentv1.SendResponse{Data: response}, nil
 }
 
 func (ps *PaymentServer) Status(ctx context.Context, req *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return paymentBusiness.Status(ctx, req)
+	return ps.PaymentBusiness.Status(ctx, req)
 }
 
 // StatusUpdate request to allow continuation of payment processing.
@@ -51,11 +41,7 @@ func (ps *PaymentServer) StatusUpdate(
 	ctx context.Context,
 	req *commonv1.StatusUpdateRequest,
 ) (*commonv1.StatusUpdateResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	response, err := paymentBusiness.StatusUpdate(ctx, req)
+	response, err := ps.PaymentBusiness.StatusUpdate(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -66,71 +52,56 @@ func (ps *PaymentServer) StatusUpdate(
 // Release method for releasing queued payments and returns if payment status if released.
 func (ps *PaymentServer) Release(
 	ctx context.Context,
-	req *paymentV1.ReleaseRequest,
-) (*paymentV1.ReleaseResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	response, err := paymentBusiness.Release(ctx, req)
+	req *paymentv1.ReleaseRequest,
+) (*paymentv1.ReleaseResponse, error) {
+	response, err := ps.PaymentBusiness.Release(ctx, req)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &paymentV1.ReleaseResponse{Data: response}, nil
+	return &paymentv1.ReleaseResponse{Data: response}, nil
 }
 
 // Receive method is for client request for particular Payment responses from system.
 func (ps *PaymentServer) Receive(
 	ctx context.Context,
-	req *paymentV1.ReceiveRequest,
-) (*paymentV1.ReceiveResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	response, err := paymentBusiness.Receive(ctx, req.GetData())
+	req *paymentv1.ReceiveRequest,
+) (*paymentv1.ReceiveResponse, error) {
+
+	response, err := ps.PaymentBusiness.Receive(ctx, req.GetData())
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &paymentV1.ReceiveResponse{Data: response}, nil
+	return &paymentv1.ReceiveResponse{Data: response}, nil
 }
 
 // InitiatePrompt method for client request for particular Prompt responses from system.
 func (ps *PaymentServer) InitiatePrompt(
 	ctx context.Context,
-	req *paymentV1.InitiatePromptRequest,
-) (*paymentV1.InitiatePromptResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	response, err := paymentBusiness.InitiatePrompt(ctx, req)
+	req *paymentv1.InitiatePromptRequest,
+) (*paymentv1.InitiatePromptResponse, error) {
+	response, err := ps.PaymentBusiness.InitiatePrompt(ctx, req)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &paymentV1.InitiatePromptResponse{Data: response}, nil
+	return &paymentv1.InitiatePromptResponse{Data: response}, nil
 }
 
 // CreatePaymentLink method for client request to create a payment link.
 func (ps *PaymentServer) CreatePaymentLink(
 	ctx context.Context,
-	req *paymentV1.CreatePaymentLinkRequest,
-) (*paymentV1.CreatePaymentLinkResponse, error) {
-	paymentBusiness, err := ps.newPaymentBusiness(ctx)
-	if err != nil {
-		return nil, err
-	}
-	response, err := paymentBusiness.CreatePaymentLink(ctx, req)
+	req *paymentv1.CreatePaymentLinkRequest,
+) (*paymentv1.CreatePaymentLinkResponse, error) {
+	response, err := ps.PaymentBusiness.CreatePaymentLink(ctx, req)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &paymentV1.CreatePaymentLinkResponse{Data: response}, nil
+	return &paymentv1.CreatePaymentLinkResponse{Data: response}, nil
 }

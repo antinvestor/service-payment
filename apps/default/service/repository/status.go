@@ -4,32 +4,26 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/service/models"
-
-	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/frame/workerpool"
 )
 
-type StatusRepository interface {
-	GetByEntity(ctx context.Context, entityID, entityType string) (*models.Status, error)
-	Save(ctx context.Context, status *models.Status) error
-}
-
 type statusRepository struct {
-	abstractRepository
+	datastore.BaseRepository[*models.Status]
 }
 
-func NewStatusRepository(_ context.Context, service *frame.Service) StatusRepository {
-	return &statusRepository{abstractRepository{service: service}}
-}
-
-func (repo *statusRepository) GetByEntity(ctx context.Context, entityID, entityType string) (*models.Status, error) {
-	status := models.Status{}
-	err := repo.readDB(ctx).First(&status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
-	if err != nil {
-		return nil, err
+func NewStatusRepository(ctx context.Context, dbPool pool.Pool, workMan workerpool.Manager) StatusRepository {
+	repo := statusRepository{
+		BaseRepository: datastore.NewBaseRepository[*models.Status](
+			ctx, dbPool, workMan, func() *models.Status { return &models.Status{} },
+		),
 	}
-	return &status, nil
+	return &repo
 }
 
-func (repo *statusRepository) Save(ctx context.Context, status *models.Status) error {
-	return repo.writeDB(ctx).Save(status).Error
+func (sr *statusRepository) GetByEntity(ctx context.Context, entityID, entityType string) (*models.Status, error) {
+	status := &models.Status{}
+	err := sr.Pool().DB(ctx, true).First(status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
+	return status, err
 }

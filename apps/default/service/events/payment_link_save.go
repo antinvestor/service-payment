@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm/clause"
 
 	"github.com/pitabwire/frame"
@@ -13,7 +14,7 @@ import (
 
 type PaymentLinkSave struct {
 	Service    *frame.Service
-	ProfileCli *profileV1.ProfileClient
+	ProfileCli *profilev1.ProfileClient
 }
 
 func (e *PaymentLinkSave) Name() string {
@@ -25,7 +26,7 @@ func (e *PaymentLinkSave) PayloadType() any {
 }
 
 func (e *PaymentLinkSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.Log(ctx).WithField("function", "PaymentLinkSave.Validate")
+	logger := util.Log(ctx).WithField("function", "PaymentLinkSave.Validate")
 
 	paymentLink, ok := payload.(*models.PaymentLink)
 	if !ok {
@@ -63,7 +64,7 @@ func (e *PaymentLinkSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.PaymentLink")
 	}
 
-	logger := e.Service.Log(ctx).WithField("payload", paymentLink).WithField("type", e.Name())
+	logger := util.Log(ctx).WithField("payload", paymentLink).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	// Attempt to save to database

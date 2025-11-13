@@ -5,56 +5,48 @@ import (
 	"strings"
 
 	"github.com/antinvestor/service-payments/service/models"
-
-	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/frame/workerpool"
 )
 
-type PromptRepository interface {
-	GetByID(ctx context.Context, id string) (*models.Prompt, error)
-	GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.Prompt, error)
-	Search(ctx context.Context, query string) ([]*models.Prompt, error)
-	Save(ctx context.Context, prompt *models.Prompt) error
-}
-
 type promptRepository struct {
-	abstractRepository
+	datastore.BaseRepository[*models.Prompt]
 }
 
-func NewPromptRepository(_ context.Context, service *frame.Service) PromptRepository {
-	return &promptRepository{abstractRepository{service: service}}
-}
-
-func (repo *promptRepository) GetByID(ctx context.Context, id string) (*models.Prompt, error) {
-	prompt := models.Prompt{}
-	err := repo.readDB(ctx).First(&prompt, "id = ?", id).Error
-	if err != nil {
-		return nil, err
+func NewPromptRepository(ctx context.Context, dbPool pool.Pool, workMan workerpool.Manager) PromptRepository {
+	repo := promptRepository{
+		BaseRepository: datastore.NewBaseRepository[*models.Prompt](
+			ctx, dbPool, workMan, func() *models.Prompt { return &models.Prompt{} },
+		),
 	}
-	return &prompt, nil
+	return &repo
 }
 
-func (repo *promptRepository) GetByPartitionAndID(
+func (pr *promptRepository) GetByPartitionAndID(
 	ctx context.Context,
 	partitionID string,
 	id string,
 ) (*models.Prompt, error) {
-	prompt := models.Prompt{}
-	err := repo.readDB(ctx).First(&prompt, "partition_id = ? AND id = ?", partitionID, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &prompt, nil
+	prompt := &models.Prompt{}
+	err := pr.Pool().DB(ctx, true).First(prompt, "partition_id = ? AND id = ?", partitionID, id).Error
+	return prompt, err
 }
 
-func (repo *promptRepository) Search(ctx context.Context, query string) ([]*models.Prompt, error) {
+func (pr *promptRepository) GetByProfileID(ctx context.Context, profileID string) ([]*models.Prompt, error) {
 	var prompts []*models.Prompt
-	err := repo.readDB(ctx).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&prompts).Error
+	err := pr.Pool().DB(ctx, true).
+		Where("source_id = ? OR recipient_id = ?", profileID, profileID).
+		Find(&prompts).Error
+	return prompts, err
+}
+
+// Legacy method for backward compatibility
+func (pr *promptRepository) SearchLegacy(ctx context.Context, query string) ([]*models.Prompt, error) {
+	var prompts []*models.Prompt
+	err := pr.Pool().DB(ctx, true).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&prompts).Error
 	if err != nil {
 		return nil, err
 	}
 	return prompts, nil
-}
-
-func (repo *promptRepository) Save(ctx context.Context, prompt *models.Prompt) error {
-	return repo.writeDB(ctx).Save(prompt).Error
 }

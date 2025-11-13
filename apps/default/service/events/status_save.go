@@ -5,17 +5,18 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/service/models"
-	"gorm.io/gorm/clause"
-
-	"github.com/pitabwire/frame"
+	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/util"
 )
 
+const EventNameStatusSave = "status.save"
+
 type StatusSave struct {
-	Service *frame.Service
+	statusRepo repository.StatusRepository
 }
 
 func (e *StatusSave) Name() string {
-	return "status.save"
+	return EventNameStatusSave
 }
 
 func (e *StatusSave) PayloadType() any {
@@ -39,20 +40,15 @@ func (e *StatusSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Status")
 	}
 
-	logger := e.Service.Log(ctx).WithField("payload", status).WithField("type", e.Name())
+	logger := util.Log(ctx).WithField("payload", status).WithField("type", e.Name())
 	logger.Debug("handling event")
 
-	result := e.Service.DB(ctx, false).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(status)
-
-	err := result.Error
+	err := e.statusRepo.Create(ctx, status)
 	if err != nil {
 		logger.WithError(err).Warn("could not save status to db")
 		return err
 	}
-	logger.WithField("rows affected", result.RowsAffected).Debug("successfully saved record to db")
+	logger.Debug("successfully saved record to db")
 
 	return nil
 }

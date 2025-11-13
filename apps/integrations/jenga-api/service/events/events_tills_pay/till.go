@@ -61,7 +61,7 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type")
 	}
 
-	logger := event.Service.Log(ctx).WithField("type", event.Name()).WithField("TillsPayRequest", request)
+	logger := util.Log(ctx).WithField("type", event.Name()).WithField("TillsPayRequest", request)
 	logger.WithField("request", request).Debug("processing tills pay")
 
 	// Generate bearer token for authorization

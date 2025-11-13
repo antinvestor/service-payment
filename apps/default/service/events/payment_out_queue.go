@@ -5,9 +5,10 @@ import (
 	"errors"
 	"time"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pitabwire/frame"
@@ -43,7 +44,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	}
 	paymentID := *paymentIDPtr
 
-	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling payment event")
 
 	// Fetch payment record by ID

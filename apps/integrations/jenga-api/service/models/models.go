@@ -90,7 +90,7 @@ type AccountBalanceRequest struct {
 	AccountId   string `json:"account"` //nolint:revive,staticcheck // API field name
 }
 
-//BalanceResponse represents the response structure for the account balance
+// BalanceResponse represents the response structure for the account balance
 
 type BalanceResponse struct {
 	Status  bool   `json:"status"`
@@ -144,7 +144,7 @@ type TillsPayPartner struct {
 }
 
 type Prompt struct {
-	frame.BaseModel
+	data.BaseModel
 	ID                string `gorm:"type:varchar(50)"`
 	SourceID          string `gorm:"type:varchar(50)"`
 	SourceProfileType string `gorm:"type:varchar(50)"`
@@ -160,18 +160,18 @@ type Prompt struct {
 	Status               int32               `gorm:"type:integer"`
 	Route                string              `gorm:"type:varchar(50)"`
 	Account              datatypes.JSON      `gorm:"type:jsonb"`
-	Extra                datatypes.JSONMap   `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	Extra                data.JSONMap        `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 type Account struct {
-	frame.BaseModel
+	data.BaseModel
 	AccountNumber string `gorm:"type:varchar(50)"`
 	CountryCode   string `gorm:"type:varchar(50)"`
 	Name          string `gorm:"type:varchar(50)"`
 }
 
 type PaymentLink struct {
-	frame.BaseModel
+	data.BaseModel
 
 	ExpiryDate      time.Time       `gorm:"type:date"         json:"expiryDate"`
 	SaleDate        time.Time       `gorm:"type:date"         json:"saleDate"`
@@ -186,7 +186,7 @@ type PaymentLink struct {
 	Amount          decimal.Decimal `gorm:"type:numeric"      json:"amount"`
 	Currency        string          `gorm:"type:varchar(10)"  json:"currency"`
 	Customers       datatypes.JSON  `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
-	Notifications   datatypes.JSON  `gorm:"type:jsonb"        json:"notifications"` //Notifications are enums
+	Notifications   datatypes.JSON  `gorm:"type:jsonb"        json:"notifications"` // Notifications are enums
 
 }
 

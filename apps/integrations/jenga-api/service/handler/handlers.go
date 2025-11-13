@@ -4,19 +4,19 @@ import (
 	"encoding/json"
 	"net/http"
 
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/events/events_tills_pay"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
 )
 
-//job server handlers
+// job server handlers
 
 type JobServer struct {
 	Service       *frame.Service
 	Client        *coreapi.Client
-	PaymentClient *paymentV1.PaymentClient
+	PaymentClient *paymentv1.PaymentClient
 }
 
 func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +25,7 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//background context for async processing
+	// background context for async processing
 	ctx := r.Context()
 	logger := js.Service.Log(ctx).WithField("type", "InitiateTillsPay")
 

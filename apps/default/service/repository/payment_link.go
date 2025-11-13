@@ -5,56 +5,48 @@ import (
 	"strings"
 
 	"github.com/antinvestor/service-payments/service/models"
-
-	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/frame/workerpool"
 )
 
-type PaymentLinkRepository interface {
-	GetByID(ctx context.Context, id string) (*models.PaymentLink, error)
-	GetByPartitionAndID(ctx context.Context, partitionID string, id string) (*models.PaymentLink, error)
-	Search(ctx context.Context, query string) ([]*models.PaymentLink, error)
-	Save(ctx context.Context, link *models.PaymentLink) error
-}
-
 type paymentLinkRepository struct {
-	abstractRepository
+	datastore.BaseRepository[*models.PaymentLink]
 }
 
-func NewPaymentLinkRepository(_ context.Context, service *frame.Service) PaymentLinkRepository {
-	return &paymentLinkRepository{abstractRepository{service: service}}
-}
-
-func (repo *paymentLinkRepository) GetByID(ctx context.Context, id string) (*models.PaymentLink, error) {
-	link := models.PaymentLink{}
-	err := repo.readDB(ctx).First(&link, "id = ?", id).Error
-	if err != nil {
-		return nil, err
+func NewPaymentLinkRepository(ctx context.Context, dbPool pool.Pool, workMan workerpool.Manager) PaymentLinkRepository {
+	repo := paymentLinkRepository{
+		BaseRepository: datastore.NewBaseRepository[*models.PaymentLink](
+			ctx, dbPool, workMan, func() *models.PaymentLink { return &models.PaymentLink{} },
+		),
 	}
-	return &link, nil
+	return &repo
 }
 
-func (repo *paymentLinkRepository) GetByPartitionAndID(
+func (plr *paymentLinkRepository) GetByPartitionAndID(
 	ctx context.Context,
 	partitionID string,
 	id string,
 ) (*models.PaymentLink, error) {
-	link := models.PaymentLink{}
-	err := repo.readDB(ctx).First(&link, "partition_id = ? AND id = ?", partitionID, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &link, nil
+	link := &models.PaymentLink{}
+	err := plr.Pool().DB(ctx, true).First(link, "partition_id = ? AND id = ?", partitionID, id).Error
+	return link, err
 }
 
-func (repo *paymentLinkRepository) Search(ctx context.Context, query string) ([]*models.PaymentLink, error) {
+func (plr *paymentLinkRepository) GetByProfileID(ctx context.Context, profileID string) ([]*models.PaymentLink, error) {
+	// Note: PaymentLink doesn't have direct profile association, 
+	// this method is included for interface consistency
 	var links []*models.PaymentLink
-	err := repo.readDB(ctx).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&links).Error
+	err := plr.Pool().DB(ctx, true).Find(&links).Error
+	return links, err
+}
+
+// Legacy method for backward compatibility
+func (plr *paymentLinkRepository) SearchLegacy(ctx context.Context, query string) ([]*models.PaymentLink, error) {
+	var links []*models.PaymentLink
+	err := plr.Pool().DB(ctx, true).Where("name ILIKE ?", "%"+strings.ToLower(query)+"%").Find(&links).Error
 	if err != nil {
 		return nil, err
 	}
 	return links, nil
-}
-
-func (repo *paymentLinkRepository) Save(ctx context.Context, link *models.PaymentLink) error {
-	return repo.writeDB(ctx).Save(link).Error
 }

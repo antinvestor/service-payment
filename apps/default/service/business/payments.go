@@ -8,59 +8,88 @@ import (
 	"strings"
 	"time"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	ledgerv1 "github.com/antinvestor/apis/go/ledger/v1"
-	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
+	"connectrpc.com/connect"
+	"github.com/antinvestor/apis/go/ledger"
+	"github.com/antinvestor/apis/go/partition"
+	"github.com/antinvestor/apis/go/profile"
 	"github.com/antinvestor/service-payments/service/events"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
 	"github.com/antinvestor/service-payments/service/utility"
+	"github.com/pitabwire/frame"
+	"github.com/pitabwire/frame/data"
+	fevents "github.com/pitabwire/frame/events"
+	"github.com/pitabwire/frame/security"
+	"github.com/pitabwire/frame/workerpool"
+	"github.com/pitabwire/util"
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
-
-	"github.com/pitabwire/frame"
 )
 
-type PaymentBusiness interface {
-	Send(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-	Receive(ctx context.Context, payment *paymentV1.Payment) (*commonv1.StatusResponse, error)
-	Status(ctx context.Context, status *commonv1.StatusRequest) (*commonv1.StatusResponse, error)
-	StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusResponse, error)
-	Release(ctx context.Context, status *paymentV1.ReleaseRequest) (*commonv1.StatusResponse, error)
-	Search(search *commonv1.SearchRequest, stream paymentV1.PaymentService_SearchServer) error
-	InitiatePrompt(ctx context.Context, req *paymentV1.InitiatePromptRequest) (*commonv1.StatusResponse, error)
-	CreatePaymentLink(ctx context.Context, req *paymentV1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error)
-}
-
 func NewPaymentBusiness(
-	_ context.Context,
+	ctx context.Context,
 	service *frame.Service,
-	profileCli *profileV1.ProfileClient,
-	partitionCli *partitionV1.PartitionClient,
-	ledgerCli *ledgerv1.LedgerClient,
+	profileCli *profile.Client,
+	partitionCli *partition.Client,
+	ledgerCli *ledger.Client,
+	paymentRepo repository.PaymentRepository,
+	statusRepo repository.StatusRepository,
+	costRepo repository.CostRepository,
+	accountRepo repository.AccountRepository,
+	promptRepo repository.PromptRepository,
+	paymentLinkRepo repository.PaymentLinkRepository,
 ) (PaymentBusiness, error) {
-	// initialize the service
 	if service == nil {
 		return nil, ErrInitializationFail
 	}
+
+	workMan := service.WorkManager()
+
 	return &paymentBusiness{
-		service:      service,
-		profileCli:   profileCli,
-		partitionCli: partitionCli,
-		ledgerCli:    ledgerCli,
+		service:         service,
+		profileCli:      profileCli,
+		partitionCli:    partitionCli,
+		ledgerCli:       ledgerCli,
+		paymentRepo:     paymentRepo,
+		statusRepo:      statusRepo,
+		costRepo:        costRepo,
+		accountRepo:     accountRepo,
+		promptRepo:      promptRepo,
+		paymentLinkRepo: paymentLinkRepo,
+		workMan:         workMan,
 	}, nil
 }
 
 type paymentBusiness struct {
-	service      *frame.Service
-	profileCli   *profileV1.ProfileClient
-	partitionCli *partitionV1.PartitionClient
-	ledgerCli    *ledgerv1.LedgerClient
+	service         *frame.Service
+	eventMan        fevents.Manager
+	profileCli      *profile.Client
+	partitionCli    *partition.Client
+	ledgerCli       *ledger.Client
+	paymentRepo     repository.PaymentRepository
+	statusRepo      repository.StatusRepository
+	costRepo        repository.CostRepository
+	accountRepo     repository.AccountRepository
+	promptRepo      repository.PromptRepository
+	paymentLinkRepo repository.PaymentLinkRepository
+	workMan         workerpool.Manager
 }
 
-func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) ToAPI(ctx context.Context, payment *models.Payment) (*paymentv1.Payment, error) {
+	// Get status for the payment
+	status, err := pb.statusRepo.GetByEntity(ctx, payment.ID, "payment")
+	if err != nil {
+		return nil, err
+	}
+
+	return payment.ToAPI(status, nil), nil
+}
+
+func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
 	p := &models.Payment{
 		SenderProfileType:    message.GetSource().GetProfileType(),
 		SenderProfileID:      message.GetSource().GetProfileId(),
@@ -92,14 +121,14 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 
 	// Save cost separately and add its ID to payment
 	costEvent := events.CostSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
+	if err := pb.eventMan.Emit(ctx, costEvent.Name(), c); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
 	}
 	p.CostIDs = []string{c.ID}
 
 	event := events.PaymentSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+	if err := pb.eventMan.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
@@ -138,30 +167,26 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentV1.Payment)
 		}
 	}
 
-	// Unified status
+	// Create status using repository
 	status := &models.Status{
 		EntityID:   p.GetID(),
 		EntityType: "payment",
 		State:      int32(commonv1.STATE_CREATED.Number()),
 		Status:     int32(commonv1.STATUS_QUEUED.Number()),
-		Extra:      make(datatypes.JSONMap),
+		Extra:      make(data.JSONMap),
 	}
 	status.GenID(ctx)
-	statusEvent := events.StatusSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, statusEvent.Name(), status); err != nil {
-		pb.service.Log(ctx).WithError(err).Warn("could not emit status event")
+
+	err = pb.statusRepo.Create(ctx, status)
+	if err != nil {
+		pb.service.Log(ctx).WithError(err).Warn("could not save status")
 		return nil, err
 	}
 
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
-func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payment) (*commonv1.StatusResponse, error) {
+func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", message)
 	logger.Info("handling receive request")
 
@@ -194,14 +219,14 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 
 	// Save cost separately and add its ID to payment
 	costEvent := events.CostSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, costEvent.Name(), c); err != nil {
+	if err := pb.eventMan.Emit(ctx, costEvent.Name(), c); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
 	}
 	p.CostIDs = []string{c.ID}
 
 	event := events.PaymentSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, event.Name(), p); err != nil {
+	if err := pb.eventMan.Emit(ctx, event.Name(), p); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
@@ -246,21 +271,16 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentV1.Payme
 		EntityType: "payment",
 		State:      int32(commonv1.STATE_CREATED.Number()),
 		Status:     int32(commonv1.STATUS_QUEUED.Number()),
-		Extra:      make(datatypes.JSONMap),
+		Extra:      make(data.JSONMap),
 	}
 	status.GenID(ctx)
-	statusEvent := events.StatusSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, statusEvent.Name(), status); err != nil {
+
+	if err := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
 		pb.service.Log(ctx).WithError(err).Warn("could not emit status event")
 		return nil, err
 	}
 
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
 func (pb *paymentBusiness) Status(
@@ -270,18 +290,12 @@ func (pb *paymentBusiness) Status(
 	logger := pb.service.Log(ctx).WithField("request", statusReq)
 	logger.Info("handling status check request")
 
-	statusRepo := repository.NewStatusRepository(ctx, pb.service)
-	status, err := statusRepo.GetByEntity(ctx, statusReq.GetId(), statusReq.GetExtras()["entity_type"])
+	status, err := pb.statusRepo.GetByEntity(ctx, statusReq.GetId(), statusReq.GetExtras()["entity_type"])
 	if err != nil {
 		logger.WithError(err).Error("could not get status")
 		return nil, err
 	}
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
 func (pb *paymentBusiness) StatusUpdate(
@@ -291,7 +305,10 @@ func (pb *paymentBusiness) StatusUpdate(
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling unified status update request")
 
-	entityType := req.GetExtras()["entity_type"]
+	var extras data.JSONMap
+	extras = extras.FromProtoStruct(req.GetExtras())
+	
+	entityType := extras.GetString("entity_type")
 	if entityType == "" {
 		logger.Error("entity_type must be provided in extras for status update")
 		return nil, errors.New("entity_type must be provided in extras for status update")
@@ -302,36 +319,26 @@ func (pb *paymentBusiness) StatusUpdate(
 		EntityType: entityType,
 		State:      int32(req.GetState()),
 		Status:     int32(req.GetStatus()),
-		Extra:      frame.DBPropertiesFromMap(req.GetExtras()),
+		Extra:      extras,
 	}
 	status.GenID(ctx)
 
-	statusEvent := events.StatusSave{Service: pb.service}
-	if err := pb.service.Emit(ctx, statusEvent.Name(), status); err != nil {
+
+	if err := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
 		logger.WithError(err).Warn("could not emit status save")
 		return nil, err
 	}
 
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
-func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
-	stream paymentV1.PaymentService_SearchServer) error {
-	logger := pb.service.Log(stream.Context()).WithField("request", search)
+func (pb *paymentBusiness) Search(ctx context.Context, searchQuery *commonv1.SearchRequest) (workerpool.JobResultPipe[[]*paymentv1.Payment], error) {
+	logger := util.Log(ctx).WithField("request", search)
 	logger.Debug("handling payment search request")
 
 	// Extract the context and JWT token
-	ctx := stream.Context()
-	jwtToken := frame.JwtFromContext(ctx)
+	jwtToken := security.JwtFromContext(ctx)
 	logger.WithField("jwt", jwtToken).Debug("auth jwt supplied")
-
-	// Initialize the payment repository
-	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
 
 	var paymentList []*models.Payment
 	var err error
@@ -339,32 +346,35 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	// Handle search by ID or by general query
 	if search.GetIdQuery() != "" {
 		// Search by ID
-		payment, err0 := paymentRepo.GetByID(ctx, search.GetIdQuery())
+		payment, err0 := pb.paymentRepo.GetByID(ctx, search.GetIdQuery())
 		if err0 != nil {
 			return err0
 		}
 
 		paymentList = append(paymentList, payment)
 	} else {
-		// General search query
-		paymentList, err = paymentRepo.Search(ctx, search.GetQuery())
+		// General search query - convert to new search format
+		query := data.NewSearchQuery(
+			data.WithSearchQuery(search.GetQuery()),
+			data.WithSearchLimit(100), // default limit
+		)
+
+		// For now, use legacy search method in repository
+		paymentList, err = pb.paymentRepo.Search(ctx, query)
 		if err != nil {
 			logger.WithError(err).Error("failed to search payments")
-			return err
+			return nil, err
 		}
 	}
 
-	// Initialize the payment status repository
-	paymentStatusRepo := repository.NewStatusRepository(ctx, pb.service)
-
-	var responsesList []*paymentV1.Payment
+	var responsesList []*paymentv1.Payment
 	for _, p := range paymentList {
 		var status *models.Status
 		if p.ID != "" {
-			status, err = paymentStatusRepo.GetByEntity(ctx, p.ID, "payment")
+			status, err = pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
 			if err != nil {
 				logger.WithError(err).WithField("status_id", p.ID).Error("could not get status id")
-				return err
+				return nil, err
 			}
 		}
 		// Convert the payment model to the API response format
@@ -373,7 +383,7 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 	}
 
 	// Send the search response back to the client
-	err = stream.Send(&paymentV1.SearchResponse{Data: responsesList})
+	err = stream.Send(&paymentv1.SearchResponse{Data: responsesList})
 	if err != nil {
 		logger.WithError(err).Warn("unable to send a result")
 	}
@@ -383,13 +393,12 @@ func (pb *paymentBusiness) Search(search *commonv1.SearchRequest,
 
 func (pb *paymentBusiness) Release(
 	ctx context.Context,
-	paymentReq *paymentV1.ReleaseRequest,
+	paymentReq *paymentv1.ReleaseRequest,
 ) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", paymentReq)
 	logger.Debug("handling release request")
 
-	paymentRepo := repository.NewPaymentRepository(ctx, pb.service)
-	p, err := paymentRepo.GetByID(ctx, paymentReq.GetId())
+	p, err := pb.paymentRepo.GetByID(ctx, paymentReq.GetId())
 	if err != nil {
 		logger.WithError(err).Warn("could not fetch payment by id")
 		return nil, err
@@ -400,25 +409,25 @@ func (pb *paymentBusiness) Release(
 		p.ReleasedAt = &releaseDate
 
 		event := events.PaymentSave{Service: pb.service}
-		err = pb.service.Emit(ctx, event.Name(), p)
+		err = pb.eventMan.Emit(ctx, event.Name(), p)
 		if err != nil {
-			logger.WithError(err).Warn("could not emit payment save")
+			logger.WithError(err).Warn("could not update payment")
 			return nil, err
 		}
 
-		// Unified status
+		// Create status using repository
 		status := &models.Status{
 			EntityID:   p.GetID(),
 			EntityType: "payment",
 			State:      int32(commonv1.STATE_ACTIVE.Number()),
 			Status:     int32(commonv1.STATUS_QUEUED.Number()),
-			Extra:      make(datatypes.JSONMap),
+			Extra:      make(data.JSONMap),
 		}
 		status.GenID(ctx)
-		statusEvent := events.StatusSave{Service: pb.service}
-		err = pb.service.Emit(ctx, statusEvent.Name(), status)
+
+		err = pb.eventMan.Emit(ctx, events.EventNameStatusSave, status)
 		if err != nil {
-			logger.WithError(err).Warn("could not emit status event")
+			logger.WithError(err).Warn("could not save status")
 			return nil, err
 		}
 
@@ -426,11 +435,10 @@ func (pb *paymentBusiness) Release(
 			Id:     status.EntityID,
 			State:  commonv1.STATE(status.State),
 			Status: commonv1.STATUS(status.Status),
-			Extras: frame.DBPropertiesToMap(status.Extra),
+			Extras: status.Extra),
 		}, nil
 	} else {
-		statusRepo := repository.NewStatusRepository(ctx, pb.service)
-		status, err := statusRepo.GetByEntity(ctx, p.ID, "payment")
+		status, err := pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
 		if err != nil {
 			logger.WithError(err).Warn("could not get payment status")
 			return nil, err
@@ -439,14 +447,14 @@ func (pb *paymentBusiness) Release(
 			Id:     status.EntityID,
 			State:  commonv1.STATE(status.State),
 			Status: commonv1.STATUS(status.Status),
-			Extras: frame.DBPropertiesToMap(status.Extra),
+			Extras: status.Extra),
 		}, nil
 	}
 }
 
 func (pb *paymentBusiness) InitiatePrompt(
 	ctx context.Context,
-	req *paymentV1.InitiatePromptRequest,
+	req *paymentv1.InitiatePromptRequest,
 ) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling initiate prompt request")
@@ -461,17 +469,15 @@ func (pb *paymentBusiness) InitiatePrompt(
 	// Use AccountRepository to get or create the account
 	var accountPtr *models.Account
 	var err error
-	accountPtr, err = repository.NewAccountRepository(ctx, pb.service).GetByAccountNumber(ctx, account.AccountNumber)
+	accountPtr, err = pb.accountRepo.GetByAccountNumber(ctx, account.AccountNumber)
 	if err != nil {
 		// If not found, create the account
 		account.GenID(ctx)
-		event := events.AccountSave{Service: pb.service}
-		err = pb.service.Emit(ctx, event.Name(), &account)
+		err = pb.eventMan.Emit(ctx, events.EventNameAccountSave, &account)
 		if err != nil {
-			logger.WithError(err).Warn("could not emit account save")
+			logger.WithError(err).Warn("could not create account")
 			return nil, err
 		}
-		accountPtr = &account
 	}
 
 	p := &models.Prompt{
@@ -488,7 +494,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
 		AccountID:            accountPtr.ID,
 		Account:              *accountPtr,
-		Extra:                frame.DBPropertiesFromMap(req.GetExtra()),
+		Extra:                req.GetExtra().AsMap(),
 	}
 
 	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
@@ -512,7 +518,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 	// Add telco and pushType information if provided
 
 	event := events.PromptSave{Service: pb.service}
-	err = pb.service.Emit(ctx, event.Name(), p)
+	err = pb.eventMan.Emit(ctx, event.Name(), p)
 	if err != nil {
 		logger.WithError(err).Warn("could not emit prompt save")
 		return nil, err
@@ -520,21 +526,21 @@ func (pb *paymentBusiness) InitiatePrompt(
 
 	logger.WithField("promptId", p.ID).Info("Prompt saved and event emitted for STK/USSD processing")
 
-	// Unified status usage
+	// Create status using repository
 	status := &models.Status{
 		EntityID:   p.ID,
 		EntityType: "prompt",
 		State:      int32(commonv1.STATE_CREATED.Number()),
 		Status:     int32(commonv1.STATUS_QUEUED.Number()),
-		Extra:      make(datatypes.JSONMap),
+		Extra:      make(data.JSONMap),
 	}
 	status.GenID(ctx)
 	status.Extra["transaction_ref"] = transactionRef
 
-	statusEvent := events.StatusSave{Service: pb.service}
-	err = pb.service.Emit(ctx, statusEvent.Name(), status)
+
+	err = pb.eventMan.Emit(ctx, events.EventNameStatusSave, status)
 	if err != nil {
-		logger.WithError(err).Warn("could not emit status save")
+		logger.WithError(err).Warn("could not save status")
 		return nil, err
 	}
 
@@ -544,17 +550,12 @@ func (pb *paymentBusiness) InitiatePrompt(
 		return nil, err
 	}
 
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
 func (pb *paymentBusiness) CreatePaymentLink(
 	ctx context.Context,
-	req *paymentV1.CreatePaymentLinkRequest,
+	req *paymentv1.CreatePaymentLinkRequest,
 ) (*commonv1.StatusResponse, error) {
 	logger := pb.service.Log(ctx).WithField("request", req)
 	logger.Info("handling create payment link request")
@@ -611,11 +612,11 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		notificationTypes := make([]models.NotificationType, 0, len(req.GetNotifications()))
 		for _, n := range req.GetNotifications() {
 			switch n {
-			case paymentV1.NotificationType_NOTIFICATION_TYPE_EMAIL:
+			case paymentv1.NotificationType_NOTIFICATION_TYPE_EMAIL:
 				notificationTypes = append(notificationTypes, models.NotificationTypeEmail)
-			case paymentV1.NotificationType_NOTIFICATION_TYPE_SMS:
+			case paymentv1.NotificationType_NOTIFICATION_TYPE_SMS:
 				notificationTypes = append(notificationTypes, models.NotificationTypeSMS)
-			case paymentV1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED:
+			case paymentv1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED:
 				// Skip unspecified notification types
 				continue
 			}
@@ -674,7 +675,7 @@ func (pb *paymentBusiness) CreatePaymentLink(
 
 	// Save PaymentLink (emit event)
 	event := events.PaymentLinkSave{Service: pb.service}
-	if emitErr := pb.service.Emit(ctx, event.Name(), paymentLink); emitErr != nil {
+	if emitErr := pb.eventMan.Emit(ctx, event.Name(), paymentLink); emitErr != nil {
 		logger.WithError(emitErr).Warn("could not emit payment link save event")
 		return nil, emitErr
 	}
@@ -688,8 +689,8 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		Extra:      make(map[string]interface{}),
 	}
 	status.GenID(ctx)
-	statusEvent := events.StatusSave{Service: pb.service}
-	if statusEmitErr := pb.service.Emit(ctx, statusEvent.Name(), status); statusEmitErr != nil {
+
+	if statusEmitErr := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); statusEmitErr != nil {
 		logger.WithError(statusEmitErr).Warn("could not emit payment link status event")
 		return nil, statusEmitErr
 	}
@@ -701,21 +702,16 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		status.State = int32(commonv1.STATE_INACTIVE.Number())
 		status.Status = int32(commonv1.STATUS_FAILED.Number())
 		status.Extra["error"] = err.Error()
-		if statusFailErr := pb.service.Emit(ctx, statusEvent.Name(), status); statusFailErr != nil {
+		if statusFailErr := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); statusFailErr != nil {
 			logger.WithError(statusFailErr).Warn("could not emit payment link status event after publish failure")
 		}
 		return nil, err
 	}
-	return &commonv1.StatusResponse{
-		Id:     status.EntityID,
-		State:  commonv1.STATE(status.State),
-		Status: commonv1.STATUS(status.Status),
-		Extras: frame.DBPropertiesToMap(status.Extra),
-	}, nil
+	return status.ToAPI(), nil
 }
 
 // validateAmountAndCost validates the amount and cost fields of the Payment.
-func (pb *paymentBusiness) validateAmountAndCost(message *paymentV1.Payment, p *models.Payment, c *models.Cost) {
+func (pb *paymentBusiness) validateAmountAndCost(message *paymentv1.Payment, p *models.Payment, c *models.Cost) {
 	if message.GetAmount().GetUnits() <= 0 || message.GetAmount().GetCurrencyCode() == "" {
 		return
 	}
@@ -805,27 +801,29 @@ func (pb *paymentBusiness) createDepositStep1(ctx context.Context, payment *mode
 		},
 	}
 
+	extra := &data.JSONMap{
+		"payment_id":   payment.ID,
+		"payment_type": "DEPOSIT_STEP1",
+		"narrative":    fmt.Sprintf("Funds deposited: %s", senderTel),
+		"comments":     fmt.Sprintf("Funds deposited from %s", senderTel),
+		"sender_tel":   senderTel,
+		"member_name":  memberName,
+		"group_name":   groupName,
+		"original_ref": payment.ReferenceID,
+	}
+
 	// Create transaction
 	transaction := &ledgerv1.Transaction{
 		Reference:    txRef,
 		Currency:     payment.Currency,
 		TransactedAt: time.Now().Format(time.RFC3339),
-		Data: map[string]string{
-			"payment_id":     payment.ID,
-			"payment_type":   "DEPOSIT_STEP1",
-			"narrative":      fmt.Sprintf("Funds deposited: %s", senderTel),
-			"comments":       fmt.Sprintf("Funds deposited from %s", senderTel),
-			"sender_tel":     senderTel,
-			"member_name":    memberName,
-			"group_name":     groupName,
-			"original_ref":   payment.ReferenceID,
-		},
+		Data: extra.ToProtoStruct(),
 		Entries: entries,
 		Cleared: false,
 		Type:    ledgerv1.TransactionType_NORMAL,
 	}
 
-	if _, err := pb.ledgerCli.Svc().CreateTransaction(ctx, transaction); err != nil {
+	if _, err := pb.ledgerCli.CreateTransaction(ctx, connect.NewRequest(transaction)); err != nil {
 		logger.WithError(err).Error("failed to create deposit step1 transaction")
 		return err
 	}
@@ -846,7 +844,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, 
 		Query: fmt.Sprintf("reference:%s", accountRef),
 	}
 
-	accountStream, err := pb.ledgerCli.Svc().SearchAccounts(ctx, searchReq)
+	accountStream, err := pb.ledgerCli.SearchAccounts(ctx, searchReq)
 	if err != nil {
 		logger.WithError(err).Error("failed to search for existing account")
 		return err
@@ -869,7 +867,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(ctx context.Context, accountRef, 
 		},
 	}
 
-	_, err = pb.ledgerCli.Svc().CreateAccount(ctx, account)
+	_, err = pb.ledgerCli.CreateAccount(ctx, account)
 	if err != nil {
 		logger.WithError(err).Error("failed to create ledger account")
 		return err

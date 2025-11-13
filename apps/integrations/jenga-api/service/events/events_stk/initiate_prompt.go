@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
-	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"github.com/antinvestor/jenga-api/service/coreapi"
 	"github.com/antinvestor/jenga-api/service/models"
 	"github.com/pitabwire/frame"
@@ -32,7 +32,7 @@ const (
 type InitiatePrompt struct {
 	Service       *frame.Service
 	Client        coreapi.JengaApiClient
-	PaymentClient paymentV1.PaymentClient
+	PaymentClient paymentv1.PaymentClient
 	CallbackURL   string
 }
 
@@ -40,7 +40,7 @@ type InitiatePrompt struct {
 func NewInitiatePrompt(
 	service *frame.Service,
 	client coreapi.JengaApiClient,
-	paymentClient paymentV1.PaymentClient,
+	paymentClient paymentv1.PaymentClient,
 	callbackURL string,
 ) *InitiatePrompt {
 	return &InitiatePrompt{

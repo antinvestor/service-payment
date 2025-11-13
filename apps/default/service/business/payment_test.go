@@ -8,10 +8,10 @@ package business_test
 
 // 	"github.com/antinvestor/apis/go/common"
 
-// 	commonv1 "github.com/antinvestor/apis/go/common/v1"
-// 	partitionV1 "github.com/antinvestor/apis/go/partition/v1"
-// 	paymentV1 "github.com/antinvestor/apis/go/payment/v1"
-// 	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+// 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+// 	partitionv1 "buf.build/gen/go/antinvestor/partition/protocolbuffers/go/partition/v1"
+// 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+// 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 
 // 	money "google.golang.org/genproto/googleapis/type/money"
 
@@ -102,26 +102,26 @@ package business_test
 // 	srv *frame.Service
 // }
 
-// func getProfileCli(t *testing.T) *profileV1.ProfileClient {
+// func getProfileCli(t *testing.T) *profilev1.ProfileClient {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
-// 	mockProfileService := profileV1.NewMockProfileServiceClient(ctrl)
+// 	mockProfileService := profilev1.NewMockProfileServiceClient(ctrl)
 // 	mockProfileService.EXPECT().
 // 		GetById(gomock.Any(), gomock.Any()).
-// 		Return(&profileV1.GetByIdResponse{
-// 			Data: &profileV1.ProfileObject{
+// 		Return(&profilev1.GetByIdResponse{
+// 			Data: &profilev1.ProfileObject{
 // 				Id: "test_profile-id",
 // 			},
 // 		}, nil).AnyTimes()
 // 	mockProfileService.EXPECT().
 // 		GetByContact(gomock.Any(), gomock.Any()).
-// 		Return(&profileV1.GetByContactResponse{
-// 			Data: &profileV1.ProfileObject{
+// 		Return(&profilev1.GetByContactResponse{
+// 			Data: &profilev1.ProfileObject{
 // 				Id: "test_profile-id",
 // 			},
 // 		}, nil).AnyTimes()
 
-// 	profileCli := profileV1.Init(&common.GrpcClientBase{}, mockProfileService)
+// 	profileCli := profilev1.Init(&common.GrpcClientBase{}, mockProfileService)
 // 	return profileCli
 // }
 
@@ -150,7 +150,7 @@ package business_test
 
 // 	type args struct {
 // 		ctxService   *ctxSrv
-// 		profileCli   *profileV1.ProfileClient
+// 		profileCli   *profilev1.ProfileClient
 // 		partitionCli *partitionV1.PartitionClient
 // 	}
 // 	tests := []struct {
@@ -194,7 +194,7 @@ package business_test
 
 // 	type args struct {
 // 		ctxService   *ctxSrv
-// 		profileCli   *profileV1.ProfileClient
+// 		profileCli   *profilev1.ProfileClient
 // 		partitionCli *partitionV1.PartitionClient
 // 	}
 // 	tests := []struct {
@@ -237,13 +237,13 @@ package business_test
 
 // 	type fields struct {
 // 		ctxService   *ctxSrv
-// 		profileCli   *profileV1.ProfileClient
+// 		profileCli   *profilev1.ProfileClient
 // 		partitionCli *partitionV1.PartitionClient
 // 	}
 
 // 	type args struct {
 // 		ctx     context.Context
-// 		message *paymentV1.Payment
+// 		message *paymentv1.Payment
 // 	}
 
 // 	tests := []struct {
@@ -262,7 +262,7 @@ package business_test
 // 			},
 // 			args: args{
 // 				ctx: nil,
-// 				message: &paymentV1.Payment{
+// 				message: &paymentv1.Payment{
 // 					Id: "c2f4j7au6s7f91uqnojg",
 // 					Recipient: &commonv1.ContactLink{
 // 						ContactId: "test_contact-id",
@@ -340,13 +340,13 @@ package business_test
 
 // 	type fields struct {
 // 		ctxService   *ctxSrv
-// 		profileCli   *profileV1.ProfileClient
+// 		profileCli   *profilev1.ProfileClient
 // 		partitionCli *partitionV1.PartitionClient
 // 	}
 
 // 	type args struct {
 // 		ctx     context.Context
-// 		message *paymentV1.Payment
+// 		message *paymentv1.Payment
 // 	}
 
 // 	tests := []struct {
@@ -365,7 +365,7 @@ package business_test
 // 			},
 // 			args: args{
 // 				ctx: nil,
-// 				message: &paymentV1.Payment{
+// 				message: &paymentv1.Payment{
 // 					Id: "c2f4j7au6s7f91uqnojz",
 // 					Recipient: &commonv1.ContactLink{
 // 						ContactId: "test_contact-id",

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	profileV1 "github.com/antinvestor/apis/go/profile/v1"
+	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 	"github.com/antinvestor/service-payments/service/models"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm/clause"
 
 	"github.com/pitabwire/frame"
@@ -13,7 +14,7 @@ import (
 
 type PromptSave struct {
 	Service    *frame.Service
-	ProfileCli *profileV1.ProfileClient
+	ProfileCli *profilev1.ProfileClient
 }
 
 func (e *PromptSave) Name() string {
@@ -25,7 +26,7 @@ func (e *PromptSave) PayloadType() any {
 }
 
 func (e *PromptSave) Validate(ctx context.Context, payload any) error {
-	logger := e.Service.Log(ctx).WithField("function", "PromptSave.Validate")
+	logger := util.Log(ctx).WithField("function", "PromptSave.Validate")
 
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
@@ -63,7 +64,7 @@ func (e *PromptSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Prompt")
 	}
 
-	logger := e.Service.Log(ctx).WithField("payload", prompt).WithField("type", e.Name())
+	logger := util.Log(ctx).WithField("payload", prompt).WithField("type", e.Name())
 	logger.Debug("handling event")
 
 	// Attempt to save to database

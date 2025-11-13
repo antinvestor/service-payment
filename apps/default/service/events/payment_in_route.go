@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	commonv1 "github.com/antinvestor/apis/go/common/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/service/models"
 	"github.com/antinvestor/service-payments/service/repository"
+	"github.com/pitabwire/util"
 
 	"github.com/pitabwire/frame"
 )
@@ -16,7 +17,7 @@ import (
 // filterContactFromProfileByID finds a contact by ID in a profile
 // Currently unused but may be needed for future functionality
 /*
-func filterContactFromProfileByID(profile *profileV1.ProfileObject, contactID string) *profileV1.ContactObject {
+func filterContactFromProfileByID(profile *profilev1.ProfileObject, contactID string) *profilev1.ContactObject {
 	for _, contact := range profile.GetContacts() {
 		if contact.GetId() == contactID {
 			return contact
@@ -54,7 +55,7 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type *string")
 	}
 	paymentID := *paymentIDPtr
-	logger := event.Service.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
 	logger.Debug("handling event")
 
 	paymentRepo := repository.NewPaymentRepository(ctx, event.Service)
@@ -77,8 +78,8 @@ func (event *PaymentInRoute) Execute(ctx context.Context, payload any) error {
 				Extra:      frame.DBPropertiesFromMap(map[string]string{"error": err.Error()}),
 			}
 			status.GenID(ctx)
-			statusEvent := StatusSave{Service: event.Service}
-			err = event.Service.Emit(ctx, statusEvent.Name(), &status)
+
+			err = event.Service.Emit(ctx, EventNameStatusSave, &status)
 			if err != nil {
 				logger.WithError(err).Warn("could not emit status for save")
 				return err
@@ -179,7 +180,7 @@ func loadRoute(ctx context.Context, service *frame.Service, routeID string) (*mo
 }
 
 func selectRoute(_ context.Context, routes []*models.Route) (*models.Route, error) {
-	//TODO: find a simple way of routing payments mostly by settings
+	// TODO: find a simple way of routing payments mostly by settings
 	// or contact and profile preferences
 	if len(routes) == 0 {
 		return nil, errors.New("no routes matched for payment")

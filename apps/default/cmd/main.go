@@ -81,7 +81,7 @@ func main() {
 
 	// Initialize business layer
 	paymentBusiness, err := business.NewPaymentBusiness(
-		ctx, svc, profileCli, partitionCli, ledgerCli,
+		ctx, workMan, evtsMan, profileCli, partitionCli, ledgerCli,
 		paymentRepo, statusRepo, costRepo, accountRepo, promptRepo, paymentLinkRepo,
 	)
 	if err != nil {

@@ -29,6 +29,7 @@ type CostRepository interface {
 type StatusRepository interface {
 	datastore.BaseRepository[*models.Status]
 	GetByEntity(ctx context.Context, entityID string, entityType string) (*models.Status, error)
+	GetByEntityIDList(ctx context.Context, entityIDs []string, entityType string) (map[string]*models.Status, error)
 }
 
 type PromptRepository interface {

@@ -145,13 +145,15 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 
 func (h *CreatePaymentLink) prepareRequest(paymentLink *models.PaymentLink) (models.PaymentLinkRequest, error) {
 	var customers []models.PaymentLinkCustomer
-	if err := json.Unmarshal(paymentLink.Customers, &customers); err != nil {
+	customersBytes, _ := json.Marshal(paymentLink.Customers)
+	if err := json.Unmarshal(customersBytes, &customers); err != nil {
 		return models.PaymentLinkRequest{}, fmt.Errorf("unmarshal customers: %w", err)
 	}
 
 	var notifications []string
 	if len(paymentLink.Notifications) > 0 {
-		if err := json.Unmarshal(paymentLink.Notifications, &notifications); err != nil {
+		notificationsBytes, _ := json.Marshal(paymentLink.Notifications)
+		if err := json.Unmarshal(notificationsBytes, &notifications); err != nil {
 			return models.PaymentLinkRequest{}, fmt.Errorf("unmarshal notifications: %w", err)
 		}
 	}

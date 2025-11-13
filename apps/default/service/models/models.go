@@ -326,7 +326,8 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentv1.CreatePaym
 	customers := make([]*paymentv1.Customer, 0)
 	if len(model.Customers) > 0 {
 		var customerList []Customer
-		err := json.Unmarshal(model.Customers, &customerList)
+		customersBytes, _ := json.Marshal(model.Customers)
+		err := json.Unmarshal(customersBytes, &customerList)
 		if err == nil {
 			for _, customer := range customerList {
 				extraC := data.JSONMap{"email": customer.Email}
@@ -352,7 +353,8 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentv1.CreatePaym
 	}
 	if len(model.Notifications) > 0 {
 		var notificationTypes []NotificationType
-		err := json.Unmarshal(model.Notifications, &notificationTypes)
+		notificationsBytes, _ := json.Marshal(model.Notifications)
+		err := json.Unmarshal(notificationsBytes, &notificationTypes)
 		if err == nil {
 			for _, notificationType := range notificationTypes {
 				if notificationType.IsValid() {

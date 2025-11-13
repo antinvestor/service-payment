@@ -9,7 +9,7 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
@@ -170,7 +170,12 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 // parseAccountInfo unmarshals the account JSON from the prompt.
 func parseAccountInfo(accountJSON data.JSONMap) (*models.Account, error) {
 	var account models.Account
-	if err := json.Unmarshal(accountJSON, &account); err != nil {
+	// Convert JSONMap to bytes first, then unmarshal
+	bytes, err := json.Marshal(accountJSON)
+	if err != nil {
+		return nil, fmt.Errorf("marshal account JSON: %w", err)
+	}
+	if err = json.Unmarshal(bytes, &account); err != nil {
 		return nil, fmt.Errorf("unmarshal account JSON: %w", err)
 	}
 	return &account, nil

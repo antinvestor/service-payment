@@ -610,7 +610,10 @@ func (pb *paymentBusiness) CreatePaymentLink(
 			logger.WithError(err).Error("failed to marshal notifications")
 			return nil, err
 		}
-		notificationsJSON = b
+		if unmarshalErr := json.Unmarshal(b, &notificationsJSON); unmarshalErr != nil {
+			logger.WithError(unmarshalErr).Error("failed to convert notifications to JSONMap")
+			return nil, unmarshalErr
+		}
 	}
 
 	// Parse dates
@@ -900,7 +903,16 @@ func (pb *paymentBusiness) buildCustomersFromRequest(
 			CustomerExternalRef: c.GetCustomerExternalRef(),
 		})
 	}
-	return json.Marshal(result)
+	// Convert to JSONMap via marshal/unmarshal
+	bytes, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	var jsonMap data.JSONMap
+	if unmarshalErr := json.Unmarshal(bytes, &jsonMap); unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+	return jsonMap, nil
 }
 
 // splitProfileName splits a profile name into first and last name.

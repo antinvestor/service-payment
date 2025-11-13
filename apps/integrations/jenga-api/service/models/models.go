@@ -5,7 +5,6 @@ import (
 
 	"github.com/pitabwire/frame/data"
 	"github.com/shopspring/decimal"
-	"gorm.io/datatypes"
 )
 
 type Merchant struct {
@@ -159,15 +158,15 @@ type Prompt struct {
 	State                int32               `gorm:"type:integer"`
 	Status               int32               `gorm:"type:integer"`
 	Route                string              `gorm:"type:varchar(50)"`
-	Account              datatypes.JSON      `gorm:"type:jsonb"`
+	Account              data.JSONMap        `gorm:"type:jsonb"`
 	Extra                data.JSONMap        `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 type Account struct {
 	data.BaseModel
-	AccountNumber string `gorm:"type:varchar(50)"`
-	CountryCode   string `gorm:"type:varchar(50)"`
-	Name          string `gorm:"type:varchar(50)"`
+	AccountNumber string `gorm:"type:varchar(50)" json:"accountNumber"`
+	CountryCode   string `gorm:"type:varchar(50)" json:"countryCode"`
+	Name          string `gorm:"type:varchar(50)" json:"name"`
 }
 
 type PaymentLink struct {
@@ -185,8 +184,8 @@ type PaymentLink struct {
 	AmountOption    string          `gorm:"type:varchar(20)"  json:"amountOption"`
 	Amount          decimal.Decimal `gorm:"type:numeric"      json:"amount"`
 	Currency        string          `gorm:"type:varchar(10)"  json:"currency"`
-	Customers       datatypes.JSON  `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
-	Notifications   datatypes.JSON  `gorm:"type:jsonb"        json:"notifications"` // Notifications are enums
+	Customers       data.JSONMap    `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
+	Notifications   data.JSONMap    `gorm:"type:jsonb"        json:"notifications"` // Notifications are enums
 
 }
 

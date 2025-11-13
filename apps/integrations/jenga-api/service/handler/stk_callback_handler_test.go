@@ -1,17 +1,18 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:gocognit // Test complexity is acceptable for comprehensive test coverage
 func TestHandleStkCallback(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -86,7 +87,7 @@ func TestHandleStkCallback(t *testing.T) {
 				Code:          0,
 				Message:       "Success",
 			},
-			emitError:      assert.AnError,
+			emitError:      errors.New("ewr"),
 			expectedStatus: http.StatusInternalServerError,
 		},
 	}
@@ -150,7 +151,7 @@ func TestHandleStkCallback(t *testing.T) {
 			handlerFunc(rr, req)
 
 			// Check response
-			assert.Equal(t, tt.expectedStatus, rr.Code)
+			require.Equal(t, tt.expectedStatus, rr.Code)
 
 			// Verify mock expectations
 			// mockService.AssertExpectations(t)

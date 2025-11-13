@@ -73,16 +73,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 	// Queue a payment for further processing by peripheral services
 	err = event.qMan.Publish(ctx, p.RouteID, p)
 	if err != nil {
-		if !strings.Contains(err.Error(), "reference does not exist") {
-			if p.RouteID != "" {
-				_, err = loadRoute(ctx, event.qMan, event.routeRepo, p.RouteID)
-				if err != nil {
-					return err
-				}
-			}
-
-			return err
-		}
+		return event.handlePublishError(ctx, err, p)
 	}
 
 	logger.
@@ -107,4 +98,21 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 	}
 
 	return nil
+}
+
+// handlePublishError handles errors from queue publish operation.
+func (event *PaymentInQueue) handlePublishError(ctx context.Context, err error, p *models.Payment) error {
+	// If the error is not about missing reference, return it
+	if !strings.Contains(err.Error(), "reference does not exist") {
+		return err
+	}
+
+	// Try to load the route if route ID is set
+	if p.RouteID != "" {
+		if _, loadErr := loadRoute(ctx, event.qMan, event.routeRepo, p.RouteID); loadErr != nil {
+			return loadErr
+		}
+	}
+
+	return err
 }

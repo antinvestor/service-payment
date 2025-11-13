@@ -72,12 +72,12 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response after processing
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]string{
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{
 		"status":      "success",
 		"message":     "Tills pay request processed successfully",
 		"referenceId": request.Payment.Ref,
-	}); err != nil {
-		logger.WithError(err).Error("failed to encode response")
+	}); encodeErr != nil {
+		logger.WithError(encodeErr).Error("failed to encode response")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

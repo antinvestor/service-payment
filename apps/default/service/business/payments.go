@@ -25,7 +25,6 @@ import (
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
 	"github.com/shopspring/decimal"
-	"gorm.io/datatypes"
 )
 
 func NewPaymentBusiness(
@@ -310,7 +309,7 @@ func (pb *paymentBusiness) StatusUpdate(
 	return status.ToAPI(), nil
 }
 
-func (pb *paymentBusiness) convertPaymentsToApi(
+func (pb *paymentBusiness) convertPaymentsToAPI(
 	ctx context.Context,
 	paymentList []*models.Payment,
 ) ([]*paymentv1.Payment, error) {
@@ -397,7 +396,7 @@ func (pb *paymentBusiness) Search(
 					return res.Error()
 				}
 
-				finalRes, convErr := pb.convertPaymentsToApi(cancelCtx, res.Item())
+				finalRes, convErr := pb.convertPaymentsToAPI(cancelCtx, res.Item())
 				if convErr != nil {
 					return convErr
 				}
@@ -453,14 +452,13 @@ func (pb *paymentBusiness) Release(
 		}
 
 		return status.ToAPI(), nil
-	} else {
-		status, err := pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
-		if err != nil {
-			logger.WithError(err).Warn("could not get payment status")
-			return nil, err
-		}
-		return status.ToAPI(), nil
 	}
+	status, statusErr := pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
+	if statusErr != nil {
+		logger.WithError(statusErr).Warn("could not get payment status")
+		return nil, statusErr
+	}
+	return status.ToAPI(), nil
 }
 
 func (pb *paymentBusiness) InitiatePrompt(
@@ -565,6 +563,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 	return status.ToAPI(), nil
 }
 
+//nolint:gocognit,funlen // Business logic complexity and length are acceptable for payment link creation
 func (pb *paymentBusiness) CreatePaymentLink(
 	ctx context.Context,
 	req *paymentv1.CreatePaymentLinkRequest,
@@ -581,48 +580,18 @@ func (pb *paymentBusiness) CreatePaymentLink(
 	plReq := req.GetPaymentLink()
 
 	// Marshal customers to JSON
-	var customersJSON datatypes.JSON
+	var customersJSON data.JSONMap
 	if len(req.GetCustomers()) > 0 {
-		customers := make([]models.Customer, 0, len(req.GetCustomers()))
-		for _, c := range req.GetCustomers() {
-			profileName := c.GetSource().GetProfileName()
-			firstName := profileName
-			lastName := ""
-			if len(profileName) > 0 {
-				parts := strings.Fields(profileName)
-				if len(parts) > 1 {
-					firstName = parts[0]
-					lastName = strings.Join(parts[1:], " ")
-				} else {
-					firstName = parts[0]
-					lastName = ""
-				}
-			}
-
-			var customerExtras data.JSONMap
-			customerExtras = customerExtras.FromProtoStruct(c.GetSource().GetExtras())
-
-			customers = append(customers, models.Customer{
-				FirstName:           firstName, // fallback: use ProfileName as FirstName
-				LastName:            lastName,  // Not available in proto, unless split from ProfileName
-				Email:               customerExtras.GetString("email"),
-				PhoneNumber:         c.GetSource().GetContactId(),
-				FirstAddress:        c.GetFirstAddress(),
-				CountryCode:         c.GetCountryCode(),
-				PostalOrZipCode:     c.GetPostalOrZipCode(),
-				CustomerExternalRef: c.GetCustomerExternalRef(),
-			})
-		}
-		b, err := json.Marshal(customers)
+		customers, err := pb.buildCustomersFromRequest(req.GetCustomers())
 		if err != nil {
-			logger.WithError(err).Error("failed to marshal customers")
+			logger.WithError(err).Error("failed to build customers")
 			return nil, err
 		}
-		customersJSON = b
+		customersJSON = customers
 	}
 
 	// Marshal notifications to JSON
-	var notificationsJSON datatypes.JSON
+	var notificationsJSON data.JSONMap
 	if len(req.GetNotifications()) > 0 {
 		notificationTypes := make([]models.NotificationType, 0, len(req.GetNotifications()))
 		for _, n := range req.GetNotifications() {
@@ -759,7 +728,7 @@ const (
 func generateTransactionRef() string {
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
 	timeComponent := timestamp % millionMod
-	asciiChar := asciiCharBase + ((timestamp / millionMod) % 26)
+	asciiChar := asciiCharBase + ((timestamp / millionMod) % alphabetSize)
 	return fmt.Sprintf("%c%05d", rune(asciiChar), timeComponent%hundredKMod)
 }
 
@@ -909,9 +878,52 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 	return nil
 }
 
+// buildCustomersFromRequest builds customer models from the request.
+func (pb *paymentBusiness) buildCustomersFromRequest(
+	customers []*paymentv1.Customer,
+) (data.JSONMap, error) {
+	result := make([]models.Customer, 0, len(customers))
+	for _, c := range customers {
+		firstName, lastName := pb.splitProfileName(c.GetSource().GetProfileName())
+
+		var customerExtras data.JSONMap
+		customerExtras = customerExtras.FromProtoStruct(c.GetSource().GetExtras())
+
+		result = append(result, models.Customer{
+			FirstName:           firstName,
+			LastName:            lastName,
+			Email:               customerExtras.GetString("email"),
+			PhoneNumber:         c.GetSource().GetContactId(),
+			FirstAddress:        c.GetFirstAddress(),
+			CountryCode:         c.GetCountryCode(),
+			PostalOrZipCode:     c.GetPostalOrZipCode(),
+			CustomerExternalRef: c.GetCustomerExternalRef(),
+		})
+	}
+	return json.Marshal(result)
+}
+
+// splitProfileName splits a profile name into first and last name.
+func (pb *paymentBusiness) splitProfileName(profileName string) (string, string) {
+	firstName := profileName
+	lastName := ""
+	if len(profileName) == 0 {
+		return firstName, lastName
+	}
+	parts := strings.Fields(profileName)
+	if len(parts) > 1 {
+		firstName = parts[0]
+		lastName = strings.Join(parts[1:], " ")
+	} else {
+		firstName = parts[0]
+		lastName = ""
+	}
+	return firstName, lastName
+}
+
 func (pb *paymentBusiness) Reconcile(
-	ctx context.Context,
-	msg *paymentv1.ReconcileRequest,
+	_ context.Context,
+	_ *paymentv1.ReconcileRequest,
 ) (*paymentv1.ReconcileResponse, error) {
 	// TODO implement me
 	panic("implement me")

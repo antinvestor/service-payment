@@ -15,7 +15,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
-	"gorm.io/datatypes"
 )
 
 const (
@@ -160,16 +159,16 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 
 	logger.WithField("response", response).Info("STK/USSD push response received")
 
-	if err := h.updateStatus(ctx, prompt.ID, transactionRef, response.TransactionID, response.Message); err != nil {
-		logger.WithError(err).Error("failed to update payment status")
-		return fmt.Errorf("update payment status: %w", err)
+	if updateErr := h.updateStatus(ctx, prompt.ID, transactionRef, response.TransactionID, response.Message); updateErr != nil {
+		logger.WithError(updateErr).Error("failed to update payment status")
+		return fmt.Errorf("update payment status: %w", updateErr)
 	}
 
 	return nil
 }
 
 // parseAccountInfo unmarshals the account JSON from the prompt.
-func parseAccountInfo(accountJSON datatypes.JSON) (*models.Account, error) {
+func parseAccountInfo(accountJSON data.JSONMap) (*models.Account, error) {
 	var account models.Account
 	if err := json.Unmarshal(accountJSON, &account); err != nil {
 		return nil, fmt.Errorf("unmarshal account JSON: %w", err)

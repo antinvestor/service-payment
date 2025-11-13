@@ -9,7 +9,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/default/service/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/shopspring/decimal"
-	"gorm.io/datatypes"
 )
 
 const (
@@ -246,8 +245,8 @@ type PaymentLink struct {
 	AmountOption    string          `gorm:"type:varchar(20)"  json:"amountOption"`
 	Amount          decimal.Decimal `gorm:"type:numeric"      json:"amount"`
 	Currency        string          `gorm:"type:varchar(10)"  json:"currency"`
-	Customers       datatypes.JSON  `gorm:"type:jsonb"        json:"customers"` // stores []Customer as JSON
-	Notifications   datatypes.JSON  `gorm:"type:jsonb"        json:"notifications"`
+	Customers       data.JSONMap    `gorm:"type:jsonb"        json:"customers"` // stores []Customer as JSON
+	Notifications   data.JSONMap    `gorm:"type:jsonb"        json:"notifications"`
 }
 
 // Customer represents a customer for a payment link.

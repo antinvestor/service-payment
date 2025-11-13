@@ -1,16 +1,17 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
+	handlers "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -42,6 +43,7 @@ func (m *MockLogger) WithError(_ error) *MockLogger {
 	return m
 }
 
+//nolint:gocognit // Test complexity is acceptable for comprehensive test coverage
 func TestInitiateStkUssd(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -106,7 +108,7 @@ func TestInitiateStkUssd(t *testing.T) {
 					Amount:       "1000", // Add Amount to pass validation
 				},
 			},
-			emitError:      assert.AnError,
+			emitError:      errors.New("err"),
 			expectedStatus: http.StatusInternalServerError,
 		},
 	}
@@ -166,10 +168,10 @@ func TestInitiateStkUssd(t *testing.T) {
 				}
 
 				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(map[string]string{
+				if encodeErr := json.NewEncoder(w).Encode(map[string]string{
 					"status":  "success",
 					"message": "STK/USSD push initiated successfully",
-				}); err != nil {
+				}); encodeErr != nil {
 					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 					return
 				}
@@ -193,14 +195,14 @@ func TestInitiateStkUssd(t *testing.T) {
 			handlerFunc(rr, req)
 
 			// Check response
-			assert.Equal(t, tt.expectedStatus, rr.Code)
+			require.Equal(t, tt.expectedStatus, rr.Code)
 
 			// If we expect a specific response body, verify it
 			if tt.expectedBody != nil {
 				var responseBody map[string]string
 				err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedBody, responseBody)
+				require.Equal(t, tt.expectedBody, responseBody)
 			}
 
 			// Verify mock expectations
@@ -241,7 +243,7 @@ func TestAccountBalanceHandler(t *testing.T) {
 				"countryCode": "KE",
 				"accountId":   "12345",
 			},
-			emitError:      assert.AnError,
+			emitError:      errors.New("err"),
 			expectedStatus: http.StatusInternalServerError,
 		},
 	}
@@ -309,7 +311,7 @@ func TestAccountBalanceHandler(t *testing.T) {
 			handlerFunc(rr, req)
 
 			// Check response
-			assert.Equal(t, tt.expectedStatus, rr.Code)
+			require.Equal(t, tt.expectedStatus, rr.Code)
 
 			// Verify mock expectations
 			mockService.AssertExpectations(t)
@@ -326,15 +328,15 @@ func TestHealthHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Call the handler
-	HealthHandler(rr, req)
+	handlers.HealthHandler(rr, req)
 
 	// Check response
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 
 	// Parse response body
 	var responseBody map[string]string
 	err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
 	require.NoError(t, err)
-	assert.Equal(t, "ok", responseBody["status"])
+	require.Equal(t, "ok", responseBody["status"])
 }

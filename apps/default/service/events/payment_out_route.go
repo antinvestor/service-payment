@@ -48,7 +48,7 @@ func (event *PaymentOutRoute) PayloadType() any {
 	return &pType
 }
 
-func (event *PaymentOutRoute) Validate(ctx context.Context, payload any) error {
+func (event *PaymentOutRoute) Validate(_ context.Context, payload any) error {
 	if _, ok := payload.(*string); !ok {
 		return errors.New(" payload is not of type string")
 	}

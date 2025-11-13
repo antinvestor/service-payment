@@ -34,7 +34,7 @@ func (sr *statusRepository) GetByEntityIDList(
 	entityType string,
 ) (map[string]*models.Status, error) {
 	var statusList []*models.Status
-	err := sr.Pool().DB(ctx, true).Find(statusList, "entity_id IN ? AND entity_type = ?", entityIDs, entityType).Error
+	err := sr.Pool().DB(ctx, true).Find(&statusList, "entity_id IN ? AND entity_type = ?", entityIDs, entityType).Error
 	if err != nil {
 		return nil, err
 	}

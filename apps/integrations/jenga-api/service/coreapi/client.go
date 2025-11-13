@@ -2,6 +2,7 @@ package coreapi
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -11,41 +12,48 @@ import (
 	"time"
 
 	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/pitabwire/util"
+)
+
+const (
+	maxIdleConns    = 10
+	idleConnTimeout = 30 * time.Second
+	httpTimeout     = 30 * time.Second
 )
 
 // Client represents the Jenga API client.
 type Client struct {
 	MerchantCode    string
 	ConsumerSecret  string
-	ApiKey          string       //nolint:staticcheck // API field name
-	HttpClient      *http.Client //nolint:staticcheck // API field name
+	APIKey          string
+	HTTPClient      *http.Client
 	Env             string
 	JengaPrivateKey string
 }
 
 // New creates a new instance of the Jenga API client.
-func New(merchantCode, consumerSecret, apiKey, env string, jengaPrivateKey string) *Client {
+func New(merchantCode, consumerSecret, apiKey, env string, _ string) *Client {
 	// Create a custom transport with TLS configuration
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		},
-		MaxIdleConns:       10,
-		IdleConnTimeout:    30 * time.Second,
+		MaxIdleConns:       maxIdleConns,
+		IdleConnTimeout:    idleConnTimeout,
 		DisableCompression: true,
 	}
 
 	// Create HTTP client with the custom transport
 	httpClient := &http.Client{
 		Transport: tr,
-		Timeout:   30 * time.Second,
+		Timeout:   httpTimeout,
 	}
 
 	return &Client{
 		MerchantCode:   merchantCode,
 		ConsumerSecret: consumerSecret,
-		ApiKey:         apiKey,
-		HttpClient:     httpClient,
+		APIKey:         apiKey,
+		HTTPClient:     httpClient,
 		Env:            env,
 	}
 }
@@ -71,20 +79,20 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", c.ApiKey)
+	req.Header.Set("Api-Key", c.APIKey)
 
-	resp, err := c.HttpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			fmt.Printf("failed to close response body: %v\n", closeErr)
+			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
 		}
 	}()
 
@@ -98,8 +106,8 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	}
 
 	var tokenResponse BearerTokenResponse
-	if err := json.Unmarshal(respBody, &tokenResponse); err != nil {
-		return nil, err
+	if unmarshalErr := json.Unmarshal(respBody, &tokenResponse); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 	return &tokenResponse, nil
 }
@@ -141,7 +149,7 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -149,19 +157,19 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HttpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("failed to close response body: %v\n", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
 		}
 	}()
 
 	var stkUssdResponse models.STKUSSDResponse
-	if err := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); err != nil {
-		return nil, err
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); decodeErr != nil {
+		return nil, decodeErr
 	}
 	return &stkUssdResponse, nil
 }
@@ -200,7 +208,7 @@ func (c *Client) CreatePaymentLink(
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -208,13 +216,13 @@ func (c *Client) CreatePaymentLink(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HttpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			fmt.Printf("failed to close response body: %v\n", closeErr)
+			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
 		}
 	}()
 
@@ -252,8 +260,9 @@ func (c *Client) InitiateTillsPay(
 		request.Payment.Currency,
 		request.Payment.Ref,
 	)
-	fmt.Println("------------------------------signature--------------------------------")
-	fmt.Println(signature)
+	logger := util.Log(context.Background())
+	logger.Debug("------------------------------signature--------------------------------")
+	logger.WithField("signature", signature).Debug("generated signature")
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +272,7 @@ func (c *Client) InitiateTillsPay(
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -271,13 +280,13 @@ func (c *Client) InitiateTillsPay(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HttpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			fmt.Printf("failed to close response body: %v\n", closeErr)
+			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
 		}
 	}()
 

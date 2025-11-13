@@ -8,11 +8,15 @@ import (
 	"google.golang.org/genproto/googleapis/type/money"
 )
 
-const NanoSize = 1000000000
+const (
+	NanoSize     = 1000000000
+	maxNanoSize  = 999999999  // Maximum nanos value for money.Money
+	int32MaxMask = 0x7FFFFFFF // Mask to ensure positive int32 value
+)
 
 // maxDecimalValue returns the maximum decimal value supported.
 func maxDecimalValue() decimal.Decimal {
-	return decimal.NewFromInt(math.MaxInt64).Add(decimal.New(999999999, -9))
+	return decimal.NewFromInt(math.MaxInt64).Add(decimal.New(maxNanoSize, -9))
 }
 
 func ToMoney(currency string, amount decimal.Decimal) money.Money {
@@ -22,7 +26,11 @@ func ToMoney(currency string, amount decimal.Decimal) money.Money {
 	units := amount.IntPart()
 	nanos := amount.Sub(decimal.NewFromInt(units)).Mul(decimal.NewFromInt(NanoSize)).IntPart()
 
-	return money.Money{CurrencyCode: currency, Units: units, Nanos: int32(nanos & 0x7FFFFFFF)}
+	return money.Money{
+		CurrencyCode: currency,
+		Units:        units,
+		Nanos:        int32(nanos & int32MaxMask), //nolint:gosec // G115: Safe conversion, value is masked to fit int32
+	}
 }
 
 func FromMoney(m *money.Money) decimal.Decimal {

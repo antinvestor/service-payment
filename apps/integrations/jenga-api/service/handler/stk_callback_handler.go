@@ -60,10 +60,10 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{
+	if encodeErr := json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
 		"message": "Callback received successfully",
-	}); err != nil {
-		logger.WithError(err).Error("failed to encode success response")
+	}); encodeErr != nil {
+		logger.WithError(encodeErr).Error("failed to encode success response")
 	}
 }

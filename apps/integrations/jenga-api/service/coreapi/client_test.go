@@ -1,4 +1,4 @@
-package coreapi
+package coreapi_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,14 +19,14 @@ func TestGenerateBearerToken(t *testing.T) {
 		responseStatus int
 		responseBody   string
 		expectError    bool
-		expectedToken  *BearerTokenResponse
+		expectedToken  *coreapi.BearerTokenResponse
 	}{
 		{
 			name:           "Success - 200 OK",
 			responseStatus: http.StatusOK,
 			responseBody:   `{"accessToken":"test-token","refreshToken":"refresh-token","expiresIn":"3600","issuedAt":"2023-01-01T00:00:00Z","tokenType":"Bearer"}`,
 			expectError:    false,
-			expectedToken: &BearerTokenResponse{
+			expectedToken: &coreapi.BearerTokenResponse{
 				AccessToken:  "test-token",
 				RefreshToken: "refresh-token",
 				ExpiresIn:    "3600",
@@ -69,11 +70,11 @@ func TestGenerateBearerToken(t *testing.T) {
 			defer server.Close()
 
 			// Create client pointing to test server
-			client := &Client{
+			client := &coreapi.Client{
 				MerchantCode:   "TEST_MERCHANT",
 				ConsumerSecret: "TEST_SECRET",
-				ApiKey:         "TEST_API_KEY",
-				HttpClient:     server.Client(),
+				APIKey:         "TEST_API_KEY",
+				HTTPClient:     server.Client(),
 				Env:            server.URL, // Use test server URL
 			}
 
@@ -83,10 +84,10 @@ func TestGenerateBearerToken(t *testing.T) {
 			// Check expectations
 			if tt.expectError {
 				require.Error(t, err)
-				assert.Nil(t, token)
+				require.Nil(t, token)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedToken, token)
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedToken, token)
 			}
 		})
 	}
@@ -94,8 +95,8 @@ func TestGenerateBearerToken(t *testing.T) {
 
 func TestInitiateSTKUSSD(t *testing.T) {
 	// Enable test mode to skip actual signature validation
-	TestMode = true
-	defer func() { TestMode = false }()
+	coreapi.SetTestMode(true)
+	defer func() { coreapi.SetTestMode(false) }()
 	tests := []struct {
 		name             string
 		request          models.STKUSSDRequest
@@ -158,18 +159,18 @@ func TestInitiateSTKUSSD(t *testing.T) {
 
 	// Create a temporary file for private key testing
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		removeErr := os.Remove(tmpFile.Name())
-		assert.NoError(t, removeErr)
+		require.NoError(t, removeErr)
 	}()
 	// Write dummy key content
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = tmpFile.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,8 +184,8 @@ func TestInitiateSTKUSSD(t *testing.T) {
 
 				// Check request body
 				var requestBody models.STKUSSDRequest
-				err := json.NewDecoder(r.Body).Decode(&requestBody)
-				assert.NoError(t, err)
+				decodeErr := json.NewDecoder(r.Body).Decode(&requestBody)
+				assert.NoError(t, decodeErr)
 				assert.Equal(t, tt.request, requestBody)
 
 				// Send response
@@ -196,25 +197,25 @@ func TestInitiateSTKUSSD(t *testing.T) {
 			defer server.Close()
 
 			// Create client pointing to test server
-			client := &Client{
+			client := &coreapi.Client{
 				MerchantCode:    "TEST_MERCHANT",
 				ConsumerSecret:  "TEST_SECRET",
-				ApiKey:          "TEST_API_KEY",
-				HttpClient:      server.Client(),
+				APIKey:          "TEST_API_KEY",
+				HTTPClient:      server.Client(),
 				Env:             server.URL, // Use test server URL
 				JengaPrivateKey: tmpFile.Name(),
 			}
 
 			// Call the method
-			response, err := client.InitiateSTKUSSD(tt.request, "test-token")
+			response, respErr := client.InitiateSTKUSSD(tt.request, "test-token")
 
 			// Check expectations
 			if tt.expectError {
-				require.Error(t, err)
-				assert.Nil(t, response)
+				require.Error(t, respErr)
+				require.Nil(t, response)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedResponse, response)
+				require.NoError(t, respErr)
+				require.Equal(t, tt.expectedResponse, response)
 			}
 		})
 	}
@@ -222,8 +223,8 @@ func TestInitiateSTKUSSD(t *testing.T) {
 
 func TestInitiateAccountBalance(t *testing.T) {
 	// Enable test mode to skip actual signature validation
-	TestMode = true
-	defer func() { TestMode = false }()
+	coreapi.SetTestMode(true)
+	defer func() { coreapi.SetTestMode(false) }()
 	tests := []struct {
 		name        string
 		countryCode string
@@ -282,18 +283,18 @@ func TestInitiateAccountBalance(t *testing.T) {
 
 	// Create a temporary file for private key testing
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		removeErr := os.Remove(tmpFile.Name())
-		assert.NoError(t, removeErr)
+		require.NoError(t, removeErr)
 	}()
 	// Write dummy key content
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = tmpFile.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -318,24 +319,23 @@ func TestInitiateAccountBalance(t *testing.T) {
 func TestGenerateSignature(t *testing.T) {
 	// Disable test mode for the signature generation tests
 	// since these tests specifically validate the signature generation logic
-	oldTestMode := TestMode
-	TestMode = false
-	defer func() { TestMode = oldTestMode }()
+	coreapi.SetTestMode(false)
+	defer func() { coreapi.SetTestMode(false) }()
 	// Create a temporary file for testing
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		removeErr := os.Remove(tmpFile.Name())
-		assert.NoError(t, removeErr)
+		require.NoError(t, removeErr)
 	}()
 
 	// Write dummy key content
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = tmpFile.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name        string
@@ -362,14 +362,14 @@ func TestGenerateSignature(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			signature, err := GenerateSignature(tt.message, tt.keyPath)
+			signature, sigErr := coreapi.GenerateSignature(tt.message, tt.keyPath)
 
 			if tt.expectError {
-				require.Error(t, err)
-				assert.Empty(t, signature)
+				require.Error(t, sigErr)
+				require.Empty(t, signature)
 			} else {
-				assert.NoError(t, err)
-				assert.NotEmpty(t, signature)
+				require.NoError(t, sigErr)
+				require.NotEmpty(t, signature)
 			}
 		})
 	}

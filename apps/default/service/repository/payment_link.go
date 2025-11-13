@@ -33,7 +33,7 @@ func (plr *paymentLinkRepository) GetByPartitionAndID(
 	return link, err
 }
 
-func (plr *paymentLinkRepository) GetByProfileID(ctx context.Context, profileID string) ([]*models.PaymentLink, error) {
+func (plr *paymentLinkRepository) GetByProfileID(ctx context.Context, _ string) ([]*models.PaymentLink, error) {
 	// Note: PaymentLink doesn't have direct profile association,
 	// this method is included for interface consistency
 	var links []*models.PaymentLink

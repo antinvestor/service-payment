@@ -26,17 +26,18 @@ const (
 	fallbackExternalRef   = "0000000000000"
 	maxExternalRefValue   = 1e13
 	externalRefLength     = 13
+	randomByteSize        = 8
 )
 
 func GenerateExternalReference() string {
 	var n uint64
-	b := make([]byte, 8)
+	b := make([]byte, randomByteSize)
 	if _, err := rand.Read(b); err != nil {
 		return fallbackExternalRef
 	}
 	n = uint64(b[0])<<40 | uint64(b[1])<<32 | uint64(b[2])<<24 |
 		uint64(b[3])<<16 | uint64(b[4])<<8 | uint64(b[5])
-	n = n % maxExternalRefValue
+	n %= maxExternalRefValue
 	return fmt.Sprintf("%0*d", externalRefLength, n)
 }
 
@@ -135,9 +136,9 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 
 	h.logResponse(response)
 
-	if err := h.updateStatusSuccess(ctx, paymentLink.ID); err != nil {
-		logger.WithError(err).Error("failed to update payment link status")
-		return fmt.Errorf("update payment status: %w", err)
+	if updateErr := h.updateStatusSuccess(ctx, paymentLink.ID); updateErr != nil {
+		logger.WithError(updateErr).Error("failed to update payment link status")
+		return fmt.Errorf("update payment status: %w", updateErr)
 	}
 	return nil
 }

@@ -14,17 +14,27 @@ import (
 	"strings"
 )
 
-// TestMode is a flag to skip actual signature validation during tests.
+// testMode is a flag to skip actual signature validation during tests.
 //
-//nolint:revive // TestMode follows standard naming
-var TestMode bool = false
+//nolint:gochecknoglobals // Required for test mode flag
+var testMode = false
+
+// SetTestMode sets the test mode flag for signature generation.
+func SetTestMode(enabled bool) {
+	testMode = enabled
+}
+
+// IsTestMode returns whether test mode is enabled.
+func IsTestMode() bool {
+	return testMode
+}
 
 // GenerateSignature generates a SHA-256 signature with RSA private key.
 //
 
 func GenerateSignature(message, privateKeyPath string) (string, error) {
 	// For tests, return a dummy signature to avoid actual RSA key parsing
-	if TestMode {
+	if IsTestMode() {
 		return "TEST_SIGNATURE_FOR_UNIT_TESTS", nil
 	}
 

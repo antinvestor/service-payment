@@ -1,3 +1,4 @@
+//nolint:dupl // Similar pattern for different models is acceptable
 package events
 
 import (

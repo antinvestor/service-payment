@@ -1,5 +1,5 @@
 //nolint:revive // package name matches directory structure
-package events_tills_pay //nolint:staticcheck // underscore package name required by project structure
+package eventstillspay
 
 import (
 	"context"

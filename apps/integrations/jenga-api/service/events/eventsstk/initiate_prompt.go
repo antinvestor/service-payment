@@ -1,5 +1,5 @@
 //nolint:revive // package name matches directory structure
-package events_stk //nolint:staticcheck // underscore package name required by project structure
+package eventsstk
 
 import (
 	"context"

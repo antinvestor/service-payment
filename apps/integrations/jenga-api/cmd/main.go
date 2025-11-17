@@ -8,10 +8,10 @@ import (
 	"github.com/antinvestor/apis/go/payment"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_callback"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_link_processing"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_stk"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_tills_pay"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventscallback"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventslinkprocessing"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventsstk"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
 	handler "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/router"
 	"github.com/pitabwire/frame"
@@ -55,22 +55,22 @@ func main() {
 	paymentCli := setupPaymentClient(ctx, sm, cfg)
 
 	// Initialize event handlers using constructors
-	initiatePrompt := events_stk.NewInitiatePrompt(
+	initiatePrompt := eventsstk.NewInitiatePrompt(
 		clientApi,
 		paymentCli,
 		cfg.JengaCallbackURL,
 	)
 
-	createPaymentLink := events_link_processing.NewCreatePaymentLink(
+	createPaymentLink := eventslinkprocessing.NewCreatePaymentLink(
 		clientApi,
 		paymentCli,
 	)
 
-	callbackHandler := events_callback.NewJengaCallbackReceivePayment(
+	callbackHandler := eventscallback.NewJengaCallbackReceivePayment(
 		paymentCli,
 	)
 
-	tillsPayHandler := events_tills_pay.NewJengaTillsPay(
+	tillsPayHandler := eventstillspay.NewJengaTillsPay(
 		clientApi,
 	)
 

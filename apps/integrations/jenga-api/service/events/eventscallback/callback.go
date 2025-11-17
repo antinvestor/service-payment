@@ -1,4 +1,4 @@
-package events_callback //nolint:staticcheck // underscore package name required by project structure
+package eventscallback
 
 import (
 	"context"

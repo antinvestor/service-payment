@@ -6,7 +6,7 @@ import (
 
 	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/events_tills_pay"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
@@ -60,7 +60,7 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create event handler
-	event := events_tills_pay.NewJengaTillsPay(js.client)
+	event := eventstillspay.NewJengaTillsPay(js.client)
 
 	// Execute event synchronously with request context
 	err := js.eventMan.Emit(ctx, event.Name(), &request)

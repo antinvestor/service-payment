@@ -8,7 +8,6 @@ RUN go mod download
 
 # Copy project files
 COPY ./apps/default ./apps/default
-COPY ./internal ./internal
 
 # Build the application with optimizations
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \

@@ -17,7 +17,7 @@ require (
 	github.com/antinvestor/apis/go/payment v1.48.8
 	github.com/antinvestor/apis/go/profile v1.48.8
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.66.0
+	github.com/pitabwire/frame v1.66.1
 	github.com/pitabwire/util v0.3.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1

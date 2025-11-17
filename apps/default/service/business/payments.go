@@ -776,18 +776,18 @@ func (pb *paymentBusiness) createDepositStep1(
 	// Build entries: DR MobileOperator, CR UnidentifiedDeposits
 	entries := []*ledgerv1.TransactionEntry{
 		{
-			Account:      mobileOpRef,
-			Transaction:  txRef,
-			TransactedAt: time.Now().Format(time.RFC3339),
-			Amount:       &amount,
-			Credit:       false, // debit
+			AccountId:     mobileOpRef,
+			TransactionId: txRef,
+			TransactedAt:  time.Now().Format(time.RFC3339),
+			Amount:        &amount,
+			Credit:        false, // debit
 		},
 		{
-			Account:      unidentifiedRef,
-			Transaction:  txRef,
-			TransactedAt: time.Now().Format(time.RFC3339),
-			Amount:       &amount,
-			Credit:       true, // credit
+			AccountId:     unidentifiedRef,
+			TransactionId: txRef,
+			TransactedAt:  time.Now().Format(time.RFC3339),
+			Amount:        &amount,
+			Credit:        true, // credit
 		},
 	}
 
@@ -803,8 +803,8 @@ func (pb *paymentBusiness) createDepositStep1(
 	}
 
 	// Create transaction
-	transaction := &ledgerv1.Transaction{
-		Reference:    txRef,
+	transaction := &ledgerv1.CreateTransactionRequest{
+		Id:           txRef,
 		Currency:     payment.Currency,
 		TransactedAt: time.Now().Format(time.RFC3339),
 		Data:         extra.ToProtoStruct(),
@@ -851,7 +851,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 			return accountStream.Err()
 		}
 
-		accounts = append(accounts, accountStream.Msg())
+		accounts = append(accounts, accountStream.Msg().GetData()...)
 	}
 
 	if len(accounts) > 0 {
@@ -865,10 +865,11 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 	}
 
 	// Account doesn't exist, create it
-	account := &ledgerv1.Account{
-		Reference: accountRef,
-		Ledger:    ledgerRef,
-		Data:      accountData.ToProtoStruct(),
+	account := &ledgerv1.CreateAccountRequest{
+		Id:       accountRef,
+		Currency: "",
+		LedgerId: ledgerRef,
+		Data:     accountData.ToProtoStruct(),
 	}
 
 	_, err = pb.ledgerCli.CreateAccount(ctx, connect.NewRequest(account))

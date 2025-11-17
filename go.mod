@@ -1,23 +1,23 @@
 module github.com/antinvestor/service-payments
 
-go 1.25.0
+go 1.25.2
 
 require (
-	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.10-20251104183629-02dfa9355307.1
-	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251104183729-764d76fa8813.2
-	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20251104183729-764d76fa8813.1
-	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251104183841-abd5e3c3145b.2
-	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251104183854-d9b3d91e6972.2
-	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251104183854-d9b3d91e6972.1
-	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251104183907-bd2327635adb.2
+	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.10-20251115174401-cf993dd61681.1
+	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251115181106-2cea959d11ff.2
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20251115181106-2cea959d11ff.1
+	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251115181220-b54955485f7e.2
+	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251115181238-898326b59b80.2
+	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251115181238-898326b59b80.1
+	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251115181258-23365fece788.2
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.8.0
-	github.com/antinvestor/apis/go/common v1.47.12
-	github.com/antinvestor/apis/go/partition v1.47.13
-	github.com/antinvestor/apis/go/payment v1.47.13
-	github.com/antinvestor/apis/go/profile v1.47.13
+	github.com/antinvestor/apis/go/common v1.48.7
+	github.com/antinvestor/apis/go/partition v1.48.8
+	github.com/antinvestor/apis/go/payment v1.48.8
+	github.com/antinvestor/apis/go/profile v1.48.8
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.65.3
+	github.com/pitabwire/frame v1.66.0
 	github.com/pitabwire/util v0.3.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
@@ -26,8 +26,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.10-20251104183841-abd5e3c3145b.1 // indirect
-	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.10-20251104183907-bd2327635adb.1 // indirect
+	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.10-20251115181220-b54955485f7e.1 // indirect
+	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.10-20251115181258-23365fece788.1 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.10-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.0.0 // indirect
 	cel.dev/expr v0.25.1 // indirect
@@ -87,7 +87,7 @@ require (
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/antinvestor/apis/go/ledger v1.47.13
+	github.com/antinvestor/apis/go/ledger v1.48.8
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

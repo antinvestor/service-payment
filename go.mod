@@ -12,17 +12,17 @@ require (
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251115181258-23365fece788.2
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.8.0
-	github.com/antinvestor/apis/go/common v1.48.7
-	github.com/antinvestor/apis/go/partition v1.48.8
-	github.com/antinvestor/apis/go/payment v1.48.8
-	github.com/antinvestor/apis/go/profile v1.48.8
+	github.com/antinvestor/apis/go/common v1.48.11
+	github.com/antinvestor/apis/go/partition v1.48.11
+	github.com/antinvestor/apis/go/payment v1.48.11
+	github.com/antinvestor/apis/go/profile v1.48.11
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.66.1
+	github.com/pitabwire/frame v1.66.2
 	github.com/pitabwire/util v0.3.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/genproto v0.0.0-20251111163417-95abcf5c77ba
-	google.golang.org/grpc v1.76.0
+	google.golang.org/grpc v1.77.0
 )
 
 require (
@@ -78,7 +78,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
+	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
@@ -87,7 +87,7 @@ require (
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/antinvestor/apis/go/ledger v1.48.8
+	github.com/antinvestor/apis/go/ledger v1.48.11
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -105,9 +105,8 @@ require (
 	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.6.0 // indirect
-	github.com/pitabwire/natspubsub v0.7.4 // indirect
+	github.com/pitabwire/natspubsub v0.7.5 // indirect
 	github.com/rs/xid v1.6.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect

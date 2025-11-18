@@ -12,12 +12,13 @@ require (
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251115181258-23365fece788.2
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.8.0
-	github.com/antinvestor/apis/go/common v1.48.11
-	github.com/antinvestor/apis/go/partition v1.48.11
-	github.com/antinvestor/apis/go/payment v1.48.11
-	github.com/antinvestor/apis/go/profile v1.48.11
+	github.com/antinvestor/apis/go/common v1.48.13
+	github.com/antinvestor/apis/go/ledger v1.48.14
+	github.com/antinvestor/apis/go/partition v1.48.14
+	github.com/antinvestor/apis/go/payment v1.48.14
+	github.com/antinvestor/apis/go/profile v1.48.14
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.66.2
+	github.com/pitabwire/frame v1.66.6
 	github.com/pitabwire/util v0.3.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
@@ -46,7 +47,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.2 // indirect
+	github.com/prometheus/common v0.67.3 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
@@ -87,7 +88,6 @@ require (
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/antinvestor/apis/go/ledger v1.48.11
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

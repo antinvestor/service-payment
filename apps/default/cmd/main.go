@@ -207,7 +207,6 @@ func setupConnectServer(
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) http.Handler {
-
 	defaultInterceptorList, err := connectInterceptors.DefaultList(ctx, securityMan.GetAuthenticator(ctx))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")

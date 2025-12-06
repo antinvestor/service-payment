@@ -4,30 +4,30 @@ go 1.25.2
 
 require (
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.10-20251119161617-faec0015998a.1
-	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251119161734-8de0262fa25b.2
-	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20251119161734-8de0262fa25b.1
-	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251119161904-6bc16b04bbca.2
-	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251119161932-283658138440.2
-	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251119161932-283658138440.1
-	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251119161948-fcd977fb5334.2
+	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251205175757-ac81a2e268e9.2
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20251205175757-ac81a2e268e9.1
+	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251205175911-72c3819c8e9b.2
+	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251205175933-b68bc394e999.2
+	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251205175933-b68bc394e999.1
+	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251205175955-9870a37939f7.2
 	connectrpc.com/connect v1.19.1
-	github.com/antinvestor/apis/go/common v1.48.17
-	github.com/antinvestor/apis/go/ledger v1.48.16
-	github.com/antinvestor/apis/go/partition v1.48.16
-	github.com/antinvestor/apis/go/payment v1.48.16
-	github.com/antinvestor/apis/go/profile v1.48.16
+	github.com/antinvestor/apis/go/common v1.49.0
+	github.com/antinvestor/apis/go/ledger v1.49.0
+	github.com/antinvestor/apis/go/partition v1.49.0
+	github.com/antinvestor/apis/go/payment v1.49.0
+	github.com/antinvestor/apis/go/profile v1.49.0
 	github.com/gorilla/mux v1.8.1
 	github.com/pitabwire/frame v1.68.13
 	github.com/pitabwire/util v0.3.6
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/genproto v0.0.0-20251124214823-79d6a2a48846
+	google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217
 	google.golang.org/grpc v1.77.0
 )
 
 require (
-	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.10-20251119161904-6bc16b04bbca.1 // indirect
-	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.10-20251119161948-fcd977fb5334.1 // indirect
+	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.10-20251205175911-72c3819c8e9b.1 // indirect
+	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.10-20251205175955-9870a37939f7.1 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.10-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.0.1 // indirect
 	cel.dev/expr v0.25.1 // indirect

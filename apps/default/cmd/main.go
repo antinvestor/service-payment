@@ -9,7 +9,6 @@ import (
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/apis/go/common"
 	"github.com/antinvestor/apis/go/ledger"
 	"github.com/antinvestor/apis/go/partition"
@@ -23,7 +22,7 @@ import (
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/security"
-	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
+	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
 )
@@ -208,15 +207,11 @@ func setupConnectServer(
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) http.Handler {
-	otelInterceptor, err := otelconnect.NewInterceptor()
+
+	defaultInterceptorList, err := connectInterceptors.DefaultList(ctx, securityMan.GetAuthenticator(ctx))
 	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
+		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
-
-	validateInterceptor := securityconnect.NewValidationInterceptor()
-
-	authenticator := securityMan.GetAuthenticator(ctx)
-	authInterceptor := securityconnect.NewAuthInterceptor(authenticator)
 
 	implementation := handlers.NewPaymentServer(
 		paymentBusiness,
@@ -226,7 +221,7 @@ func setupConnectServer(
 	)
 
 	_, serverHandler := paymentv1connect.NewPaymentServiceHandler(
-		implementation, connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor))
+		implementation, connect.WithInterceptors(defaultInterceptorList...))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", serverHandler)

@@ -11,14 +11,13 @@ require (
 	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251119161932-283658138440.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251119161948-fcd977fb5334.2
 	connectrpc.com/connect v1.19.1
-	connectrpc.com/otelconnect v0.8.0
 	github.com/antinvestor/apis/go/common v1.48.17
 	github.com/antinvestor/apis/go/ledger v1.48.16
 	github.com/antinvestor/apis/go/partition v1.48.16
 	github.com/antinvestor/apis/go/payment v1.48.16
 	github.com/antinvestor/apis/go/profile v1.48.16
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.68.4
+	github.com/pitabwire/frame v1.68.13
 	github.com/pitabwire/util v0.3.6
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
@@ -32,6 +31,7 @@ require (
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.10-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.0.1 // indirect
 	cel.dev/expr v0.25.1 // indirect
+	connectrpc.com/otelconnect v0.8.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/caarlos0/env/v11 v11.3.1 // indirect
@@ -80,7 +80,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251124214823-79d6a2a48846 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
@@ -120,8 +120,8 @@ require (
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/api v0.256.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
+	google.golang.org/api v0.257.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/protobuf v1.36.10
 	gorm.io/driver/postgres v1.6.0 // indirect
 )

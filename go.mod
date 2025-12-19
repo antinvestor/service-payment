@@ -3,33 +3,33 @@ module github.com/antinvestor/service-payments
 go 1.25.2
 
 require (
-	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.10-20251119161617-faec0015998a.1
-	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251205175757-ac81a2e268e9.2
-	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20251205175757-ac81a2e268e9.1
-	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251205175911-72c3819c8e9b.2
-	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251205175933-b68bc394e999.2
-	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.10-20251205175933-b68bc394e999.1
-	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251205175955-9870a37939f7.2
+	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20251216061047-d524d0f6d60c.1
+	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20251216063731-d2fd08583231.2
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20251216063731-d2fd08583231.1
+	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20251216063854-8a831e5d0734.2
+	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20251216063912-283191ffc06b.2
+	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20251216063912-283191ffc06b.1
+	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20251216063931-513b05dc5e70.2
 	connectrpc.com/connect v1.19.1
-	github.com/antinvestor/apis/go/common v1.49.0
-	github.com/antinvestor/apis/go/ledger v1.49.0
-	github.com/antinvestor/apis/go/partition v1.49.0
-	github.com/antinvestor/apis/go/payment v1.49.0
-	github.com/antinvestor/apis/go/profile v1.49.0
+	github.com/antinvestor/apis/go/common v1.49.9
+	github.com/antinvestor/apis/go/ledger v1.49.10
+	github.com/antinvestor/apis/go/partition v1.49.10
+	github.com/antinvestor/apis/go/payment v1.49.8
+	github.com/antinvestor/apis/go/profile v1.49.10
 	github.com/gorilla/mux v1.8.1
-	github.com/pitabwire/frame v1.68.13
-	github.com/pitabwire/util v0.3.6
+	github.com/pitabwire/frame v1.69.10
+	github.com/pitabwire/util v0.3.8
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217
+	google.golang.org/genproto v0.0.0-20251213004720-97cd9d5aeac2
 	google.golang.org/grpc v1.77.0
 )
 
 require (
-	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.10-20251205175911-72c3819c8e9b.1 // indirect
-	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.10-20251205175955-9870a37939f7.1 // indirect
-	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.10-20230414000709-087bc8072ce4.1 // indirect
-	buf.build/go/protovalidate v1.0.1 // indirect
+	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.11-20251216063854-8a831e5d0734.1 // indirect
+	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20251216063931-513b05dc5e70.1 // indirect
+	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
+	buf.build/go/protovalidate v1.1.0 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	connectrpc.com/otelconnect v0.8.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
@@ -38,7 +38,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/exaring/otelpgx v0.9.3 // indirect
+	github.com/exaring/otelpgx v0.9.4 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/lmittmann/tint v1.1.2 // indirect
@@ -53,47 +53,47 @@ require (
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/bridges/otelslog v0.13.0 // indirect
-	go.opentelemetry.io/contrib/bridges/prometheus v0.63.0 // indirect
-	go.opentelemetry.io/contrib/exporters/autoexport v0.63.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
-	go.opentelemetry.io/contrib/propagators/autoprop v0.63.0 // indirect
-	go.opentelemetry.io/contrib/propagators/aws v1.38.0 // indirect
-	go.opentelemetry.io/contrib/propagators/b3 v1.38.0 // indirect
-	go.opentelemetry.io/contrib/propagators/jaeger v1.38.0 // indirect
-	go.opentelemetry.io/contrib/propagators/ot v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.14.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.14.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/prometheus v0.60.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.14.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0 // indirect
-	go.opentelemetry.io/otel/log v0.14.0 // indirect
-	go.opentelemetry.io/otel/sdk/log v0.14.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.38.0 // indirect
+	go.opentelemetry.io/contrib/bridges/otelslog v0.14.0 // indirect
+	go.opentelemetry.io/contrib/bridges/prometheus v0.64.0 // indirect
+	go.opentelemetry.io/contrib/exporters/autoexport v0.64.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0 // indirect
+	go.opentelemetry.io/contrib/propagators/autoprop v0.64.0 // indirect
+	go.opentelemetry.io/contrib/propagators/aws v1.39.0 // indirect
+	go.opentelemetry.io/contrib/propagators/b3 v1.39.0 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.39.0 // indirect
+	go.opentelemetry.io/contrib/propagators/ot v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.15.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.15.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/prometheus v0.61.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.15.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.39.0 // indirect
+	go.opentelemetry.io/otel/log v0.15.0 // indirect
+	go.opentelemetry.io/otel/sdk/log v0.15.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.39.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251213004720-97cd9d5aeac2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
-	github.com/BurntSushi/toml v1.5.0 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1 // indirect
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.16.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.7.6 // indirect
@@ -101,27 +101,27 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
-	github.com/nats-io/nats.go v1.47.0 // indirect
+	github.com/nats-io/nats.go v1.48.0 // indirect
 	github.com/nats-io/nkeys v0.4.12 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.6.0 // indirect
-	github.com/pitabwire/natspubsub v0.7.7 // indirect
+	github.com/pitabwire/natspubsub v0.7.11 // indirect
 	github.com/rs/xid v1.6.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
-	go.opentelemetry.io/otel v1.38.0 // indirect
-	go.opentelemetry.io/otel/metric v1.38.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
-	go.opentelemetry.io/otel/trace v1.38.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0 // indirect
+	go.opentelemetry.io/otel v1.39.0 // indirect
+	go.opentelemetry.io/otel/metric v1.39.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.39.0 // indirect
+	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	gocloud.dev v0.44.0 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/oauth2 v0.34.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/api v0.257.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/api v0.258.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
+	google.golang.org/protobuf v1.36.11
 	gorm.io/driver/postgres v1.6.0 // indirect
 )

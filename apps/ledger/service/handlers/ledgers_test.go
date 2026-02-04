@@ -1,0 +1,57 @@
+package handlers_test
+
+import (
+	"testing"
+
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
+	"github.com/antinvestor/service-payments/apps/ledger/tests"
+	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+// LedgerHandlersTestSuite extends BaseTestSuite for handler tests.
+type LedgerHandlersTestSuite struct {
+	tests.BaseTestSuite
+}
+
+func (s *LedgerHandlersTestSuite) TestCreateLedger() {
+	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		// Set up the service with proper database connection
+		ctx, svc, resources := s.CreateService(t, depOpt)
+		defer svc.Stop(ctx)
+
+		// Create handler with injected business layer
+		ledgerServer := handlers.NewLedgerServer(
+			resources.LedgerBusiness,
+			resources.AccountBusiness,
+			resources.TransactionBusiness,
+		)
+
+		// Test request with correct field names
+		req := &connect.Request[ledgerv1.CreateLedgerRequest]{
+			Msg: &ledgerv1.CreateLedgerRequest{
+				Id:       "test-ledger",
+				Type:     ledgerv1.LedgerType_ASSET,
+				ParentId: "",
+				Data:     nil,
+			},
+		}
+
+		// Call the method
+		resp, err := ledgerServer.CreateLedger(ctx, req)
+
+		// Assertions
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "test-ledger", resp.Msg.GetData().GetId())
+		assert.Equal(t, ledgerv1.LedgerType_ASSET, resp.Msg.GetData().GetType())
+	})
+}
+
+func TestLedgerHandlersSuite(t *testing.T) {
+	suite.Run(t, &LedgerHandlersTestSuite{})
+}

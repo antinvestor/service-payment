@@ -16,7 +16,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy project files
-COPY ./apps/default ./apps/default
+COPY ./apps/ledger ./apps/ledger
+COPY ./internal ./internal
+
 
 # Build static binary for target platform
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
@@ -26,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
          -X github.com/pitabwire/frame/version.Version=${VERSION} \
          -X github.com/pitabwire/frame/version.Commit=${REVISION} \
          -X github.com/pitabwire/frame/version.Date=${BUILDTIME}" \
-     -o /app/binary ./apps/default/cmd/main.go
+     -o /app/binary ./apps/ledger/cmd/main.go
 
 # ---------- Final ----------
 FROM cgr.dev/chainguard/static:latest
@@ -42,7 +44,7 @@ ARG REPOSITORY
 ARG VERSION
 ARG REVISION
 ARG BUILDTIME
-LABEL org.opencontainers.image.title="Payment Service"
+LABEL org.opencontainers.image.title="Ledger Service"
 LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.revision=$REVISION
 LABEL org.opencontainers.image.created=$BUILDTIME
@@ -51,8 +53,8 @@ LABEL org.opencontainers.image.source=$REPOSITORY
 WORKDIR /
 
 # Copy from builder stage
-COPY --from=builder /app/binary /default
-COPY --from=builder /app/apps/default/migrations /migrations
+COPY --from=builder /app/binary /ledger
+COPY --from=builder /app/apps/ledger/migrations /migrations
 
 # Run the binary
-ENTRYPOINT ["/default"]
+ENTRYPOINT ["/ledger"]

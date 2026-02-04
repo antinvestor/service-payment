@@ -1,0 +1,92 @@
+package repository_test
+
+import (
+	"testing"
+
+	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func (ss *SearchSuite) TestSearchAccountsWithShouldRanges() {
+	ss.WithTestDependencies(ss.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ss.CreateService(t, dep)
+		ss.setupFixtures(ctx, resources)
+
+		query := `{
+        "query": {
+            "should": {
+                "ranges": [
+                    {"created": {"gte": "2017-01-01", "lte": "2017-06-30"}},
+                    {"created": {"gte": "2017-07-01", "lte": "2017-12-30"}}
+                ]
+            }
+        }
+    }`
+		resultChannel, err := resources.AccountRepository.SearchAsESQ(ctx, query)
+		require.NoError(t, err)
+		accounts, err := resultsToSlice[*models.Account](resultChannel)
+
+		require.NoError(t, err, "Error in building search query")
+		assert.Len(t, accounts, 2, "Accounts count doesn't match")
+
+		query = `{
+        "query": {
+            "should": {
+                "ranges": [
+                    {"created": {"gte": "2017-07-01", "lte": "2017-12-30"}},
+                    {"created": {"gte": "2018-01-01", "lte": "2018-06-30"}}
+                ]
+            }
+        }
+    }`
+		resultChannel, err = resources.AccountRepository.SearchAsESQ(ctx, query)
+		require.NoError(t, err)
+		accounts, err = resultsToSlice[*models.Account](resultChannel)
+
+		require.NoError(t, err, "Error in building search query")
+		assert.Empty(t, accounts, "No account should exist for given query")
+	})
+}
+
+func (ss *SearchSuite) TestSearchTransactionsWithShouldRanges() {
+	ss.WithTestDependencies(ss.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ss.CreateService(t, dep)
+		ss.setupFixtures(ctx, resources)
+
+		query := `{
+        "query": {
+            "should": {
+                "ranges": [
+                    {"expiry": {"gte": "2018-01-01", "lte": "2018-01-30"}},
+                    {"expiry": {"gte": "2018-06-01", "lte": "2018-06-30"}}
+                ]
+            }
+        }
+    }`
+
+		resultChannel, err := resources.TransactionRepository.SearchAsESQ(ctx, query)
+		require.NoError(t, err)
+		transactions, err := resultsToSlice[*models.Transaction](resultChannel)
+		require.NoError(t, err, "Error in building search query")
+		assert.Len(t, transactions, 3, "Transactions count doesn't match")
+
+		query = `{
+        "query": {
+            "should": {
+                "ranges": [
+                    {"expiry": {"gte": "2018-06-01", "lte": "2018-06-30"}},
+                    {"expiry": {"gte": "2018-07-01", "lte": "2018-07-30"}}
+                ]
+            }
+        }
+    }`
+
+		resultChannel, err = resources.TransactionRepository.SearchAsESQ(ctx, query)
+		require.NoError(t, err)
+		transactions, err = resultsToSlice[*models.Transaction](resultChannel)
+		require.NoError(t, err, "Error in building search query")
+		assert.Empty(t, transactions, "No transaction should exist for given query")
+	})
+}

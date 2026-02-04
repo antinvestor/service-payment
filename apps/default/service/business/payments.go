@@ -344,11 +344,10 @@ func (pb *paymentBusiness) Search(
 	logger := util.Log(ctx).WithField("request", searchQuery)
 	logger.Debug("handling payment search request")
 
-	limits := searchQuery.GetLimits()
+	cursor := searchQuery.GetCursor()
 
 	searchOpts := []data.SearchOption{
-		data.WithSearchLimit(int(limits.GetCount())),
-		data.WithSearchOffset(int(limits.GetPage())),
+		data.WithSearchLimit(int(cursor.GetLimit())),
 	}
 
 	if searchQuery.GetIdQuery() != "" {

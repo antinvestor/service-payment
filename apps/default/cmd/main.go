@@ -191,7 +191,7 @@ func setupPartitionClient(
 		apis.WithTokenUsername(clHolder.JwtClientID()),
 		apis.WithTokenPassword(clHolder.JwtClientSecret()),
 		apis.WithScopes(openid.ConstSystemScopeInternal),
-		apis.WithAudiences("service_partition"))
+		apis.WithAudiences("service_tenancy"))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")
 	}

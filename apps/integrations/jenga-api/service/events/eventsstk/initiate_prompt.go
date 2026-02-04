@@ -159,7 +159,13 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 
 	logger.WithField("response", response).Info("STK/USSD push response received")
 
-	if updateErr := h.updateStatus(ctx, prompt.ID, transactionRef, response.TransactionID, response.Message); updateErr != nil {
+	if updateErr := h.updateStatus(
+		ctx,
+		prompt.ID,
+		transactionRef,
+		response.TransactionID,
+		response.Message,
+	); updateErr != nil {
 		logger.WithError(updateErr).Error("failed to update payment status")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}

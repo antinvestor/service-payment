@@ -65,7 +65,7 @@ func (l *ledgerRepository) SearchAsESQ(
 	job := workerpool.NewJob(func(ctxI context.Context, jobResult workerpool.JobResultPipe[[]*models.Ledger]) error {
 		rawQuery, err := NewSearchRawQuery(ctxI, query)
 		if err != nil {
-			return jobResult.WriteError(ctx, err)
+			return jobResult.WriteError(ctxI, err)
 		}
 
 		sqlQuery := rawQuery.ToQueryConditions()
@@ -74,12 +74,12 @@ func (l *ledgerRepository) SearchAsESQ(
 			ledgerList, dbErr := l.searchLedgers(ctxI, sqlQuery)
 			if dbErr != nil {
 				if data.ErrorIsNoRows(dbErr) {
-					return jobResult.WriteError(ctx, apperrors.ErrLedgerNotFound)
+					return jobResult.WriteError(ctxI, apperrors.ErrLedgerNotFound)
 				}
-				return jobResult.WriteError(ctx, apperrors.ErrSystemFailure.Override(dbErr))
+				return jobResult.WriteError(ctxI, apperrors.ErrSystemFailure.Override(dbErr))
 			}
 
-			errR := jobResult.WriteResult(ctx, ledgerList)
+			errR := jobResult.WriteResult(ctxI, ledgerList)
 			if errR != nil {
 				return errR
 			}

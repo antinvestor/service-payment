@@ -116,7 +116,7 @@ func hasValidKeys(items interface{}) bool {
 func NewSearchRawQuery(_ context.Context, q string) (*SearchRawQuery, apperrors.ApplicationError) {
 	rawQuery := new(SearchRawQuery)
 	if err := json.Unmarshal([]byte(q), rawQuery); err != nil {
-		return nil, apperrors.ErrSearchQueryHasInvalidFormart.Override(err)
+		return nil, apperrors.ErrSearchQueryHasInvalidFormat.Override(err)
 	}
 
 	// Initialize nil fields to prevent nil dereferences
@@ -220,6 +220,8 @@ func (rawQuery *SearchRawQuery) ToQueryConditions() *SearchSQLQuery {
 	}
 	if limit <= 0 {
 		limit = 100
+	} else if limit > MaxSearchLimit {
+		limit = MaxSearchLimit
 	}
 
 	batchSize := limit

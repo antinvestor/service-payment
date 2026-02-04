@@ -15,18 +15,13 @@ func (ledgerSrv *LedgerServer) SearchAccounts(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchAccountsResponse],
 ) error {
-	// Search accounts using business layer
-	err := ledgerSrv.Account.SearchAccounts(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Account) error {
-		// Send response with account data
-		return stream.Send(&ledgerv1.SearchAccountsResponse{
-			Data: batch,
-		})
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return toConnectError(
+		ledgerSrv.Account.SearchAccounts(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Account) error {
+			return stream.Send(&ledgerv1.SearchAccountsResponse{
+				Data: batch,
+			})
+		}),
+	)
 }
 
 // CreateAccount creates a new account within a ledger.
@@ -38,10 +33,9 @@ func (ledgerSrv *LedgerServer) CreateAccount(
 	// Create the account using business layer
 	createdAccount, err := ledgerSrv.Account.CreateAccount(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with created account
 	response := &ledgerv1.CreateAccountResponse{
 		Data: createdAccount,
 	}
@@ -58,10 +52,9 @@ func (ledgerSrv *LedgerServer) UpdateAccount(
 	// Update the account using business layer
 	updatedAccount, err := ledgerSrv.Account.UpdateAccount(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with updated account
 	response := &ledgerv1.UpdateAccountResponse{
 		Data: updatedAccount,
 	}

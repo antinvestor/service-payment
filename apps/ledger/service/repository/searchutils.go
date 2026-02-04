@@ -6,7 +6,10 @@ import (
 	"strings"
 )
 
-const SystemBatchSize = 30
+const (
+	SystemBatchSize = 30
+	MaxSearchLimit  = 10000
+)
 
 func jsonify(input interface{}) string {
 	j, _ := json.Marshal(input)

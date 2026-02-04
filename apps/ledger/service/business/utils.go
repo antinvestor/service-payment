@@ -21,24 +21,27 @@ func (entries Orderedentries) Less(i, j int) bool {
 }
 
 func containsSameElements(l1 []*models.TransactionEntry, l2 []*models.TransactionEntry) bool {
-	l1Map := make(map[string]*models.TransactionEntry)
-
 	if len(l1) != len(l2) {
 		return false
 	}
 
+	// Key by entry ID (deterministic: {txnID}_{accountID}) to handle
+	// transactions with multiple entries for the same account.
+	l1Map := make(map[string]*models.TransactionEntry, len(l1))
 	for _, entry := range l1 {
-		l1Map[entry.AccountID] = entry
+		l1Map[entry.ID] = entry
 	}
 
 	for _, entry2 := range l2 {
-		entry, ok := l1Map[entry2.AccountID]
-
+		entry, ok := l1Map[entry2.ID]
 		if !ok {
 			return false
 		}
 
-		// Fix to tolerate floating point errors from elsewhere
+		if entry.Credit != entry2.Credit {
+			return false
+		}
+
 		amount1 := entry.Amount.Decimal.Abs()
 		amount2 := entry2.Amount.Decimal.Abs()
 		if !amount1.Equal(amount2) {

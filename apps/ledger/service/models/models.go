@@ -198,7 +198,7 @@ func (tx *Transaction) IsZeroSum() bool {
 	return sum.IsZero()
 }
 
-// IsTrueDrCr validates that there is one debit and at least one credit entry.
+// IsTrueDrCr validates that there is at least one debit and at least one credit entry.
 func (tx *Transaction) IsTrueDrCr() bool {
 	crEntries := 0
 	drEntries := 0
@@ -210,5 +210,5 @@ func (tx *Transaction) IsTrueDrCr() bool {
 			drEntries++
 		}
 	}
-	return drEntries == 1 && crEntries >= 1
+	return drEntries >= 1 && crEntries >= 1
 }

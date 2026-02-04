@@ -55,15 +55,18 @@ type applicationLedgerError struct {
 	ExtraMessage string
 }
 
+// DefaultCodeOffset is added to error codes to produce the final ErrorCode().
+const DefaultCodeOffset int32 = 200
+
 func NewApplicationError(code int32, message string) ApplicationError {
-	return &applicationLedgerError{code, 200, message, ""}
+	return &applicationLedgerError{code, DefaultCodeOffset, message, ""}
 }
 
 func (e applicationLedgerError) Error() string {
 	if e.ExtraMessage != "" {
 		return fmt.Sprintf("%d  : - %s  \n extra info : %s", e.ErrorCode(), e.Message, e.ExtraMessage)
 	}
-	return fmt.Sprintf("%d  : - %s  ", e.Code, e.Message)
+	return fmt.Sprintf("%d  : - %s  ", e.ErrorCode(), e.Message)
 }
 
 // ErrorCode returns the unique Code of the error.
@@ -141,7 +144,7 @@ var (
 		ErrorCodeTransactionHasInvalidDrCrEntry,
 		"Transaction has a invalid count of dr/cr entries",
 	)
-	ErrTransactionIsConfilicting = NewApplicationError(
+	ErrTransactionIsConflicting = NewApplicationError(
 		ErrorCodeTransactionIsConflicting,
 		"Transaction is conflicting",
 	)
@@ -154,7 +157,7 @@ var (
 		ErrorCodeSearchNamespaceUnknown,
 		"Search namespace provided is unknown",
 	)
-	ErrSearchQueryHasInvalidFormart = NewApplicationError(
+	ErrSearchQueryHasInvalidFormat = NewApplicationError(
 		ErrorCodeSearchQueryHasInvalidFormat,
 		"Search query has invalid format",
 	)

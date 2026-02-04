@@ -15,17 +15,15 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
 ) error {
-	// Search transactions using business layer
-	return ledgerSrv.Transaction.SearchTransactions(
+	return toConnectError(ledgerSrv.Transaction.SearchTransactions(
 		ctx,
 		req.Msg,
 		func(_ context.Context, batch []*ledgerv1.Transaction) error {
-			// Send response with transaction data
 			return stream.Send(&ledgerv1.SearchTransactionsResponse{
 				Data: batch,
 			})
 		},
-	)
+	))
 }
 
 // CreateTransaction creates a new double-entry transaction.
@@ -34,13 +32,11 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateTransactionRequest],
 ) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
-	// Create the transaction using business layer
 	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with created transaction
 	response := &ledgerv1.CreateTransactionResponse{
 		Data: createdTransaction,
 	}
@@ -54,13 +50,11 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.ReverseTransactionRequest],
 ) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
-	// Reverse the transaction using business layer
 	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with reversed transaction
 	response := &ledgerv1.ReverseTransactionResponse{
 		Data: reversedTransaction,
 	}
@@ -74,13 +68,11 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateTransactionRequest],
 ) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
-	// Update the transaction using business layer
 	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with updated transaction
 	response := &ledgerv1.UpdateTransactionResponse{
 		Data: updatedTransaction,
 	}

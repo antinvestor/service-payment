@@ -5,4 +5,4 @@ CREATE VIEW invalid_transactions AS
     LEFT JOIN transactions t ON e.transaction_id = t.id
     WHERE t.transaction_type IN ('NORMAL', 'REVERSAL')
   GROUP BY e.transaction_id
- HAVING (sum(e.amount) > 0);
+ HAVING (sum(e.amount) != 0);

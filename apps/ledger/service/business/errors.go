@@ -21,6 +21,7 @@ var (
 	ErrTransactionReferenceRequired      = errors.New("transaction reference is required")
 	ErrTransactionIDRequired             = errors.New("transaction ID is required")
 	ErrTransactionAccountIDRequired      = errors.New("transaction account ID is required")
+	ErrTransactionCurrencyRequired       = errors.New("transaction currency is required")
 	ErrTransactionNonZeroSum             = errors.New("transaction has non-zero sum")
 	ErrTransactionInvalidDrCrEntry       = errors.New("transaction has invalid debit/credit entry")
 	ErrTransactionEntriesNotFound        = errors.New("transaction entries not found")

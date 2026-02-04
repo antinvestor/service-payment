@@ -2,13 +2,66 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
+	"github.com/antinvestor/service-payments/internal/apperrors"
 )
+
+// toConnectError translates application errors into appropriate ConnectRPC
+// error codes so clients receive meaningful status codes instead of generic
+// Internal errors.
+func toConnectError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var appErr apperrors.ApplicationError
+	if !errors.As(err, &appErr) {
+		return err
+	}
+
+	code := appErr.ErrorCode()
+
+	switch code - apperrors.DefaultCodeOffset {
+	case apperrors.ErrorCodeUnspecifiedID,
+		apperrors.ErrorCodeUnspecifiedReference,
+		apperrors.ErrorCodeBadDataSupplied,
+		apperrors.ErrorCodeTransactionEntryHasZeroAmount,
+		apperrors.ErrorCodeTransactionHasNonZeroSum,
+		apperrors.ErrorCodeTransactionHasInvalidDrCrEntry,
+		apperrors.ErrorCodeTransactionAccountsDifferCurrency,
+		apperrors.ErrorCodeSearchQueryHasInvalidFormat,
+		apperrors.ErrorCodeSearchQueryHasInvalidKeys:
+		return connect.NewError(connect.CodeInvalidArgument, appErr)
+
+	case apperrors.ErrorCodeLedgerNotFound,
+		apperrors.ErrorCodeAccountNotFound,
+		apperrors.ErrorCodeAccountsNotFound,
+		apperrors.ErrorCodeTransactionNotFound,
+		apperrors.ErrorCodeTransactionEntriesNotFound,
+		apperrors.ErrorCodeSearchNamespaceUnknown:
+		return connect.NewError(connect.CodeNotFound, appErr)
+
+	case apperrors.ErrorCodeAccountWithReferenceExists,
+		apperrors.ErrorCodeTransactionAlreadyExists,
+		apperrors.ErrorCodeTransactionIsConflicting:
+		return connect.NewError(connect.CodeAlreadyExists, appErr)
+
+	case apperrors.ErrorCodeTransactionTypeNotReversible:
+		return connect.NewError(connect.CodeFailedPrecondition, appErr)
+
+	case apperrors.ErrorCodeAccountsCurrencyUnknown:
+		return connect.NewError(connect.CodeInvalidArgument, appErr)
+
+	default:
+		return connect.NewError(connect.CodeInternal, appErr)
+	}
+}
 
 type LedgerServer struct {
 	Ledger      business.LedgerBusiness
@@ -37,12 +90,13 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
 	// Search ledgers using business layer
-	return ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
-		// Send response with ledger data
-		return stream.Send(&ledgerv1.SearchLedgersResponse{
-			Data: batch,
-		})
-	})
+	return toConnectError(
+		ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
+			return stream.Send(&ledgerv1.SearchLedgersResponse{
+				Data: batch,
+			})
+		}),
+	)
 }
 
 // CreateLedger creates a new ledger in the chart of accounts.
@@ -54,10 +108,9 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	// Create the ledger using business layer
 	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with created ledger
 	response := &ledgerv1.CreateLedgerResponse{
 		Data: createdLedger,
 	}
@@ -74,10 +127,9 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	// Update the ledger using business layer
 	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req.Msg)
 	if err != nil {
-		return nil, err
+		return nil, toConnectError(err)
 	}
 
-	// Return response with updated ledger
 	response := &ledgerv1.UpdateLedgerResponse{
 		Data: updatedLedger,
 	}

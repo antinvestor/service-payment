@@ -72,8 +72,12 @@ func CompareMoney(a, b *money.Money) bool {
 func CleanDecimal(d decimal.Decimal) decimal.Decimal {
 	truncatedStr := d.StringFixed(DecimalPrecision)
 
-	// Convert the string back to a decimal
-	rounded, _ := decimal.NewFromString(truncatedStr)
+	// Convert the string back to a decimal.
+	// StringFixed always produces valid decimal strings, so this cannot fail.
+	rounded, err := decimal.NewFromString(truncatedStr)
+	if err != nil {
+		return d
+	}
 
 	// Check if the value fits within the range for NUMERIC(20,9)
 	// max allowed value for NUMERIC(28,9)

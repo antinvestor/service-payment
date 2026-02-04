@@ -189,9 +189,9 @@ func (t *transactionRepository) SearchEntries(
 			}
 
 			sqlQuery := rawQuery.ToQueryConditions()
-			var transactionEntriesList []*models.TransactionEntry
 
 			for sqlQuery.canLoad() {
+				var transactionEntriesList []*models.TransactionEntry
 				result := t.Pool().DB(ctx, true).Offset(sqlQuery.offset).Limit(sqlQuery.batchSize).
 					Where(sqlQuery.sql, sqlQuery.args...).Find(&transactionEntriesList)
 

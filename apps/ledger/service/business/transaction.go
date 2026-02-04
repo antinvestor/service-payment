@@ -69,7 +69,7 @@ func (b *transactionBusiness) CreateTransaction(
 	}
 
 	if req.GetCurrency() == "" {
-		return nil, ErrTransactionAccountIDRequired
+		return nil, ErrTransactionCurrencyRequired
 	}
 
 	// Convert API request to model
@@ -83,40 +83,8 @@ func (b *transactionBusiness) CreateTransaction(
 		Type:         req.GetType(),
 	})
 
-	// Perform business validation
-	err := b.validateTransaction(ctx, transactionModel)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get accounts for entry validation
-	// Extract account IDs from transaction entries
-	accountIDs := make([]string, 0, len(transactionModel.Entries))
-	for _, entry := range transactionModel.Entries {
-		accountIDs = append(accountIDs, entry.AccountID)
-	}
-
-	// Try to get accounts one by one as a workaround
-	accountsMap := make(map[string]*models.Account)
-	for _, accountID := range accountIDs {
-		account, getErr := b.accountRepo.GetByID(ctx, accountID)
-		if getErr != nil {
-			return nil, fmt.Errorf("failed to get account %s: %w", accountID, getErr)
-		}
-		if account == nil {
-			return nil, fmt.Errorf("account %s not found", accountID)
-		}
-		accountsMap[accountID] = account
-	}
-
-	// Validate transaction entries against accounts
-	err = b.validateTransactionEntries(transactionModel, accountsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	// Process transaction entries (apply business logic for balances and signage)
-	b.processTransactionEntriesWithAccounts(transactionModel, accountsMap)
+	// All validation (structure, entries, accounts, currency) is performed
+	// inside Transact → Validate, so no separate validation is needed here.
 
 	// Create the transaction through repository
 	result, err := b.Transact(ctx, transactionModel)
@@ -126,65 +94,6 @@ func (b *transactionBusiness) CreateTransaction(
 
 	// Convert back to API type
 	return result.ToAPI(), nil
-}
-
-// validateTransaction performs business validation for a transaction.
-func (b *transactionBusiness) validateTransaction(_ context.Context, txn *models.Transaction) error {
-	if ledgerv1.TransactionType_NORMAL.String() == txn.TransactionType ||
-		ledgerv1.TransactionType_REVERSAL.String() == txn.TransactionType {
-		// Skip if the transaction is invalid
-		// by validating the amount values
-		if !txn.IsZeroSum() {
-			return ErrTransactionNonZeroSum
-		}
-
-		if !txn.IsTrueDrCr() {
-			return ErrTransactionInvalidDrCrEntry
-		}
-	} else if ledgerv1.TransactionType_RESERVATION.String() == txn.TransactionType {
-		if len(txn.Entries) != 1 {
-			return ErrTransactionInvalidDrCrEntry
-		}
-	}
-
-	if len(txn.Entries) == 0 {
-		return ErrTransactionEntriesNotFound
-	}
-
-	return nil
-}
-
-// validateTransactionEntries validates transaction entries against accounts.
-func (b *transactionBusiness) validateTransactionEntries(
-	txn *models.Transaction,
-	accountsMap map[string]*models.Account,
-) error {
-	for _, entry := range txn.Entries {
-		if entry.Amount.Decimal.IsZero() {
-			return fmt.Errorf(
-				"%w: entry [id=%s, account_id=%s] amount is zero",
-				ErrTransactionEntryZeroAmount,
-				entry.ID,
-				entry.AccountID,
-			)
-		}
-
-		account, ok := accountsMap[entry.AccountID]
-		if !ok {
-			// Accounts have to be predefined hence check all references exist.
-			return fmt.Errorf(
-				"%w: Account %s was not found in the system",
-				ErrTransactionAccountNotFound,
-				entry.AccountID,
-			)
-		}
-
-		if !strings.EqualFold(txn.Currency, account.Currency) {
-			return fmt.Errorf("%w: entry [id=%s, account_id=%s] currency [%s] != [%s]",
-				ErrTransactionAccountsDifferCurrency, entry.ID, entry.AccountID, account.Currency, txn.Currency)
-		}
-	}
-	return nil
 }
 
 // SearchTransactions searches for transactions based on query.
@@ -316,13 +225,17 @@ func (b *transactionBusiness) ReverseTransaction(
 	reversalTxn.GenID(ctx)
 	reversalTxn.ID = fmt.Sprintf("%s_REVERSAL", originalTxn.ID)
 
-	// Create reversed entries
+	// Create reversed entries.
+	// The stored amounts have already been sign-adjusted by processTransactionEntriesWithAccounts
+	// (DEADCLIC rules). Negating them produces the correct offsetting amounts, and flipping
+	// Credit ensures processTransactionEntriesWithAccounts in Transact applies the same
+	// sign logic symmetrically, keeping the negated values intact.
 	for _, entry := range originalTxn.Entries {
 		reversalTxn.Entries = append(reversalTxn.Entries, &models.TransactionEntry{
 			BaseModel: data.BaseModel{ID: fmt.Sprintf("%s_REVERSAL", entry.ID)},
 			AccountID: entry.AccountID,
-			Amount:    entry.Amount,
-			Credit:    !entry.Credit, // Reverse the credit/debit
+			Amount:    decimal.NewNullDecimal(entry.Amount.Decimal.Neg()),
+			Credit:    !entry.Credit,
 		})
 	}
 
@@ -470,8 +383,12 @@ func (b *transactionBusiness) IsConflict(
 	return !containsSameElements(transaction1.Entries, transaction2.Entries), nil
 }
 
-// Transact creates the input transaction in the DB with improved concurrency handling.
+// Transact creates the input transaction in the DB with idempotent duplicate handling
+// and conflict detection.
 //
+// The underlying repository uses ON CONFLICT DO NOTHING for inserts, which means
+// duplicate inserts return nil error. To properly detect duplicates and conflicts,
+// we check for existence before and after the create operation.
 
 func (b *transactionBusiness) Transact(
 	ctx context.Context, transaction *models.Transaction,
@@ -494,36 +411,47 @@ func (b *transactionBusiness) Transact(
 	// Process transaction entries with account balances and signage
 	b.processTransactionEntriesWithAccounts(transaction, accountsMap)
 
-	// Try to create transaction with built-in conflict detection
-	// This handles the race condition between existence check and creation
-	err := b.transactionRepo.Create(ctx, transaction)
-	if err == nil {
-		// Return the created transaction (no need for another GetByID call)
-		return transaction, nil
+	// Generate deterministic entry IDs and set TransactionID to prevent
+	// duplicate entries when the repository uses ON CONFLICT DO NOTHING.
+	// Without deterministic IDs, each Create call generates new entry IDs,
+	// causing entry accumulation for duplicate transaction attempts.
+	for _, entry := range transaction.Entries {
+		if entry.ID == "" {
+			entry.ID = fmt.Sprintf("%s_%s", transaction.GetID(), entry.AccountID)
+		}
+		entry.TransactionID = transaction.GetID()
 	}
 
-	// Handle duplicate transaction error
-	if !b.isDuplicateTransactionError(err) {
+	// Fast path: check if transaction already exists before attempting create.
+	// This catches most duplicate/conflict cases without a write operation.
+	existingTxn, getErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
+	if getErr == nil && existingTxn != nil {
+		if !containsSameElements(existingTxn.Entries, transaction.Entries) {
+			return nil, apperrors.ErrTransactionIsConflicting
+		}
+		return existingTxn, nil
+	}
+
+	// Transaction does not exist yet, create it.
+	err := b.transactionRepo.Create(ctx, transaction)
+	if err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 
-	// Transaction already exists, check for conflicts
-	existingTransaction, getErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
-	if getErr != nil {
-		return nil, apperrors.ErrSystemFailure.Override(getErr)
+	// Post-create verification: another goroutine may have created a conflicting
+	// transaction between our existence check and the create call. Since Create
+	// uses ON CONFLICT DO NOTHING, our insert may have been silently ignored.
+	// Fetch the stored transaction and verify entries match our intent.
+	storedTxn, verifyErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
+	if verifyErr != nil {
+		return nil, apperrors.ErrSystemFailure.Override(verifyErr)
 	}
 
-	// Validate that the existing transaction matches our request
-	isConflict, conflictErr := b.IsConflict(ctx, transaction)
-	if conflictErr != nil {
-		return nil, conflictErr
-	}
-	if isConflict {
-		return nil, apperrors.ErrTransactionIsConfilicting
+	if !containsSameElements(storedTxn.Entries, transaction.Entries) {
+		return nil, apperrors.ErrTransactionIsConflicting
 	}
 
-	// Return existing transaction for idempotent behavior
-	return existingTransaction, nil
+	return storedTxn, nil
 }
 
 // processTransactionEntriesWithAccounts processes transaction entries with balance and signage logic.
@@ -531,14 +459,6 @@ func (b *transactionBusiness) processTransactionEntriesWithAccounts(
 	transaction *models.Transaction,
 	accountsMap map[string]*models.Account,
 ) {
-	// Define ledger type mappings for debit/credit rules
-	typedLedgerMap := make(map[string][]string)
-	typedLedgerMap[models.LedgerTypeAsset] = []string{"CR", "DR"}
-	typedLedgerMap[models.LedgerTypeExpense] = []string{"DR", "CR"}
-	typedLedgerMap[models.LedgerTypeLiability] = []string{"CR", "DR"}
-	typedLedgerMap[models.LedgerTypeIncome] = []string{"CR", "DR"}
-	typedLedgerMap[models.LedgerTypeCapital] = []string{"CR", "DR"}
-
 	// Process all transaction entries atomically
 	for _, line := range transaction.Entries {
 		account := accountsMap[line.AccountID]
@@ -555,42 +475,6 @@ func (b *transactionBusiness) processTransactionEntriesWithAccounts(
 			line.Amount = decimal.NewNullDecimal(line.Amount.Decimal.Neg())
 		}
 	}
-}
-
-// isDuplicateTransactionError checks if the error indicates a duplicate transaction.
-func (b *transactionBusiness) isDuplicateTransactionError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Check for unique constraint violations or duplicate key errors
-	errStr := strings.ToLower(err.Error())
-
-	// PostgreSQL unique constraint violation
-	if strings.Contains(errStr, "unique constraint") ||
-		strings.Contains(errStr, "duplicate key") ||
-		strings.Contains(errStr, "violates unique constraint") {
-		return true
-	}
-
-	// MySQL duplicate entry
-	if strings.Contains(errStr, "duplicate entry") ||
-		strings.Contains(errStr, "duplicate key value") {
-		return true
-	}
-
-	// SQLite unique constraint failure
-	if strings.Contains(errStr, "unique constraint failed") {
-		return true
-	}
-
-	// Generic database uniqueness errors
-	if strings.Contains(errStr, "already exists") ||
-		strings.Contains(errStr, "duplicate") {
-		return true
-	}
-
-	return false
 }
 
 // processClearanceUpdate handles the clearance time update for a transaction.

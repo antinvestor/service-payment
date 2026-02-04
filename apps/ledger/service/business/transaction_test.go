@@ -164,7 +164,7 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionNonZeroSum() {
 		transaction, err := transactionBusiness.CreateTransaction(ctx, createTransactionReq)
 		require.Error(t, err, "Should fail with non-zero sum transaction")
 		assert.Nil(t, transaction, "Transaction should not be created")
-		assert.Contains(t, err.Error(), "non-zero sum", "Error should mention zero sum validation")
+		assert.Contains(t, err.Error(), "non zero sum", "Error should mention zero sum validation")
 	})
 }
 
@@ -203,7 +203,7 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionInvalidDebitCredit() {
 		transaction, err := transactionBusiness.CreateTransaction(ctx, createTransactionReq)
 		require.Error(t, err, "Should fail with invalid debit/credit entry")
 		assert.Nil(t, transaction, "Transaction should not be created")
-		assert.Contains(t, err.Error(), "invalid debit/credit", "Error should mention debit/credit validation")
+		assert.Contains(t, err.Error(), "invalid count of dr/cr", "Error should mention debit/credit validation")
 	})
 }
 
@@ -337,7 +337,7 @@ func (ts *TransactionBusinessSuite) TestCreateReservationTransactionInvalidEntri
 		transaction, err := transactionBusiness.CreateTransaction(ctx, createTransactionReq)
 		require.Error(t, err, "Should fail with invalid reservation transaction")
 		assert.Nil(t, transaction, "Reservation transaction should not be created")
-		assert.Contains(t, err.Error(), "invalid debit/credit", "Error should mention entry validation")
+		assert.Contains(t, err.Error(), "invalid count of dr/cr", "Error should mention entry validation")
 	})
 }
 

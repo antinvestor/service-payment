@@ -394,11 +394,17 @@ func (b *transactionBusiness) IsConflict(
 // Flow:
 //  1. Validate entries and accounts.
 //  2. Apply DEADCLIC sign rules and generate deterministic entry IDs.
-//  3. Fast-path: if the transaction already exists, compare entries and return.
-//  4. Attempt insert. On success, return immediately (no extra read needed).
-//  5. On insert failure (e.g. duplicate key), fetch the existing transaction
-//     and compare entries — identical means idempotent retry, different means
-//     conflict.
+//  3. Attempt insert. On success, return immediately.
+//  4. On duplicate key error, fetch the existing transaction and compare
+//     entries — identical means idempotent retry, different means conflict.
+//
+// Note: we intentionally skip a pre-insert existence check. GetByID uses
+// Preload(Associations) which runs separate queries for parent and children.
+// Under concurrent inserts this can observe the transaction record before its
+// entries are committed, producing a false conflict. The duplicate-key error
+// path is safe because PostgreSQL only returns 23505 after the competing
+// transaction has fully committed, guaranteeing the subsequent GetByID sees
+// complete data.
 func (b *transactionBusiness) Transact(
 	ctx context.Context, transaction *models.Transaction,
 ) (*models.Transaction, error) {
@@ -443,18 +449,7 @@ func (b *transactionBusiness) Transact(
 		entry.TransactionID = transaction.GetID()
 	}
 
-	// Fast path: check if transaction already exists before attempting a write.
-	// This catches most duplicate/conflict cases cheaply.
-	existingTxn, getErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
-	if getErr == nil && existingTxn != nil {
-		if !containsSameElements(existingTxn.Entries, transaction.Entries) {
-			return nil, apperrors.ErrTransactionIsConflicting
-		}
-		return existingTxn, nil
-	}
-
-	// Attempt to create the transaction. The repository translates a
-	// duplicate-key violation into ErrTransactionAlreadyExists.
+	// Attempt to create the transaction.
 	err := b.transactionRepo.Create(ctx, transaction)
 	if err == nil {
 		return transaction, nil

@@ -58,6 +58,36 @@ func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQ
 	return ledgerList, nil
 }
 
+func (l *ledgerRepository) paginateLedgerSearch(
+	ctx context.Context,
+	sqlQuery *SearchSQLQuery,
+	jobResult workerpool.JobResultPipe[[]*models.Ledger],
+) error {
+	for sqlQuery.canLoad() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		ledgerList, dbErr := l.searchLedgers(ctx, sqlQuery)
+		if dbErr != nil {
+			if data.ErrorIsNoRows(dbErr) {
+				return jobResult.WriteError(ctx, apperrors.ErrLedgerNotFound)
+			}
+			return jobResult.WriteError(ctx, apperrors.ErrSystemFailure.Override(dbErr))
+		}
+
+		errR := jobResult.WriteResult(ctx, ledgerList)
+		if errR != nil {
+			return errR
+		}
+
+		if sqlQuery.stop(len(ledgerList)) {
+			break
+		}
+	}
+	return nil
+}
+
 func (l *ledgerRepository) SearchAsESQ(
 	ctx context.Context,
 	query string,
@@ -68,28 +98,7 @@ func (l *ledgerRepository) SearchAsESQ(
 			return jobResult.WriteError(ctxI, err)
 		}
 
-		sqlQuery := rawQuery.ToQueryConditions()
-
-		for sqlQuery.canLoad() {
-			ledgerList, dbErr := l.searchLedgers(ctxI, sqlQuery)
-			if dbErr != nil {
-				if data.ErrorIsNoRows(dbErr) {
-					return jobResult.WriteError(ctxI, apperrors.ErrLedgerNotFound)
-				}
-				return jobResult.WriteError(ctxI, apperrors.ErrSystemFailure.Override(dbErr))
-			}
-
-			errR := jobResult.WriteResult(ctxI, ledgerList)
-			if errR != nil {
-				return errR
-			}
-
-			if sqlQuery.stop(len(ledgerList)) {
-				break
-			}
-		}
-
-		return nil
+		return l.paginateLedgerSearch(ctxI, rawQuery.ToQueryConditions(), jobResult)
 	})
 
 	err := workerpool.SubmitJob(ctx, l.WorkManager(), job)

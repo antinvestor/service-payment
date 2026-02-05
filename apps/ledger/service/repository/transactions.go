@@ -90,6 +90,10 @@ func (t *transactionRepository) SearchAsESQ(
 			sqlQuery := rawQuery.ToQueryConditions()
 
 			for sqlQuery.canLoad() {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+
 				transactionList, dbErr := t.searchTransactions(ctx, sqlQuery)
 				if dbErr != nil {
 					return jobResult.WriteError(ctx, apperrors.ErrSystemFailure.Override(dbErr))
@@ -191,6 +195,10 @@ func (t *transactionRepository) SearchEntries(
 			sqlQuery := rawQuery.ToQueryConditions()
 
 			for sqlQuery.canLoad() {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+
 				var transactionEntriesList []*models.TransactionEntry
 				result := t.Pool().DB(ctx, true).Offset(sqlQuery.offset).Limit(sqlQuery.batchSize).
 					Where(sqlQuery.sql, sqlQuery.args...).Find(&transactionEntriesList)

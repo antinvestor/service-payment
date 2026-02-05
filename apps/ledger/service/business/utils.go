@@ -4,16 +4,16 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 )
 
-// DefaultTimestamLayout is the timestamp layout followed in Ledger.
-const DefaultTimestamLayout = "2006-01-02T15:04:05.999999999"
+// DefaultTimestampLayout is the timestamp layout followed in Ledger.
+const DefaultTimestampLayout = "2006-01-02T15:04:05.999999999"
 
-// Orderedentries implements sort.Interface for []*TransactionEntry based on
+// OrderedEntries implements sort.Interface for []*TransactionEntry based on
 // the AccountID and Amount fields.
-type Orderedentries []models.TransactionEntry
+type OrderedEntries []models.TransactionEntry
 
-func (entries Orderedentries) Len() int      { return len(entries) }
-func (entries Orderedentries) Swap(i, j int) { entries[i], entries[j] = entries[j], entries[i] }
-func (entries Orderedentries) Less(i, j int) bool {
+func (entries OrderedEntries) Len() int      { return len(entries) }
+func (entries OrderedEntries) Swap(i, j int) { entries[i], entries[j] = entries[j], entries[i] }
+func (entries OrderedEntries) Less(i, j int) bool {
 	if entries[i].AccountID == entries[j].AccountID {
 		return entries[i].Amount.Decimal.LessThan(entries[j].Amount.Decimal)
 	}

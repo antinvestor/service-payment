@@ -181,7 +181,8 @@ type TransactionEntry struct {
 }
 
 func (te *TransactionEntry) Equal(ot TransactionEntry) bool {
-	return te.AccountID == ot.AccountID && te.Amount.Valid && ot.Amount.Valid &&
+	return te.AccountID == ot.AccountID && te.Credit == ot.Credit &&
+		te.Amount.Valid && ot.Amount.Valid &&
 		te.Amount.Decimal.Equal(ot.Amount.Decimal)
 }
 

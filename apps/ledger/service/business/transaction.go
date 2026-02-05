@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -225,16 +226,21 @@ func (b *transactionBusiness) ReverseTransaction(
 	reversalTxn.GenID(ctx)
 	reversalTxn.ID = fmt.Sprintf("%s_REVERSAL", originalTxn.ID)
 
-	// Create reversed entries.
-	// The stored amounts have already been sign-adjusted by processTransactionEntriesWithAccounts
-	// (DEADCLIC rules). Negating them produces the correct offsetting amounts, and flipping
-	// Credit ensures processTransactionEntriesWithAccounts in Transact applies the same
-	// sign logic symmetrically, keeping the negated values intact.
+	// Create reversed entries by flipping the Credit flag while keeping the
+	// original stored amount. preProcessTransactionEntries applies DEADCLIC
+	// sign rules based on the Credit flag and account type. Since the credit
+	// flag is flipped, preProcess will negate the amount (which was positive
+	// in the original), producing the negative offsetting entry needed to
+	// zero out the original balance impact.
+	//
+	// Important: do NOT also negate the amount here — that would cause
+	// double-negation (once explicit, once by preProcess), restoring the
+	// original positive value and making the reversal ineffective.
 	for _, entry := range originalTxn.Entries {
 		reversalTxn.Entries = append(reversalTxn.Entries, &models.TransactionEntry{
 			BaseModel: data.BaseModel{ID: fmt.Sprintf("%s_REVERSAL", entry.ID)},
 			AccountID: entry.AccountID,
-			Amount:    decimal.NewNullDecimal(entry.Amount.Decimal.Neg()),
+			Amount:    entry.Amount,
 			Credit:    !entry.Credit,
 		})
 	}
@@ -254,8 +260,7 @@ func (b *transactionBusiness) DeleteTransaction(_ context.Context, id string) er
 		return ErrTransactionIDRequired
 	}
 
-	// Delete through repository
-	return nil // Implementation depends on repository interface
+	return errors.New("delete transaction is not implemented")
 }
 
 // SearchEntries searches for transaction entries based on query.
@@ -383,13 +388,17 @@ func (b *transactionBusiness) IsConflict(
 	return !containsSameElements(transaction1.Entries, transaction2.Entries), nil
 }
 
-// Transact creates the input transaction in the DB with idempotent duplicate handling
-// and conflict detection.
+// Transact creates the input transaction in the DB with idempotent duplicate
+// handling and conflict detection.
 //
-// The underlying repository uses ON CONFLICT DO NOTHING for inserts, which means
-// duplicate inserts return nil error. To properly detect duplicates and conflicts,
-// we check for existence before and after the create operation.
-
+// Flow:
+//  1. Validate entries and accounts.
+//  2. Apply DEADCLIC sign rules and generate deterministic entry IDs.
+//  3. Fast-path: if the transaction already exists, compare entries and return.
+//  4. Attempt insert. On success, return immediately (no extra read needed).
+//  5. On insert failure (e.g. duplicate key), fetch the existing transaction
+//     and compare entries — identical means idempotent retry, different means
+//     conflict.
 func (b *transactionBusiness) Transact(
 	ctx context.Context, transaction *models.Transaction,
 ) (*models.Transaction, error) {
@@ -409,21 +418,33 @@ func (b *transactionBusiness) Transact(
 	}
 
 	// Process transaction entries with account balances and signage
-	b.processTransactionEntriesWithAccounts(transaction, accountsMap)
+	b.preProcessTransactionEntries(transaction, accountsMap)
 
-	// Generate deterministic entry IDs and set TransactionID to prevent
-	// duplicate entries when the repository uses ON CONFLICT DO NOTHING.
-	// Without deterministic IDs, each Create call generates new entry IDs,
-	// causing entry accumulation for duplicate transaction attempts.
-	for _, entry := range transaction.Entries {
+	// Sort entries by (AccountID, Credit, |Amount|) so that deterministic
+	// ID generation produces the same IDs regardless of input order.
+	sort.Slice(transaction.Entries, func(i, j int) bool {
+		ei, ej := transaction.Entries[i], transaction.Entries[j]
+		if ei.AccountID != ej.AccountID {
+			return ei.AccountID < ej.AccountID
+		}
+		if ei.Credit != ej.Credit {
+			return !ei.Credit // debit before credit
+		}
+		return ei.Amount.Decimal.Abs().LessThan(ej.Amount.Decimal.Abs())
+	})
+
+	// Generate deterministic entry IDs and set TransactionID.
+	// The index is included to handle multiple entries for the same account
+	// (e.g., split transactions).
+	for i, entry := range transaction.Entries {
 		if entry.ID == "" {
-			entry.ID = fmt.Sprintf("%s_%s", transaction.GetID(), entry.AccountID)
+			entry.ID = fmt.Sprintf("%s_%s_%d", transaction.GetID(), entry.AccountID, i)
 		}
 		entry.TransactionID = transaction.GetID()
 	}
 
-	// Fast path: check if transaction already exists before attempting create.
-	// This catches most duplicate/conflict cases without a write operation.
+	// Fast path: check if transaction already exists before attempting a write.
+	// This catches most duplicate/conflict cases cheaply.
 	existingTxn, getErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
 	if getErr == nil && existingTxn != nil {
 		if !containsSameElements(existingTxn.Entries, transaction.Entries) {
@@ -432,16 +453,21 @@ func (b *transactionBusiness) Transact(
 		return existingTxn, nil
 	}
 
-	// Transaction does not exist yet, create it.
+	// Attempt to create the transaction. The repository translates a
+	// duplicate-key violation into ErrTransactionAlreadyExists.
 	err := b.transactionRepo.Create(ctx, transaction)
-	if err != nil {
+	if err == nil {
+		return transaction, nil
+	}
+
+	// Not a duplicate — genuine creation failure.
+	if !data.ErrorIsDuplicateKey(err) {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 
-	// Post-create verification: another goroutine may have created a conflicting
-	// transaction between our existence check and the create call. Since Create
-	// uses ON CONFLICT DO NOTHING, our insert may have been silently ignored.
-	// Fetch the stored transaction and verify entries match our intent.
+	// A concurrent writer inserted this transaction ID between our
+	// existence check and the insert. Fetch it and compare entries:
+	// identical entries means idempotent retry, different means conflict.
 	storedTxn, verifyErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
 	if verifyErr != nil {
 		return nil, apperrors.ErrSystemFailure.Override(verifyErr)
@@ -454,8 +480,8 @@ func (b *transactionBusiness) Transact(
 	return storedTxn, nil
 }
 
-// processTransactionEntriesWithAccounts processes transaction entries with balance and signage logic.
-func (b *transactionBusiness) processTransactionEntriesWithAccounts(
+// preProcessTransactionEntries processes transaction entries with balance and signage logic.
+func (b *transactionBusiness) preProcessTransactionEntries(
 	transaction *models.Transaction,
 	accountsMap map[string]*models.Account,
 ) {
@@ -487,7 +513,7 @@ func (b *transactionBusiness) processClearanceUpdate(
 		return nil
 	}
 
-	clearanceTime, parseErr := time.Parse(DefaultTimestamLayout, req.GetClearedAt())
+	clearanceTime, parseErr := time.Parse(DefaultTimestampLayout, req.GetClearedAt())
 	if parseErr != nil {
 		return parseErr
 	}

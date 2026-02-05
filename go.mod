@@ -19,8 +19,9 @@ require (
 	github.com/antinvestor/apis/go/profile v1.53.4
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/gorilla/mux v1.8.1
+	github.com/jackc/pgx/v5 v5.8.0
 	github.com/lib/pq v1.11.1
-	github.com/pitabwire/frame v1.71.0
+	github.com/pitabwire/frame v1.71.1
 	github.com/pitabwire/util v0.4.0
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0
@@ -71,7 +72,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.8.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

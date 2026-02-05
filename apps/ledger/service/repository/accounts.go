@@ -165,6 +165,39 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 	return accountList, nil
 }
 
+func (a *accountRepository) paginateAccountSearch(
+	ctx context.Context,
+	sqlQuery *SearchSQLQuery,
+	jobResult workerpool.JobResultPipe[[]*models.Account],
+) error {
+	for sqlQuery.canLoad() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		accountList, dbErr := a.searchAccounts(ctx, sqlQuery)
+		if dbErr != nil {
+			if data.ErrorIsNoRows(dbErr) {
+				return jobResult.WriteError(ctx, apperrors.ErrAccountsNotFound)
+			}
+			return jobResult.WriteError(
+				ctx,
+				apperrors.ErrSystemFailure.Override(dbErr).Extend("Query execution error"),
+			)
+		}
+
+		dbErr = jobResult.WriteResult(ctx, accountList)
+		if dbErr != nil {
+			return dbErr
+		}
+
+		if sqlQuery.stop(len(accountList)) {
+			break
+		}
+	}
+	return nil
+}
+
 func (a *accountRepository) SearchAsESQ(
 	ctx context.Context,
 	query string,
@@ -175,30 +208,7 @@ func (a *accountRepository) SearchAsESQ(
 			return jobResult.WriteError(ctx, aerr)
 		}
 
-		sqlQuery := rawQuery.ToQueryConditions()
-
-		for sqlQuery.canLoad() {
-			accountList, dbErr := a.searchAccounts(ctx, sqlQuery)
-			if dbErr != nil {
-				if data.ErrorIsNoRows(dbErr) {
-					return jobResult.WriteError(ctx, apperrors.ErrLedgerNotFound)
-				}
-				return jobResult.WriteError(
-					ctx,
-					apperrors.ErrSystemFailure.Override(dbErr).Extend("Query execution error"),
-				)
-			}
-
-			dbErr = jobResult.WriteResult(ctx, accountList)
-			if dbErr != nil {
-				return dbErr
-			}
-
-			if sqlQuery.stop(len(accountList)) {
-				break
-			}
-		}
-		return nil
+		return a.paginateAccountSearch(ctx, rawQuery.ToQueryConditions(), jobResult)
 	})
 
 	err := workerpool.SubmitJob(ctx, a.WorkManager(), job)

@@ -12,6 +12,7 @@ import (
 	apis "github.com/antinvestor/apis/go/common"
 	"github.com/antinvestor/apis/go/ledger"
 	"github.com/antinvestor/apis/go/partition"
+	paymentv1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/apis/go/profile"
 	aconfig "github.com/antinvestor/service-payments/apps/default/config"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
@@ -224,6 +225,7 @@ func setupConnectServer(
 
 	mux := http.NewServeMux()
 	mux.Handle("/", serverHandler)
+	mux.Handle("/openapi.yaml", apis.NewOpenAPIHandler(paymentv1.ApiSpecFile, nil))
 
 	return mux
 }

@@ -10,6 +10,8 @@ require (
 	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20260102123421-509582f45521.2
 	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260102123421-509582f45521.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20260102123445-62e44f8dd82b.2
+	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260102123521-54fcf9143036.2
+	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260102123521-54fcf9143036.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/apis/go/common v1.53.1
@@ -17,7 +19,9 @@ require (
 	github.com/antinvestor/apis/go/partition v1.53.4
 	github.com/antinvestor/apis/go/payment v1.53.4
 	github.com/antinvestor/apis/go/profile v1.53.4
+	github.com/antinvestor/apis/go/settings v1.53.4
 	github.com/docker/docker v28.5.2+incompatible
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.1
 	github.com/pitabwire/frame v1.72.1
@@ -25,6 +29,7 @@ require (
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
+	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/testcontainers/testcontainers-go v0.40.0
 	golang.org/x/text v0.33.0
 	google.golang.org/genproto v0.0.0-20260203192932-546029d2fa20
@@ -66,7 +71,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/cel-go v0.27.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

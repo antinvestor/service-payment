@@ -13,8 +13,8 @@ import (
 // CreditGrantRepository provides operations for credit grants.
 type CreditGrantRepository interface {
 	datastore.BaseRepository[*models.CreditGrant]
-	ListActiveByCustomer(ctx context.Context, customerID string, currency string) ([]*models.CreditGrant, error)
-	ListExpirableByCustomer(ctx context.Context, customerID string, currency string) ([]*models.CreditGrant, error)
+	ListActiveByProfile(ctx context.Context, profileID string, currency string) ([]*models.CreditGrant, error)
+	ListExpirableByProfile(ctx context.Context, profileID string, currency string) ([]*models.CreditGrant, error)
 }
 
 type creditGrantRepository struct {
@@ -29,19 +29,19 @@ func NewCreditGrantRepository(ctx context.Context, dbPool pool.Pool, workMan wor
 	}
 }
 
-func (r *creditGrantRepository) ListActiveByCustomer(
+func (r *creditGrantRepository) ListActiveByProfile(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 	currency string,
 ) ([]*models.CreditGrant, error) {
-	if customerID == "" {
+	if profileID == "" {
 		return nil, apperrors.ErrUnspecifiedID
 	}
 
 	var list []*models.CreditGrant
 	result := r.Pool().DB(ctx, true).
-		Where("customer_id = ? AND currency = ? AND remaining_amount > 0 AND (expires_at IS NULL OR expires_at > NOW())",
-			customerID, currency).
+		Where("profile_id = ? AND currency = ? AND remaining_amount > 0 AND (expires_at IS NULL OR expires_at > NOW())",
+			profileID, currency).
 		Order("priority ASC, expires_at ASC").
 		Find(&list)
 	if result.Error != nil {
@@ -51,19 +51,19 @@ func (r *creditGrantRepository) ListActiveByCustomer(
 	return list, nil
 }
 
-func (r *creditGrantRepository) ListExpirableByCustomer(
+func (r *creditGrantRepository) ListExpirableByProfile(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 	currency string,
 ) ([]*models.CreditGrant, error) {
-	if customerID == "" {
+	if profileID == "" {
 		return nil, apperrors.ErrUnspecifiedID
 	}
 
 	var list []*models.CreditGrant
 	result := r.Pool().DB(ctx, true).
-		Where("customer_id = ? AND currency = ? AND remaining_amount > 0 AND expires_at IS NOT NULL AND expires_at <= NOW()",
-			customerID, currency).
+		Where("profile_id = ? AND currency = ? AND remaining_amount > 0 AND expires_at IS NOT NULL AND expires_at <= NOW()",
+			profileID, currency).
 		Order("expires_at ASC").
 		Find(&list)
 	if result.Error != nil {

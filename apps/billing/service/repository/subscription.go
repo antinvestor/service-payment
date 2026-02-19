@@ -14,7 +14,7 @@ import (
 type SubscriptionRepository interface {
 	datastore.BaseRepository[*models.Subscription]
 	SearchAsESQ(ctx context.Context, query string) (workerpool.JobResultPipe[[]*models.Subscription], error)
-	ListActiveByCustomer(ctx context.Context, customerID string) ([]*models.Subscription, error)
+	ListActiveByProfile(ctx context.Context, profileID string) ([]*models.Subscription, error)
 }
 
 type subscriptionRepository struct {
@@ -33,17 +33,17 @@ func NewSubscriptionRepository(
 	}
 }
 
-func (r *subscriptionRepository) ListActiveByCustomer(
+func (r *subscriptionRepository) ListActiveByProfile(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 ) ([]*models.Subscription, error) {
-	if customerID == "" {
+	if profileID == "" {
 		return nil, apperrors.ErrUnspecifiedID
 	}
 
 	var list []*models.Subscription
 	result := r.Pool().DB(ctx, true).
-		Where("customer_id = ? AND state = ?", customerID, models.SubscriptionStateActive).
+		Where("profile_id = ? AND state = ?", profileID, models.SubscriptionStateActive).
 		Find(&list)
 	if result.Error != nil {
 		return nil, apperrors.ErrSystemFailure.Override(result.Error)

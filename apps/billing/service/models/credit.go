@@ -7,10 +7,10 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// CreditGrant represents a prepaid credit grant to a customer.
+// CreditGrant represents a prepaid credit grant to a profile.
 type CreditGrant struct {
 	data.BaseModel
-	CustomerID      string              `gorm:"type:varchar(100);not null;index"     json:"customer_id"`
+	ProfileID       string              `gorm:"type:varchar(100);not null;index"     json:"profile_id"`
 	Name            string              `gorm:"type:varchar(255);not null"           json:"name"`
 	OriginalAmount  decimal.NullDecimal `gorm:"type:numeric(29,9);not null"          json:"original_amount"`
 	RemainingAmount decimal.NullDecimal `gorm:"type:numeric(29,9);not null"          json:"remaining_amount"`

@@ -15,7 +15,7 @@ type SubscriptionBusiness interface {
 	CreateSubscription(ctx context.Context, sub *models.Subscription) (*models.Subscription, error)
 	GetSubscription(ctx context.Context, id string) (*models.Subscription, error)
 	CancelSubscription(ctx context.Context, id string) (*models.Subscription, error)
-	ListActiveByCustomer(ctx context.Context, customerID string) ([]*models.Subscription, error)
+	ListActiveByProfile(ctx context.Context, profileID string) ([]*models.Subscription, error)
 }
 
 type subscriptionBusiness struct {
@@ -37,8 +37,8 @@ func (b *subscriptionBusiness) CreateSubscription(
 	ctx context.Context,
 	sub *models.Subscription,
 ) (*models.Subscription, error) {
-	if sub.CustomerID == "" {
-		return nil, ErrSubscriptionCustomerRequired
+	if sub.ProfileID == "" {
+		return nil, ErrSubscriptionProfileRequired
 	}
 	if sub.PlanID == "" {
 		return nil, ErrSubscriptionPlanRequired
@@ -102,13 +102,13 @@ func (b *subscriptionBusiness) CancelSubscription(ctx context.Context, id string
 	return sub, nil
 }
 
-func (b *subscriptionBusiness) ListActiveByCustomer(
+func (b *subscriptionBusiness) ListActiveByProfile(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 ) ([]*models.Subscription, error) {
-	if customerID == "" {
-		return nil, ErrSubscriptionCustomerRequired
+	if profileID == "" {
+		return nil, ErrSubscriptionProfileRequired
 	}
 
-	return b.subRepo.ListActiveByCustomer(ctx, customerID)
+	return b.subRepo.ListActiveByProfile(ctx, profileID)
 }

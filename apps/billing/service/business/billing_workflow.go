@@ -89,7 +89,7 @@ func (w *billingWorkflow) RunBilling(
 	now := time.Now()
 	run := &models.BillingRun{
 		SubscriptionID:   subscriptionID,
-		CustomerID:       sub.CustomerID,
+		ProfileID:        sub.ProfileID,
 		CatalogVersionID: sub.CatalogVersionID,
 		State:            models.BillingRunStatePending,
 		PeriodStart:      periodStart,
@@ -256,7 +256,7 @@ func (w *billingWorkflow) stepCrediting(
 
 	if amountAfterDiscount.IsPositive() {
 		remainingAmount, _, err := w.creditEng.ApplyCredits(
-			ctx, sub.CustomerID, sub.Currency, amountAfterDiscount, run.GetID(), invoice.GetID())
+			ctx, sub.ProfileID, sub.Currency, amountAfterDiscount, run.GetID(), invoice.GetID())
 		if err != nil {
 			return run, err
 		}

@@ -11,7 +11,7 @@ import (
 type Invoice struct {
 	data.BaseModel
 	BillingRunID    string              `gorm:"type:varchar(50);not null;index"        json:"billing_run_id"`
-	CustomerID      string              `gorm:"type:varchar(100);not null;index"       json:"customer_id"`
+	ProfileID       string              `gorm:"type:varchar(100);not null;index"       json:"profile_id"`
 	SubscriptionID  string              `gorm:"type:varchar(50);not null;index"        json:"subscription_id"`
 	InvoiceNumber   string              `gorm:"type:varchar(100);not null;uniqueIndex" json:"invoice_number"`
 	State           string              `gorm:"type:varchar(50);not null"              json:"state"`

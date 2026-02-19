@@ -17,7 +17,7 @@ var (
 
 	// Subscription errors.
 	ErrSubscriptionIDRequired       = errors.New("subscription ID is required")
-	ErrSubscriptionCustomerRequired = errors.New("subscription customer ID is required")
+	ErrSubscriptionProfileRequired  = errors.New("subscription profile ID is required")
 	ErrSubscriptionPlanRequired     = errors.New("subscription plan ID is required")
 	ErrSubscriptionCurrencyRequired = errors.New("subscription currency is required")
 
@@ -32,10 +32,10 @@ var (
 	ErrInvoiceNoRatedLines = errors.New("cannot generate invoice with no rated lines")
 
 	// Credit errors.
-	ErrCreditGrantIDRequired    = errors.New("credit grant ID is required")
-	ErrCreditCustomerIDRequired = errors.New("credit customer ID is required")
-	ErrCreditAmountRequired     = errors.New("credit amount is required and must be positive")
-	ErrCreditCurrencyRequired   = errors.New("credit currency is required")
+	ErrCreditGrantIDRequired   = errors.New("credit grant ID is required")
+	ErrCreditProfileIDRequired = errors.New("credit profile ID is required")
+	ErrCreditAmountRequired    = errors.New("credit amount is required and must be positive")
+	ErrCreditCurrencyRequired  = errors.New("credit currency is required")
 
 	// Discount errors.
 	ErrDiscountNameRequired         = errors.New("discount name is required")

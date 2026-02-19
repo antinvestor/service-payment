@@ -82,7 +82,7 @@ func (e *invoiceEngine) GenerateInvoice(
 
 	invoice := &models.Invoice{
 		BillingRunID:   billingRun.GetID(),
-		CustomerID:     billingRun.CustomerID,
+		ProfileID:      billingRun.ProfileID,
 		SubscriptionID: billingRun.SubscriptionID,
 		InvoiceNumber:  fmt.Sprintf("INV-%s", billingRun.GetID()),
 		State:          models.InvoiceStateDraft,

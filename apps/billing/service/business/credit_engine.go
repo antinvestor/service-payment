@@ -17,10 +17,10 @@ import (
 // CreditEngine manages prepaid credit grants and consumption.
 type CreditEngine interface {
 	GrantCredit(ctx context.Context, grant *models.CreditGrant) (*models.CreditGrant, error)
-	ApplyCredits(ctx context.Context, customerID string, currency string, amount decimal.Decimal,
+	ApplyCredits(ctx context.Context, profileID string, currency string, amount decimal.Decimal,
 		billingRunID string, invoiceID string) (decimal.Decimal, []*models.CreditEntry, error)
-	ExpireCredits(ctx context.Context, customerID string, currency string) ([]*models.CreditEntry, error)
-	GetBalance(ctx context.Context, customerID string, currency string) (decimal.Decimal, error)
+	ExpireCredits(ctx context.Context, profileID string, currency string) ([]*models.CreditEntry, error)
+	GetBalance(ctx context.Context, profileID string, currency string) (decimal.Decimal, error)
 }
 
 type creditEngine struct {
@@ -45,8 +45,8 @@ func NewCreditEngine(
 }
 
 func (e *creditEngine) GrantCredit(ctx context.Context, grant *models.CreditGrant) (*models.CreditGrant, error) {
-	if grant.CustomerID == "" {
-		return nil, ErrCreditCustomerIDRequired
+	if grant.ProfileID == "" {
+		return nil, ErrCreditProfileIDRequired
 	}
 	if !grant.OriginalAmount.Valid || grant.OriginalAmount.Decimal.IsZero() ||
 		grant.OriginalAmount.Decimal.IsNegative() {
@@ -87,7 +87,7 @@ func (e *creditEngine) GrantCredit(ctx context.Context, grant *models.CreditGran
 // Returns the remaining amount after credits and the credit entries created.
 func (e *creditEngine) ApplyCredits(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 	currency string,
 	amount decimal.Decimal,
 	billingRunID string,
@@ -105,8 +105,8 @@ func (e *creditEngine) ApplyCredits(
 		var grants []*models.CreditGrant
 		result := tx.
 			Where(
-				"customer_id = ? AND currency = ? AND remaining_amount > 0 AND (expires_at IS NULL OR expires_at > NOW())",
-				customerID,
+				"profile_id = ? AND currency = ? AND remaining_amount > 0 AND (expires_at IS NULL OR expires_at > NOW())",
+				profileID,
 				currency,
 			).
 			Order("priority ASC, expires_at ASC").
@@ -165,7 +165,7 @@ func (e *creditEngine) ApplyCredits(
 
 func (e *creditEngine) ExpireCredits(
 	ctx context.Context,
-	customerID string,
+	profileID string,
 	currency string,
 ) ([]*models.CreditEntry, error) {
 	var entries []*models.CreditEntry
@@ -175,8 +175,8 @@ func (e *creditEngine) ExpireCredits(
 		var grants []*models.CreditGrant
 		result := tx.
 			Where(
-				"customer_id = ? AND currency = ? AND remaining_amount > 0 AND expires_at IS NOT NULL AND expires_at <= NOW()",
-				customerID,
+				"profile_id = ? AND currency = ? AND remaining_amount > 0 AND expires_at IS NOT NULL AND expires_at <= NOW()",
+				profileID,
 				currency,
 			).
 			Order("expires_at ASC").
@@ -225,12 +225,12 @@ func (e *creditEngine) ExpireCredits(
 	return entries, nil
 }
 
-func (e *creditEngine) GetBalance(ctx context.Context, customerID string, currency string) (decimal.Decimal, error) {
-	if customerID == "" {
+func (e *creditEngine) GetBalance(ctx context.Context, profileID string, currency string) (decimal.Decimal, error) {
+	if profileID == "" {
 		return decimal.Zero, apperrors.ErrUnspecifiedID
 	}
 
-	grants, err := e.grantRepo.ListActiveByCustomer(ctx, customerID, currency)
+	grants, err := e.grantRepo.ListActiveByProfile(ctx, profileID, currency)
 	if err != nil {
 		return decimal.Zero, err
 	}

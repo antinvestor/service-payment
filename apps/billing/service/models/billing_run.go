@@ -10,7 +10,7 @@ import (
 type BillingRun struct {
 	data.BaseModel
 	SubscriptionID   string       `gorm:"type:varchar(50);not null;index"        json:"subscription_id"`
-	CustomerID       string       `gorm:"type:varchar(100);not null;index"       json:"customer_id"`
+	ProfileID        string       `gorm:"type:varchar(100);not null;index"       json:"profile_id"`
 	CatalogVersionID string       `gorm:"type:varchar(50);not null"              json:"catalog_version_id"`
 	State            string       `gorm:"type:varchar(50);not null"              json:"state"`
 	PeriodStart      time.Time    `gorm:"type:timestamp;not null"                json:"period_start"`

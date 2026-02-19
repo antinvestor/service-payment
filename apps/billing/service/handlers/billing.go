@@ -317,7 +317,7 @@ func (s *BillingServer) CreateSubscription(
 	req *connect.Request[billingv1.CreateSubscriptionRequest],
 ) (*connect.Response[billingv1.CreateSubscriptionResponse], error) {
 	sub := &models.Subscription{
-		CustomerID:       req.Msg.GetCustomerId(),
+		ProfileID:        req.Msg.GetCustomerId(),
 		CatalogVersionID: req.Msg.GetCatalogVersionId(),
 		PlanID:           req.Msg.GetPlanId(),
 		State:            models.SubscriptionStateActive,
@@ -376,7 +376,7 @@ func (s *BillingServer) ListSubscriptions(
 	ctx context.Context,
 	req *connect.Request[billingv1.ListSubscriptionsRequest],
 ) (*connect.Response[billingv1.ListSubscriptionsResponse], error) {
-	subs, err := s.Subscription.ListActiveByCustomer(ctx, req.Msg.GetCustomerId())
+	subs, err := s.Subscription.ListActiveByProfile(ctx, req.Msg.GetCustomerId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -403,7 +403,7 @@ func (s *BillingServer) IngestUsageEvent(
 	event := &models.UsageEvent{
 		EventID:        req.Msg.GetEventId(),
 		SubscriptionID: req.Msg.GetSubscriptionId(),
-		CustomerID:     req.Msg.GetCustomerId(),
+		ProfileID:      req.Msg.GetCustomerId(),
 		MetricKey:      req.Msg.GetMetricKey(),
 		Quantity:       decimal.NewNullDecimal(decimal.NewFromFloat(req.Msg.GetQuantity())),
 		Timestamp:      req.Msg.GetTimestamp().AsTime(),
@@ -433,7 +433,7 @@ func (s *BillingServer) IngestUsageBatch(
 		events[i] = &models.UsageEvent{
 			EventID:        e.GetEventId(),
 			SubscriptionID: e.GetSubscriptionId(),
-			CustomerID:     e.GetCustomerId(),
+			ProfileID:      e.GetCustomerId(),
 			MetricKey:      e.GetMetricKey(),
 			Quantity:       decimal.NewNullDecimal(decimal.NewFromFloat(e.GetQuantity())),
 			Timestamp:      e.GetTimestamp().AsTime(),
@@ -626,7 +626,7 @@ func (s *BillingServer) GrantCredit(
 	req *connect.Request[billingv1.GrantCreditRequest],
 ) (*connect.Response[billingv1.GrantCreditResponse], error) {
 	grant := &models.CreditGrant{
-		CustomerID:      req.Msg.GetCustomerId(),
+		ProfileID:       req.Msg.GetCustomerId(),
 		Name:            req.Msg.GetName(),
 		OriginalAmount:  moneyToNullDecimal(req.Msg.GetAmount()),
 		RemainingAmount: moneyToNullDecimal(req.Msg.GetAmount()),

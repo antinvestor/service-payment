@@ -304,7 +304,7 @@ func subscriptionToProto(s *models.Subscription) *billingv1.Subscription {
 	}
 	return &billingv1.Subscription{
 		Id:               s.GetID(),
-		CustomerId:       s.CustomerID,
+		CustomerId:       s.ProfileID,
 		CatalogVersionId: s.CatalogVersionID,
 		PlanId:           s.PlanID,
 		State:            subscriptionStateToProto(s.State),
@@ -326,7 +326,7 @@ func usageEventToProto(e *models.UsageEvent) *billingv1.UsageEvent {
 		Id:             e.GetID(),
 		EventId:        e.EventID,
 		SubscriptionId: e.SubscriptionID,
-		CustomerId:     e.CustomerID,
+		CustomerId:     e.ProfileID,
 		MetricKey:      e.MetricKey,
 		Quantity:       qty,
 		Timestamp:      timeToTimestamp(e.Timestamp),
@@ -342,7 +342,7 @@ func invoiceToProto(inv *models.Invoice) *billingv1.Invoice {
 	proto := &billingv1.Invoice{
 		Id:             inv.GetID(),
 		BillingRunId:   inv.BillingRunID,
-		CustomerId:     inv.CustomerID,
+		CustomerId:     inv.ProfileID,
 		SubscriptionId: inv.SubscriptionID,
 		InvoiceNumber:  inv.InvoiceNumber,
 		State:          invoiceStateToProto(inv.State),
@@ -398,7 +398,7 @@ func creditGrantToProto(g *models.CreditGrant) *billingv1.CreditGrant {
 	}
 	return &billingv1.CreditGrant{
 		Id:              g.GetID(),
-		CustomerId:      g.CustomerID,
+		CustomerId:      g.ProfileID,
 		Name:            g.Name,
 		OriginalAmount:  nullDecimalToMoney(g.OriginalAmount, g.Currency),
 		RemainingAmount: nullDecimalToMoney(g.RemainingAmount, g.Currency),
@@ -458,7 +458,7 @@ func billingRunToProto(r *models.BillingRun) *billingv1.BillingRun {
 	return &billingv1.BillingRun{
 		Id:               r.GetID(),
 		SubscriptionId:   r.SubscriptionID,
-		CustomerId:       r.CustomerID,
+		CustomerId:       r.ProfileID,
 		CatalogVersionId: r.CatalogVersionID,
 		State:            billingRunStateToProto(r.State),
 		PeriodStart:      timeToTimestamp(r.PeriodStart),

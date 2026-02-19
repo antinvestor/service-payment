@@ -6,10 +6,10 @@ import (
 	"github.com/pitabwire/frame/data"
 )
 
-// Subscription represents a customer's subscription to a plan.
+// Subscription represents a profile's subscription to a plan.
 type Subscription struct {
 	data.BaseModel
-	CustomerID       string       `gorm:"type:varchar(100);not null;index"     json:"customer_id"`
+	ProfileID        string       `gorm:"type:varchar(100);not null;index"     json:"profile_id"`
 	CatalogVersionID string       `gorm:"type:varchar(50);not null;index"      json:"catalog_version_id"`
 	PlanID           string       `gorm:"type:varchar(50);not null;index"      json:"plan_id"`
 	State            string       `gorm:"type:varchar(50);not null"            json:"state"`

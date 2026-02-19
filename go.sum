@@ -1,3 +1,7 @@
+buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260219024106-9088414762cf.2 h1:ZX4Cd+NtjddnsB9Uqxbx4zIf0WD3eXXrgqkGASEL7q8=
+buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260219024106-9088414762cf.2/go.mod h1:VfdbbMYSA2nbkr7DxX4Hlb2NHkuAbclVXYxXHVx8ljw=
+buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260219024106-9088414762cf.1 h1:PhMmCZghdb5Msr1LMlFooul0Rl4+SUToy11rlITMT2Q=
+buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260219024106-9088414762cf.1/go.mod h1:cKpduvX9zxSVpTGGiktEtGIBXsglozM7rSSdUSGMt68=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260102104630-5c57561a771f.1 h1:aW8uMlFOxjLT4+LNieo9D5jUfXWtN0jhHYSIJJ/Od/M=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260102104630-5c57561a771f.1/go.mod h1:qXLyfS+9v9/zjQpmKIVHm/UtpDTqZh1l1hn53sdqTYg=
 buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20260102123250-5570a5267fab.2 h1:FRiOJawA6lVKCjZZ3Fkg2Y42DIwl+nmfe9EmrmGN0Eo=
@@ -20,8 +24,8 @@ buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260102123521-54fcf
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260102123521-54fcf9143036.2/go.mod h1:TQKXqdabIjODjmm0JgYgUmx3fiaRhJBbawqRsoCN6mM=
 buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260102123521-54fcf9143036.1 h1:piizHAlo/B8v5raUvpRZkT3feYwr+8w1Ti/SJydBkbU=
 buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260102123521-54fcf9143036.1/go.mod h1:RE5OwrTppISYNBgByGOQGDWb9jmxQLWZ10aox7NuASc=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1 h1:j9yeqTWEFrtimt8Nng2MIeRrpoCvQzM9/g25XTvqUGg=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 h1:PMmTMyvHScV9Mn8wc6ASge9uRcHy0jtqPd+fM35LmsQ=
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
 buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 h1:t8f+WWZ5WNrZaP5zrpWD8f1tKU7eelJMbIAT9FRX558=
 buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1/go.mod h1:/t9AeRQQp2iNkiGHDLfHLW3SzNpYpNPGRZ+Ih8+SOUs=
 buf.build/go/protovalidate v1.1.0 h1:pQqEQRpOo4SqS60qkvmhLTTQU9JwzEvdyiqAtXa5SeY=

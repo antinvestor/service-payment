@@ -38,6 +38,43 @@ const (
 	ErrorCodeSearchQueryHasInvalidFormat  = 62
 	ErrorCodeSearchQueryHasInvalidKeys    = 63
 	ErrorCodeSearchQueryResultsNotCasting = 64
+
+	// Billing catalog error codes (71-80).
+	ErrorCodeCatalogVersionNotFound = 71
+	ErrorCodeCatalogVersionRetired  = 72
+	ErrorCodeCatalogNotPublished    = 73
+	ErrorCodePlanNotFound           = 74
+	ErrorCodeComponentNotFound      = 75
+	ErrorCodeInvalidPricingModel    = 76
+
+	// Billing subscription error codes (91-100).
+	ErrorCodeSubscriptionNotFound  = 91
+	ErrorCodeSubscriptionNotActive = 92
+
+	// Billing usage error codes (101-110).
+	ErrorCodeUsageEventDuplicate = 101
+	ErrorCodeUsageEventInvalid   = 102
+
+	// Billing rating/discount error codes (111-120).
+	ErrorCodeRatingFailed    = 111
+	ErrorCodeDiscountInvalid = 112
+
+	// Billing invoice error codes (121-130).
+	ErrorCodeInvoiceNotFound      = 121
+	ErrorCodeInvoiceAlreadyIssued = 122
+	ErrorCodeInvoiceNotIssuable   = 123
+	ErrorCodeInvoiceNotVoidable   = 124
+	ErrorCodeInvoiceNotPayable    = 125
+
+	// Billing credit error codes (131-140).
+	ErrorCodeCreditGrantNotFound     = 131
+	ErrorCodeCreditInsufficientFunds = 132
+	ErrorCodeCreditExpired           = 133
+
+	// Billing run error codes (141-150).
+	ErrorCodeBillingRunNotFound      = 141
+	ErrorCodeBillingRunAlreadyExists = 142
+	ErrorCodeBillingRunFailed        = 143
 )
 
 type ApplicationError interface {
@@ -169,4 +206,55 @@ var (
 		ErrorCodeSearchQueryResultsNotCasting,
 		"Search query results not casting",
 	)
+
+	// ErrCatalogVersionNotFound indicates the requested catalog version does not exist.
+	ErrCatalogVersionNotFound = NewApplicationError(ErrorCodeCatalogVersionNotFound, "Catalog version not found")
+	// ErrCatalogVersionRetired indicates the catalog version has been retired.
+	ErrCatalogVersionRetired = NewApplicationError(ErrorCodeCatalogVersionRetired, "Catalog version is retired")
+	// ErrCatalogNotPublished indicates the catalog version is not yet published.
+	ErrCatalogNotPublished = NewApplicationError(ErrorCodeCatalogNotPublished, "Catalog version is not published")
+	// ErrPlanNotFound indicates the requested plan does not exist.
+	ErrPlanNotFound = NewApplicationError(ErrorCodePlanNotFound, "Plan not found")
+	// ErrComponentNotFound indicates the requested component does not exist.
+	ErrComponentNotFound = NewApplicationError(ErrorCodeComponentNotFound, "Component not found")
+	// ErrInvalidPricingModel indicates an unsupported pricing model was specified.
+	ErrInvalidPricingModel = NewApplicationError(ErrorCodeInvalidPricingModel, "Invalid pricing model")
+	// ErrSubscriptionNotFound indicates the requested subscription does not exist.
+	ErrSubscriptionNotFound = NewApplicationError(ErrorCodeSubscriptionNotFound, "Subscription not found")
+	// ErrSubscriptionNotActive indicates the subscription is not in an active state.
+	ErrSubscriptionNotActive = NewApplicationError(ErrorCodeSubscriptionNotActive, "Subscription is not active")
+	// ErrUsageEventDuplicate indicates a duplicate usage event was submitted.
+	ErrUsageEventDuplicate = NewApplicationError(ErrorCodeUsageEventDuplicate, "Duplicate usage event")
+	// ErrUsageEventInvalid indicates the usage event data is invalid.
+	ErrUsageEventInvalid = NewApplicationError(ErrorCodeUsageEventInvalid, "Invalid usage event")
+	// ErrRatingFailed indicates a rating calculation error.
+	ErrRatingFailed = NewApplicationError(ErrorCodeRatingFailed, "Rating calculation failed")
+	// ErrDiscountInvalid indicates an invalid discount configuration.
+	ErrDiscountInvalid = NewApplicationError(ErrorCodeDiscountInvalid, "Invalid discount configuration")
+	// ErrInvoiceNotFound indicates the requested invoice does not exist.
+	ErrInvoiceNotFound = NewApplicationError(ErrorCodeInvoiceNotFound, "Invoice not found")
+	// ErrInvoiceAlreadyIssued indicates the invoice has already been issued.
+	ErrInvoiceAlreadyIssued = NewApplicationError(ErrorCodeInvoiceAlreadyIssued, "Invoice has already been issued")
+	// ErrInvoiceNotIssuable indicates the invoice cannot be issued in its current state.
+	ErrInvoiceNotIssuable = NewApplicationError(
+		ErrorCodeInvoiceNotIssuable, "Invoice is not in a state that can be issued")
+	// ErrInvoiceNotVoidable indicates the invoice cannot be voided in its current state.
+	ErrInvoiceNotVoidable = NewApplicationError(
+		ErrorCodeInvoiceNotVoidable, "Invoice cannot be voided in its current state")
+	// ErrInvoiceNotPayable indicates the invoice must be issued before payment can be recorded.
+	ErrInvoiceNotPayable = NewApplicationError(
+		ErrorCodeInvoiceNotPayable, "Invoice must be in issued state to record payment")
+	// ErrCreditGrantNotFound indicates the requested credit grant does not exist.
+	ErrCreditGrantNotFound = NewApplicationError(ErrorCodeCreditGrantNotFound, "Credit grant not found")
+	// ErrCreditInsufficientFunds indicates insufficient credit balance.
+	ErrCreditInsufficientFunds = NewApplicationError(ErrorCodeCreditInsufficientFunds, "Insufficient credit balance")
+	// ErrCreditExpired indicates the credit grant has expired.
+	ErrCreditExpired = NewApplicationError(ErrorCodeCreditExpired, "Credit grant has expired")
+	// ErrBillingRunNotFound indicates the requested billing run does not exist.
+	ErrBillingRunNotFound = NewApplicationError(ErrorCodeBillingRunNotFound, "Billing run not found")
+	// ErrBillingRunAlreadyExists indicates a billing run already exists for the given period.
+	ErrBillingRunAlreadyExists = NewApplicationError(
+		ErrorCodeBillingRunAlreadyExists, "Billing run already exists for this period")
+	// ErrBillingRunFailed indicates the billing run has failed.
+	ErrBillingRunFailed = NewApplicationError(ErrorCodeBillingRunFailed, "Billing run failed")
 )

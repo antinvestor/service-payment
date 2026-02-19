@@ -3,6 +3,8 @@ module github.com/antinvestor/service-payments
 go 1.25.2
 
 require (
+	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260219024106-9088414762cf.2
+	buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260219024106-9088414762cf.1
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260102104630-5c57561a771f.1
 	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20260102123250-5570a5267fab.2
 	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260102123250-5570a5267fab.1
@@ -40,7 +42,7 @@ require (
 require (
 	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.11-20260102123403-c216ee43d0df.1 // indirect
 	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260102123445-62e44f8dd82b.1 // indirect
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.1.0 // indirect
 	cel.dev/expr v0.25.1 // indirect

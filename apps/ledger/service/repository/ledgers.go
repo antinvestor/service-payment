@@ -33,12 +33,39 @@ func NewLedgerRepository(ctx context.Context, dbPool pool.Pool, workMan workerpo
 }
 
 // Query constants for ledger repository.
-const constLedgerQuery = `SELECT id, parent_id, data FROM ledgers`
+const constLedgerQuery = `SELECT
+    l.id, l.parent_id, l.type, l.data,
+    l.created_at, l.modified_at, l.version,
+    l.tenant_id, l.partition_id, l.access_id, l.deleted_at
+FROM ledgers l`
 
 func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Ledger, error) {
-	rows, err := l.Pool().DB(ctx, true).
-		Offset(sqlQuery.offset).Limit(sqlQuery.batchSize).
-		Raw(fmt.Sprintf(`%s WHERE %s`, constLedgerQuery, sqlQuery.sql), sqlQuery.args...).Rows()
+	var whereParts []string
+	var allArgs []interface{}
+
+	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "l")
+	if tenancySQL != "" {
+		whereParts = append(whereParts, tenancySQL)
+		allArgs = append(allArgs, tenancyArgs...)
+	}
+
+	whereParts = append(whereParts, "l.deleted_at IS NULL")
+
+	if sqlQuery.sql != "" {
+		whereParts = append(whereParts, sqlQuery.sql)
+		allArgs = append(allArgs, sqlQuery.args...)
+	}
+
+	whereClause := "1=1"
+	if len(whereParts) > 0 {
+		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
+	}
+
+	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
+		constLedgerQuery, whereClause)
+	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
+
+	rows, err := l.Pool().DB(ctx, true).Raw(fullSQL, allArgs...).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +75,10 @@ func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQ
 	ledgerList := make([]*models.Ledger, 0)
 	for rows.Next() {
 		ledger := new(models.Ledger)
-		errR := rows.Scan(&ledger.ID, &ledger.ParentID, &ledger.Data)
+		errR := rows.Scan(
+			&ledger.ID, &ledger.ParentID, &ledger.Type, &ledger.Data,
+			&ledger.CreatedAt, &ledger.ModifiedAt, &ledger.Version,
+			&ledger.TenantID, &ledger.PartitionID, &ledger.AccessID, &ledger.DeletedAt)
 		if errR != nil {
 			return ledgerList, errR
 		}

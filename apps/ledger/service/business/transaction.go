@@ -254,13 +254,15 @@ func (b *transactionBusiness) ReverseTransaction(
 	return reversedTxn.ToAPI(), nil
 }
 
-// DeleteTransaction deletes a transaction by ID.
+// DeleteTransaction is not supported — transactions are immutable audit records.
+// Use ReverseTransaction to create an offsetting reversal instead.
 func (b *transactionBusiness) DeleteTransaction(_ context.Context, id string) error {
 	if id == "" {
 		return ErrTransactionIDRequired
 	}
 
-	return errors.New("delete transaction is not implemented")
+	return apperrors.ErrTransactionTypeNotReversible.Extend(
+		"transactions cannot be deleted; use ReverseTransaction to create an offsetting reversal")
 }
 
 // SearchEntries searches for transaction entries based on query.

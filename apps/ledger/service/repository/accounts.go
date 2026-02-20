@@ -4,33 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/internal/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
 )
 
-const constAccountQuery = `WITH current_balance_summary AS (
-    SELECT 
-        e.account_id, 
-        t.currency,
-        COALESCE(SUM(CASE WHEN t.transaction_type IN ('NORMAL', 'REVERSAL') AND t.cleared_at IS NOT NULL AND t.cleared_at != '0001-01-01 00:00:00' THEN e.amount ELSE 0 END), 0) AS balance,
-        COALESCE(SUM(CASE WHEN t.transaction_type IN ('NORMAL', 'REVERSAL') AND (t.cleared_at IS NULL OR t.cleared_at = '0001-01-01 00:00:00') THEN e.amount ELSE 0 END), 0) AS uncleared_balance,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'RESERVATION' THEN e.amount ELSE 0 END), 0) AS reserved_balance
-    FROM transaction_entries e 
-    LEFT JOIN transactions t ON e.transaction_id = t.id
-    GROUP BY e.account_id, t.currency
-)
-SELECT 
+// constAccountQuery uses a LATERAL subquery to compute balances scoped to
+// each matched account, avoiding a full-table aggregation of transaction_entries.
+// The LATERAL join runs the balance aggregation once per matched account row,
+// bounded by the outer WHERE + OFFSET/LIMIT.
+// Soft-deleted transactions (deleted_at IS NOT NULL) are excluded from balances.
+const constAccountQuery = `SELECT
     a.id,
     a.currency,
     a.data,
     COALESCE(bs.balance, 0) AS total_balance,
-    COALESCE(bs.uncleared_balance, 0) AS total_uncleared_balance,
+    COALESCE(bs.un_cleared_balance, 0) AS total_uncleared_balance,
     COALESCE(bs.reserved_balance, 0) AS total_reserved_balance,
     a.ledger_id,
     a.ledger_type,
@@ -42,7 +38,25 @@ SELECT
     a.access_id,
     a.deleted_at
 FROM accounts a
-LEFT JOIN current_balance_summary bs ON a.id = bs.account_id AND a.currency = bs.currency `
+LEFT JOIN LATERAL (
+    SELECT
+        COALESCE(SUM(CASE
+            WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
+                AND t.cleared_at IS NOT NULL
+                AND t.cleared_at != '0001-01-01 00:00:00'
+            THEN e.amount ELSE 0 END), 0) AS balance,
+        COALESCE(SUM(CASE
+            WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
+                AND (t.cleared_at IS NULL OR t.cleared_at = '0001-01-01 00:00:00')
+            THEN e.amount ELSE 0 END), 0) AS un_cleared_balance,
+        COALESCE(SUM(CASE
+            WHEN t.transaction_type = 'RESERVATION'
+            THEN e.amount ELSE 0 END), 0) AS reserved_balance
+    FROM transaction_entries e
+    INNER JOIN transactions t ON e.transaction_id = t.id
+        AND t.deleted_at IS NULL
+    WHERE e.account_id = a.id
+) bs ON true `
 
 type AccountRepository interface {
 	datastore.BaseRepository[*models.Account]
@@ -139,10 +153,56 @@ func (a *accountRepository) ListByID(
 	}
 }
 
+// buildTenancyClause returns a SQL WHERE fragment and args for tenant/partition
+// scoping, extracted from the authentication claims in the context.
+// When no claims are present (e.g. internal cross-tenant services), it returns
+// an empty clause so the query remains unscoped — matching frame's TenancyPartition behavior.
+func buildTenancyClause(ctx context.Context, tableAlias string) (string, []interface{}) {
+	authClaim := security.ClaimsFromContext(ctx)
+	if authClaim == nil || security.IsTenancyChecksOnClaimSkipped(ctx) {
+		return "", nil
+	}
+
+	prefix := ""
+	if tableAlias != "" {
+		prefix = tableAlias + "."
+	}
+
+	clause := fmt.Sprintf("%stenant_id = ? AND %spartition_id = ?", prefix, prefix)
+	return clause, []interface{}{authClaim.GetTenantID(), authClaim.GetPartitionID()}
+}
+
 func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Account, error) {
-	rows, err := a.Pool().DB(ctx, true).
-		Offset(sqlQuery.offset).Limit(sqlQuery.batchSize).
-		Raw(fmt.Sprintf(`%s WHERE %s`, constAccountQuery, sqlQuery.sql), sqlQuery.args...).Rows()
+	// Build WHERE clause combining tenancy scoping with the search conditions.
+	// Raw SQL bypasses GORM's automatic TenancyPartition scope, so we must
+	// inject tenant filtering explicitly.
+	var whereParts []string
+	var allArgs []interface{}
+
+	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "a")
+	if tenancySQL != "" {
+		whereParts = append(whereParts, tenancySQL)
+		allArgs = append(allArgs, tenancyArgs...)
+	}
+
+	// Exclude soft-deleted accounts
+	whereParts = append(whereParts, "a.deleted_at IS NULL")
+
+	if sqlQuery.sql != "" {
+		whereParts = append(whereParts, sqlQuery.sql)
+		allArgs = append(allArgs, sqlQuery.args...)
+	}
+
+	whereClause := "1=1"
+	if len(whereParts) > 0 {
+		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
+	}
+
+	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
+		constAccountQuery, whereClause)
+	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
+
+	rows, err := a.Pool().DB(ctx, true).Raw(fullSQL, allArgs...).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +223,17 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 	}
 
 	return accountList, nil
+}
+
+// joinAND joins SQL fragments with " AND ".
+func joinAND(parts []string) string {
+	result := parts[0]
+	var resultSb230 strings.Builder
+	for _, p := range parts[1:] {
+		resultSb230.WriteString(" AND " + p)
+	}
+	result += resultSb230.String()
+	return result
 }
 
 func (a *accountRepository) paginateAccountSearch(

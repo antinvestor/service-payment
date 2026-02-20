@@ -7,6 +7,7 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
+	"github.com/antinvestor/service-payments/internal/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 )
@@ -151,14 +152,11 @@ func (b *ledgerBusiness) UpdateLedger(
 	return existingLedger.ToAPI(), nil
 }
 
-// DeleteLedger deletes a ledger by ID.
+// DeleteLedger is not supported — ledgers are permanent records in the chart of accounts.
 func (b *ledgerBusiness) DeleteLedger(_ context.Context, id string) error {
 	if id == "" {
 		return ErrLedgerIDRequired
 	}
 
-	// Delete through repository (assuming repository has a Delete method)
-	// This might need to be implemented based on actual repository interface
-	// For now, we'll use Update with a deleted flag or similar
-	return nil // Implementation depends on repository interface
+	return apperrors.ErrBadDataSupplied.Extend("ledgers cannot be deleted")
 }

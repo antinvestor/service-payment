@@ -7,6 +7,7 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
+	"github.com/antinvestor/service-payments/internal/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/shopspring/decimal"
@@ -177,12 +178,11 @@ func (b *accountBusiness) UpdateAccount(
 	return existingAccount.ToAPI(), nil
 }
 
-// DeleteAccount deletes an account by ID.
+// DeleteAccount is not supported — accounts are permanent records in the ledger.
 func (b *accountBusiness) DeleteAccount(_ context.Context, id string) error {
 	if id == "" {
 		return ErrAccountIDRequired
 	}
 
-	// Delete through repository
-	return nil // Implementation depends on repository interface
+	return apperrors.ErrBadDataSupplied.Extend("accounts cannot be deleted")
 }

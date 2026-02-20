@@ -148,25 +148,23 @@ func (t *transactionRepository) SearchEntriesByTransactionID(
 
 	query := string(queryBytes)
 
-	logger.WithField("query", query).Info("Query from database")
+	logger.WithField("query", query).Debug("searching entries by transaction ID")
 
 	jobResult, err := t.SearchEntries(ctx, query)
 	if err != nil {
-		logger.WithError(err).Info("could not query for entries")
+		logger.WithError(err).Warn("could not query for entries")
 
 		return nil, apperrors.ErrSystemFailure.Override(err).Extend(fmt.Sprintf("db query error [%s]", query))
 	}
 
 	for {
-		logger.Info("reading results")
-
 		result, ok := jobResult.ReadResult(ctx)
 
 		if !ok {
 			return entriesMap, nil
 		}
 		if result.IsError() {
-			logger.WithError(result.Error()).Info("could not read results")
+			logger.WithError(result.Error()).Warn("could not read entry results")
 			return nil, apperrors.ErrSystemFailure.Override(result.Error())
 		}
 

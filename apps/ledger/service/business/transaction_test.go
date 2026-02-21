@@ -586,7 +586,7 @@ func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
 		err = transactionBusiness.SearchTransactions(
 			ctx,
 			&commonv1.SearchRequest{Query: "invalid json"},
-			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+			func(_ context.Context, _ []*ledgerv1.Transaction) error {
 				return nil
 			},
 		)
@@ -596,7 +596,7 @@ func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
 		err = transactionBusiness.SearchEntries(
 			ctx,
 			&commonv1.SearchRequest{Query: "invalid json"},
-			func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {
+			func(_ context.Context, _ []*ledgerv1.TransactionEntry) error {
 				return nil
 			},
 		)
@@ -607,7 +607,7 @@ func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
 		err = transactionBusiness.SearchTransactions(
 			ctx,
 			searchReq,
-			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+			func(_ context.Context, _ []*ledgerv1.Transaction) error {
 				return consumerErr
 			},
 		)
@@ -618,7 +618,7 @@ func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
 		err = transactionBusiness.SearchEntries(
 			ctx,
 			searchReq,
-			func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {
+			func(_ context.Context, _ []*ledgerv1.TransactionEntry) error {
 				return consumerErr
 			},
 		)

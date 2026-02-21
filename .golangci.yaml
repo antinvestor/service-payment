@@ -440,3 +440,7 @@ linters:
           - gosec
           - noctx
           - wrapcheck
+      - path: 'utils_test\.go'
+        linters:
+          - testpackage
+        text: 'package should be `business_test`'

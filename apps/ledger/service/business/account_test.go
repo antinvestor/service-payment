@@ -348,7 +348,7 @@ func (as *AccountBusinessSuite) TestEdgeCases() {
 		require.NoError(t, err)
 
 		consumerErr := errors.New("consumer failed")
-		err = accountBusiness.SearchAccounts(ctx, searchReq, func(_ context.Context, batch []*ledgerv1.Account) error {
+		err = accountBusiness.SearchAccounts(ctx, searchReq, func(_ context.Context, _ []*ledgerv1.Account) error {
 			return consumerErr
 		})
 		require.Error(t, err)

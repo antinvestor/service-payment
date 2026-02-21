@@ -229,7 +229,7 @@ func (ls *LedgerBusinessSuite) TestEdgeCases() {
 		err = ledgerBusiness.SearchLedgers(
 			ctx,
 			&commonv1.SearchRequest{Query: "invalid json"},
-			func(_ context.Context, batch []*ledgerv1.Ledger) error {
+			func(_ context.Context, _ []*ledgerv1.Ledger) error {
 				return nil
 			},
 		)
@@ -246,7 +246,7 @@ func (ls *LedgerBusinessSuite) TestEdgeCases() {
 		err = ledgerBusiness.SearchLedgers(
 			ctx,
 			&commonv1.SearchRequest{Query: "{}"},
-			func(_ context.Context, batch []*ledgerv1.Ledger) error {
+			func(_ context.Context, _ []*ledgerv1.Ledger) error {
 				return consumerErr
 			},
 		)

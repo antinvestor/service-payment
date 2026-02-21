@@ -2,6 +2,7 @@ package business_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -136,6 +137,134 @@ func (ls *LedgerBusinessSuite) TestUpdateLedger() {
 		// Verify the update
 		assert.Equal(t, "Updated Income Ledger", updatedLedger.GetData().GetFields()["name"].GetStringValue())
 		assert.Equal(t, "Updated description", updatedLedger.GetData().GetFields()["description"].GetStringValue())
+	})
+}
+
+func (ls *LedgerBusinessSuite) TestDeleteLedgerNoAccounts() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ls.CreateService(t, dep)
+
+		ledgerBusiness := resources.LedgerBusiness
+
+		// Create a ledger with no accounts
+		_, err := ledgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "delete-me-ledger",
+			Type: ledgerv1.LedgerType_ASSET,
+		})
+		require.NoError(t, err)
+
+		// Should succeed since no accounts exist
+		err = ledgerBusiness.DeleteLedger(ctx, "delete-me-ledger")
+		require.NoError(t, err)
+	})
+}
+
+func (ls *LedgerBusinessSuite) TestDeleteLedgerWithAccounts() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ls.CreateService(t, dep)
+
+		ledgerBusiness := resources.LedgerBusiness
+		accountBusiness := resources.AccountBusiness
+
+		// Create a ledger
+		_, err := ledgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "ledger-with-accounts",
+			Type: ledgerv1.LedgerType_ASSET,
+		})
+		require.NoError(t, err)
+
+		// Create an account in the ledger
+		_, err = accountBusiness.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "child-account",
+			LedgerId: "ledger-with-accounts",
+			Currency: "USD",
+		})
+		require.NoError(t, err)
+
+		// Should fail since ledger has accounts
+		err = ledgerBusiness.DeleteLedger(ctx, "ledger-with-accounts")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "has accounts")
+	})
+}
+
+func (ls *LedgerBusinessSuite) TestDeleteLedgerEmptyID() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ls.CreateService(t, dep)
+
+		err := resources.LedgerBusiness.DeleteLedger(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ledger ID is required")
+	})
+}
+
+func (ls *LedgerBusinessSuite) TestEdgeCases() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ls.CreateService(t, dep)
+
+		ledgerBusiness := resources.LedgerBusiness
+
+		// Test UpdateLedger with non-existent ID (triggers GetByID error path)
+		_, err := ledgerBusiness.UpdateLedger(ctx, &ledgerv1.UpdateLedgerRequest{
+			Id: "non-existent-ledger-update",
+			Data: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"name": {Kind: &structpb.Value_StringValue{StringValue: "test"}},
+				},
+			},
+		})
+		require.Error(t, err)
+
+		// Test UpdateLedger with empty ID
+		_, err = ledgerBusiness.UpdateLedger(ctx, &ledgerv1.UpdateLedgerRequest{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ledger ID is required")
+
+		// Test GetLedger with empty ID
+		_, err = ledgerBusiness.GetLedger(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ledger ID is required")
+
+		// Test SearchLedgers with invalid query (triggers search error result path)
+		err = ledgerBusiness.SearchLedgers(
+			ctx,
+			&commonv1.SearchRequest{Query: "invalid json"},
+			func(_ context.Context, batch []*ledgerv1.Ledger) error {
+				return nil
+			},
+		)
+		require.Error(t, err)
+
+		// Test SearchLedgers with consumer error
+		_, err = ledgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "consumer-err-ledger",
+			Type: ledgerv1.LedgerType_ASSET,
+		})
+		require.NoError(t, err)
+
+		consumerErr := errors.New("consumer failed")
+		err = ledgerBusiness.SearchLedgers(
+			ctx,
+			&commonv1.SearchRequest{Query: "{}"},
+			func(_ context.Context, batch []*ledgerv1.Ledger) error {
+				return consumerErr
+			},
+		)
+		require.Error(t, err)
+		assert.Equal(t, consumerErr, err)
+
+		// Test SearchLedgers with nil query (triggers default)
+		var emptyQueryLedgers []*ledgerv1.Ledger
+		err = ledgerBusiness.SearchLedgers(
+			ctx,
+			&commonv1.SearchRequest{},
+			func(_ context.Context, batch []*ledgerv1.Ledger) error {
+				emptyQueryLedgers = append(emptyQueryLedgers, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(emptyQueryLedgers), 1)
 	})
 }
 

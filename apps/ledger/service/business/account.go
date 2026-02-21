@@ -162,6 +162,10 @@ func (b *accountBusiness) UpdateAccount(
 		return nil, err
 	}
 
+	if existingAccount == nil {
+		return nil, apperrors.ErrAccountNotFound
+	}
+
 	// Update fields from request
 	if req.GetData() != nil {
 		dataMap := &data.JSONMap{}
@@ -178,11 +182,20 @@ func (b *accountBusiness) UpdateAccount(
 	return existingAccount.ToAPI(), nil
 }
 
-// DeleteAccount is not supported — accounts are permanent records in the ledger.
-func (b *accountBusiness) DeleteAccount(_ context.Context, id string) error {
+// DeleteAccount deletes an account if it has no transaction entries.
+func (b *accountBusiness) DeleteAccount(ctx context.Context, id string) error {
 	if id == "" {
 		return ErrAccountIDRequired
 	}
 
-	return apperrors.ErrBadDataSupplied.Extend("accounts cannot be deleted")
+	hasEntries, err := b.accountRepo.HasTransactionEntries(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if hasEntries {
+		return apperrors.ErrBadDataSupplied.Extend("account has transactions and cannot be deleted")
+	}
+
+	return b.accountRepo.Delete(ctx, id)
 }

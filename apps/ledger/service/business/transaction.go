@@ -165,6 +165,10 @@ func (b *transactionBusiness) UpdateTransaction(
 		return nil, err
 	}
 
+	if existingTransaction == nil {
+		return nil, apperrors.ErrTransactionNotFound
+	}
+
 	// Update fields from request
 	if req.GetData() != nil {
 		dataMap := data.JSONMap{}

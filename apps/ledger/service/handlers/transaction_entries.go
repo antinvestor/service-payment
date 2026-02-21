@@ -15,7 +15,7 @@ func (ledgerSrv *LedgerServer) SearchTransactionEntries(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionEntriesResponse],
 ) error {
-	return toConnectError(ledgerSrv.Transaction.SearchEntries(
+	return ToConnectError(ledgerSrv.Transaction.SearchEntries(
 		ctx,
 		req.Msg,
 		func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {

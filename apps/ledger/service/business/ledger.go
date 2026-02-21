@@ -24,15 +24,21 @@ type LedgerBusiness interface {
 
 // ledgerBusiness implements the LedgerBusiness interface.
 type ledgerBusiness struct {
-	workMan    workerpool.Manager
-	ledgerRepo repository.LedgerRepository
+	workMan     workerpool.Manager
+	ledgerRepo  repository.LedgerRepository
+	accountRepo repository.AccountRepository
 }
 
 // NewLedgerBusiness creates a new ledger business instance.
-func NewLedgerBusiness(workMan workerpool.Manager, ledgerRepo repository.LedgerRepository) LedgerBusiness {
+func NewLedgerBusiness(
+	workMan workerpool.Manager,
+	ledgerRepo repository.LedgerRepository,
+	accountRepo repository.AccountRepository,
+) LedgerBusiness {
 	return &ledgerBusiness{
-		workMan:    workMan,
-		ledgerRepo: ledgerRepo,
+		workMan:     workMan,
+		ledgerRepo:  ledgerRepo,
+		accountRepo: accountRepo,
 	}
 }
 
@@ -136,6 +142,10 @@ func (b *ledgerBusiness) UpdateLedger(
 		return nil, err
 	}
 
+	if existingLedger == nil {
+		return nil, apperrors.ErrLedgerNotFound
+	}
+
 	// Update fields from request
 	if req.GetData() != nil {
 		dataMap := &data.JSONMap{}
@@ -152,11 +162,20 @@ func (b *ledgerBusiness) UpdateLedger(
 	return existingLedger.ToAPI(), nil
 }
 
-// DeleteLedger is not supported — ledgers are permanent records in the chart of accounts.
-func (b *ledgerBusiness) DeleteLedger(_ context.Context, id string) error {
+// DeleteLedger deletes a ledger if it has no accounts.
+func (b *ledgerBusiness) DeleteLedger(ctx context.Context, id string) error {
 	if id == "" {
 		return ErrLedgerIDRequired
 	}
 
-	return apperrors.ErrBadDataSupplied.Extend("ledgers cannot be deleted")
+	count, err := b.accountRepo.CountByLedgerID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return apperrors.ErrBadDataSupplied.Extend("ledger has accounts and cannot be deleted")
+	}
+
+	return b.ledgerRepo.Delete(ctx, id)
 }

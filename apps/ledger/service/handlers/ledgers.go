@@ -12,10 +12,10 @@ import (
 	"github.com/antinvestor/service-payments/internal/apperrors"
 )
 
-// toConnectError translates application errors into appropriate ConnectRPC
+// ToConnectError translates application errors into appropriate ConnectRPC
 // error codes so clients receive meaningful status codes instead of generic
 // Internal errors.
-func toConnectError(err error) error {
+func ToConnectError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
 	// Search ledgers using business layer
-	return toConnectError(
+	return ToConnectError(
 		ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
 			return stream.Send(&ledgerv1.SearchLedgersResponse{
 				Data: batch,
@@ -108,7 +108,7 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	// Create the ledger using business layer
 	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req.Msg)
 	if err != nil {
-		return nil, toConnectError(err)
+		return nil, ToConnectError(err)
 	}
 
 	response := &ledgerv1.CreateLedgerResponse{
@@ -127,7 +127,7 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	// Update the ledger using business layer
 	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req.Msg)
 	if err != nil {
-		return nil, toConnectError(err)
+		return nil, ToConnectError(err)
 	}
 
 	response := &ledgerv1.UpdateLedgerResponse{

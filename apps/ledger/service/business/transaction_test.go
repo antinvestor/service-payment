@@ -2,12 +2,14 @@ package business_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
@@ -435,6 +437,391 @@ func (ts *TransactionBusinessSuite) TestGetTransaction() {
 			"Currency should match",
 		)
 		assert.Equal(t, createdTransaction.GetType(), retrievedTransaction.GetType(), "Type should match")
+	})
+}
+
+func (ts *TransactionBusinessSuite) TestSearchTransactions() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		transactionBusiness := resources.TransactionBusiness
+
+		// Create a transaction
+		_, err := transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "search-txn-1",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		// Search with empty query
+		searchReq := &commonv1.SearchRequest{Query: "{}"}
+		var foundTxns []*ledgerv1.Transaction
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				foundTxns = append(foundTxns, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(foundTxns), 1)
+	})
+}
+
+func (ts *TransactionBusinessSuite) TestSearchTransactionsWithFilter() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		transactionBusiness := resources.TransactionBusiness
+
+		_, err := transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "search-filter-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		searchReq := &commonv1.SearchRequest{
+			Query: `{"query": {"must": {"fields": [{"id": {"eq": "search-filter-txn"}}]}}}`,
+		}
+		var foundTxns []*ledgerv1.Transaction
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				foundTxns = append(foundTxns, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.Len(t, foundTxns, 1)
+	})
+}
+
+func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		transactionBusiness := resources.TransactionBusiness
+
+		// Create a transaction for search tests
+		_, err := transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "search-ops-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		// Test SearchTransactions with empty query
+		searchReq := &commonv1.SearchRequest{Query: "{}"}
+		var foundTxns []*ledgerv1.Transaction
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				foundTxns = append(foundTxns, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(foundTxns), 1)
+
+		// Test SearchTransactions with filter
+		filterReq := &commonv1.SearchRequest{
+			Query: `{"query": {"must": {"fields": [{"id": {"eq": "search-ops-txn"}}]}}}`,
+		}
+		var filteredTxns []*ledgerv1.Transaction
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			filterReq,
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				filteredTxns = append(filteredTxns, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.Len(t, filteredTxns, 1)
+
+		// Test SearchEntries
+		var foundEntries []*ledgerv1.TransactionEntry
+		err = transactionBusiness.SearchEntries(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {
+				foundEntries = append(foundEntries, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(foundEntries), 2)
+
+		// Test DeleteTransaction (should fail — use reversal instead)
+		err = transactionBusiness.DeleteTransaction(ctx, "some-id")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be deleted")
+
+		// Test DeleteTransaction empty ID
+		err = transactionBusiness.DeleteTransaction(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction ID is required")
+
+		// Test SearchTransactions with invalid query (triggers search error result)
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			&commonv1.SearchRequest{Query: "invalid json"},
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				return nil
+			},
+		)
+		require.Error(t, err)
+
+		// Test SearchEntries with invalid query
+		err = transactionBusiness.SearchEntries(
+			ctx,
+			&commonv1.SearchRequest{Query: "invalid json"},
+			func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {
+				return nil
+			},
+		)
+		require.Error(t, err)
+
+		// Test SearchTransactions with consumer error
+		consumerErr := errors.New("consumer failed")
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				return consumerErr
+			},
+		)
+		require.Error(t, err)
+		assert.Equal(t, consumerErr, err)
+
+		// Test SearchEntries with consumer error
+		err = transactionBusiness.SearchEntries(
+			ctx,
+			searchReq,
+			func(_ context.Context, batch []*ledgerv1.TransactionEntry) error {
+				return consumerErr
+			},
+		)
+		require.Error(t, err)
+		assert.Equal(t, consumerErr, err)
+
+		// Test SearchTransactions with nil query (triggers default)
+		var emptyQueryTxns []*ledgerv1.Transaction
+		err = transactionBusiness.SearchTransactions(
+			ctx,
+			&commonv1.SearchRequest{},
+			func(_ context.Context, batch []*ledgerv1.Transaction) error {
+				emptyQueryTxns = append(emptyQueryTxns, batch...)
+				return nil
+			},
+		)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(emptyQueryTxns), 1)
+
+		// Test UpdateTransaction with non-existent ID
+		_, err = transactionBusiness.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{
+			Id: "non-existent-txn-update",
+		})
+		require.Error(t, err)
+	})
+}
+
+func (ts *TransactionBusinessSuite) TestValidationErrors() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		transactionBusiness := resources.TransactionBusiness
+
+		// Test missing reference
+		txn, err := transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Currency: "USD",
+		})
+		require.Error(t, err)
+		assert.Nil(t, txn)
+		assert.Contains(t, err.Error(), "reference is required")
+
+		// Test missing currency
+		txn, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id: "no-currency-txn",
+		})
+		require.Error(t, err)
+		assert.Nil(t, txn)
+		assert.Contains(t, err.Error(), "currency is required")
+
+		// Test no entries
+		txn, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "no-entries-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+		})
+		require.Error(t, err)
+		assert.Nil(t, txn)
+
+		// Test zero amount entry
+		txn, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "zero-amount-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 0}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 0}},
+			},
+		})
+		require.Error(t, err)
+		assert.Nil(t, txn)
+		assert.Contains(t, err.Error(), "zero amount")
+
+		// Test reverse empty ID
+		_, err = transactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction ID is required")
+
+		// Test update empty ID
+		_, err = transactionBusiness.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction ID is required")
+
+		// Test get empty ID
+		_, err = transactionBusiness.GetTransaction(ctx, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction ID is required")
+	})
+}
+
+func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		transactionBusiness := resources.TransactionBusiness
+
+		// Create a reservation transaction
+		_, err := transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "non-reversible-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_RESERVATION,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		// Try to reverse it — should fail for non-NORMAL type
+		_, err = transactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: "non-reversible-txn",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not reversible")
+
+		// Create an uncleared transaction for clearance test
+		_, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "clearance-test-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  false,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		// Update with clearance timestamp
+		clearanceTime := time.Now().UTC().Format("2006-01-02T15:04:05.999999999")
+		updatedTxn, err := transactionBusiness.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{
+			Id:        "clearance-test-txn",
+			ClearedAt: clearanceTime,
+		})
+		require.NoError(t, err)
+		assert.True(t, updatedTxn.GetCleared())
+
+		// Test processClearanceUpdate with invalid time format
+		_, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "clearance-invalid-time-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  false,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = transactionBusiness.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{
+			Id:        "clearance-invalid-time-txn",
+			ClearedAt: "not-a-valid-time",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "parsing time")
+
+		// Test IsConflict — create a transaction and check conflict detection
+		_, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "conflict-check-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		// IsConflict with different entries (should be a conflict)
+		diffModel := models.TransactionFromAPI(ctx, &ledgerv1.Transaction{
+			Id:           "conflict-check-txn",
+			CurrencyCode: "USD",
+			Type:         ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 999}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 999}},
+			},
+		})
+
+		isConflict, err := transactionBusiness.IsConflict(ctx, diffModel)
+		require.NoError(t, err)
+		assert.True(t, isConflict, "Different entries should be a conflict")
+
+		// IsConflict with non-existent transaction ID
+		nonExistent := &models.Transaction{}
+		nonExistent.ID = "non-existent-txn-for-conflict"
+		_, err = transactionBusiness.IsConflict(ctx, nonExistent)
+		require.Error(t, err)
+
+		// Test sort comparator branches: entries with same account but different Credit
+		// (covers the ei.Credit != ej.Credit and amount comparison branches in sort.Slice)
+		_, err = transactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "same-account-multi-entry-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 200}},
+				{AccountId: "asset-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
 	})
 }
 

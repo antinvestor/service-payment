@@ -57,7 +57,7 @@ func main() {
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
 	transactionRepo := repository.NewTransactionRepository(ctx, dbPool, workMan, accountRepo)
 
-	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo)
+	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo, accountRepo)
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
 

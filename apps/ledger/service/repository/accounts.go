@@ -62,6 +62,8 @@ type AccountRepository interface {
 	datastore.BaseRepository[*models.Account]
 	SearchAsESQ(ctx context.Context, query string) (workerpool.JobResultPipe[[]*models.Account], error)
 	ListByID(ctx context.Context, ids ...string) (map[string]*models.Account, error)
+	HasTransactionEntries(ctx context.Context, accountID string) (bool, error)
+	CountByLedgerID(ctx context.Context, ledgerID string) (int64, error)
 }
 
 // accountRepository provides all functions related to ledger account.
@@ -267,6 +269,33 @@ func (a *accountRepository) paginateAccountSearch(
 		}
 	}
 	return nil
+}
+
+// HasTransactionEntries returns true if the account has any transaction entries.
+func (a *accountRepository) HasTransactionEntries(ctx context.Context, accountID string) (bool, error) {
+	var count int64
+	err := a.Pool().DB(ctx, true).
+		Model(&models.TransactionEntry{}).
+		Where("account_id = ?", accountID).
+		Limit(1).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// CountByLedgerID returns the number of non-deleted accounts in the given ledger.
+func (a *accountRepository) CountByLedgerID(ctx context.Context, ledgerID string) (int64, error) {
+	var count int64
+	err := a.Pool().DB(ctx, true).
+		Model(&models.Account{}).
+		Where("ledger_id = ? AND deleted_at IS NULL", ledgerID).
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (a *accountRepository) SearchAsESQ(

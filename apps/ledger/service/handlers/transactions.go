@@ -15,7 +15,7 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
 ) error {
-	return toConnectError(ledgerSrv.Transaction.SearchTransactions(
+	return ToConnectError(ledgerSrv.Transaction.SearchTransactions(
 		ctx,
 		req.Msg,
 		func(_ context.Context, batch []*ledgerv1.Transaction) error {
@@ -34,7 +34,7 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 ) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
 	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, toConnectError(err)
+		return nil, ToConnectError(err)
 	}
 
 	response := &ledgerv1.CreateTransactionResponse{
@@ -52,7 +52,7 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 ) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
 	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, toConnectError(err)
+		return nil, ToConnectError(err)
 	}
 
 	response := &ledgerv1.ReverseTransactionResponse{
@@ -70,7 +70,7 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 ) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
 	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req.Msg)
 	if err != nil {
-		return nil, toConnectError(err)
+		return nil, ToConnectError(err)
 	}
 
 	response := &ledgerv1.UpdateTransactionResponse{

@@ -80,7 +80,7 @@ func main() {
 	lTransactionRepo := ledgerRepo.NewTransactionRepository(ctx, dbPool, workMan, lAccountRepo)
 
 	// Create ledger business layers for integration
-	_ = ledgerBusiness.NewLedgerBusiness(workMan, lLedgerRepo)
+	_ = ledgerBusiness.NewLedgerBusiness(workMan, lLedgerRepo, lAccountRepo)
 	_ = ledgerBusiness.NewAccountBusiness(workMan, lLedgerRepo, lAccountRepo)
 	ledgerTxnBusiness := ledgerBusiness.NewTransactionBusiness(workMan, lAccountRepo, lTransactionRepo)
 

@@ -444,3 +444,7 @@ linters:
         linters:
           - testpackage
         text: 'package should be `business_test`'
+      - path: 'apps/integrations/'
+        linters:
+          - gosec
+        text: 'G117|G704'

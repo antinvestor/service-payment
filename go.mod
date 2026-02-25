@@ -1,6 +1,6 @@
 module github.com/antinvestor/service-payments
 
-go 1.25.2
+go 1.26
 
 require (
 	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260219024106-9088414762cf.2
@@ -26,8 +26,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.1
-	github.com/pitabwire/frame v1.73.0
-	github.com/pitabwire/util v0.5.0
+	github.com/pitabwire/frame v1.74.0
+	github.com/pitabwire/util v0.6.0
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1

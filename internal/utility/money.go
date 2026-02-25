@@ -43,7 +43,7 @@ func ToMoney(currency string, amount decimal.Decimal) money.Money {
 	}
 
 	// Safe to cast to int32 now as we've validated the range
-	//nolint:gosec // G115: integer overflow conversion is safe after range validation
+
 	return money.Money{CurrencyCode: currency, Units: units, Nanos: int32(nanos)}
 }
 

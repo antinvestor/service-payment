@@ -317,7 +317,7 @@ func (s *BillingServer) CreateSubscription(
 	req *connect.Request[billingv1.CreateSubscriptionRequest],
 ) (*connect.Response[billingv1.CreateSubscriptionResponse], error) {
 	sub := &models.Subscription{
-		ProfileID:        req.Msg.GetCustomerId(),
+		ProfileID:        req.Msg.GetProfileId(),
 		CatalogVersionID: req.Msg.GetCatalogVersionId(),
 		PlanID:           req.Msg.GetPlanId(),
 		State:            models.SubscriptionStateActive,
@@ -376,7 +376,7 @@ func (s *BillingServer) ListSubscriptions(
 	ctx context.Context,
 	req *connect.Request[billingv1.ListSubscriptionsRequest],
 ) (*connect.Response[billingv1.ListSubscriptionsResponse], error) {
-	subs, err := s.Subscription.ListActiveByProfile(ctx, req.Msg.GetCustomerId())
+	subs, err := s.Subscription.ListActiveByProfile(ctx, req.Msg.GetProfileId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -397,47 +397,21 @@ func (s *BillingServer) IngestUsageEvent(
 	ctx context.Context,
 	req *connect.Request[billingv1.IngestUsageEventRequest],
 ) (*connect.Response[billingv1.IngestUsageEventResponse], error) {
-	if req.Msg.GetTimestamp() == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("timestamp is required"))
-	}
-	event := &models.UsageEvent{
-		EventID:        req.Msg.GetEventId(),
-		SubscriptionID: req.Msg.GetSubscriptionId(),
-		ProfileID:      req.Msg.GetCustomerId(),
-		MetricKey:      req.Msg.GetMetricKey(),
-		Quantity:       decimal.NewNullDecimal(decimal.NewFromFloat(req.Msg.GetQuantity())),
-		Timestamp:      req.Msg.GetTimestamp().AsTime(),
-		Properties:     structToJSONMap(req.Msg.GetProperties()),
-	}
-
-	created, err := s.Usage.IngestEvent(ctx, event)
-	if err != nil {
-		return nil, toConnectError(err)
-	}
-
-	return connect.NewResponse(&billingv1.IngestUsageEventResponse{
-		Data: usageEventToProto(created),
-	}), nil
-}
-
-func (s *BillingServer) IngestUsageBatch(
-	ctx context.Context,
-	req *connect.Request[billingv1.IngestUsageBatchRequest],
-) (*connect.Response[billingv1.IngestUsageBatchResponse], error) {
-	events := make([]*models.UsageEvent, len(req.Msg.GetEvents()))
-	for i, e := range req.Msg.GetEvents() {
+	events := make([]*models.UsageEvent, len(req.Msg.GetData()))
+	for i, e := range req.Msg.GetData() {
 		if e.GetTimestamp() == nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument,
 				fmt.Errorf("event at index %d: timestamp is required", i))
 		}
 		events[i] = &models.UsageEvent{
-			EventID:        e.GetEventId(),
 			SubscriptionID: e.GetSubscriptionId(),
-			ProfileID:      e.GetCustomerId(),
 			MetricKey:      e.GetMetricKey(),
 			Quantity:       decimal.NewNullDecimal(decimal.NewFromFloat(e.GetQuantity())),
 			Timestamp:      e.GetTimestamp().AsTime(),
 			Properties:     structToJSONMap(e.GetProperties()),
+		}
+		if e.GetId() != "" {
+			events[i].EventID = e.GetId()
 		}
 	}
 
@@ -446,13 +420,13 @@ func (s *BillingServer) IngestUsageBatch(
 		return nil, toConnectError(err)
 	}
 
-	protoEvents := make([]*billingv1.UsageEvent, len(created))
+	ids := make([]string, len(created))
 	for i, e := range created {
-		protoEvents[i] = usageEventToProto(e)
+		ids[i] = e.GetID()
 	}
 
-	return connect.NewResponse(&billingv1.IngestUsageBatchResponse{
-		Data: protoEvents,
+	return connect.NewResponse(&billingv1.IngestUsageEventResponse{
+		Data: ids,
 	}), nil
 }
 
@@ -626,7 +600,7 @@ func (s *BillingServer) GrantCredit(
 	req *connect.Request[billingv1.GrantCreditRequest],
 ) (*connect.Response[billingv1.GrantCreditResponse], error) {
 	grant := &models.CreditGrant{
-		ProfileID:       req.Msg.GetCustomerId(),
+		ProfileID:       req.Msg.GetProfileId(),
 		Name:            req.Msg.GetName(),
 		OriginalAmount:  moneyToNullDecimal(req.Msg.GetAmount()),
 		RemainingAmount: moneyToNullDecimal(req.Msg.GetAmount()),
@@ -656,7 +630,7 @@ func (s *BillingServer) GetCreditBalance(
 	ctx context.Context,
 	req *connect.Request[billingv1.GetCreditBalanceRequest],
 ) (*connect.Response[billingv1.GetCreditBalanceResponse], error) {
-	balance, err := s.Credit.GetBalance(ctx, req.Msg.GetCustomerId(), req.Msg.GetCurrency())
+	balance, err := s.Credit.GetBalance(ctx, req.Msg.GetProfileId(), req.Msg.GetCurrency())
 	if err != nil {
 		return nil, toConnectError(err)
 	}

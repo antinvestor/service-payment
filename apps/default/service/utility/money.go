@@ -29,7 +29,7 @@ func ToMoney(currency string, amount decimal.Decimal) money.Money {
 	return money.Money{
 		CurrencyCode: currency,
 		Units:        units,
-		Nanos:        int32(nanos & int32MaxMask), //nolint:gosec // G115: Safe conversion, value is masked to fit int32
+		Nanos:        int32(nanos & int32MaxMask),
 	}
 }
 

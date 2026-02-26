@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
+	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
@@ -61,8 +62,13 @@ func main() {
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
 
+	// Create authorisation middleware
+	sm := service.SecurityManager()
+	authorizer := sm.GetAuthorizer(ctx)
+	authzMiddleware := authz.NewMiddleware(authorizer)
+
 	// Create handler with injected business layer
-	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness)
+	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness, authzMiddleware)
 
 	// Handle database migration if requested
 	if handleDatabaseMigration(ctx, dbManager, cfg, log) {

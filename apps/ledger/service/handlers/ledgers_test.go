@@ -10,11 +10,13 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
 	"github.com/antinvestor/service-payments/internal/apperrors"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -139,12 +141,19 @@ func TestToConnectError_ExtendedError(t *testing.T) {
 
 func (s *LedgerHandlersTestSuite) TestCreateLedger() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		req := &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -166,12 +175,19 @@ func (s *LedgerHandlersTestSuite) TestCreateLedger() {
 
 func (s *LedgerHandlersTestSuite) TestUpdateLedger() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Create ledger first
@@ -199,12 +215,19 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedger() {
 
 func (s *LedgerHandlersTestSuite) TestCreateAccount() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Create ledger first
@@ -232,12 +255,19 @@ func (s *LedgerHandlersTestSuite) TestCreateAccount() {
 
 func (s *LedgerHandlersTestSuite) TestUpdateAccount() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Create ledger and account
@@ -273,12 +303,19 @@ func (s *LedgerHandlersTestSuite) TestUpdateAccount() {
 
 func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Setup ledgers and accounts
@@ -339,12 +376,19 @@ func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 
 func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Setup
@@ -410,12 +454,19 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 
 func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Setup
@@ -484,12 +535,19 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 
 func (s *LedgerHandlersTestSuite) TestCreateLedgerMissingID() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -501,12 +559,19 @@ func (s *LedgerHandlersTestSuite) TestCreateLedgerMissingID() {
 
 func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -527,12 +592,19 @@ func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 
 func (s *LedgerHandlersTestSuite) TestUpdateLedgerMissingID() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.UpdateLedger(ctx, &connect.Request[ledgerv1.UpdateLedgerRequest]{
@@ -544,12 +616,19 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedgerMissingID() {
 
 func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// UpdateAccount error path — non-existent account
@@ -586,12 +665,19 @@ func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 
 func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
-		ctx, _, resources := s.CreateService(t, depOpt)
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		// Setup auth
+		tenantID := util.IDString()
+		profileID := util.IDString()
+		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
+			s.AuthzMiddleware,
 		)
 
 		// Create HTTP test server with connect handler

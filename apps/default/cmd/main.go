@@ -15,6 +15,7 @@ import (
 	paymentv1 "github.com/antinvestor/apis/go/payment/v1"
 	"github.com/antinvestor/apis/go/profile"
 	aconfig "github.com/antinvestor/service-payments/apps/default/config"
+	"github.com/antinvestor/service-payments/apps/default/service/authz"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/handlers"
@@ -213,7 +214,10 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
+	authzMiddleware := authz.NewMiddleware(securityMan.GetAuthorizer(ctx))
+
 	implementation := handlers.NewPaymentServer(
+		authzMiddleware,
 		paymentBusiness,
 		profileCli,
 		ledgerCli,

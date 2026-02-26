@@ -8,8 +8,10 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // ToConnectError translates application errors into appropriate ConnectRPC
@@ -63,10 +65,27 @@ func ToConnectError(err error) error {
 	}
 }
 
+// toAuthzConnectError translates authorisation errors into appropriate ConnectRPC
+// error codes so clients receive meaningful status codes.
+func toAuthzConnectError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, authorizer.ErrInvalidSubject) || errors.Is(err, authorizer.ErrInvalidObject) {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	var permErr *authorizer.PermissionDeniedError
+	if errors.As(err, &permErr) {
+		return connect.NewError(connect.CodePermissionDenied, err)
+	}
+	return connect.NewError(connect.CodeInternal, err)
+}
+
 type LedgerServer struct {
 	Ledger      business.LedgerBusiness
 	Account     business.AccountBusiness
 	Transaction business.TransactionBusiness
+	authz       authz.Middleware
 }
 
 // NewLedgerServer creates a new LedgerServer with injected dependencies.
@@ -74,11 +93,13 @@ func NewLedgerServer(
 	ledgerBusiness business.LedgerBusiness,
 	accountBusiness business.AccountBusiness,
 	transactionBusiness business.TransactionBusiness,
+	authzMiddleware authz.Middleware,
 ) ledgerv1connect.LedgerServiceHandler {
 	return &LedgerServer{
 		Ledger:      ledgerBusiness,
 		Account:     accountBusiness,
 		Transaction: transactionBusiness,
+		authz:       authzMiddleware,
 	}
 }
 
@@ -89,6 +110,10 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
+	if err := ledgerSrv.authz.CanViewLedger(ctx); err != nil {
+		return toAuthzConnectError(err)
+	}
+
 	// Search ledgers using business layer
 	return ToConnectError(
 		ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
@@ -105,6 +130,10 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateLedgerRequest],
 ) (*connect.Response[ledgerv1.CreateLedgerResponse], error) {
+	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
+		return nil, toAuthzConnectError(err)
+	}
+
 	// Create the ledger using business layer
 	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req.Msg)
 	if err != nil {
@@ -124,6 +153,10 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateLedgerRequest],
 ) (*connect.Response[ledgerv1.UpdateLedgerResponse], error) {
+	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
+		return nil, toAuthzConnectError(err)
+	}
+
 	// Update the ledger using business layer
 	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req.Msg)
 	if err != nil {

@@ -2,11 +2,15 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"testing"
 
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
+	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
+	"github.com/antinvestor/service-payments/apps/ledger/tests/testketo"
 
 	// Register PostgreSQL driver for database connections.
 	_ "github.com/lib/pq"
@@ -16,6 +20,7 @@ import (
 	"github.com/pitabwire/frame/frametests"
 	"github.com/pitabwire/frame/frametests/definition"
 	"github.com/pitabwire/frame/frametests/deps/testpostgres"
+	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/require"
 )
@@ -35,8 +40,11 @@ type ServiceResources struct {
 
 type BaseTestSuite struct {
 	frametests.FrameBaseTestSuite
-	ctx       context.Context
-	resources *ServiceResources
+	AuthzMiddleware authz.Middleware
+	ctx             context.Context
+	resources       *ServiceResources
+	ketoReadURI     string
+	ketoWriteURI    string
 }
 
 // ServiceResources returns the shared service dependencies for the test suite.
@@ -52,12 +60,35 @@ func (bs *BaseTestSuite) ServiceResources() *ServiceResources {
 
 func initResources(_ context.Context) []definition.TestResource {
 	pg := testpostgres.NewWithOpts("service_ledger", definition.WithUserName("ant"))
-	return []definition.TestResource{pg}
+	keto := testketo.NewWithOpts(
+		definition.WithDependancies(pg),
+		definition.WithEnableLogging(true),
+	)
+	return []definition.TestResource{pg, keto}
 }
 
 func (bs *BaseTestSuite) SetupSuite() {
 	bs.InitResourceFunc = initResources
 	bs.FrameBaseTestSuite.SetupSuite()
+
+	ctx := bs.T().Context()
+
+	var ketoDep definition.DependancyConn
+	for _, res := range bs.Resources() {
+		if res.Name() == testketo.ImageName {
+			ketoDep = res
+			break
+		}
+	}
+	bs.Require().NotNil(ketoDep, "keto dependency should be available")
+
+	writeURL, err := url.Parse(string(ketoDep.GetDS(ctx)))
+	bs.Require().NoError(err)
+	bs.ketoWriteURI = writeURL.Host
+
+	readPort, err := ketoDep.PortMapping(ctx, "4466/tcp")
+	bs.Require().NoError(err)
+	bs.ketoReadURI = fmt.Sprintf("%s:%s", writeURL.Hostname(), readPort)
 }
 
 func (bs *BaseTestSuite) CreateService(
@@ -86,12 +117,18 @@ func (bs *BaseTestSuite) CreateService(
 	cfg.DatabasePrimaryURL = []string{testDS.String()}
 	cfg.DatabaseReplicaURL = []string{testDS.String()}
 
+	cfg.AuthorizationServiceReadURI = bs.ketoReadURI
+	cfg.AuthorizationServiceWriteURI = bs.ketoWriteURI
+
 	frameOpts = append(
 		[]frame.Option{
 			frame.WithName("ledger tests"), frame.WithConfig(&cfg),
 			frame.WithDatastore(), frametests.WithNoopDriver()}, frameOpts...)
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frameOpts...)
+
+	sm := svc.SecurityManager()
+	bs.AuthzMiddleware = authz.NewMiddleware(sm.GetAuthorizer(ctx))
 
 	dbManager := svc.DatastoreManager()
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
@@ -140,4 +177,28 @@ func (bs *BaseTestSuite) WithTestDependencies(
 	}
 
 	frametests.WithTestDependencies(t, options, testFn)
+}
+
+// WithAuthClaims creates a context with authentication claims for the given tenant and profile.
+func (bs *BaseTestSuite) WithAuthClaims(ctx context.Context, tenantID, profileID string) context.Context {
+	claims := &security.AuthenticationClaims{
+		TenantID:  tenantID,
+		AccessID:  util.IDString(),
+		ContactID: profileID,
+		SessionID: util.IDString(),
+		DeviceID:  "test-device",
+	}
+	claims.Subject = profileID
+	return claims.ClaimsToContext(ctx)
+}
+
+// SeedTenantRole writes a relation tuple granting the given role to a profile on a tenant.
+func (bs *BaseTestSuite) SeedTenantRole(ctx context.Context, svc *frame.Service, tenantID, profileID, role string) {
+	auth := svc.SecurityManager().GetAuthorizer(ctx)
+	err := auth.WriteTuple(ctx, security.RelationTuple{
+		Object:   security.ObjectRef{Namespace: authz.NamespaceTenant, ID: tenantID},
+		Relation: role,
+		Subject:  security.SubjectRef{Namespace: authz.NamespaceProfile, ID: profileID},
+	})
+	bs.Require().NoError(err, "failed to seed tenant role")
 }

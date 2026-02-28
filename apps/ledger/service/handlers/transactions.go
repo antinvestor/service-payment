@@ -6,6 +6,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // SearchTransactions finds transactions matching specified criteria.
@@ -16,7 +17,7 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
 ) error {
 	if err := ledgerSrv.authz.CanViewTransaction(ctx); err != nil {
-		return toAuthzConnectError(err)
+		return authorizer.ToConnectError(err)
 	}
 
 	return ToConnectError(ledgerSrv.Transaction.SearchTransactions(
@@ -37,7 +38,7 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 	req *connect.Request[ledgerv1.CreateTransactionRequest],
 ) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
 	if err := ledgerSrv.authz.CanCreateTransaction(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req.Msg)
@@ -59,7 +60,7 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 	req *connect.Request[ledgerv1.ReverseTransactionRequest],
 ) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
 	if err := ledgerSrv.authz.CanReverseTransaction(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req.Msg)
@@ -81,7 +82,7 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 	req *connect.Request[ledgerv1.UpdateTransactionRequest],
 ) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
 	if err := ledgerSrv.authz.CanUpdateTransaction(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req.Msg)

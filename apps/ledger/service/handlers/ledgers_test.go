@@ -145,9 +145,10 @@ func (s *LedgerHandlersTestSuite) TestCreateLedger() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -179,9 +180,10 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedger() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -219,9 +221,10 @@ func (s *LedgerHandlersTestSuite) TestCreateAccount() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -259,9 +262,10 @@ func (s *LedgerHandlersTestSuite) TestUpdateAccount() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -307,9 +311,10 @@ func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -380,9 +385,10 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -458,9 +464,10 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -539,9 +546,10 @@ func (s *LedgerHandlersTestSuite) TestCreateLedgerMissingID() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -563,9 +571,10 @@ func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -596,9 +605,10 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedgerMissingID() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -620,9 +630,10 @@ func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,
@@ -669,9 +680,10 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 
 		// Setup auth
 		tenantID := util.IDString()
+		partitionID := util.IDString()
 		profileID := util.IDString()
-		ctx = s.WithAuthClaims(ctx, tenantID, profileID)
-		s.SeedTenantRole(ctx, svc, tenantID, profileID, authz.RoleOwner)
+		ctx = s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(ctx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
 
 		ledgerServer := handlers.NewLedgerServer(
 			resources.LedgerBusiness,

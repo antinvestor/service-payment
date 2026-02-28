@@ -9,7 +9,6 @@ import (
 
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
@@ -19,7 +18,8 @@ import (
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/security"
-	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
+	"github.com/pitabwire/frame/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/util"
 )
 
@@ -112,18 +112,19 @@ func setupConnectServer(
 	securityMan security.Manager,
 	implementation ledgerv1connect.LedgerServiceHandler,
 ) http.Handler {
-	otelInterceptor, err := otelconnect.NewInterceptor()
+	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(
+		securityMan.GetAuthorizer(ctx), authz.NamespaceTenancyAccess)
+	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
+
+	defaultInterceptorList, err := connectInterceptors.DefaultList(
+		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor)
 	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
+		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
-	validateInterceptor := securityconnect.NewValidationInterceptor()
-
-	authenticator := securityMan.GetAuthenticator(ctx)
-	authInterceptor := securityconnect.NewAuthInterceptor(authenticator)
-
 	_, serverHandler := ledgerv1connect.NewLedgerServiceHandler(
-		implementation, connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor))
+		implementation, connect.WithInterceptors(defaultInterceptorList...))
 
 	return serverHandler
 }

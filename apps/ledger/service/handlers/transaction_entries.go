@@ -6,6 +6,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // SearchTransactionEntries finds transaction entries matching specified criteria.
@@ -16,7 +17,7 @@ func (ledgerSrv *LedgerServer) SearchTransactionEntries(
 	stream *connect.ServerStream[ledgerv1.SearchTransactionEntriesResponse],
 ) error {
 	if err := ledgerSrv.authz.CanViewTransaction(ctx); err != nil {
-		return toAuthzConnectError(err)
+		return authorizer.ToConnectError(err)
 	}
 
 	return ToConnectError(ledgerSrv.Transaction.SearchEntries(

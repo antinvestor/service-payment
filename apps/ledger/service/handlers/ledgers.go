@@ -65,22 +65,6 @@ func ToConnectError(err error) error {
 	}
 }
 
-// toAuthzConnectError translates authorisation errors into appropriate ConnectRPC
-// error codes so clients receive meaningful status codes.
-func toAuthzConnectError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, authorizer.ErrInvalidSubject) || errors.Is(err, authorizer.ErrInvalidObject) {
-		return connect.NewError(connect.CodeUnauthenticated, err)
-	}
-	var permErr *authorizer.PermissionDeniedError
-	if errors.As(err, &permErr) {
-		return connect.NewError(connect.CodePermissionDenied, err)
-	}
-	return connect.NewError(connect.CodeInternal, err)
-}
-
 type LedgerServer struct {
 	Ledger      business.LedgerBusiness
 	Account     business.AccountBusiness
@@ -111,7 +95,7 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
 	if err := ledgerSrv.authz.CanViewLedger(ctx); err != nil {
-		return toAuthzConnectError(err)
+		return authorizer.ToConnectError(err)
 	}
 
 	// Search ledgers using business layer
@@ -131,7 +115,7 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	req *connect.Request[ledgerv1.CreateLedgerRequest],
 ) (*connect.Response[ledgerv1.CreateLedgerResponse], error) {
 	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	// Create the ledger using business layer
@@ -154,7 +138,7 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	req *connect.Request[ledgerv1.UpdateLedgerRequest],
 ) (*connect.Response[ledgerv1.UpdateLedgerResponse], error) {
 	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	// Update the ledger using business layer

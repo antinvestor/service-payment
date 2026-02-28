@@ -6,6 +6,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // SearchAccounts finds accounts matching specified criteria.
@@ -16,7 +17,7 @@ func (ledgerSrv *LedgerServer) SearchAccounts(
 	stream *connect.ServerStream[ledgerv1.SearchAccountsResponse],
 ) error {
 	if err := ledgerSrv.authz.CanViewAccount(ctx); err != nil {
-		return toAuthzConnectError(err)
+		return authorizer.ToConnectError(err)
 	}
 
 	return ToConnectError(
@@ -35,7 +36,7 @@ func (ledgerSrv *LedgerServer) CreateAccount(
 	req *connect.Request[ledgerv1.CreateAccountRequest],
 ) (*connect.Response[ledgerv1.CreateAccountResponse], error) {
 	if err := ledgerSrv.authz.CanManageAccount(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	// Create the account using business layer
@@ -58,7 +59,7 @@ func (ledgerSrv *LedgerServer) UpdateAccount(
 	req *connect.Request[ledgerv1.UpdateAccountRequest],
 ) (*connect.Response[ledgerv1.UpdateAccountResponse], error) {
 	if err := ledgerSrv.authz.CanManageAccount(ctx); err != nil {
-		return nil, toAuthzConnectError(err)
+		return nil, authorizer.ToConnectError(err)
 	}
 
 	// Update the account using business layer

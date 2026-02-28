@@ -24,6 +24,7 @@ import (
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/security"
+	"github.com/pitabwire/frame/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
@@ -209,11 +210,18 @@ func setupConnectServer(
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) http.Handler {
-	defaultInterceptorList, err := connectInterceptors.DefaultList(ctx, securityMan.GetAuthenticator(ctx))
+	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(
+		securityMan.GetAuthorizer(ctx), authz.NamespaceTenancyAccess)
+	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
+
+	defaultInterceptorList, err := connectInterceptors.DefaultList(
+		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
+	// Layer 2: Functional permissions middleware (service_payment).
 	authzMiddleware := authz.NewMiddleware(securityMan.GetAuthorizer(ctx))
 
 	implementation := handlers.NewPaymentServer(

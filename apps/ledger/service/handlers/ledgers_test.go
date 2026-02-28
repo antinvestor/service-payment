@@ -692,10 +692,13 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 			s.AuthzMiddleware,
 		)
 
-		// Create HTTP test server with connect handler
+		// Create HTTP test server with connect handler and inject test claims
 		path, handler := ledgerv1connect.NewLedgerServiceHandler(ledgerServer)
+		claimsMiddleware := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler.ServeHTTP(w, r.WithContext(ctx))
+		})
 		mux := http.NewServeMux()
-		mux.Handle(path, handler)
+		mux.Handle(path, claimsMiddleware)
 		srv := httptest.NewServer(mux)
 		defer srv.Close()
 

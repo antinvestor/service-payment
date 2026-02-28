@@ -94,7 +94,7 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
-	if err := ledgerSrv.authz.CanViewLedger(ctx); err != nil {
+	if err := ledgerSrv.authz.CanLedgerView(ctx); err != nil {
 		return authorizer.ToConnectError(err)
 	}
 
@@ -114,7 +114,7 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateLedgerRequest],
 ) (*connect.Response[ledgerv1.CreateLedgerResponse], error) {
-	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
+	if err := ledgerSrv.authz.CanLedgerManage(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 
@@ -137,7 +137,7 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateLedgerRequest],
 ) (*connect.Response[ledgerv1.UpdateLedgerResponse], error) {
-	if err := ledgerSrv.authz.CanManageLedger(ctx); err != nil {
+	if err := ledgerSrv.authz.CanLedgerManage(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 

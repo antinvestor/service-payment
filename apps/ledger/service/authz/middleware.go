@@ -8,14 +8,14 @@ import (
 )
 
 type Middleware interface {
-	CanManageLedger(ctx context.Context) error
-	CanViewLedger(ctx context.Context) error
-	CanManageAccount(ctx context.Context) error
-	CanViewAccount(ctx context.Context) error
-	CanCreateTransaction(ctx context.Context) error
-	CanReverseTransaction(ctx context.Context) error
-	CanUpdateTransaction(ctx context.Context) error
-	CanViewTransaction(ctx context.Context) error
+	CanLedgerManage(ctx context.Context) error
+	CanLedgerView(ctx context.Context) error
+	CanAccountManage(ctx context.Context) error
+	CanAccountView(ctx context.Context) error
+	CanTransactionCreate(ctx context.Context) error
+	CanTransactionReverse(ctx context.Context) error
+	CanTransactionUpdate(ctx context.Context) error
+	CanTransactionView(ctx context.Context) error
 }
 
 type middleware struct {
@@ -28,34 +28,34 @@ func NewMiddleware(service security.Authorizer) Middleware {
 	}
 }
 
-func (m *middleware) CanManageLedger(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionManageLedger)
+func (m *middleware) CanLedgerManage(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionLedgerManage)
 }
 
-func (m *middleware) CanViewLedger(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionViewLedger)
+func (m *middleware) CanLedgerView(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionLedgerView)
 }
 
-func (m *middleware) CanManageAccount(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionManageAccount)
+func (m *middleware) CanAccountManage(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionAccountManage)
 }
 
-func (m *middleware) CanViewAccount(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionViewAccount)
+func (m *middleware) CanAccountView(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionAccountView)
 }
 
-func (m *middleware) CanCreateTransaction(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionCreateTransaction)
+func (m *middleware) CanTransactionCreate(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionTransactionCreate)
 }
 
-func (m *middleware) CanReverseTransaction(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionReverseTransaction)
+func (m *middleware) CanTransactionReverse(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionTransactionReverse)
 }
 
-func (m *middleware) CanUpdateTransaction(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionUpdateTransaction)
+func (m *middleware) CanTransactionUpdate(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionTransactionUpdate)
 }
 
-func (m *middleware) CanViewTransaction(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionViewTransaction)
+func (m *middleware) CanTransactionView(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionTransactionView)
 }

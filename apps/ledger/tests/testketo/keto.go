@@ -57,72 +57,72 @@ class service_ledger implements Namespace {
     member: profile_user[]
     service: (profile_user | tenancy_access)[]
 
-    manage_ledger: (profile_user | service_ledger)[]
-    view_ledger: (profile_user | service_ledger)[]
-    manage_account: (profile_user | service_ledger)[]
-    view_account: (profile_user | service_ledger)[]
-    create_transaction: (profile_user | service_ledger)[]
-    reverse_transaction: (profile_user | service_ledger)[]
-    update_transaction: (profile_user | service_ledger)[]
-    view_transaction: (profile_user | service_ledger)[]
+    granted_ledger_manage: (profile_user | service_ledger)[]
+    granted_ledger_view: (profile_user | service_ledger)[]
+    granted_account_manage: (profile_user | service_ledger)[]
+    granted_account_view: (profile_user | service_ledger)[]
+    granted_transaction_create: (profile_user | service_ledger)[]
+    granted_transaction_reverse: (profile_user | service_ledger)[]
+    granted_transaction_update: (profile_user | service_ledger)[]
+    granted_transaction_view: (profile_user | service_ledger)[]
   }
 
   permits = {
-    manage_ledger: (ctx: Context): boolean =>
+    ledger_manage: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
-      this.related.manage_ledger.includes(ctx.subject),
+      this.related.granted_ledger_manage.includes(ctx.subject),
 
-    view_ledger: (ctx: Context): boolean =>
+    ledger_view: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
-      this.permits.manage_ledger(ctx) ||
+      this.permits.ledger_manage(ctx) ||
       this.related.operator.includes(ctx.subject) ||
       this.related.viewer.includes(ctx.subject) ||
       this.related.member.includes(ctx.subject) ||
-      this.related.view_ledger.includes(ctx.subject),
+      this.related.granted_ledger_view.includes(ctx.subject),
 
-    manage_account: (ctx: Context): boolean =>
+    account_manage: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
-      this.related.manage_account.includes(ctx.subject),
+      this.related.granted_account_manage.includes(ctx.subject),
 
-    view_account: (ctx: Context): boolean =>
+    account_view: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
-      this.permits.manage_account(ctx) ||
+      this.permits.account_manage(ctx) ||
       this.related.viewer.includes(ctx.subject) ||
       this.related.member.includes(ctx.subject) ||
-      this.related.view_account.includes(ctx.subject),
+      this.related.granted_account_view.includes(ctx.subject),
 
-    create_transaction: (ctx: Context): boolean =>
+    transaction_create: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
-      this.related.create_transaction.includes(ctx.subject),
+      this.related.granted_transaction_create.includes(ctx.subject),
 
-    reverse_transaction: (ctx: Context): boolean =>
+    transaction_reverse: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
-      this.related.reverse_transaction.includes(ctx.subject),
+      this.related.granted_transaction_reverse.includes(ctx.subject),
 
-    update_transaction: (ctx: Context): boolean =>
+    transaction_update: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
-      this.related.update_transaction.includes(ctx.subject),
+      this.related.granted_transaction_update.includes(ctx.subject),
 
-    view_transaction: (ctx: Context): boolean =>
+    transaction_view: (ctx: Context): boolean =>
       this.related.service.includes(ctx.subject) ||
       this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
       this.related.viewer.includes(ctx.subject) ||
       this.related.member.includes(ctx.subject) ||
-      this.related.view_transaction.includes(ctx.subject),
+      this.related.granted_transaction_view.includes(ctx.subject),
   }
 }
 `

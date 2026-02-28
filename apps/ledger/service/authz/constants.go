@@ -3,18 +3,18 @@ package authz
 const (
 	NamespaceLedger        = "service_ledger"
 	NamespaceTenancyAccess = "tenancy_access"
-	NamespaceProfile       = "profile/user"
+	NamespaceProfile       = "profile_user"
 )
 
 const (
-	PermissionManageLedger       = "manage_ledger"
-	PermissionViewLedger         = "view_ledger"
-	PermissionManageAccount      = "manage_account"
-	PermissionViewAccount        = "view_account"
-	PermissionCreateTransaction  = "create_transaction"
-	PermissionReverseTransaction = "reverse_transaction"
-	PermissionUpdateTransaction  = "update_transaction"
-	PermissionViewTransaction    = "view_transaction"
+	PermissionLedgerManage       = "ledger_manage"
+	PermissionLedgerView         = "ledger_view"
+	PermissionAccountManage      = "account_manage"
+	PermissionAccountView        = "account_view"
+	PermissionTransactionCreate  = "transaction_create"
+	PermissionTransactionReverse = "transaction_reverse"
+	PermissionTransactionUpdate  = "transaction_update"
+	PermissionTransactionView    = "transaction_view"
 )
 
 const (
@@ -26,37 +26,45 @@ const (
 	RoleService  = "service"
 )
 
+// GrantedRelation returns the OPL relation name used for direct permission grants.
+// Direct grant relations are prefixed with "granted_" to avoid name conflicts
+// with permit functions (Keto skips permit evaluation when a relation shares
+// the same name as a permit function).
+func GrantedRelation(permission string) string {
+	return "granted_" + permission
+}
+
 // RolePermissions returns the permissions granted by each role.
 func RolePermissions() map[string][]string {
 	return map[string][]string{
 		RoleOwner: {
-			PermissionManageLedger, PermissionViewLedger,
-			PermissionManageAccount, PermissionViewAccount,
-			PermissionCreateTransaction, PermissionReverseTransaction,
-			PermissionUpdateTransaction, PermissionViewTransaction,
+			PermissionLedgerManage, PermissionLedgerView,
+			PermissionAccountManage, PermissionAccountView,
+			PermissionTransactionCreate, PermissionTransactionReverse,
+			PermissionTransactionUpdate, PermissionTransactionView,
 		},
 		RoleAdmin: {
-			PermissionManageLedger, PermissionViewLedger,
-			PermissionManageAccount, PermissionViewAccount,
-			PermissionCreateTransaction, PermissionReverseTransaction,
-			PermissionUpdateTransaction, PermissionViewTransaction,
+			PermissionLedgerManage, PermissionLedgerView,
+			PermissionAccountManage, PermissionAccountView,
+			PermissionTransactionCreate, PermissionTransactionReverse,
+			PermissionTransactionUpdate, PermissionTransactionView,
 		},
 		RoleOperator: {
-			PermissionViewLedger,
-			PermissionManageAccount, PermissionViewAccount,
-			PermissionCreateTransaction, PermissionViewTransaction,
+			PermissionLedgerView,
+			PermissionAccountManage, PermissionAccountView,
+			PermissionTransactionCreate, PermissionTransactionView,
 		},
 		RoleViewer: {
-			PermissionViewLedger, PermissionViewAccount, PermissionViewTransaction,
+			PermissionLedgerView, PermissionAccountView, PermissionTransactionView,
 		},
 		RoleMember: {
-			PermissionViewLedger, PermissionViewAccount, PermissionViewTransaction,
+			PermissionLedgerView, PermissionAccountView, PermissionTransactionView,
 		},
 		RoleService: {
-			PermissionManageLedger, PermissionViewLedger,
-			PermissionManageAccount, PermissionViewAccount,
-			PermissionCreateTransaction, PermissionReverseTransaction,
-			PermissionUpdateTransaction, PermissionViewTransaction,
+			PermissionLedgerManage, PermissionLedgerView,
+			PermissionAccountManage, PermissionAccountView,
+			PermissionTransactionCreate, PermissionTransactionReverse,
+			PermissionTransactionUpdate, PermissionTransactionView,
 		},
 	}
 }

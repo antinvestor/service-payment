@@ -107,7 +107,7 @@ func (s *MiddlewareTestSuite) seedRole(auth security.Authorizer, tenancyPath, pr
 	for _, perm := range permissions {
 		tuples = append(tuples, security.RelationTuple{
 			Object:   security.ObjectRef{Namespace: authz.NamespacePayment, ID: tenancyPath},
-			Relation: perm,
+			Relation: authz.GrantedRelation(perm),
 			Subject:  security.SubjectRef{Namespace: authz.NamespaceProfile, ID: profileID},
 		})
 	}
@@ -127,14 +127,14 @@ func (s *MiddlewareTestSuite) TestOwnerHasAllPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user1")
 
-	s.NoError(mw.CanSendPayment(ctx))
-	s.NoError(mw.CanReceivePayment(ctx))
-	s.NoError(mw.CanSearchPayments(ctx))
-	s.NoError(mw.CanViewPaymentStatus(ctx))
-	s.NoError(mw.CanUpdatePaymentStatus(ctx))
-	s.NoError(mw.CanReleasePayment(ctx))
-	s.NoError(mw.CanInitiatePrompt(ctx))
-	s.NoError(mw.CanCreatePaymentLink(ctx))
+	s.NoError(mw.CanPaymentSend(ctx))
+	s.NoError(mw.CanPaymentReceive(ctx))
+	s.NoError(mw.CanPaymentsSearch(ctx))
+	s.NoError(mw.CanPaymentStatusView(ctx))
+	s.NoError(mw.CanPaymentStatusUpdate(ctx))
+	s.NoError(mw.CanPaymentRelease(ctx))
+	s.NoError(mw.CanPromptInitiate(ctx))
+	s.NoError(mw.CanPaymentLinkCreate(ctx))
 	s.NoError(mw.CanReconcile(ctx))
 }
 
@@ -145,16 +145,16 @@ func (s *MiddlewareTestSuite) TestOperatorPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user2")
 
-	s.NoError(mw.CanSendPayment(ctx))
-	s.NoError(mw.CanReceivePayment(ctx))
-	s.NoError(mw.CanSearchPayments(ctx))
-	s.NoError(mw.CanViewPaymentStatus(ctx))
-	s.NoError(mw.CanReleasePayment(ctx))
-	s.NoError(mw.CanInitiatePrompt(ctx))
-	s.NoError(mw.CanCreatePaymentLink(ctx))
+	s.NoError(mw.CanPaymentSend(ctx))
+	s.NoError(mw.CanPaymentReceive(ctx))
+	s.NoError(mw.CanPaymentsSearch(ctx))
+	s.NoError(mw.CanPaymentStatusView(ctx))
+	s.NoError(mw.CanPaymentRelease(ctx))
+	s.NoError(mw.CanPromptInitiate(ctx))
+	s.NoError(mw.CanPaymentLinkCreate(ctx))
 
 	// Operator cannot update status or reconcile
-	s.Require().Error(mw.CanUpdatePaymentStatus(ctx))
+	s.Require().Error(mw.CanPaymentStatusUpdate(ctx))
 	s.Require().Error(mw.CanReconcile(ctx))
 }
 
@@ -165,13 +165,13 @@ func (s *MiddlewareTestSuite) TestViewerPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user3")
 
-	s.NoError(mw.CanSearchPayments(ctx))
-	s.NoError(mw.CanViewPaymentStatus(ctx))
+	s.NoError(mw.CanPaymentsSearch(ctx))
+	s.NoError(mw.CanPaymentStatusView(ctx))
 
-	s.Require().Error(mw.CanSendPayment(ctx))
-	s.Require().Error(mw.CanReceivePayment(ctx))
-	s.Require().Error(mw.CanUpdatePaymentStatus(ctx))
-	s.Require().Error(mw.CanReleasePayment(ctx))
+	s.Require().Error(mw.CanPaymentSend(ctx))
+	s.Require().Error(mw.CanPaymentReceive(ctx))
+	s.Require().Error(mw.CanPaymentStatusUpdate(ctx))
+	s.Require().Error(mw.CanPaymentRelease(ctx))
 	s.Require().Error(mw.CanReconcile(ctx))
 }
 
@@ -179,7 +179,7 @@ func (s *MiddlewareTestSuite) TestNoClaims() {
 	auth := s.newAuthorizer()
 	mw := authz.NewMiddleware(auth)
 
-	err := mw.CanSearchPayments(context.Background())
+	err := mw.CanPaymentsSearch(context.Background())
 	s.ErrorIs(err, authorizer.ErrInvalidSubject)
 }
 
@@ -190,7 +190,7 @@ func (s *MiddlewareTestSuite) TestNoTenant() {
 	claims := &security.AuthenticationClaims{}
 	claims.Subject = "user1"
 	ctx := claims.ClaimsToContext(context.Background())
-	err := mw.CanSearchPayments(ctx)
+	err := mw.CanPaymentsSearch(ctx)
 	s.ErrorIs(err, authorizer.ErrInvalidObject)
 }
 
@@ -243,7 +243,7 @@ func (s *MiddlewareTestSuite) TestServiceBotViaSubjectSets() {
 	botCtx := s.ctxWithSystemInternalClaims("service-bot")
 
 	s.NoError(accessChecker.CheckAccess(botCtx))
-	s.NoError(mw.CanSendPayment(botCtx))
-	s.NoError(mw.CanSearchPayments(botCtx))
+	s.NoError(mw.CanPaymentSend(botCtx))
+	s.NoError(mw.CanPaymentsSearch(botCtx))
 	s.NoError(mw.CanReconcile(botCtx))
 }

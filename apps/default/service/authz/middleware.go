@@ -8,14 +8,14 @@ import (
 )
 
 type Middleware interface {
-	CanSendPayment(ctx context.Context) error
-	CanReceivePayment(ctx context.Context) error
-	CanSearchPayments(ctx context.Context) error
-	CanViewPaymentStatus(ctx context.Context) error
-	CanUpdatePaymentStatus(ctx context.Context) error
-	CanReleasePayment(ctx context.Context) error
-	CanInitiatePrompt(ctx context.Context) error
-	CanCreatePaymentLink(ctx context.Context) error
+	CanPaymentSend(ctx context.Context) error
+	CanPaymentReceive(ctx context.Context) error
+	CanPaymentsSearch(ctx context.Context) error
+	CanPaymentStatusView(ctx context.Context) error
+	CanPaymentStatusUpdate(ctx context.Context) error
+	CanPaymentRelease(ctx context.Context) error
+	CanPromptInitiate(ctx context.Context) error
+	CanPaymentLinkCreate(ctx context.Context) error
 	CanReconcile(ctx context.Context) error
 }
 
@@ -29,36 +29,36 @@ func NewMiddleware(service security.Authorizer) Middleware {
 	}
 }
 
-func (m *middleware) CanSendPayment(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionSendPayment)
+func (m *middleware) CanPaymentSend(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentSend)
 }
 
-func (m *middleware) CanReceivePayment(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionReceivePayment)
+func (m *middleware) CanPaymentReceive(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentReceive)
 }
 
-func (m *middleware) CanSearchPayments(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionSearchPayments)
+func (m *middleware) CanPaymentsSearch(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentsSearch)
 }
 
-func (m *middleware) CanViewPaymentStatus(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionViewPaymentStatus)
+func (m *middleware) CanPaymentStatusView(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentStatusView)
 }
 
-func (m *middleware) CanUpdatePaymentStatus(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionUpdatePaymentStatus)
+func (m *middleware) CanPaymentStatusUpdate(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentStatusUpdate)
 }
 
-func (m *middleware) CanReleasePayment(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionReleasePayment)
+func (m *middleware) CanPaymentRelease(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentRelease)
 }
 
-func (m *middleware) CanInitiatePrompt(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionInitiatePrompt)
+func (m *middleware) CanPromptInitiate(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPromptInitiate)
 }
 
-func (m *middleware) CanCreatePaymentLink(ctx context.Context) error {
-	return m.checker.Check(ctx, PermissionCreatePaymentLink)
+func (m *middleware) CanPaymentLinkCreate(ctx context.Context) error {
+	return m.checker.Check(ctx, PermissionPaymentLinkCreate)
 }
 
 func (m *middleware) CanReconcile(ctx context.Context) error {

@@ -40,7 +40,7 @@ func BuildServiceInheritanceTuples(tenancyPath string) []security.RelationTuple 
 	for _, perm := range permissions {
 		tuples = append(tuples, security.RelationTuple{
 			Object:   security.ObjectRef{Namespace: NamespaceLedger, ID: tenancyPath},
-			Relation: perm,
+			Relation: GrantedRelation(perm),
 			Subject: security.SubjectRef{
 				Namespace: NamespaceLedger,
 				ID:        tenancyPath,

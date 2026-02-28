@@ -3,18 +3,18 @@ package authz
 const (
 	NamespacePayment       = "service_payment"
 	NamespaceTenancyAccess = "tenancy_access"
-	NamespaceProfile       = "profile/user"
+	NamespaceProfile       = "profile_user"
 )
 
 const (
-	PermissionSendPayment         = "send_payment"
-	PermissionReceivePayment      = "receive_payment"
-	PermissionSearchPayments      = "search_payments"
-	PermissionViewPaymentStatus   = "view_payment_status"
-	PermissionUpdatePaymentStatus = "update_payment_status"
-	PermissionReleasePayment      = "release_payment"
-	PermissionInitiatePrompt      = "initiate_prompt"
-	PermissionCreatePaymentLink   = "create_payment_link"
+	PermissionPaymentSend         = "payment_send"
+	PermissionPaymentReceive      = "payment_receive"
+	PermissionPaymentsSearch      = "payments_search"
+	PermissionPaymentStatusView   = "payment_status_view"
+	PermissionPaymentStatusUpdate = "payment_status_update"
+	PermissionPaymentRelease      = "payment_release"
+	PermissionPromptInitiate      = "prompt_initiate"
+	PermissionPaymentLinkCreate   = "payment_link_create"
 	PermissionReconcile           = "reconcile"
 )
 
@@ -27,34 +27,42 @@ const (
 	RoleService  = "service"
 )
 
+// GrantedRelation returns the OPL relation name used for direct permission grants.
+// Direct grant relations are prefixed with "granted_" to avoid name conflicts
+// with permit functions (Keto skips permit evaluation when a relation shares
+// the same name as a permit function).
+func GrantedRelation(permission string) string {
+	return "granted_" + permission
+}
+
 // RolePermissions returns the permissions granted by each role.
 func RolePermissions() map[string][]string {
 	return map[string][]string{
 		RoleOwner: {
-			PermissionSendPayment, PermissionReceivePayment, PermissionSearchPayments,
-			PermissionViewPaymentStatus, PermissionUpdatePaymentStatus, PermissionReleasePayment,
-			PermissionInitiatePrompt, PermissionCreatePaymentLink, PermissionReconcile,
+			PermissionPaymentSend, PermissionPaymentReceive, PermissionPaymentsSearch,
+			PermissionPaymentStatusView, PermissionPaymentStatusUpdate, PermissionPaymentRelease,
+			PermissionPromptInitiate, PermissionPaymentLinkCreate, PermissionReconcile,
 		},
 		RoleAdmin: {
-			PermissionSendPayment, PermissionReceivePayment, PermissionSearchPayments,
-			PermissionViewPaymentStatus, PermissionUpdatePaymentStatus, PermissionReleasePayment,
-			PermissionInitiatePrompt, PermissionCreatePaymentLink, PermissionReconcile,
+			PermissionPaymentSend, PermissionPaymentReceive, PermissionPaymentsSearch,
+			PermissionPaymentStatusView, PermissionPaymentStatusUpdate, PermissionPaymentRelease,
+			PermissionPromptInitiate, PermissionPaymentLinkCreate, PermissionReconcile,
 		},
 		RoleOperator: {
-			PermissionSendPayment, PermissionReceivePayment, PermissionSearchPayments,
-			PermissionViewPaymentStatus, PermissionReleasePayment,
-			PermissionInitiatePrompt, PermissionCreatePaymentLink,
+			PermissionPaymentSend, PermissionPaymentReceive, PermissionPaymentsSearch,
+			PermissionPaymentStatusView, PermissionPaymentRelease,
+			PermissionPromptInitiate, PermissionPaymentLinkCreate,
 		},
 		RoleViewer: {
-			PermissionSearchPayments, PermissionViewPaymentStatus,
+			PermissionPaymentsSearch, PermissionPaymentStatusView,
 		},
 		RoleMember: {
-			PermissionSearchPayments, PermissionViewPaymentStatus,
+			PermissionPaymentsSearch, PermissionPaymentStatusView,
 		},
 		RoleService: {
-			PermissionSendPayment, PermissionReceivePayment, PermissionSearchPayments,
-			PermissionViewPaymentStatus, PermissionUpdatePaymentStatus, PermissionReleasePayment,
-			PermissionInitiatePrompt, PermissionCreatePaymentLink, PermissionReconcile,
+			PermissionPaymentSend, PermissionPaymentReceive, PermissionPaymentsSearch,
+			PermissionPaymentStatusView, PermissionPaymentStatusUpdate, PermissionPaymentRelease,
+			PermissionPromptInitiate, PermissionPaymentLinkCreate, PermissionReconcile,
 		},
 	}
 }

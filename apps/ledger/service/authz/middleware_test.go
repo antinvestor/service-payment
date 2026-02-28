@@ -107,7 +107,7 @@ func (s *MiddlewareTestSuite) seedRole(auth security.Authorizer, tenancyPath, pr
 	for _, perm := range permissions {
 		tuples = append(tuples, security.RelationTuple{
 			Object:   security.ObjectRef{Namespace: authz.NamespaceLedger, ID: tenancyPath},
-			Relation: perm,
+			Relation: authz.GrantedRelation(perm),
 			Subject:  security.SubjectRef{Namespace: authz.NamespaceProfile, ID: profileID},
 		})
 	}
@@ -127,14 +127,14 @@ func (s *MiddlewareTestSuite) TestOwnerHasAllPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user1")
 
-	s.NoError(mw.CanManageLedger(ctx))
-	s.NoError(mw.CanViewLedger(ctx))
-	s.NoError(mw.CanManageAccount(ctx))
-	s.NoError(mw.CanViewAccount(ctx))
-	s.NoError(mw.CanCreateTransaction(ctx))
-	s.NoError(mw.CanReverseTransaction(ctx))
-	s.NoError(mw.CanUpdateTransaction(ctx))
-	s.NoError(mw.CanViewTransaction(ctx))
+	s.NoError(mw.CanLedgerManage(ctx))
+	s.NoError(mw.CanLedgerView(ctx))
+	s.NoError(mw.CanAccountManage(ctx))
+	s.NoError(mw.CanAccountView(ctx))
+	s.NoError(mw.CanTransactionCreate(ctx))
+	s.NoError(mw.CanTransactionReverse(ctx))
+	s.NoError(mw.CanTransactionUpdate(ctx))
+	s.NoError(mw.CanTransactionView(ctx))
 }
 
 func (s *MiddlewareTestSuite) TestOperatorPermissions() {
@@ -144,16 +144,16 @@ func (s *MiddlewareTestSuite) TestOperatorPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user2")
 
-	s.NoError(mw.CanViewLedger(ctx))
-	s.NoError(mw.CanManageAccount(ctx))
-	s.NoError(mw.CanViewAccount(ctx))
-	s.NoError(mw.CanCreateTransaction(ctx))
-	s.NoError(mw.CanViewTransaction(ctx))
+	s.NoError(mw.CanLedgerView(ctx))
+	s.NoError(mw.CanAccountManage(ctx))
+	s.NoError(mw.CanAccountView(ctx))
+	s.NoError(mw.CanTransactionCreate(ctx))
+	s.NoError(mw.CanTransactionView(ctx))
 
 	// Operator cannot manage ledger, reverse/update transactions
-	s.Require().Error(mw.CanManageLedger(ctx))
-	s.Require().Error(mw.CanReverseTransaction(ctx))
-	s.Require().Error(mw.CanUpdateTransaction(ctx))
+	s.Require().Error(mw.CanLedgerManage(ctx))
+	s.Require().Error(mw.CanTransactionReverse(ctx))
+	s.Require().Error(mw.CanTransactionUpdate(ctx))
 }
 
 func (s *MiddlewareTestSuite) TestViewerPermissions() {
@@ -163,22 +163,22 @@ func (s *MiddlewareTestSuite) TestViewerPermissions() {
 	mw := authz.NewMiddleware(auth)
 	ctx := s.ctxWithClaims("user3")
 
-	s.NoError(mw.CanViewLedger(ctx))
-	s.NoError(mw.CanViewAccount(ctx))
-	s.NoError(mw.CanViewTransaction(ctx))
+	s.NoError(mw.CanLedgerView(ctx))
+	s.NoError(mw.CanAccountView(ctx))
+	s.NoError(mw.CanTransactionView(ctx))
 
-	s.Require().Error(mw.CanManageLedger(ctx))
-	s.Require().Error(mw.CanManageAccount(ctx))
-	s.Require().Error(mw.CanCreateTransaction(ctx))
-	s.Require().Error(mw.CanReverseTransaction(ctx))
-	s.Require().Error(mw.CanUpdateTransaction(ctx))
+	s.Require().Error(mw.CanLedgerManage(ctx))
+	s.Require().Error(mw.CanAccountManage(ctx))
+	s.Require().Error(mw.CanTransactionCreate(ctx))
+	s.Require().Error(mw.CanTransactionReverse(ctx))
+	s.Require().Error(mw.CanTransactionUpdate(ctx))
 }
 
 func (s *MiddlewareTestSuite) TestNoClaims() {
 	auth := s.newAuthorizer()
 	mw := authz.NewMiddleware(auth)
 
-	err := mw.CanViewLedger(context.Background())
+	err := mw.CanLedgerView(context.Background())
 	s.ErrorIs(err, authorizer.ErrInvalidSubject)
 }
 
@@ -189,7 +189,7 @@ func (s *MiddlewareTestSuite) TestNoTenant() {
 	claims := &security.AuthenticationClaims{}
 	claims.Subject = "user1"
 	ctx := claims.ClaimsToContext(context.Background())
-	err := mw.CanViewLedger(ctx)
+	err := mw.CanLedgerView(ctx)
 	s.ErrorIs(err, authorizer.ErrInvalidObject)
 }
 
@@ -242,7 +242,7 @@ func (s *MiddlewareTestSuite) TestServiceBotViaSubjectSets() {
 	botCtx := s.ctxWithSystemInternalClaims("service-bot")
 
 	s.NoError(accessChecker.CheckAccess(botCtx))
-	s.NoError(mw.CanManageLedger(botCtx))
-	s.NoError(mw.CanCreateTransaction(botCtx))
-	s.NoError(mw.CanViewTransaction(botCtx))
+	s.NoError(mw.CanLedgerManage(botCtx))
+	s.NoError(mw.CanTransactionCreate(botCtx))
+	s.NoError(mw.CanTransactionView(botCtx))
 }

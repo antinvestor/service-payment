@@ -16,7 +16,7 @@ func (ledgerSrv *LedgerServer) SearchAccounts(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchAccountsResponse],
 ) error {
-	if err := ledgerSrv.authz.CanViewAccount(ctx); err != nil {
+	if err := ledgerSrv.authz.CanAccountView(ctx); err != nil {
 		return authorizer.ToConnectError(err)
 	}
 
@@ -35,7 +35,7 @@ func (ledgerSrv *LedgerServer) CreateAccount(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateAccountRequest],
 ) (*connect.Response[ledgerv1.CreateAccountResponse], error) {
-	if err := ledgerSrv.authz.CanManageAccount(ctx); err != nil {
+	if err := ledgerSrv.authz.CanAccountManage(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 
@@ -58,7 +58,7 @@ func (ledgerSrv *LedgerServer) UpdateAccount(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateAccountRequest],
 ) (*connect.Response[ledgerv1.UpdateAccountResponse], error) {
-	if err := ledgerSrv.authz.CanManageAccount(ctx); err != nil {
+	if err := ledgerSrv.authz.CanAccountManage(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 

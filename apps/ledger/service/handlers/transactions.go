@@ -16,7 +16,7 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
 ) error {
-	if err := ledgerSrv.authz.CanViewTransaction(ctx); err != nil {
+	if err := ledgerSrv.authz.CanTransactionView(ctx); err != nil {
 		return authorizer.ToConnectError(err)
 	}
 
@@ -37,7 +37,7 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateTransactionRequest],
 ) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanCreateTransaction(ctx); err != nil {
+	if err := ledgerSrv.authz.CanTransactionCreate(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 
@@ -59,7 +59,7 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.ReverseTransactionRequest],
 ) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanReverseTransaction(ctx); err != nil {
+	if err := ledgerSrv.authz.CanTransactionReverse(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 
@@ -81,7 +81,7 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateTransactionRequest],
 ) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanUpdateTransaction(ctx); err != nil {
+	if err := ledgerSrv.authz.CanTransactionUpdate(ctx); err != nil {
 		return nil, authorizer.ToConnectError(err)
 	}
 

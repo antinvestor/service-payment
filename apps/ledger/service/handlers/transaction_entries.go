@@ -16,7 +16,7 @@ func (ledgerSrv *LedgerServer) SearchTransactionEntries(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionEntriesResponse],
 ) error {
-	if err := ledgerSrv.authz.CanViewTransaction(ctx); err != nil {
+	if err := ledgerSrv.authz.CanTransactionView(ctx); err != nil {
 		return authorizer.ToConnectError(err)
 	}
 

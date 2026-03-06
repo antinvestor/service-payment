@@ -16,18 +16,18 @@ require (
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260219062126-e9b0d15a670e.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/apis/go/common v1.53.17
-	github.com/antinvestor/apis/go/ledger v1.53.18
-	github.com/antinvestor/apis/go/partition v1.54.0
-	github.com/antinvestor/apis/go/payment v1.53.18
-	github.com/antinvestor/apis/go/profile v1.53.18
-	github.com/antinvestor/apis/go/settings v1.53.18
+	github.com/antinvestor/apis/go/common v1.55.0
+	github.com/antinvestor/apis/go/ledger v1.55.1
+	github.com/antinvestor/apis/go/partition v1.55.1
+	github.com/antinvestor/apis/go/payment v1.55.1
+	github.com/antinvestor/apis/go/profile v1.55.1
+	github.com/antinvestor/apis/go/settings v1.55.1
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.2
-	github.com/pitabwire/frame v1.76.5
-	github.com/pitabwire/util v0.6.0
+	github.com/pitabwire/frame v1.76.6
+	github.com/pitabwire/util v0.6.1
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
@@ -35,7 +35,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.40.0
 	golang.org/x/text v0.34.0
 	google.golang.org/genproto v0.0.0-20260226221140-a57be14db171
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
 	gorm.io/gorm v1.31.1
 )

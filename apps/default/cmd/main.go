@@ -26,9 +26,10 @@ import (
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
-	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
 )
+
+const internalSystemScope = "system_int"
 
 func main() {
 	ctx := context.Background()
@@ -48,7 +49,6 @@ func main() {
 	ctx, svc := frame.NewServiceWithContext(
 		ctx,
 		frame.WithConfig(&cfg),
-		frame.WithRegisterServerOauth2Client(),
 		frame.WithDatastore(),
 	)
 	defer svc.Stop(ctx)
@@ -69,9 +69,9 @@ func main() {
 	}
 
 	// Setup clients
-	profileCli := setupProfileClient(ctx, sm, cfg)
-	ledgerCli := setupLedgerClient(ctx, sm, cfg)
-	partitionCli := setupPartitionClient(ctx, sm, cfg)
+	profileCli := setupProfileClient(ctx, cfg)
+	ledgerCli := setupLedgerClient(ctx, cfg)
+	partitionCli := setupPartitionClient(ctx, cfg)
 
 	// Initialize repositories
 	paymentRepo := repository.NewPaymentRepository(ctx, dbPool, workMan)
@@ -147,15 +147,14 @@ func handleDatabaseMigration(
 // setupProfileClient creates and configures the profile service client.
 func setupProfileClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.PaymentConfig,
 ) profilev1connect.ProfileServiceClient {
 	profileCli, err := profile.NewClient(ctx,
 		apis.WithEndpoint(cfg.ProfileServiceURI),
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope),
 		apis.WithAudiences("service_profile"))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup profile client")
@@ -166,15 +165,14 @@ func setupProfileClient(
 // setupLedgerClient creates and configures the ledger service client.
 func setupLedgerClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.PaymentConfig,
 ) ledgerv1connect.LedgerServiceClient {
 	ledgerCli, err := ledger.NewClient(ctx,
 		apis.WithEndpoint(cfg.LedgerServiceURI),
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope),
 		apis.WithAudiences("service_ledger"))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
@@ -185,15 +183,14 @@ func setupLedgerClient(
 // setupPartitionClient creates and configures the partition service client.
 func setupPartitionClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.PaymentConfig,
 ) partitionv1connect.PartitionServiceClient {
 	partitionCli, err := partition.NewClient(ctx,
 		apis.WithEndpoint(cfg.PartitionServiceURI),
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope),
 		apis.WithAudiences("service_tenancy"))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")

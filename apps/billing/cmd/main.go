@@ -44,7 +44,6 @@ func main() {
 	_, service := frame.NewServiceWithContext(
 		ctx,
 		frame.WithConfig(&cfg),
-		frame.WithRegisterServerOauth2Client(),
 		frame.WithDatastore(),
 		frame.WithTranslation("en"),
 	)

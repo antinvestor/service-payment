@@ -20,8 +20,10 @@ const (
 type MtnConfig struct {
 	config.ConfigurationDefault
 
-	PaymentServiceURI  string `envDefault:"127.0.0.1:7006" env:"PAYMENT_SERVICE_URI"`
-	SettingsServiceURI string `envDefault:"127.0.0.1:7005" env:"SETTINGS_SERVICE_URI"`
+	PaymentServiceURI                    string `envDefault:"127.0.0.1:7006"                  env:"PAYMENT_SERVICE_URI"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                  env:"SETTINGS_SERVICE_URI"`
+	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment" env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings" env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
 
 	// Settings integration identifiers for credential lookup
 	SettingsIntegrationName string `envDefault:"MtnMomo" env:"SETTINGS_INTEGRATION_NAME"`

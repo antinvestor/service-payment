@@ -18,8 +18,6 @@ import (
 	"github.com/pitabwire/util"
 )
 
-const internalSystemScope = "system_int"
-
 func main() {
 	ctx := context.Background()
 
@@ -75,24 +73,20 @@ func setupPaymentClient(
 	ctx context.Context,
 	cfg aconfig.MtnConfig,
 ) (paymentv1connect.PaymentServiceClient, error) {
-	return payment.NewClient(ctx,
-		apis.WithEndpoint(cfg.PaymentServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_payment"))
+	return payment.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.PaymentServiceURI,
+		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_payment"},
+	})
 }
 
 func setupSettingsClient(
 	ctx context.Context,
 	cfg aconfig.MtnConfig,
 ) (settingsv1connect.SettingsServiceClient, error) {
-	return settings.NewClient(ctx,
-		apis.WithEndpoint(cfg.SettingsServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_settings"))
+	return settings.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.SettingsServiceURI,
+		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_settings"},
+	})
 }

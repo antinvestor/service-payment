@@ -29,8 +29,6 @@ import (
 	"github.com/pitabwire/util"
 )
 
-const internalSystemScope = "system_int"
-
 func main() {
 	ctx := context.Background()
 
@@ -149,13 +147,11 @@ func setupProfileClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) profilev1connect.ProfileServiceClient {
-	profileCli, err := profile.NewClient(ctx,
-		apis.WithEndpoint(cfg.ProfileServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_profile"))
+	profileCli, err := profile.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.ProfileServiceURI,
+		WorkloadAPITargetPath: cfg.ProfileServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_profile"},
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup profile client")
 	}
@@ -167,13 +163,11 @@ func setupLedgerClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) ledgerv1connect.LedgerServiceClient {
-	ledgerCli, err := ledger.NewClient(ctx,
-		apis.WithEndpoint(cfg.LedgerServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_ledger"))
+	ledgerCli, err := ledger.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.LedgerServiceURI,
+		WorkloadAPITargetPath: cfg.LedgerServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_ledger"},
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
 	}
@@ -185,13 +179,11 @@ func setupPartitionClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) partitionv1connect.PartitionServiceClient {
-	partitionCli, err := partition.NewClient(ctx,
-		apis.WithEndpoint(cfg.PartitionServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_tenancy"))
+	partitionCli, err := partition.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.PartitionServiceURI,
+		WorkloadAPITargetPath: cfg.PartitionServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_tenancy"},
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")
 	}

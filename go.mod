@@ -16,12 +16,12 @@ require (
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260219062126-e9b0d15a670e.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/apis/go/common v1.55.6
-	github.com/antinvestor/apis/go/ledger v1.55.7
-	github.com/antinvestor/apis/go/partition v1.55.7
-	github.com/antinvestor/apis/go/payment v1.55.7
-	github.com/antinvestor/apis/go/profile v1.55.7
-	github.com/antinvestor/apis/go/settings v1.55.7
+	github.com/antinvestor/apis/go/common v1.55.8
+	github.com/antinvestor/apis/go/ledger v1.55.8
+	github.com/antinvestor/apis/go/partition v1.55.8
+	github.com/antinvestor/apis/go/payment v1.55.8
+	github.com/antinvestor/apis/go/profile v1.55.8
+	github.com/antinvestor/apis/go/settings v1.55.8
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
@@ -159,7 +159,7 @@ require (
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/api v0.269.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect

@@ -15,8 +15,10 @@ const (
 type PolarConfig struct {
 	config.ConfigurationDefault
 
-	PaymentServiceURI  string `envDefault:"127.0.0.1:7006" env:"PAYMENT_SERVICE_URI"`
-	SettingsServiceURI string `envDefault:"127.0.0.1:7010" env:"SETTINGS_SERVICE_URI"`
+	PaymentServiceURI                    string `envDefault:"127.0.0.1:7006"                  env:"PAYMENT_SERVICE_URI"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7010"                  env:"SETTINGS_SERVICE_URI"`
+	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment" env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings" env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
 
 	// Settings integration lookup
 	SettingsIntegrationName string `envDefault:"polar" env:"SETTINGS_INTEGRATION_NAME"`

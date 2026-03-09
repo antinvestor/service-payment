@@ -20,8 +20,6 @@ import (
 	"github.com/pitabwire/util"
 )
 
-const internalSystemScope = "system_int"
-
 func main() {
 	ctx := context.Background()
 
@@ -115,13 +113,11 @@ func setupPaymentClient(
 	ctx context.Context,
 	cfg aconfig.JengaConfig,
 ) paymentv1connect.PaymentServiceClient {
-	ledgerCli, err := payment.NewClient(ctx,
-		apis.WithEndpoint(cfg.PaymentServiceURI),
-		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
-		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
-		apis.WithScopes(internalSystemScope),
-		apis.WithAudiences("service_payment"))
+	ledgerCli, err := payment.NewClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.PaymentServiceURI,
+		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_payment"},
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
 	}

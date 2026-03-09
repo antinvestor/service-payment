@@ -15,10 +15,10 @@ import (
 	"github.com/antinvestor/service-payments/internal/events"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
-	"github.com/pitabwire/frame/security"
-	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
 )
+
+const internalSystemScope = "system_int"
 
 func main() {
 	ctx := context.Background()
@@ -33,19 +33,18 @@ func main() {
 		cfg.ServiceName = "integration_payment_airtel"
 	}
 
-	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg), frame.WithRegisterServerOauth2Client())
+	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
 	defer svc.Stop(ctx)
 
 	logger := svc.Log(ctx)
-	sm := svc.SecurityManager()
 	eventsMan := svc.EventsManager()
 
-	paymentCli, err := setupPaymentClient(ctx, sm, cfg)
+	paymentCli, err := setupPaymentClient(ctx, cfg)
 	if err != nil {
 		logger.WithError(err).Fatal("could not setup payment client")
 	}
 
-	settingsCli, err := setupSettingsClient(ctx, sm, cfg)
+	settingsCli, err := setupSettingsClient(ctx, cfg)
 	if err != nil {
 		logger.WithError(err).Fatal("could not setup settings client")
 	}
@@ -74,28 +73,28 @@ func main() {
 
 func setupPaymentClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.AirtelConfig,
 ) (paymentv1connect.PaymentServiceClient, error) {
-	return payment.NewClient(ctx,
-		apis.WithEndpoint(cfg.PaymentServiceURI),
+	return payment.NewClient(ctx, nil, apis.ServiceTarget{
+		Endpoint:  cfg.PaymentServiceURI,
+		Audiences: []string{"service_payment"},
+	},
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
-		apis.WithAudiences("service_payment"))
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope))
 }
 
 func setupSettingsClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.AirtelConfig,
 ) (settingsv1connect.SettingsServiceClient, error) {
-	return settings.NewClient(ctx,
-		apis.WithEndpoint(cfg.SettingsServiceURI),
+	return settings.NewClient(ctx, nil, apis.ServiceTarget{
+		Endpoint:  cfg.SettingsServiceURI,
+		Audiences: []string{"service_settings"},
+	},
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
-		apis.WithAudiences("service_settings"))
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope))
 }

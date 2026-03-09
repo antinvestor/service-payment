@@ -17,10 +17,10 @@ import (
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/events"
-	"github.com/pitabwire/frame/security"
-	"github.com/pitabwire/frame/security/openid"
 	"github.com/pitabwire/util"
 )
+
+const internalSystemScope = "system_int"
 
 func main() {
 	ctx := context.Background()
@@ -50,9 +50,8 @@ func main() {
 
 	// Get managers
 	evtsMan := svc.EventsManager()
-	sm := svc.SecurityManager()
 	// Setup payment service client using Connect RPC
-	paymentCli := setupPaymentClient(ctx, sm, cfg)
+	paymentCli := setupPaymentClient(ctx, cfg)
 
 	// Initialize event handlers using constructors
 	initiatePrompt := eventsstk.NewInitiatePrompt(
@@ -114,16 +113,16 @@ func main() {
 
 func setupPaymentClient(
 	ctx context.Context,
-	clHolder security.InternalOauth2ClientHolder,
 	cfg aconfig.JengaConfig,
 ) paymentv1connect.PaymentServiceClient {
-	ledgerCli, err := payment.NewClient(ctx,
-		apis.WithEndpoint(cfg.PaymentServiceURI),
+	ledgerCli, err := payment.NewClient(ctx, nil, apis.ServiceTarget{
+		Endpoint:  cfg.PaymentServiceURI,
+		Audiences: []string{"service_payment"},
+	},
 		apis.WithTokenEndpoint(cfg.GetOauth2TokenEndpoint()),
-		apis.WithTokenUsername(clHolder.JwtClientID()),
-		apis.WithTokenPassword(clHolder.JwtClientSecret()),
-		apis.WithScopes(openid.ConstSystemScopeInternal),
-		apis.WithAudiences("service_payment"))
+		apis.WithTokenUsername(cfg.GetOauth2ServiceClientID()),
+		apis.WithTokenPassword(cfg.GetOauth2ServiceClientSecret()),
+		apis.WithScopes(internalSystemScope))
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
 	}

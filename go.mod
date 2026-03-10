@@ -17,16 +17,16 @@ require (
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/apis/go/common v1.55.8
-	github.com/antinvestor/apis/go/ledger v1.55.8
-	github.com/antinvestor/apis/go/partition v1.55.8
-	github.com/antinvestor/apis/go/payment v1.55.8
-	github.com/antinvestor/apis/go/profile v1.55.8
-	github.com/antinvestor/apis/go/settings v1.55.8
+	github.com/antinvestor/apis/go/ledger v1.55.9
+	github.com/antinvestor/apis/go/partition v1.55.9
+	github.com/antinvestor/apis/go/payment v1.55.9
+	github.com/antinvestor/apis/go/profile v1.55.9
+	github.com/antinvestor/apis/go/settings v1.55.9
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.2
-	github.com/pitabwire/frame v1.77.1
+	github.com/pitabwire/frame v1.77.2
 	github.com/pitabwire/util v0.6.1
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0
@@ -103,7 +103,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/ory/keto/proto v0.13.0-alpha.0 // indirect
-	github.com/panjf2000/ants/v2 v2.11.5 // indirect
+	github.com/panjf2000/ants/v2 v2.11.6 // indirect
 	github.com/pitabwire/natspubsub v0.7.13 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -150,7 +150,7 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.18.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.42.0 // indirect
 	go.opentelemetry.io/otel/trace v1.42.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	gocloud.dev v0.45.0 // indirect
@@ -159,9 +159,9 @@ require (
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/api v0.269.0 // indirect
+	google.golang.org/api v0.270.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

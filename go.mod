@@ -16,12 +16,12 @@ require (
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260219062126-e9b0d15a670e.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/apis/go/common v1.55.10
-	github.com/antinvestor/apis/go/ledger v1.55.10
-	github.com/antinvestor/apis/go/partition v1.55.10
-	github.com/antinvestor/apis/go/payment v1.55.10
-	github.com/antinvestor/apis/go/profile v1.55.10
-	github.com/antinvestor/apis/go/settings v1.55.10
+	github.com/antinvestor/apis/go/common v1.55.11
+	github.com/antinvestor/apis/go/ledger v1.55.11
+	github.com/antinvestor/apis/go/partition v1.55.11
+	github.com/antinvestor/apis/go/payment v1.55.11
+	github.com/antinvestor/apis/go/profile v1.55.11
+	github.com/antinvestor/apis/go/settings v1.55.11
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1

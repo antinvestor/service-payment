@@ -16,12 +16,12 @@ require (
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260219062126-e9b0d15a670e.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/apis/go/common v1.55.12
-	github.com/antinvestor/apis/go/ledger v1.55.11
-	github.com/antinvestor/apis/go/partition v1.55.12
-	github.com/antinvestor/apis/go/payment v1.55.11
-	github.com/antinvestor/apis/go/profile v1.55.12
-	github.com/antinvestor/apis/go/settings v1.55.11
+	github.com/antinvestor/apis/go/common v1.55.13
+	github.com/antinvestor/apis/go/ledger v1.55.13
+	github.com/antinvestor/apis/go/partition v1.55.13
+	github.com/antinvestor/apis/go/payment v1.55.13
+	github.com/antinvestor/apis/go/profile v1.55.13
+	github.com/antinvestor/apis/go/settings v1.55.13
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
@@ -34,7 +34,7 @@ require (
 	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/testcontainers/testcontainers-go v0.41.0
 	golang.org/x/text v0.35.0
-	google.golang.org/genproto v0.0.0-20260226221140-a57be14db171
+	google.golang.org/genproto v0.0.0-20260311181403-84a4fc48630c
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
 	gorm.io/gorm v1.31.1
@@ -163,7 +163,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/api v0.271.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260311181403-84a4fc48630c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )

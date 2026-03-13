@@ -22,8 +22,10 @@ func BuildServiceAccessTuple(tenancyPath, profileID string) security.RelationTup
 
 // BuildServiceInheritanceTuples creates bridge tuples that allow service bots
 // to inherit functional permissions via subject sets.
+// Only the bridge tuple is needed — the OPL permits already check the service
+// role directly, so explicit granted_* tuples per permission are redundant.
 func BuildServiceInheritanceTuples(tenancyPath string) []security.RelationTuple {
-	serviceBridge := security.RelationTuple{
+	return []security.RelationTuple{{
 		Object:   security.ObjectRef{Namespace: NamespaceLedger, ID: tenancyPath},
 		Relation: RoleService,
 		Subject: security.SubjectRef{
@@ -31,23 +33,5 @@ func BuildServiceInheritanceTuples(tenancyPath string) []security.RelationTuple 
 			ID:        tenancyPath,
 			Relation:  RoleService,
 		},
-	}
-
-	permissions := RolePermissions()[RoleService]
-	tuples := make([]security.RelationTuple, 0, 1+len(permissions))
-	tuples = append(tuples, serviceBridge)
-
-	for _, perm := range permissions {
-		tuples = append(tuples, security.RelationTuple{
-			Object:   security.ObjectRef{Namespace: NamespaceLedger, ID: tenancyPath},
-			Relation: GrantedRelation(perm),
-			Subject: security.SubjectRef{
-				Namespace: NamespaceLedger,
-				ID:        tenancyPath,
-				Relation:  RoleService,
-			},
-		})
-	}
-
-	return tuples
+	}}
 }

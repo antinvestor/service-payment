@@ -26,7 +26,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.2
-	github.com/pitabwire/frame v1.79.1
+	github.com/pitabwire/frame v1.80.0
 	github.com/pitabwire/util v0.6.1
 	github.com/rs/xid v1.6.0
 	github.com/shopspring/decimal v1.4.0

@@ -88,7 +88,7 @@ func (s *MiddlewareTestSuite) ctxWithSystemInternalClaims(subjectID string) cont
 	claims := &security.AuthenticationClaims{
 		TenantID:    testTenantID,
 		PartitionID: testPartitionID,
-		Roles:       []string{"system_internal"},
+		Roles:       []string{"internal"},
 	}
 	claims.Subject = subjectID
 	return claims.ClaimsToContext(context.Background())

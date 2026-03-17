@@ -7,6 +7,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
+	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
 )
 
@@ -74,6 +75,10 @@ func (e *PaymentLinkSave) Execute(ctx context.Context, payload any) error {
 	// Attempt to save to database
 	err := e.paymentLinkRepo.Create(ctx, paymentLink)
 	if err != nil {
+		if data.ErrorIsDuplicateKey(err) {
+			logger.Debug("record already exists, skipping duplicate")
+			return nil
+		}
 		logger.WithError(err).Error("could not save payment link to db")
 		// Return the error so the caller knows the save failed
 		return err

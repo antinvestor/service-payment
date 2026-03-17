@@ -6,6 +6,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
+	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
 )
 
@@ -50,6 +51,10 @@ func (e *StatusSave) Execute(ctx context.Context, payload any) error {
 
 	err := e.statusRepo.Create(ctx, status)
 	if err != nil {
+		if data.ErrorIsDuplicateKey(err) {
+			logger.Debug("record already exists, skipping duplicate")
+			return nil
+		}
 		logger.WithError(err).Warn("could not save status to db")
 		return err
 	}

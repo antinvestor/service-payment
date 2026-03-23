@@ -13,7 +13,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
@@ -353,7 +352,7 @@ func (b *transactionBusiness) Validate(
 	}
 
 	for _, entry := range txn.Entries {
-		entryAmount := utility.DerefOr(entry.Amount, decimalx.Zero())
+		entryAmount := decimalx.DerefOr(entry.Amount, decimalx.Zero())
 		if entryAmount.IsZero() {
 			return nil, apperrors.ErrTransactionEntryHasZeroAmount.Extend(
 				fmt.Sprintf("entry [id=%s, account_id=%s] amount is zero", entry.ID, entry.AccountID),
@@ -444,8 +443,8 @@ func (b *transactionBusiness) Transact(
 		if ei.Credit != ej.Credit {
 			return !ei.Credit // debit before credit
 		}
-		absI := utility.AbsDecimal(utility.DerefOr(ei.Amount, decimalx.Zero()))
-		absJ := utility.AbsDecimal(utility.DerefOr(ej.Amount, decimalx.Zero()))
+		absI := decimalx.DerefOr(ei.Amount, decimalx.Zero()).Abs()
+		absJ := decimalx.DerefOr(ej.Amount, decimalx.Zero()).Abs()
 		return absI.LessThan(absJ)
 	})
 
@@ -495,7 +494,7 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 		account := accountsMap[line.AccountID]
 
 		// Set the account balance snapshot at transaction time
-		bal := utility.DerefOr(account.Balance, decimalx.Zero())
+		bal := decimalx.DerefOr(account.Balance, decimalx.Zero())
 		line.Balance = &bal
 
 		// Apply signage based on double-entry bookkeeping rules (DEADCLIC)
@@ -504,7 +503,7 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 			(account.LedgerType == models.LedgerTypeAsset || account.LedgerType == models.LedgerTypeExpense) ||
 			!line.Credit &&
 				(account.LedgerType == models.LedgerTypeLiability || account.LedgerType == models.LedgerTypeIncome || account.LedgerType == models.LedgerTypeCapital) {
-			neg := utility.DerefOr(line.Amount, decimalx.Zero()).Neg()
+			neg := decimalx.DerefOr(line.Amount, decimalx.Zero()).Neg()
 			line.Amount = &neg
 		}
 	}
@@ -532,7 +531,7 @@ func (b *transactionBusiness) processClearanceUpdate(
 
 	for _, line := range existingTransaction.Entries {
 		account := accountsMap[line.AccountID]
-		bal := utility.DerefOr(account.Balance, decimalx.Zero())
+		bal := decimalx.DerefOr(account.Balance, decimalx.Zero())
 		line.Balance = &bal
 	}
 	existingTransaction.ClearedAt = clearanceTime

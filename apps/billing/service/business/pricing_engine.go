@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/util/decimalx"
 )
 
@@ -92,9 +91,9 @@ func (pe *PricingEngine) rateComponent(
 		ComponentID:    comp.GetID(),
 		MeteredUsageID: mu.GetID(),
 		Description:    description,
-		Quantity:       utility.DecPtr(qty),
-		UnitPrice:      utility.DecPtr(unitPrice),
-		Amount:         utility.DecPtr(amount),
+		Quantity:       qty.Ptr(),
+		UnitPrice:      unitPrice.Ptr(),
+		Amount:         amount.Ptr(),
 		Currency:       currency,
 		PricingModel:   comp.PricingModel,
 	}
@@ -146,7 +145,7 @@ func (pe *PricingEngine) RateTiered(
 		}
 
 		tierWidth := upper.Sub(lower)
-		unitsInTier := utility.MinDecimal(remaining, tierWidth)
+		unitsInTier := decimalx.Min(remaining, tierWidth)
 
 		tierAmount := unitsInTier.Mul(*tier.UnitPrice)
 		if tier.FlatFee != nil {

@@ -8,7 +8,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
@@ -250,8 +249,8 @@ func (w *billingWorkflow) stepCrediting(
 	}
 
 	// Calculate amount eligible for credits (subtotal - discounts)
-	subtotal := utility.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
-	discount := utility.DerefOr(invoice.DiscountAmount, decimalx.Zero())
+	subtotal := decimalx.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
+	discount := decimalx.DerefOr(invoice.DiscountAmount, decimalx.Zero())
 	amountAfterDiscount := subtotal.Sub(discount)
 	if amountAfterDiscount.IsNegative() {
 		amountAfterDiscount = decimalx.Zero()

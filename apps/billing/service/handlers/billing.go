@@ -14,7 +14,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/util/decimalx"
 )
 
@@ -408,7 +407,7 @@ func (s *BillingServer) IngestUsageEvent(
 		events[i] = &models.UsageEvent{
 			SubscriptionID: e.GetSubscriptionId(),
 			MetricKey:      e.GetMetricKey(),
-			Quantity:       utility.DecPtr(qty),
+			Quantity:       qty.Ptr(),
 			Timestamp:      e.GetTimestamp().AsTime(),
 			Properties:     structToJSONMap(e.GetProperties()),
 		}
@@ -653,7 +652,7 @@ func (s *BillingServer) CreateDiscount(
 		DiscountType: discountTypeFromProto(req.Msg.GetDiscountType()),
 		Value: func() *decimalx.Decimal {
 			v, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Msg.GetValue()))
-			return utility.DecPtr(v)
+			return v.Ptr()
 		}(),
 		Currency:        req.Msg.GetCurrency(),
 		ApplicableTo:    structToJSONMap(req.Msg.GetApplicableTo()),

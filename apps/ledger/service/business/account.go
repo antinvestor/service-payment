@@ -8,7 +8,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
@@ -71,7 +70,7 @@ func (b *accountBusiness) CreateAccount(
 		LedgerID:   ledger.GetID(),
 		LedgerType: ledger.Type,
 		Currency:   req.GetCurrency(),
-		Balance:    utility.DecPtr(zero),
+		Balance:    zero.Ptr(),
 		Data:       req.GetData().AsMap()}
 
 	accountModel.GenID(ctx)

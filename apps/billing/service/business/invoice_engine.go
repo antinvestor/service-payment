@@ -8,7 +8,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
@@ -88,10 +87,10 @@ func (e *invoiceEngine) GenerateInvoice(
 		InvoiceNumber:  fmt.Sprintf("INV-%s", billingRun.GetID()),
 		State:          models.InvoiceStateDraft,
 		Currency:       ratedLines[0].Currency,
-		SubtotalAmount: utility.DecPtr(subtotal),
-		DiscountAmount: utility.DecPtr(discountTotal),
-		CreditAmount:   utility.DecPtr(creditAmount),
-		TotalAmount:    utility.DecPtr(total),
+		SubtotalAmount: subtotal.Ptr(),
+		DiscountAmount: discountTotal.Ptr(),
+		CreditAmount:   creditAmount.Ptr(),
+		TotalAmount:    total.Ptr(),
 		PeriodStart:    billingRun.PeriodStart,
 		PeriodEnd:      billingRun.PeriodEnd,
 	}
@@ -112,7 +111,7 @@ func (e *invoiceEngine) GenerateInvoice(
 
 		for _, rl := range ratedLines {
 			lineDiscount := discountByRatedLine[rl.GetID()]
-			rlAmount := utility.DerefOr(rl.Amount, decimalx.Zero())
+			rlAmount := decimalx.DerefOr(rl.Amount, decimalx.Zero())
 			netAmount := rlAmount.Sub(lineDiscount)
 			if netAmount.IsNegative() {
 				netAmount = decimalx.Zero()
@@ -126,9 +125,9 @@ func (e *invoiceEngine) GenerateInvoice(
 				Quantity:       rl.Quantity,
 				UnitPrice:      rl.UnitPrice,
 				Amount:         rl.Amount,
-				DiscountAmount: utility.DecPtr(lineDiscount),
-				CreditAmount:   utility.DecPtr(decimalx.Zero()),
-				NetAmount:      utility.DecPtr(netAmount),
+				DiscountAmount: lineDiscount.Ptr(),
+				CreditAmount:   decimalx.Zero().Ptr(),
+				NetAmount:      netAmount.Ptr(),
 				Currency:       rl.Currency,
 				LineType:       models.InvoiceLineTypeUsage,
 			}
@@ -156,14 +155,14 @@ func (e *invoiceEngine) UpdateInvoiceTotals(
 	invoice *models.Invoice,
 	creditAmount decimalx.Decimal,
 ) error {
-	subtotal := utility.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
-	discount := utility.DerefOr(invoice.DiscountAmount, decimalx.Zero())
+	subtotal := decimalx.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
+	discount := decimalx.DerefOr(invoice.DiscountAmount, decimalx.Zero())
 	newTotal := subtotal.Sub(discount).Sub(creditAmount)
 	if newTotal.IsNegative() {
 		newTotal = decimalx.Zero()
 	}
-	invoice.CreditAmount = utility.DecPtr(creditAmount)
-	invoice.TotalAmount = utility.DecPtr(newTotal)
+	invoice.CreditAmount = creditAmount.Ptr()
+	invoice.TotalAmount = newTotal.Ptr()
 
 	_, err := e.invoiceRepo.Update(ctx, invoice)
 	return err

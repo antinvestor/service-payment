@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestOrderedEntries_LenSwapLess(t *testing.T) {
 	entries := OrderedEntries{
-		{AccountID: "b", Amount: utility.DecPtr(decimalx.NewFromInt64(200))},
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "b", Amount: decimalx.NewFromInt64(200).Ptr()},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 
 	assert.Equal(t, 2, entries.Len())
@@ -29,8 +28,8 @@ func TestOrderedEntries_LenSwapLess(t *testing.T) {
 
 func TestOrderedEntries_LessSameAccount(t *testing.T) {
 	entries := OrderedEntries{
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(200))},
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(200).Ptr()},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 
 	// Same account, compare by amount
@@ -40,10 +39,10 @@ func TestOrderedEntries_LessSameAccount(t *testing.T) {
 
 func TestOrderedEntries_Sort(t *testing.T) {
 	entries := OrderedEntries{
-		{AccountID: "c", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(200))},
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-		{AccountID: "b", Amount: utility.DecPtr(decimalx.NewFromInt64(50))},
+		{AccountID: "c", Amount: decimalx.NewFromInt64(100).Ptr()},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(200).Ptr()},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(100).Ptr()},
+		{AccountID: "b", Amount: decimalx.NewFromInt64(50).Ptr()},
 	}
 
 	sort.Sort(entries)
@@ -57,15 +56,15 @@ func TestOrderedEntries_Sort(t *testing.T) {
 
 func TestContainsSameElements_Identical(t *testing.T) {
 	entries := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-		{AccountID: "b", Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+		{AccountID: "b", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	entries[0].ID = "e1"
 	entries[1].ID = "e2"
 
 	other := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-		{AccountID: "b", Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+		{AccountID: "b", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	other[0].ID = "e1"
 	other[1].ID = "e2"
@@ -75,11 +74,11 @@ func TestContainsSameElements_Identical(t *testing.T) {
 
 func TestContainsSameElements_DifferentLengths(t *testing.T) {
 	e1 := []*models.TransactionEntry{
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e2 := []*models.TransactionEntry{
-		{AccountID: "a", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-		{AccountID: "b", Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Amount: decimalx.NewFromInt64(100).Ptr()},
+		{AccountID: "b", Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 
 	assert.False(t, containsSameElements(e1, e2))
@@ -87,12 +86,12 @@ func TestContainsSameElements_DifferentLengths(t *testing.T) {
 
 func TestContainsSameElements_DifferentCredit(t *testing.T) {
 	e1 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e1[0].ID = "e1"
 
 	e2 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e2[0].ID = "e1"
 
@@ -101,12 +100,12 @@ func TestContainsSameElements_DifferentCredit(t *testing.T) {
 
 func TestContainsSameElements_DifferentAmount(t *testing.T) {
 	e1 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e1[0].ID = "e1"
 
 	e2 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(200))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(200).Ptr()},
 	}
 	e2[0].ID = "e1"
 
@@ -115,12 +114,12 @@ func TestContainsSameElements_DifferentAmount(t *testing.T) {
 
 func TestContainsSameElements_MissingEntry(t *testing.T) {
 	e1 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e1[0].ID = "e1"
 
 	e2 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e2[0].ID = "e2" // Different ID
 
@@ -130,12 +129,12 @@ func TestContainsSameElements_MissingEntry(t *testing.T) {
 func TestContainsSameElements_NegativeAmount(t *testing.T) {
 	// Test with negative amounts - abs comparison
 	e1 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(-100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(-100).Ptr()},
 	}
 	e1[0].ID = "e1"
 
 	e2 := []*models.TransactionEntry{
-		{AccountID: "a", Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+		{AccountID: "a", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 	}
 	e2[0].ID = "e1"
 

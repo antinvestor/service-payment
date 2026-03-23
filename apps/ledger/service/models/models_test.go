@@ -7,7 +7,6 @@ import (
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
@@ -98,9 +97,9 @@ func TestAccountToAPI_ValidBalance(t *testing.T) {
 		BaseModel:        data.BaseModel{ID: "acc-1"},
 		LedgerID:         "ledger-1",
 		Currency:         "USD",
-		Balance:          utility.DecPtr(decimalx.NewFromInt64(100)),
-		UnClearedBalance: utility.DecPtr(decimalx.NewFromInt64(50)),
-		ReservedBalance:  utility.DecPtr(decimalx.NewFromInt64(25)),
+		Balance:          decimalx.NewFromInt64(100).Ptr(),
+		UnClearedBalance: decimalx.NewFromInt64(50).Ptr(),
+		ReservedBalance:  decimalx.NewFromInt64(25).Ptr(),
 		Data:             data.JSONMap{"name": "checking"},
 	}
 
@@ -216,7 +215,7 @@ func TestTransactionToAPI(t *testing.T) {
 				BaseModel:     data.BaseModel{ID: "e1"},
 				AccountID:     "acc-1",
 				TransactionID: "txn-1",
-				Amount:        utility.DecPtr(decimalx.NewFromInt64(100)),
+				Amount:        decimalx.NewFromInt64(100).Ptr(),
 				Credit:        false,
 			},
 		},
@@ -286,7 +285,7 @@ func TestTransactionEntryToAPI_ValidAmount(t *testing.T) {
 		BaseModel:     data.BaseModel{ID: "te-1"},
 		AccountID:     "acc-1",
 		TransactionID: "txn-1",
-		Amount:        utility.DecPtr(decimalx.NewFromInt64(200)),
+		Amount:        decimalx.NewFromInt64(200).Ptr(),
 		Credit:        true,
 	}
 
@@ -316,12 +315,12 @@ func TestTransactionEntryEqual_Same(t *testing.T) {
 	te1 := &models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 	te2 := models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 
 	assert.True(t, te1.Equal(te2))
@@ -331,12 +330,12 @@ func TestTransactionEntryEqual_DifferentAmount(t *testing.T) {
 	te1 := &models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 	te2 := models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(200)),
+		Amount:    decimalx.NewFromInt64(200).Ptr(),
 	}
 
 	assert.False(t, te1.Equal(te2))
@@ -346,12 +345,12 @@ func TestTransactionEntryEqual_DifferentAccount(t *testing.T) {
 	te1 := &models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 	te2 := models.TransactionEntry{
 		AccountID: "acc-2",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 
 	assert.False(t, te1.Equal(te2))
@@ -361,12 +360,12 @@ func TestTransactionEntryEqual_DifferentCredit(t *testing.T) {
 	te1 := &models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 	te2 := models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    false,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 
 	assert.False(t, te1.Equal(te2))
@@ -381,7 +380,7 @@ func TestTransactionEntryEqual_InvalidAmount(t *testing.T) {
 	te2 := models.TransactionEntry{
 		AccountID: "acc-1",
 		Credit:    true,
-		Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+		Amount:    decimalx.NewFromInt64(100).Ptr(),
 	}
 
 	assert.False(t, te1.Equal(te2))
@@ -392,8 +391,8 @@ func TestTransactionEntryEqual_InvalidAmount(t *testing.T) {
 func TestIsZeroSum_Balanced(t *testing.T) {
 	txn := &models.Transaction{
 		Entries: []*models.TransactionEntry{
-			{Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-			{Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+			{Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 		},
 	}
 	assert.True(t, txn.IsZeroSum())
@@ -402,8 +401,8 @@ func TestIsZeroSum_Balanced(t *testing.T) {
 func TestIsZeroSum_Unbalanced(t *testing.T) {
 	txn := &models.Transaction{
 		Entries: []*models.TransactionEntry{
-			{Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
-			{Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(50))},
+			{Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Credit: true, Amount: decimalx.NewFromInt64(50).Ptr()},
 		},
 	}
 	assert.False(t, txn.IsZeroSum())
@@ -412,7 +411,7 @@ func TestIsZeroSum_Unbalanced(t *testing.T) {
 func TestIsZeroSum_SingleEntry(t *testing.T) {
 	txn := &models.Transaction{
 		Entries: []*models.TransactionEntry{
-			{Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+			{Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
 		},
 	}
 	assert.False(t, txn.IsZeroSum())
@@ -426,9 +425,9 @@ func TestIsZeroSum_Empty(t *testing.T) {
 func TestIsZeroSum_MultipleEntries(t *testing.T) {
 	txn := &models.Transaction{
 		Entries: []*models.TransactionEntry{
-			{Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(50))},
-			{Credit: false, Amount: utility.DecPtr(decimalx.NewFromInt64(50))},
-			{Credit: true, Amount: utility.DecPtr(decimalx.NewFromInt64(100))},
+			{Credit: false, Amount: decimalx.NewFromInt64(50).Ptr()},
+			{Credit: false, Amount: decimalx.NewFromInt64(50).Ptr()},
+			{Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
 		},
 	}
 	assert.True(t, txn.IsZeroSum())

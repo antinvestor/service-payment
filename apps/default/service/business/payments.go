@@ -18,7 +18,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	fevents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
@@ -89,7 +88,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 
 	costAmt := utilmoney.FromMoney(message.GetCost())
 	c := &models.Cost{
-		Amount:   utility.DecPtr(costAmt),
+		Amount:   costAmt.Ptr(),
 		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
@@ -182,7 +181,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 
 	costAmt2 := utilmoney.FromMoney(message.GetCost())
 	c := &models.Cost{
-		Amount:   utility.DecPtr(costAmt2),
+		Amount:   costAmt2.Ptr(),
 		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
@@ -495,7 +494,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount:               utility.DecPtr(utilmoney.FromMoney(req.GetAmount())),
+		Amount:               utilmoney.FromMoney(req.GetAmount()).Ptr(),
 		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
@@ -756,7 +755,7 @@ func (pb *paymentBusiness) createDepositStep1(
 	}
 
 	// amount as Money (reuse money utility)
-	amount := utilmoney.ToMoney(payment.Currency, utility.DerefOr(payment.Amount, decimalx.Zero()))
+	amount := utilmoney.ToMoney(payment.Currency, decimalx.DerefOr(payment.Amount, decimalx.Zero()))
 
 	// transaction reference (idempotency key)
 	txRef := fmt.Sprintf("%s-deposit-step1", payment.ID)

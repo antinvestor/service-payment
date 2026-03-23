@@ -8,7 +8,6 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
-	"github.com/antinvestor/service-payments/internal/utility"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/frametests/definition"
@@ -106,12 +105,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(1000)),
+				Amount:    decimalx.NewFromInt64(1000).Ptr(),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(1000)),
+				Amount:    decimalx.NewFromInt64(1000).Ptr(),
 			},
 		},
 		Data: map[string]interface{}{
@@ -134,12 +133,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+				Amount:    decimalx.NewFromInt64(100).Ptr(),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+				Amount:    decimalx.NewFromInt64(100).Ptr(),
 			},
 		},
 		Data: map[string]interface{}{
@@ -161,12 +160,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(400)),
+				Amount:    decimalx.NewFromInt64(400).Ptr(),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    utility.DecPtr(decimalx.NewFromInt64(400)),
+				Amount:    decimalx.NewFromInt64(400).Ptr(),
 			},
 		},
 		Data: map[string]interface{}{

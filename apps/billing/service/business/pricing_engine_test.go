@@ -5,7 +5,6 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
@@ -35,14 +34,14 @@ func newComponent(name, pricingModel string, tiers []*models.Tier) *models.Compo
 func newTier(sortOrder int, lower, upper, unitPrice, flatFee string) *models.Tier {
 	t := &models.Tier{
 		SortOrder:  sortOrder,
-		LowerBound: utility.DecPtr(mustDecimal(lower)),
-		UnitPrice:  utility.DecPtr(mustDecimal(unitPrice)),
+		LowerBound: mustDecimal(lower).Ptr(),
+		UnitPrice:  mustDecimal(unitPrice).Ptr(),
 	}
 	if upper != "" {
-		t.UpperBound = utility.DecPtr(mustDecimal(upper))
+		t.UpperBound = mustDecimal(upper).Ptr()
 	}
 	if flatFee != "" {
-		t.FlatFee = utility.DecPtr(mustDecimal(flatFee))
+		t.FlatFee = mustDecimal(flatFee).Ptr()
 	}
 	return t
 }
@@ -163,13 +162,13 @@ func TestPricingEngine_Rate_FreeTier(t *testing.T) {
 	comp := newComponent("api", models.PricingModelPerUnit, []*models.Tier{
 		newTier(0, "0", "", "0.01", ""),
 	})
-	comp.FreeQuantity = utility.DecPtr(decimalx.NewFromInt64(100))
+	comp.FreeQuantity = decimalx.NewFromInt64(100).Ptr()
 
 	metered := []*models.MeteredUsage{
 		{
 			BaseModel:   data.BaseModel{ID: "mu_1"},
 			ComponentID: comp.GetID(),
-			Quantity:    utility.DecPtr(decimalx.NewFromInt64(250)),
+			Quantity:    decimalx.NewFromInt64(250).Ptr(),
 		},
 	}
 
@@ -187,13 +186,13 @@ func TestPricingEngine_Rate_FreeTier_UnderFree(t *testing.T) {
 	comp := newComponent("api", models.PricingModelPerUnit, []*models.Tier{
 		newTier(0, "0", "", "0.01", ""),
 	})
-	comp.FreeQuantity = utility.DecPtr(decimalx.NewFromInt64(100))
+	comp.FreeQuantity = decimalx.NewFromInt64(100).Ptr()
 
 	metered := []*models.MeteredUsage{
 		{
 			BaseModel:   data.BaseModel{ID: "mu_1"},
 			ComponentID: comp.GetID(),
-			Quantity:    utility.DecPtr(decimalx.NewFromInt64(50)),
+			Quantity:    decimalx.NewFromInt64(50).Ptr(),
 		},
 	}
 
@@ -210,13 +209,13 @@ func TestPricingEngine_Rate_MinimumCharge(t *testing.T) {
 	comp := newComponent("api", models.PricingModelPerUnit, []*models.Tier{
 		newTier(0, "0", "", "0.001", ""),
 	})
-	comp.MinimumCharge = utility.DecPtr(mustDecimal("5.00"))
+	comp.MinimumCharge = mustDecimal("5.00").Ptr()
 
 	metered := []*models.MeteredUsage{
 		{
 			BaseModel:   data.BaseModel{ID: "mu_1"},
 			ComponentID: comp.GetID(),
-			Quantity:    utility.DecPtr(decimalx.NewFromInt64(100)),
+			Quantity:    decimalx.NewFromInt64(100).Ptr(),
 		},
 	}
 

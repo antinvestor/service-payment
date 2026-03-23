@@ -7,7 +7,6 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
 )
@@ -98,7 +97,7 @@ func (e *discountEngine) ApplyDiscounts(
 				RatedLineID:  rl.GetID(),
 				DiscountID:   disc.GetID(),
 				Description:  fmt.Sprintf("Discount: %s", disc.Name),
-				Amount:       utility.DecPtr(discAmount),
+				Amount:       discAmount.Ptr(),
 				Currency:     rl.Currency,
 			}
 			dl.GenID(ctx)
@@ -116,7 +115,7 @@ func (e *discountEngine) ApplyDiscounts(
 }
 
 func calculateDiscount(rl *models.RatedLine, disc *models.Discount) decimalx.Decimal {
-	amount := utility.DerefOr(rl.Amount, decimalx.Zero())
+	amount := decimalx.DerefOr(rl.Amount, decimalx.Zero())
 
 	switch disc.DiscountType {
 	case models.DiscountTypePercentage:

@@ -6,7 +6,6 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
 )
@@ -60,7 +59,7 @@ func (e *meteringEngine) MeterUsage(
 			WindowEnd:         billingRun.PeriodEnd,
 			WindowGranularity: models.WindowGranularityMonth,
 			AggregationType:   comp.AggregationType,
-			Quantity:          utility.DecPtr(qty),
+			Quantity:          qty.Ptr(),
 			EventCount:        int64(len(events)),
 			BillingRunID:      billingRun.GetID(),
 		}

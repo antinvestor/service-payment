@@ -5,7 +5,6 @@ import (
 	"time"
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/money"
@@ -47,13 +46,13 @@ type Account struct {
 }
 
 func (acc *Account) ToAPI() *ledgerv1.Account {
-	accountBalance := utility.DerefOr(acc.Balance, decimalx.Zero())
+	accountBalance := decimalx.DerefOr(acc.Balance, decimalx.Zero())
 	balance := utilmoney.ToMoney(acc.Currency, accountBalance)
 
-	reservedBalanceAmt := utility.DerefOr(acc.ReservedBalance, decimalx.Zero())
+	reservedBalanceAmt := decimalx.DerefOr(acc.ReservedBalance, decimalx.Zero())
 	reservedBalance := utilmoney.ToMoney(acc.Currency, reservedBalanceAmt)
 
-	unClearedBalanceAmt := utility.DerefOr(acc.UnClearedBalance, decimalx.Zero())
+	unClearedBalanceAmt := decimalx.DerefOr(acc.UnClearedBalance, decimalx.Zero())
 	unClearedBalance := utilmoney.ToMoney(acc.Currency, unClearedBalanceAmt)
 
 	return &ledgerv1.Account{

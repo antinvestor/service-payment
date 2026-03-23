@@ -30,8 +30,8 @@ require (
 	github.com/lib/pq v1.12.0
 	github.com/pitabwire/frame v1.81.1
 	github.com/pitabwire/util v0.6.1
-	github.com/pitabwire/util/decimalx v0.7.0
-	github.com/pitabwire/util/money v0.7.0
+	github.com/pitabwire/util/decimalx v0.7.1
+	github.com/pitabwire/util/money v0.7.1
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/stripe/stripe-go/v82 v82.5.1

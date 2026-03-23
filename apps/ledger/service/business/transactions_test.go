@@ -9,7 +9,6 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
-	"github.com/antinvestor/service-payments/internal/utility"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/frametests/definition"
@@ -118,19 +117,19 @@ func (ts *TransactionsModelSuite) TestIsZeroSum() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 		}
 		valid := transaction.IsZeroSum()
 		assert.True(t, valid, "Transaction should be zero summed")
 
-		transaction.Entries[0].Amount = utility.DecPtr(decimalx.NewFromInt64(200))
+		transaction.Entries[0].Amount = decimalx.NewFromInt64(200).Ptr()
 		valid = transaction.IsZeroSum()
 		assert.False(t, valid, "Transaction should not be zero summed")
 	})
@@ -149,12 +148,12 @@ func (ts *TransactionsModelSuite) TestIsTrueDrCr() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(30)),
+					Amount:    decimalx.NewFromInt64(30).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(30)),
+					Amount:    decimalx.NewFromInt64(30).Ptr(),
 				},
 			},
 		}
@@ -185,12 +184,12 @@ func (ts *TransactionsModelSuite) TestIsConflict() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 		}
@@ -211,12 +210,12 @@ func (ts *TransactionsModelSuite) TestIsConflict() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(50)),
+					Amount:    decimalx.NewFromInt64(50).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(50)),
+					Amount:    decimalx.NewFromInt64(50).Ptr(),
 				},
 			},
 		}
@@ -235,12 +234,12 @@ func (ts *TransactionsModelSuite) TestIsConflict() {
 				{
 					AccountID: "b1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "b2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 		}
@@ -268,12 +267,12 @@ func (ts *TransactionsModelSuite) TestTransact() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 			Data: map[string]interface{}{
@@ -312,7 +311,7 @@ func (ts *TransactionsModelSuite) TestReserveTransaction() {
 				{
 					AccountID: "a3",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(98)),
+					Amount:    decimalx.NewFromInt64(98).Ptr(),
 				},
 			},
 			Data: map[string]interface{}{
@@ -334,15 +333,15 @@ func (ts *TransactionsModelSuite) TestReserveTransaction() {
 		assertDecEqual(
 			t,
 			decimalx.NewFromInt64(0),
-			utility.DerefOr(finalAcc.Balance, decimalx.Zero()).
-				Sub(utility.DerefOr(initialAcc.Balance, decimalx.Zero())),
+			decimalx.DerefOr(finalAcc.Balance, decimalx.Zero()).
+				Sub(decimalx.DerefOr(initialAcc.Balance, decimalx.Zero())),
 			"Reservation Balance should be consistent",
 		)
 
 		assertDecEqual(
 			t,
 			decimalx.NewFromInt64(98),
-			utility.DerefOr(finalAcc.ReservedBalance, decimalx.Zero()),
+			decimalx.DerefOr(finalAcc.ReservedBalance, decimalx.Zero()),
 			"reserved balance should be consistent",
 		)
 	})
@@ -369,12 +368,12 @@ func (ts *TransactionsModelSuite) TestTransactBalanceCheck() {
 			Entries: []*models.TransactionEntry{
 				{
 					AccountID: "a3",
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(51)),
+					Amount:    decimalx.NewFromInt64(51).Ptr(),
 					Credit:    false,
 				},
 				{
 					AccountID: "a4",
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(51)),
+					Amount:    decimalx.NewFromInt64(51).Ptr(),
 					Credit:    true,
 				},
 			},
@@ -392,16 +391,16 @@ func (ts *TransactionsModelSuite) TestTransactBalanceCheck() {
 		assertDecEqual(
 			t,
 			decimalx.NewFromInt64(51),
-			utility.DerefOr(finalAccMap["a3"].Balance, decimalx.Zero()).
-				Sub(utility.DerefOr(initialAccMap["a3"].Balance, decimalx.Zero())),
+			decimalx.DerefOr(finalAccMap["a3"].Balance, decimalx.Zero()).
+				Sub(decimalx.DerefOr(initialAccMap["a3"].Balance, decimalx.Zero())),
 			"Debited Balance should be equal",
 		)
 		negFiftyOne := decimalx.NewFromInt64(51).Neg()
 		assertDecEqual(
 			t,
 			negFiftyOne,
-			utility.DerefOr(finalAccMap["a4"].Balance, decimalx.Zero()).
-				Sub(utility.DerefOr(initialAccMap["a4"].Balance, decimalx.Zero())),
+			decimalx.DerefOr(finalAccMap["a4"].Balance, decimalx.Zero()).
+				Sub(decimalx.DerefOr(initialAccMap["a4"].Balance, decimalx.Zero())),
 			"Credited Balance should be equal",
 		)
 	})
@@ -431,12 +430,12 @@ func (ts *TransactionsModelSuite) TestDuplicateTransactions() {
 						{
 							AccountID: "a1",
 							Credit:    false,
-							Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+							Amount:    decimalx.NewFromInt64(100).Ptr(),
 						},
 						{
 							AccountID: "a2",
 							Credit:    true,
-							Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+							Amount:    decimalx.NewFromInt64(100).Ptr(),
 						},
 					},
 				}
@@ -476,12 +475,12 @@ func (ts *TransactionsModelSuite) TestTransactionReversaL() {
 				{
 					AccountID: "a1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "a2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 		}
@@ -523,12 +522,12 @@ func (ts *TransactionsModelSuite) TestUnClearedTransactions() {
 				{
 					AccountID: "b1",
 					Credit:    false,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 				{
 					AccountID: "b2",
 					Credit:    true,
-					Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
+					Amount:    decimalx.NewFromInt64(100).Ptr(),
 				},
 			},
 		}
@@ -543,42 +542,42 @@ func (ts *TransactionsModelSuite) TestUnClearedTransactions() {
 		assertDecEqual(
 			t,
 			decimalx.Zero(),
-			utility.DerefOr(finalAccMap["b1"].Balance, decimalx.Zero()).
-				Sub(utility.DerefOr(initialAccMap["b1"].Balance, decimalx.Zero())),
+			decimalx.DerefOr(finalAccMap["b1"].Balance, decimalx.Zero()).
+				Sub(decimalx.DerefOr(initialAccMap["b1"].Balance, decimalx.Zero())),
 			"Debited Balance should be equal",
 		)
 		assertDecEqual(
 			t,
 			decimalx.Zero(),
-			utility.DerefOr(finalAccMap["b2"].Balance, decimalx.Zero()).
-				Sub(utility.DerefOr(initialAccMap["b2"].Balance, decimalx.Zero())),
+			decimalx.DerefOr(finalAccMap["b2"].Balance, decimalx.Zero()).
+				Sub(decimalx.DerefOr(initialAccMap["b2"].Balance, decimalx.Zero())),
 			"Credited Balance should be equal",
 		)
 
 		assertDecEqual(
 			t,
 			decimalx.NewFromInt64(100),
-			utility.DerefOr(finalAccMap["b1"].UnClearedBalance, decimalx.Zero()),
+			decimalx.DerefOr(finalAccMap["b1"].UnClearedBalance, decimalx.Zero()),
 			"b1 Uncleared balance should be equal",
 		)
 		negHundred := decimalx.NewFromInt64(100).Neg()
 		assertDecEqual(
 			t,
 			negHundred,
-			utility.DerefOr(finalAccMap["b2"].UnClearedBalance, decimalx.Zero()),
+			decimalx.DerefOr(finalAccMap["b2"].UnClearedBalance, decimalx.Zero()),
 			"b2 Uncleared balance should be equal",
 		)
 
 		assertDecEqual(
 			t,
 			decimalx.Zero(),
-			utility.DerefOr(finalAccMap["b1"].ReservedBalance, decimalx.Zero()),
+			decimalx.DerefOr(finalAccMap["b1"].ReservedBalance, decimalx.Zero()),
 			"b1 reserved balance should be zero",
 		)
 		assertDecEqual(
 			t,
 			decimalx.Zero(),
-			utility.DerefOr(finalAccMap["b2"].ReservedBalance, decimalx.Zero()),
+			decimalx.DerefOr(finalAccMap["b2"].ReservedBalance, decimalx.Zero()),
 			"b2 reserved balance should be zero",
 		)
 	})
@@ -605,12 +604,12 @@ func (ts *TransactionsModelSuite) TestTransactWithBoundaryValues() {
 				{
 					AccountID: "a3",
 					Credit:    false,
-					Amount:    utility.DecPtr(boundaryValue),
+					Amount:    boundaryValue.Ptr(),
 				},
 				{
 					AccountID: "a4",
 					Credit:    true,
-					Amount:    utility.DecPtr(boundaryValue),
+					Amount:    boundaryValue.Ptr(),
 				},
 			},
 			Data: map[string]interface{}{

@@ -7,7 +7,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
@@ -122,12 +121,12 @@ func (e *creditEngine) ApplyCredits(
 				break
 			}
 
-			available := utility.DerefOr(grant.RemainingAmount, decimalx.Zero())
+			available := decimalx.DerefOr(grant.RemainingAmount, decimalx.Zero())
 			if available.IsZero() || available.IsNegative() {
 				continue
 			}
 
-			consume := utility.MinDecimal(remaining, available)
+			consume := decimalx.Min(remaining, available)
 			sub := available.Sub(consume)
 			grant.RemainingAmount = &sub
 
@@ -142,7 +141,7 @@ func (e *creditEngine) ApplyCredits(
 				BillingRunID:  billingRunID,
 				InvoiceID:     invoiceID,
 				EntryType:     models.CreditEntryTypeConsume,
-				Amount:        utility.DecPtr(consume),
+				Amount:        consume.Ptr(),
 				Currency:      currency,
 				Description:   fmt.Sprintf("Credit consumed from: %s", grant.Name),
 			}
@@ -189,7 +188,7 @@ func (e *creditEngine) ExpireCredits(
 		}
 
 		for _, grant := range grants {
-			remainingAmt := utility.DerefOr(grant.RemainingAmount, decimalx.Zero())
+			remainingAmt := decimalx.DerefOr(grant.RemainingAmount, decimalx.Zero())
 			if remainingAmt.IsZero() {
 				continue
 			}
@@ -207,7 +206,7 @@ func (e *creditEngine) ExpireCredits(
 			entry := &models.CreditEntry{
 				CreditGrantID: grant.GetID(),
 				EntryType:     models.CreditEntryTypeExpire,
-				Amount:        utility.DecPtr(expireAmount),
+				Amount:        expireAmount.Ptr(),
 				Currency:      currency,
 				Description:   fmt.Sprintf("Credit expired: %s", grant.Name),
 			}

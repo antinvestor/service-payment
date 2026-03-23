@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/pitabwire/frame/data"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // CatalogVersion represents an immutable, versioned catalog of plans and pricing.
@@ -35,26 +35,26 @@ type Plan struct {
 // Component represents a billable component within a plan.
 type Component struct {
 	data.BaseModel
-	PlanID          string              `gorm:"type:varchar(50);not null;index"      json:"plan_id"`
-	ExternalID      string              `gorm:"type:varchar(255);index"              json:"external_id"`
-	Name            string              `gorm:"type:varchar(255);not null"           json:"name"`
-	MetricKey       string              `gorm:"type:varchar(255);not null"           json:"metric_key"`
-	PricingModel    string              `gorm:"type:varchar(50);not null"            json:"pricing_model"`
-	AggregationType string              `gorm:"type:varchar(50);not null"            json:"aggregation_type"`
-	UnitName        string              `gorm:"type:varchar(100)"                    json:"unit_name"`
-	FreeQuantity    decimal.NullDecimal `gorm:"type:numeric(29,9)"                   json:"free_quantity"`
-	MinimumCharge   decimal.NullDecimal `gorm:"type:numeric(29,9)"                   json:"minimum_charge"`
-	Data            data.JSONMap        `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
-	Tiers           []*Tier             `gorm:"foreignKey:ComponentID"               json:"tiers,omitempty"`
+	PlanID          string            `gorm:"type:varchar(50);not null;index"      json:"plan_id"`
+	ExternalID      string            `gorm:"type:varchar(255);index"              json:"external_id"`
+	Name            string            `gorm:"type:varchar(255);not null"           json:"name"`
+	MetricKey       string            `gorm:"type:varchar(255);not null"           json:"metric_key"`
+	PricingModel    string            `gorm:"type:varchar(50);not null"            json:"pricing_model"`
+	AggregationType string            `gorm:"type:varchar(50);not null"            json:"aggregation_type"`
+	UnitName        string            `gorm:"type:varchar(100)"                    json:"unit_name"`
+	FreeQuantity    *decimalx.Decimal `gorm:"type:numeric(29,9)"                   json:"free_quantity"`
+	MinimumCharge   *decimalx.Decimal `gorm:"type:numeric(29,9)"                   json:"minimum_charge"`
+	Data            data.JSONMap      `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
+	Tiers           []*Tier           `gorm:"foreignKey:ComponentID"               json:"tiers,omitempty"`
 }
 
 // Tier represents a pricing tier within a component.
 type Tier struct {
 	data.BaseModel
-	ComponentID string              `gorm:"type:varchar(50);not null;index" json:"component_id"`
-	LowerBound  decimal.NullDecimal `gorm:"type:numeric(29,9);not null"     json:"lower_bound"`
-	UpperBound  decimal.NullDecimal `gorm:"type:numeric(29,9)"              json:"upper_bound"`
-	UnitPrice   decimal.NullDecimal `gorm:"type:numeric(29,9);not null"     json:"unit_price"`
-	FlatFee     decimal.NullDecimal `gorm:"type:numeric(29,9)"              json:"flat_fee"`
-	SortOrder   int                 `gorm:"not null"                        json:"sort_order"`
+	ComponentID string            `gorm:"type:varchar(50);not null;index" json:"component_id"`
+	LowerBound  *decimalx.Decimal `gorm:"type:numeric(29,9);not null"     json:"lower_bound"`
+	UpperBound  *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"upper_bound"`
+	UnitPrice   *decimalx.Decimal `gorm:"type:numeric(29,9);not null"     json:"unit_price"`
+	FlatFee     *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"flat_fee"`
+	SortOrder   int               `gorm:"not null"                        json:"sort_order"`
 }

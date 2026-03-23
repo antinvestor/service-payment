@@ -1,13 +1,14 @@
 package handlers
 
 import (
+	"strconv"
 	"time"
 
 	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/billing/v1"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 	money "google.golang.org/genproto/googleapis/type/money"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -39,24 +40,23 @@ func jsonMapToStruct(m data.JSONMap) *structpb.Struct {
 
 // -- Money/Decimal conversions --
 
-func moneyToNullDecimal(m *money.Money) decimal.NullDecimal {
+func moneyToDecPtr(m *money.Money) *decimalx.Decimal {
 	if m == nil {
-		return decimal.NullDecimal{}
-	}
-	return decimal.NewNullDecimal(utility.FromMoney(m))
-}
-
-func nullDecimalToMoney(nd decimal.NullDecimal, currency string) *money.Money {
-	if !nd.Valid {
 		return nil
 	}
-	m := utility.ToMoney(currency, nd.Decimal)
-	return &m
+	d := utilmoney.FromMoney(m)
+	return &d
 }
 
-func decimalToMoney(d decimal.Decimal, currency string) *money.Money {
-	m := utility.ToMoney(currency, d)
-	return &m
+func decPtrToMoney(p *decimalx.Decimal, currency string) *money.Money {
+	if p == nil {
+		return nil
+	}
+	return utilmoney.ToMoney(currency, *p)
+}
+
+func decimalToMoney(d decimalx.Decimal, currency string) *money.Money {
+	return utilmoney.ToMoney(currency, d)
 }
 
 // -- Timestamp helpers --
@@ -268,8 +268,8 @@ func componentToProto(c *models.Component) *billingv1.Component {
 		MetricKey:     c.MetricKey,
 		PricingModel:  pricingModelToProto(c.PricingModel),
 		UnitName:      c.UnitName,
-		FreeQuantity:  nullDecimalToMoney(c.FreeQuantity, ""),
-		MinimumCharge: nullDecimalToMoney(c.MinimumCharge, ""),
+		FreeQuantity:  decPtrToMoney(c.FreeQuantity, ""),
+		MinimumCharge: decPtrToMoney(c.MinimumCharge, ""),
 		Data:          jsonMapToStruct(c.Data),
 	}
 
@@ -291,10 +291,10 @@ func tierToProto(t *models.Tier) *billingv1.Tier {
 		Id:          t.GetID(),
 		ComponentId: t.ComponentID,
 		SortOrder:   int32(t.SortOrder), //nolint:gosec // G115: sort_order is always a small positive integer
-		LowerBound:  nullDecimalToMoney(t.LowerBound, ""),
-		UpperBound:  nullDecimalToMoney(t.UpperBound, ""),
-		UnitPrice:   nullDecimalToMoney(t.UnitPrice, ""),
-		FlatFee:     nullDecimalToMoney(t.FlatFee, ""),
+		LowerBound:  decPtrToMoney(t.LowerBound, ""),
+		UpperBound:  decPtrToMoney(t.UpperBound, ""),
+		UnitPrice:   decPtrToMoney(t.UnitPrice, ""),
+		FlatFee:     decPtrToMoney(t.FlatFee, ""),
 	}
 }
 
@@ -321,7 +321,10 @@ func usageEventToProto(e *models.UsageEvent) *billingv1.UsageEvent {
 	if e == nil {
 		return nil
 	}
-	qty, _ := e.Quantity.Decimal.Float64()
+	var qty float64
+	if e.Quantity != nil {
+		qty, _ = strconv.ParseFloat(e.Quantity.String(), 64)
+	}
 	return &billingv1.UsageEvent{
 		Id:             e.GetID(),
 		SubscriptionId: e.SubscriptionID,
@@ -345,10 +348,10 @@ func invoiceToProto(inv *models.Invoice) *billingv1.Invoice {
 		InvoiceNumber:  inv.InvoiceNumber,
 		State:          invoiceStateToProto(inv.State),
 		Currency:       inv.Currency,
-		SubtotalAmount: nullDecimalToMoney(inv.SubtotalAmount, inv.Currency),
-		DiscountAmount: nullDecimalToMoney(inv.DiscountAmount, inv.Currency),
-		CreditAmount:   nullDecimalToMoney(inv.CreditAmount, inv.Currency),
-		TotalAmount:    nullDecimalToMoney(inv.TotalAmount, inv.Currency),
+		SubtotalAmount: decPtrToMoney(inv.SubtotalAmount, inv.Currency),
+		DiscountAmount: decPtrToMoney(inv.DiscountAmount, inv.Currency),
+		CreditAmount:   decPtrToMoney(inv.CreditAmount, inv.Currency),
+		TotalAmount:    decPtrToMoney(inv.TotalAmount, inv.Currency),
 		PeriodStart:    timeToTimestamp(inv.PeriodStart),
 		PeriodEnd:      timeToTimestamp(inv.PeriodEnd),
 		IssuedAt:       timePtrToTimestamp(inv.IssuedAt),
@@ -372,18 +375,21 @@ func invoiceLineToProto(l *models.InvoiceLine, currency string) *billingv1.Invoi
 	if l == nil {
 		return nil
 	}
-	qty, _ := l.Quantity.Decimal.Float64()
+	var qty float64
+	if l.Quantity != nil {
+		qty, _ = strconv.ParseFloat(l.Quantity.String(), 64)
+	}
 	return &billingv1.InvoiceLine{
 		Id:             l.GetID(),
 		InvoiceId:      l.InvoiceID,
 		ComponentId:    l.ComponentID,
 		Description:    l.Description,
 		Quantity:       qty,
-		UnitPrice:      nullDecimalToMoney(l.UnitPrice, currency),
-		Amount:         nullDecimalToMoney(l.Amount, currency),
-		DiscountAmount: nullDecimalToMoney(l.DiscountAmount, currency),
-		CreditAmount:   nullDecimalToMoney(l.CreditAmount, currency),
-		NetAmount:      nullDecimalToMoney(l.NetAmount, currency),
+		UnitPrice:      decPtrToMoney(l.UnitPrice, currency),
+		Amount:         decPtrToMoney(l.Amount, currency),
+		DiscountAmount: decPtrToMoney(l.DiscountAmount, currency),
+		CreditAmount:   decPtrToMoney(l.CreditAmount, currency),
+		NetAmount:      decPtrToMoney(l.NetAmount, currency),
 		Currency:       l.Currency,
 		LineType:       invoiceLineTypeToProto(l.LineType),
 		Data:           jsonMapToStruct(l.Data),
@@ -398,8 +404,8 @@ func creditGrantToProto(g *models.CreditGrant) *billingv1.CreditGrant {
 		Id:              g.GetID(),
 		ProfileId:       g.ProfileID,
 		Name:            g.Name,
-		OriginalAmount:  nullDecimalToMoney(g.OriginalAmount, g.Currency),
-		RemainingAmount: nullDecimalToMoney(g.RemainingAmount, g.Currency),
+		OriginalAmount:  decPtrToMoney(g.OriginalAmount, g.Currency),
+		RemainingAmount: decPtrToMoney(g.RemainingAmount, g.Currency),
 		Currency:        g.Currency,
 		ExpiresAt:       timePtrToTimestamp(g.ExpiresAt),
 		Priority:        int32(g.Priority), //nolint:gosec // G115: priority is always a small positive integer
@@ -411,7 +417,10 @@ func discountToProto(d *models.Discount) *billingv1.Discount {
 	if d == nil {
 		return nil
 	}
-	val, _ := d.Value.Decimal.Float64()
+	var val float64
+	if d.Value != nil {
+		val, _ = strconv.ParseFloat(d.Value.String(), 64)
+	}
 	return &billingv1.Discount{
 		Id:           d.GetID(),
 		Name:         d.Name,

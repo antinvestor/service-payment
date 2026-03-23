@@ -49,7 +49,7 @@ func (as *AccountsSuite) TestAccountsInfoAPI() {
 		account, err := resources.AccountRepository.GetByID(ctx, "100")
 		require.NoError(t, err, "Error getting account info api account")
 		assert.Equal(t, "100", account.ID, "Invalid account Reference")
-		assert.True(t, account.Balance.Valid && account.Balance.Decimal.IsZero(), "Invalid account balance")
+		assert.True(t, account.Balance != nil && account.Balance.IsZero(), "Invalid account balance")
 	})
 }
 

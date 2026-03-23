@@ -7,9 +7,10 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
+	"github.com/antinvestor/service-payments/internal/utility"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/frametests/definition"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -52,8 +53,8 @@ func (ts *TransactionsSuite) TestAllTransactionRepoOps() { //nolint:gocognit
 			TransactionType: "NORMAL",
 			TransactedAt:    time.Now(),
 			Entries: []*models.TransactionEntry{
-				{AccountID: "txn-test-acc", Amount: decimal.NewNullDecimal(decimal.NewFromInt(100)), Credit: false},
-				{AccountID: "txn-test-acc-2", Amount: decimal.NewNullDecimal(decimal.NewFromInt(-100)), Credit: true},
+				{AccountID: "txn-test-acc", Amount: utility.DecPtr(decimalx.NewFromInt64(100)), Credit: false},
+				{AccountID: "txn-test-acc-2", Amount: utility.DecPtr(decimalx.NewFromInt64(-100)), Credit: true},
 			},
 		}
 		txn.ID = "search-test-txn"

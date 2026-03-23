@@ -7,8 +7,9 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 const percentageDivisor = 100
@@ -49,12 +50,12 @@ func (e *discountEngine) CreateDiscount(ctx context.Context, disc *models.Discou
 	if disc.DiscountType != models.DiscountTypePercentage && disc.DiscountType != models.DiscountTypeFixed {
 		return nil, ErrDiscountTypeInvalid
 	}
-	if !disc.Value.Valid || disc.Value.Decimal.IsZero() || disc.Value.Decimal.IsNegative() {
+	if disc.Value == nil || disc.Value.IsZero() || disc.Value.IsNegative() {
 		return nil, ErrDiscountValueRequired
 	}
 	if disc.DiscountType == models.DiscountTypePercentage {
-		hundred := decimal.NewFromInt(percentageDivisor)
-		if disc.Value.Decimal.GreaterThan(hundred) {
+		hundred := decimalx.NewFromInt64(percentageDivisor)
+		if disc.Value.GreaterThan(hundred) {
 			return nil, ErrDiscountPercentageOutOfRange
 		}
 	}
@@ -97,7 +98,7 @@ func (e *discountEngine) ApplyDiscounts(
 				RatedLineID:  rl.GetID(),
 				DiscountID:   disc.GetID(),
 				Description:  fmt.Sprintf("Discount: %s", disc.Name),
-				Amount:       decimal.NewNullDecimal(discAmount),
+				Amount:       utility.DecPtr(discAmount),
 				Currency:     rl.Currency,
 			}
 			dl.GenID(ctx)
@@ -114,20 +115,20 @@ func (e *discountEngine) ApplyDiscounts(
 	return discountedLines, nil
 }
 
-func calculateDiscount(rl *models.RatedLine, disc *models.Discount) decimal.Decimal {
-	amount := rl.Amount.Decimal
+func calculateDiscount(rl *models.RatedLine, disc *models.Discount) decimalx.Decimal {
+	amount := utility.DerefOr(rl.Amount, decimalx.Zero())
 
 	switch disc.DiscountType {
 	case models.DiscountTypePercentage:
-		pct := disc.Value.Decimal.Div(decimal.NewFromInt(percentageDivisor))
+		pct := disc.Value.Div(decimalx.NewFromInt64(percentageDivisor))
 		return amount.Mul(pct)
 	case models.DiscountTypeFixed:
-		fixed := disc.Value.Decimal
+		fixed := *disc.Value
 		if fixed.GreaterThan(amount) {
 			return amount
 		}
 		return fixed
 	default:
-		return decimal.Zero
+		return decimalx.Zero()
 	}
 }

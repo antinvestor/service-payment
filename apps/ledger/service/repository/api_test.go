@@ -14,12 +14,12 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
-	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/docker/docker/api/types/container"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 	"github.com/rs/xid"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -164,8 +164,7 @@ func (as *ConnectAPISuite) createInitialAccounts(
 }
 
 func toMoney(val int) *money.Money {
-	m := utility.ToMoney("UGX", decimal.NewFromInt(int64(val)))
-	return &m
+	return utilmoney.ToMoney("UGX", decimalx.NewFromInt64(int64(val)))
 }
 
 func (as *ConnectAPISuite) TestTransactions() {
@@ -270,9 +269,9 @@ func (as *ConnectAPISuite) TestTransactions() {
 				require.NotEmpty(t, acc.GetData(), "No account data in response")
 
 				accountData := acc.GetData()[0]
-				assert.True(t, utility.CompareMoney(tt.balance, accountData.GetBalance()))
-				assert.True(t, utility.CompareMoney(tt.reserve, accountData.GetReservedBalance()))
-				assert.True(t, utility.CompareMoney(tt.uncleared, accountData.GetUnclearedBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.balance, accountData.GetBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.reserve, accountData.GetReservedBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.uncleared, accountData.GetUnclearedBalance()))
 			})
 		}
 	})
@@ -391,9 +390,9 @@ func (as *ConnectAPISuite) TestClearBalances() {
 				require.NotEmpty(t, acc.GetData(), "No account data in response")
 
 				accountData := acc.GetData()[0]
-				assert.True(t, utility.CompareMoney(tt.balance, accountData.GetBalance()))
-				assert.True(t, utility.CompareMoney(tt.reserve, accountData.GetReservedBalance()))
-				assert.True(t, utility.CompareMoney(tt.uncleared, accountData.GetUnclearedBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.balance, accountData.GetBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.reserve, accountData.GetReservedBalance()))
+				assert.Equal(t, 0, utilmoney.CompareMoney(tt.uncleared, accountData.GetUnclearedBalance()))
 			})
 		}
 	})

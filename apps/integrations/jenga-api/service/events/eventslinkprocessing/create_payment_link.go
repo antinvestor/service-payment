@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
@@ -171,7 +172,7 @@ func (h *CreatePaymentLink) prepareRequest(paymentLink *models.PaymentLink) (mod
 			PaymentLinkRef:  paymentLink.PaymentLinkRef,
 			RedirectURL:     paymentLink.RedirectURL,
 			AmountOption:    paymentLink.AmountOption,
-			Amount:          paymentLink.Amount.InexactFloat64(),
+			Amount:          func() float64 { f, _ := strconv.ParseFloat(paymentLink.Amount.String(), 64); return f }(),
 			Currency:        paymentLink.Currency,
 		},
 		Notifications: notifications,

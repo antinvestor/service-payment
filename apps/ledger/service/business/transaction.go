@@ -13,9 +13,10 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // TransactionBusiness defines the business interface for transaction operations.
@@ -352,7 +353,8 @@ func (b *transactionBusiness) Validate(
 	}
 
 	for _, entry := range txn.Entries {
-		if entry.Amount.Decimal.IsZero() {
+		entryAmount := utility.DerefOr(entry.Amount, decimalx.Zero())
+		if entryAmount.IsZero() {
 			return nil, apperrors.ErrTransactionEntryHasZeroAmount.Extend(
 				fmt.Sprintf("entry [id=%s, account_id=%s] amount is zero", entry.ID, entry.AccountID),
 			)
@@ -442,7 +444,9 @@ func (b *transactionBusiness) Transact(
 		if ei.Credit != ej.Credit {
 			return !ei.Credit // debit before credit
 		}
-		return ei.Amount.Decimal.Abs().LessThan(ej.Amount.Decimal.Abs())
+		absI := utility.AbsDecimal(utility.DerefOr(ei.Amount, decimalx.Zero()))
+		absJ := utility.AbsDecimal(utility.DerefOr(ej.Amount, decimalx.Zero()))
+		return absI.LessThan(absJ)
 	})
 
 	// Generate deterministic entry IDs and set TransactionID.
@@ -491,7 +495,8 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 		account := accountsMap[line.AccountID]
 
 		// Set the account balance snapshot at transaction time
-		line.Balance = decimal.NewNullDecimal(account.Balance.Decimal)
+		bal := utility.DerefOr(account.Balance, decimalx.Zero())
+		line.Balance = &bal
 
 		// Apply signage based on double-entry bookkeeping rules (DEADCLIC)
 		// Debit: Expense, Asset | Credit: Liability, Income, Capital
@@ -499,7 +504,8 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 			(account.LedgerType == models.LedgerTypeAsset || account.LedgerType == models.LedgerTypeExpense) ||
 			!line.Credit &&
 				(account.LedgerType == models.LedgerTypeLiability || account.LedgerType == models.LedgerTypeIncome || account.LedgerType == models.LedgerTypeCapital) {
-			line.Amount = decimal.NewNullDecimal(line.Amount.Decimal.Neg())
+			neg := utility.DerefOr(line.Amount, decimalx.Zero()).Neg()
+			line.Amount = &neg
 		}
 	}
 }
@@ -526,7 +532,8 @@ func (b *transactionBusiness) processClearanceUpdate(
 
 	for _, line := range existingTransaction.Entries {
 		account := accountsMap[line.AccountID]
-		line.Balance = decimal.NewNullDecimal(account.Balance.Decimal)
+		bal := utility.DerefOr(account.Balance, decimalx.Zero())
+		line.Balance = &bal
 	}
 	existingTransaction.ClearedAt = clearanceTime
 	return nil

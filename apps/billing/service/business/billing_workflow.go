@@ -8,9 +8,10 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // BillingWorkflow orchestrates the end-to-end billing pipeline.
@@ -222,7 +223,7 @@ func (w *billingWorkflow) stepInvoicing(
 	}
 
 	// Generate invoice initially with zero credit amount
-	invoice, err := w.invoiceEng.GenerateInvoice(ctx, run, ratedLines, discountedLines, decimal.Zero)
+	invoice, err := w.invoiceEng.GenerateInvoice(ctx, run, ratedLines, discountedLines, decimalx.Zero())
 	if err != nil {
 		return run, err
 	}
@@ -249,9 +250,11 @@ func (w *billingWorkflow) stepCrediting(
 	}
 
 	// Calculate amount eligible for credits (subtotal - discounts)
-	amountAfterDiscount := invoice.SubtotalAmount.Decimal.Sub(invoice.DiscountAmount.Decimal)
+	subtotal := utility.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
+	discount := utility.DerefOr(invoice.DiscountAmount, decimalx.Zero())
+	amountAfterDiscount := subtotal.Sub(discount)
 	if amountAfterDiscount.IsNegative() {
-		amountAfterDiscount = decimal.Zero
+		amountAfterDiscount = decimalx.Zero()
 	}
 
 	if amountAfterDiscount.IsPositive() {

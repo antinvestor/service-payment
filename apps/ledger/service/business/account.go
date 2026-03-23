@@ -8,9 +8,10 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 	"golang.org/x/text/currency"
 )
 
@@ -64,12 +65,13 @@ func (b *accountBusiness) CreateAccount(
 		return nil, err
 	}
 
+	zero := decimalx.Zero()
 	// Convert API request to model
 	accountModel := &models.Account{
 		LedgerID:   ledger.GetID(),
 		LedgerType: ledger.Type,
 		Currency:   req.GetCurrency(),
-		Balance:    decimal.NewNullDecimal(decimal.Zero),
+		Balance:    utility.DecPtr(zero),
 		Data:       req.GetData().AsMap()}
 
 	accountModel.GenID(ctx)

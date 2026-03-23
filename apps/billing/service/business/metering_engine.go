@@ -6,8 +6,9 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // MeteringEngine aggregates raw usage events into windowed usage per component.
@@ -59,7 +60,7 @@ func (e *meteringEngine) MeterUsage(
 			WindowEnd:         billingRun.PeriodEnd,
 			WindowGranularity: models.WindowGranularityMonth,
 			AggregationType:   comp.AggregationType,
-			Quantity:          decimal.NewNullDecimal(qty),
+			Quantity:          utility.DecPtr(qty),
 			EventCount:        int64(len(events)),
 			BillingRunID:      billingRun.GetID(),
 		}
@@ -76,16 +77,16 @@ func (e *meteringEngine) MeterUsage(
 	return metered, nil
 }
 
-func aggregate(events []*models.UsageEvent, aggType string) decimal.Decimal {
+func aggregate(events []*models.UsageEvent, aggType string) decimalx.Decimal {
 	if len(events) == 0 {
-		return decimal.Zero
+		return decimalx.Zero()
 	}
 
 	switch aggType {
 	case models.AggregationTypeSum:
 		return aggregateSum(events)
 	case models.AggregationTypeCount:
-		return decimal.NewFromInt(int64(len(events)))
+		return decimalx.NewFromInt64(int64(len(events)))
 	case models.AggregationTypeMax:
 		return aggregateMax(events)
 	case models.AggregationTypeMin:
@@ -95,27 +96,27 @@ func aggregate(events []*models.UsageEvent, aggType string) decimal.Decimal {
 	case models.AggregationTypeLast:
 		return aggregateLast(events)
 	default:
-		return decimal.Zero
+		return decimalx.Zero()
 	}
 }
 
-func aggregateSum(events []*models.UsageEvent) decimal.Decimal {
-	sum := decimal.Zero
+func aggregateSum(events []*models.UsageEvent) decimalx.Decimal {
+	sum := decimalx.Zero()
 	for _, ev := range events {
-		if ev.Quantity.Valid {
-			sum = sum.Add(ev.Quantity.Decimal)
+		if ev.Quantity != nil {
+			sum = sum.Add(*ev.Quantity)
 		}
 	}
 	return sum
 }
 
-func aggregateMax(events []*models.UsageEvent) decimal.Decimal {
-	maxVal := decimal.Zero
+func aggregateMax(events []*models.UsageEvent) decimalx.Decimal {
+	maxVal := decimalx.Zero()
 	initialized := false
 	for _, ev := range events {
-		if ev.Quantity.Valid {
-			if !initialized || ev.Quantity.Decimal.GreaterThan(maxVal) {
-				maxVal = ev.Quantity.Decimal
+		if ev.Quantity != nil {
+			if !initialized || ev.Quantity.GreaterThan(maxVal) {
+				maxVal = *ev.Quantity
 				initialized = true
 			}
 		}
@@ -123,13 +124,13 @@ func aggregateMax(events []*models.UsageEvent) decimal.Decimal {
 	return maxVal
 }
 
-func aggregateMin(events []*models.UsageEvent) decimal.Decimal {
-	minVal := decimal.Zero
+func aggregateMin(events []*models.UsageEvent) decimalx.Decimal {
+	minVal := decimalx.Zero()
 	initialized := false
 	for _, ev := range events {
-		if ev.Quantity.Valid {
-			if !initialized || ev.Quantity.Decimal.LessThan(minVal) {
-				minVal = ev.Quantity.Decimal
+		if ev.Quantity != nil {
+			if !initialized || ev.Quantity.LessThan(minVal) {
+				minVal = *ev.Quantity
 				initialized = true
 			}
 		}
@@ -137,25 +138,25 @@ func aggregateMin(events []*models.UsageEvent) decimal.Decimal {
 	return minVal
 }
 
-func aggregateAvg(events []*models.UsageEvent) decimal.Decimal {
-	sum := decimal.Zero
+func aggregateAvg(events []*models.UsageEvent) decimalx.Decimal {
+	sum := decimalx.Zero()
 	validCount := int64(0)
 	for _, ev := range events {
-		if ev.Quantity.Valid {
-			sum = sum.Add(ev.Quantity.Decimal)
+		if ev.Quantity != nil {
+			sum = sum.Add(*ev.Quantity)
 			validCount++
 		}
 	}
 	if validCount == 0 {
-		return decimal.Zero
+		return decimalx.Zero()
 	}
-	return sum.Div(decimal.NewFromInt(validCount))
+	return sum.Div(decimalx.NewFromInt64(validCount))
 }
 
-func aggregateLast(events []*models.UsageEvent) decimal.Decimal {
+func aggregateLast(events []*models.UsageEvent) decimalx.Decimal {
 	last := events[len(events)-1]
-	if last.Quantity.Valid {
-		return last.Quantity.Decimal
+	if last.Quantity != nil {
+		return *last.Quantity
 	}
-	return decimal.Zero
+	return decimalx.Zero()
 }

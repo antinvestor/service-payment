@@ -45,7 +45,7 @@ func (b *usageIngestionBusiness) IngestEvent(
 	if event.MetricKey == "" {
 		return nil, ErrUsageMetricKeyRequired
 	}
-	if !event.Quantity.Valid || event.Quantity.Decimal.IsZero() {
+	if event.Quantity == nil || event.Quantity.IsZero() {
 		return nil, ErrUsageQuantityRequired
 	}
 

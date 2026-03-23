@@ -5,15 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 )
 
 type JengaStkCallback struct {
@@ -68,13 +69,15 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 
 	logger.WithField("callback", callback).Info("Received Jenga STK callback")
 
-	amount := utility.ToMoney(callback.Currency, decimal.NewFromFloat(callback.RequestAmount))
-	cost := utility.ToMoney(callback.Currency, decimal.NewFromFloat(callback.Charge))
+	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
+	amount := utilmoney.ToMoney(callback.Currency, amtDec)
+	costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Charge))
+	cost := utilmoney.ToMoney(callback.Currency, costDec)
 
 	payment := &paymentv1.Payment{
 		TransactionId: callback.Transaction,
-		Amount:        &amount,
-		Cost:          &cost,
+		Amount:        amount,
+		Cost:          cost,
 		Extra:         cbJSON.ToProtoStruct(),
 	}
 

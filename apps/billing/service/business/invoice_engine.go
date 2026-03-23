@@ -8,9 +8,10 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 	"gorm.io/gorm"
 )
 
@@ -19,8 +20,8 @@ const defaultPaymentTermDays = 30
 // InvoiceEngine generates and manages invoices.
 type InvoiceEngine interface {
 	GenerateInvoice(ctx context.Context, billingRun *models.BillingRun, ratedLines []*models.RatedLine,
-		discountedLines []*models.DiscountedLine, creditAmount decimal.Decimal) (*models.Invoice, error)
-	UpdateInvoiceTotals(ctx context.Context, invoice *models.Invoice, creditAmount decimal.Decimal) error
+		discountedLines []*models.DiscountedLine, creditAmount decimalx.Decimal) (*models.Invoice, error)
+	UpdateInvoiceTotals(ctx context.Context, invoice *models.Invoice, creditAmount decimalx.Decimal) error
 	GetInvoice(ctx context.Context, invoiceID string) (*models.Invoice, error)
 	IssueInvoice(ctx context.Context, invoiceID string) (*models.Invoice, error)
 	VoidInvoice(ctx context.Context, invoiceID string) (*models.Invoice, error)
@@ -53,31 +54,31 @@ func (e *invoiceEngine) GenerateInvoice(
 	billingRun *models.BillingRun,
 	ratedLines []*models.RatedLine,
 	discountedLines []*models.DiscountedLine,
-	creditAmount decimal.Decimal,
+	creditAmount decimalx.Decimal,
 ) (*models.Invoice, error) {
 	if len(ratedLines) == 0 {
 		return nil, ErrInvoiceNoRatedLines
 	}
 
 	// Calculate subtotal
-	subtotal := decimal.Zero
+	subtotal := decimalx.Zero()
 	for _, rl := range ratedLines {
-		if rl.Amount.Valid {
-			subtotal = subtotal.Add(rl.Amount.Decimal)
+		if rl.Amount != nil {
+			subtotal = subtotal.Add(*rl.Amount)
 		}
 	}
 
 	// Calculate total discounts
-	discountTotal := decimal.Zero
+	discountTotal := decimalx.Zero()
 	for _, dl := range discountedLines {
-		if dl.Amount.Valid {
-			discountTotal = discountTotal.Add(dl.Amount.Decimal)
+		if dl.Amount != nil {
+			discountTotal = discountTotal.Add(*dl.Amount)
 		}
 	}
 
 	total := subtotal.Sub(discountTotal).Sub(creditAmount)
 	if total.IsNegative() {
-		total = decimal.Zero
+		total = decimalx.Zero()
 	}
 
 	invoice := &models.Invoice{
@@ -87,20 +88,20 @@ func (e *invoiceEngine) GenerateInvoice(
 		InvoiceNumber:  fmt.Sprintf("INV-%s", billingRun.GetID()),
 		State:          models.InvoiceStateDraft,
 		Currency:       ratedLines[0].Currency,
-		SubtotalAmount: decimal.NewNullDecimal(subtotal),
-		DiscountAmount: decimal.NewNullDecimal(discountTotal),
-		CreditAmount:   decimal.NewNullDecimal(creditAmount),
-		TotalAmount:    decimal.NewNullDecimal(total),
+		SubtotalAmount: utility.DecPtr(subtotal),
+		DiscountAmount: utility.DecPtr(discountTotal),
+		CreditAmount:   utility.DecPtr(creditAmount),
+		TotalAmount:    utility.DecPtr(total),
 		PeriodStart:    billingRun.PeriodStart,
 		PeriodEnd:      billingRun.PeriodEnd,
 	}
 	invoice.GenID(ctx)
 
 	// Build discount lookup by rated line ID
-	discountByRatedLine := make(map[string]decimal.Decimal)
+	discountByRatedLine := make(map[string]decimalx.Decimal)
 	for _, dl := range discountedLines {
 		existing := discountByRatedLine[dl.RatedLineID]
-		discountByRatedLine[dl.RatedLineID] = existing.Add(dl.Amount.Decimal)
+		discountByRatedLine[dl.RatedLineID] = existing.Add(*dl.Amount)
 	}
 
 	// Wrap invoice + all lines in a transaction
@@ -111,9 +112,10 @@ func (e *invoiceEngine) GenerateInvoice(
 
 		for _, rl := range ratedLines {
 			lineDiscount := discountByRatedLine[rl.GetID()]
-			netAmount := rl.Amount.Decimal.Sub(lineDiscount)
+			rlAmount := utility.DerefOr(rl.Amount, decimalx.Zero())
+			netAmount := rlAmount.Sub(lineDiscount)
 			if netAmount.IsNegative() {
-				netAmount = decimal.Zero
+				netAmount = decimalx.Zero()
 			}
 
 			il := &models.InvoiceLine{
@@ -124,9 +126,9 @@ func (e *invoiceEngine) GenerateInvoice(
 				Quantity:       rl.Quantity,
 				UnitPrice:      rl.UnitPrice,
 				Amount:         rl.Amount,
-				DiscountAmount: decimal.NewNullDecimal(lineDiscount),
-				CreditAmount:   decimal.NewNullDecimal(decimal.Zero),
-				NetAmount:      decimal.NewNullDecimal(netAmount),
+				DiscountAmount: utility.DecPtr(lineDiscount),
+				CreditAmount:   utility.DecPtr(decimalx.Zero()),
+				NetAmount:      utility.DecPtr(netAmount),
 				Currency:       rl.Currency,
 				LineType:       models.InvoiceLineTypeUsage,
 			}
@@ -152,14 +154,16 @@ func (e *invoiceEngine) GenerateInvoice(
 func (e *invoiceEngine) UpdateInvoiceTotals(
 	ctx context.Context,
 	invoice *models.Invoice,
-	creditAmount decimal.Decimal,
+	creditAmount decimalx.Decimal,
 ) error {
-	newTotal := invoice.SubtotalAmount.Decimal.Sub(invoice.DiscountAmount.Decimal).Sub(creditAmount)
+	subtotal := utility.DerefOr(invoice.SubtotalAmount, decimalx.Zero())
+	discount := utility.DerefOr(invoice.DiscountAmount, decimalx.Zero())
+	newTotal := subtotal.Sub(discount).Sub(creditAmount)
 	if newTotal.IsNegative() {
-		newTotal = decimal.Zero
+		newTotal = decimalx.Zero()
 	}
-	invoice.CreditAmount = decimal.NewNullDecimal(creditAmount)
-	invoice.TotalAmount = decimal.NewNullDecimal(newTotal)
+	invoice.CreditAmount = utility.DecPtr(creditAmount)
+	invoice.TotalAmount = utility.DecPtr(newTotal)
 
 	_, err := e.invoiceRepo.Update(ctx, invoice)
 	return err

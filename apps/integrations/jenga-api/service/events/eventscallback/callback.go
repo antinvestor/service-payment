@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/utility"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 )
 
 type JengaCallbackReceivePayment struct {
@@ -71,8 +72,10 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 	}
 
 	// Create base payment structure
-	amount := utility.ToMoney(req.Transaction.Currency, decimal.NewFromFloat(req.Transaction.Amount))
-	cost := utility.ToMoney(req.Transaction.Currency, decimal.NewFromFloat(req.Transaction.ServiceCharge))
+	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Transaction.Amount))
+	amount := utilmoney.ToMoney(req.Transaction.Currency, amtDec)
+	costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Transaction.ServiceCharge))
+	cost := utilmoney.ToMoney(req.Transaction.Currency, costDec)
 	payment := &paymentv1.Payment{
 		Source: &commonv1.ContactLink{
 			Detail: req.Customer.MobileNumber,
@@ -81,8 +84,8 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 			Detail: req.Bank.Account,
 		},
 		TransactionId: req.Transaction.Reference,
-		Amount:        &amount,
-		Cost:          &cost,
+		Amount:        amount,
+		Cost:          cost,
 		Extra:         cbJSON.ToProtoStruct(),
 	}
 

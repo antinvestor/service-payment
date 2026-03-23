@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/pitabwire/frame/data"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 type Merchant struct {
@@ -149,17 +149,17 @@ type Prompt struct {
 	SourceProfileType string `gorm:"type:varchar(50)"`
 	SourceContactID   string `gorm:"type:varchar(50)"`
 
-	RecipientID          string              `gorm:"type:varchar(50)"`
-	RecipientProfileType string              `gorm:"type:varchar(50)"`
-	RecipientContactID   string              `gorm:"type:varchar(50)"`
-	Amount               decimal.NullDecimal `gorm:"type:numeric"                          json:"amount"`
-	DateCreated          string              `gorm:"type:varchar(50)"`
-	DeviceID             string              `gorm:"type:varchar(50)"`
-	State                int32               `gorm:"type:integer"`
-	Status               int32               `gorm:"type:integer"`
-	Route                string              `gorm:"type:varchar(50)"`
-	Account              data.JSONMap        `gorm:"type:jsonb"`
-	Extra                data.JSONMap        `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	RecipientID          string            `gorm:"type:varchar(50)"`
+	RecipientProfileType string            `gorm:"type:varchar(50)"`
+	RecipientContactID   string            `gorm:"type:varchar(50)"`
+	Amount               *decimalx.Decimal `gorm:"type:numeric"                          json:"amount"`
+	DateCreated          string            `gorm:"type:varchar(50)"`
+	DeviceID             string            `gorm:"type:varchar(50)"`
+	State                int32             `gorm:"type:integer"`
+	Status               int32             `gorm:"type:integer"`
+	Route                string            `gorm:"type:varchar(50)"`
+	Account              data.JSONMap      `gorm:"type:jsonb"`
+	Extra                data.JSONMap      `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 
 type Account struct {
@@ -172,20 +172,20 @@ type Account struct {
 type PaymentLink struct {
 	data.BaseModel
 
-	ExpiryDate      time.Time       `gorm:"type:date"         json:"expiryDate"`
-	SaleDate        time.Time       `gorm:"type:date"         json:"saleDate"`
-	PaymentLinkType string          `gorm:"type:varchar(20)"  json:"paymentLinkType"`
-	SaleType        string          `gorm:"type:varchar(20)"  json:"saleType"`
-	Name            string          `gorm:"type:varchar(100)" json:"name"`
-	Description     string          `gorm:"type:text"         json:"description"`
-	ExternalRef     string          `gorm:"type:varchar(50)"  json:"externalRef"`
-	PaymentLinkRef  string          `gorm:"type:varchar(50)"  json:"paymentLinkRef"`
-	RedirectURL     string          `gorm:"type:varchar(255)" json:"redirectURL"`
-	AmountOption    string          `gorm:"type:varchar(20)"  json:"amountOption"`
-	Amount          decimal.Decimal `gorm:"type:numeric"      json:"amount"`
-	Currency        string          `gorm:"type:varchar(10)"  json:"currency"`
-	Customers       data.JSONMap    `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
-	Notifications   data.JSONMap    `gorm:"type:jsonb"        json:"notifications"` // Notifications are enums
+	ExpiryDate      time.Time        `gorm:"type:date"         json:"expiryDate"`
+	SaleDate        time.Time        `gorm:"type:date"         json:"saleDate"`
+	PaymentLinkType string           `gorm:"type:varchar(20)"  json:"paymentLinkType"`
+	SaleType        string           `gorm:"type:varchar(20)"  json:"saleType"`
+	Name            string           `gorm:"type:varchar(100)" json:"name"`
+	Description     string           `gorm:"type:text"         json:"description"`
+	ExternalRef     string           `gorm:"type:varchar(50)"  json:"externalRef"`
+	PaymentLinkRef  string           `gorm:"type:varchar(50)"  json:"paymentLinkRef"`
+	RedirectURL     string           `gorm:"type:varchar(255)" json:"redirectURL"`
+	AmountOption    string           `gorm:"type:varchar(20)"  json:"amountOption"`
+	Amount          decimalx.Decimal `gorm:"type:numeric"      json:"amount"`
+	Currency        string           `gorm:"type:varchar(10)"  json:"currency"`
+	Customers       data.JSONMap     `gorm:"type:jsonb"        json:"customers"`     // stores []Customer as JSON
+	Notifications   data.JSONMap     `gorm:"type:jsonb"        json:"notifications"` // Notifications are enums
 
 }
 

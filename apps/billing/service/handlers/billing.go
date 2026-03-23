@@ -14,7 +14,8 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/shopspring/decimal"
+	"github.com/antinvestor/service-payments/internal/utility"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // toConnectError translates application errors into appropriate ConnectRPC error codes.
@@ -266,8 +267,8 @@ func (s *BillingServer) CreateComponent(
 		PricingModel:    pricingModelFromProto(req.Msg.GetPricingModel()),
 		AggregationType: aggregationTypeFromProto(req.Msg.GetAggregationType()),
 		UnitName:        req.Msg.GetUnitName(),
-		FreeQuantity:    moneyToNullDecimal(req.Msg.GetFreeQuantity()),
-		MinimumCharge:   moneyToNullDecimal(req.Msg.GetMinimumCharge()),
+		FreeQuantity:    moneyToDecPtr(req.Msg.GetFreeQuantity()),
+		MinimumCharge:   moneyToDecPtr(req.Msg.GetMinimumCharge()),
 		Data:            structToJSONMap(req.Msg.GetData()),
 	}
 	if req.Msg.GetId() != "" {
@@ -291,10 +292,10 @@ func (s *BillingServer) CreateTier(
 	tier := &models.Tier{
 		ComponentID: req.Msg.GetComponentId(),
 		SortOrder:   int(req.Msg.GetSortOrder()),
-		LowerBound:  moneyToNullDecimal(req.Msg.GetLowerBound()),
-		UpperBound:  moneyToNullDecimal(req.Msg.GetUpperBound()),
-		UnitPrice:   moneyToNullDecimal(req.Msg.GetUnitPrice()),
-		FlatFee:     moneyToNullDecimal(req.Msg.GetFlatFee()),
+		LowerBound:  moneyToDecPtr(req.Msg.GetLowerBound()),
+		UpperBound:  moneyToDecPtr(req.Msg.GetUpperBound()),
+		UnitPrice:   moneyToDecPtr(req.Msg.GetUnitPrice()),
+		FlatFee:     moneyToDecPtr(req.Msg.GetFlatFee()),
 	}
 	if req.Msg.GetId() != "" {
 		tier.ID = req.Msg.GetId()
@@ -403,10 +404,11 @@ func (s *BillingServer) IngestUsageEvent(
 			return nil, connect.NewError(connect.CodeInvalidArgument,
 				fmt.Errorf("event at index %d: timestamp is required", i))
 		}
+		qty, _ := decimalx.NewFromString(fmt.Sprintf("%g", e.GetQuantity()))
 		events[i] = &models.UsageEvent{
 			SubscriptionID: e.GetSubscriptionId(),
 			MetricKey:      e.GetMetricKey(),
-			Quantity:       decimal.NewNullDecimal(decimal.NewFromFloat(e.GetQuantity())),
+			Quantity:       utility.DecPtr(qty),
 			Timestamp:      e.GetTimestamp().AsTime(),
 			Properties:     structToJSONMap(e.GetProperties()),
 		}
@@ -602,8 +604,8 @@ func (s *BillingServer) GrantCredit(
 	grant := &models.CreditGrant{
 		ProfileID:       req.Msg.GetProfileId(),
 		Name:            req.Msg.GetName(),
-		OriginalAmount:  moneyToNullDecimal(req.Msg.GetAmount()),
-		RemainingAmount: moneyToNullDecimal(req.Msg.GetAmount()),
+		OriginalAmount:  moneyToDecPtr(req.Msg.GetAmount()),
+		RemainingAmount: moneyToDecPtr(req.Msg.GetAmount()),
 		Currency:        req.Msg.GetCurrency(),
 		Priority:        int(req.Msg.GetPriority()),
 		Data:            structToJSONMap(req.Msg.GetData()),
@@ -647,9 +649,12 @@ func (s *BillingServer) CreateDiscount(
 	req *connect.Request[billingv1.CreateDiscountRequest],
 ) (*connect.Response[billingv1.CreateDiscountResponse], error) {
 	disc := &models.Discount{
-		Name:            req.Msg.GetName(),
-		DiscountType:    discountTypeFromProto(req.Msg.GetDiscountType()),
-		Value:           decimal.NewNullDecimal(decimal.NewFromFloat(req.Msg.GetValue())),
+		Name:         req.Msg.GetName(),
+		DiscountType: discountTypeFromProto(req.Msg.GetDiscountType()),
+		Value: func() *decimalx.Decimal {
+			v, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Msg.GetValue()))
+			return utility.DecPtr(v)
+		}(),
 		Currency:        req.Msg.GetCurrency(),
 		ApplicableTo:    structToJSONMap(req.Msg.GetApplicableTo()),
 		MaxApplications: int(req.Msg.GetMaxApplications()),

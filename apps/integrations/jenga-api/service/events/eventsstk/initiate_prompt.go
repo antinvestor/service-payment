@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -69,7 +70,7 @@ func (h *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 	if prompt.ID == "" {
 		return errors.New("prompt ID is required")
 	}
-	if !prompt.Amount.Valid {
+	if prompt.Amount == nil {
 		return errors.New("payment amount is required")
 	}
 	if prompt.SourceContactID == "" {
@@ -119,7 +120,8 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 	telco := getStringWithDefault(prompt.Extra, "telco", defaultTelco)
 	pushType := getStringWithDefault(prompt.Extra, "pushType", defaultPushType)
 
-	amountStr := fmt.Sprintf(amountFormat, prompt.Amount.Decimal.InexactFloat64())
+	amtFloat, _ := strconv.ParseFloat(prompt.Amount.String(), 64)
+	amountStr := fmt.Sprintf(amountFormat, amtFloat)
 	currentDate := time.Now().Format(dateFormat)
 
 	stkRequest := &models.STKUSSDRequest{

@@ -18,13 +18,14 @@ import (
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/antinvestor/service-payments/apps/default/service/utility"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
 	fevents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 )
 
 func NewPaymentBusiness(
@@ -86,11 +87,9 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 		OutBound:             true,
 	}
 
+	costAmt := utilmoney.FromMoney(message.GetCost())
 	c := &models.Cost{
-		Amount: decimal.NullDecimal{
-			Valid:   true,
-			Decimal: utility.FromMoney(message.GetCost()),
-		},
+		Amount:   utility.DecPtr(costAmt),
 		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
@@ -138,7 +137,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 	}
 
 	// Create ledger transaction for outbound payment
-	if pb.ledgerCli != nil && p.Amount.Valid {
+	if pb.ledgerCli != nil && p.Amount != nil {
 		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
 			util.Log(ctx).WithError(err).Warn("could not create ledger transaction for send")
 			// Don't fail the payment if ledger fails, just log the error
@@ -181,11 +180,9 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 		OutBound:             false,
 	}
 
+	costAmt2 := utilmoney.FromMoney(message.GetCost())
 	c := &models.Cost{
-		Amount: decimal.NullDecimal{
-			Valid:   true,
-			Decimal: utility.FromMoney(message.GetCost()),
-		},
+		Amount:   utility.DecPtr(costAmt2),
 		Currency: message.GetCost().GetCurrencyCode(),
 	}
 	c.GenID(ctx)
@@ -232,7 +229,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 	}
 
 	// Create ledger transaction for inbound payment
-	if pb.ledgerCli != nil && p.Amount.Valid {
+	if pb.ledgerCli != nil && p.Amount != nil {
 		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
 			util.Log(ctx).WithError(err).Warn("could not create ledger transaction for receive")
 			// Don't fail the payment if ledger fails, just log the error
@@ -498,7 +495,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		RecipientID:          req.GetRecipient().GetProfileId(),
 		RecipientProfileType: req.GetRecipient().GetProfileType(),
 		RecipientContactID:   req.GetRecipient().GetContactId(),
-		Amount:               decimal.NullDecimal{Valid: true, Decimal: utility.FromMoney(req.GetAmount())},
+		Amount:               utility.DecPtr(utilmoney.FromMoney(req.GetAmount())),
 		DateCreated:          time.Now().Format("2006-01-02 15:04:05"),
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
@@ -626,9 +623,9 @@ func (pb *paymentBusiness) CreatePaymentLink(
 	}
 
 	// Parse amount
-	amount := decimal.NewFromInt(0)
+	amount := decimalx.Zero()
 	if plReq.GetAmount() != nil {
-		amount = utility.FromMoney(plReq.GetAmount())
+		amount = utilmoney.FromMoney(plReq.GetAmount())
 	}
 
 	// Build PaymentLink model
@@ -701,20 +698,16 @@ func (pb *paymentBusiness) validateAmountAndCost(message *paymentv1.Payment, p *
 		return
 	}
 
-	p.Amount = decimal.NullDecimal{
-		Valid:   true,
-		Decimal: utility.FromMoney(message.GetAmount()),
-	}
+	amt := utilmoney.FromMoney(message.GetAmount())
+	p.Amount = &amt
 	p.Currency = message.GetAmount().GetCurrencyCode()
 
 	if message.GetCost().GetCurrencyCode() == "" {
 		return
 	}
 
-	c.Amount = decimal.NullDecimal{
-		Valid:   true,
-		Decimal: utility.FromMoney(message.GetCost()),
-	}
+	costVal := utilmoney.FromMoney(message.GetCost())
+	c.Amount = &costVal
 	c.Currency = message.GetCost().GetCurrencyCode()
 }
 
@@ -762,8 +755,8 @@ func (pb *paymentBusiness) createDepositStep1(
 		return err
 	}
 
-	// amount as Money (reuse your utility)
-	amount := utility.ToMoney(payment.Currency, payment.Amount.Decimal)
+	// amount as Money (reuse money utility)
+	amount := utilmoney.ToMoney(payment.Currency, utility.DerefOr(payment.Amount, decimalx.Zero()))
 
 	// transaction reference (idempotency key)
 	txRef := fmt.Sprintf("%s-deposit-step1", payment.ID)
@@ -778,14 +771,14 @@ func (pb *paymentBusiness) createDepositStep1(
 			AccountId:     mobileOpRef,
 			TransactionId: txRef,
 			TransactedAt:  time.Now().Format(time.RFC3339),
-			Amount:        &amount,
+			Amount:        amount,
 			Credit:        false, // debit
 		},
 		{
 			AccountId:     unidentifiedRef,
 			TransactionId: txRef,
 			TransactedAt:  time.Now().Format(time.RFC3339),
-			Amount:        &amount,
+			Amount:        amount,
 			Credit:        true, // credit
 		},
 	}

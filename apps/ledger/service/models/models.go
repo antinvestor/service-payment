@@ -5,9 +5,10 @@ import (
 	"time"
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
-	utility2 "github.com/antinvestor/service-payments/internal/utility"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
+	utilmoney "github.com/pitabwire/util/money"
 	"google.golang.org/genproto/googleapis/type/money"
 )
 
@@ -36,38 +37,28 @@ func (lg *Ledger) ToAPI() *ledgerv1.Ledger {
 // Account represents the ledger account with information such as Reference, balance and JSON data.
 type Account struct {
 	data.BaseModel
-	Currency         string              `gorm:"type:varchar(10)"                     json:"currency"`
-	Balance          decimal.NullDecimal `gorm:"-"                                    json:"balance"`
-	UnClearedBalance decimal.NullDecimal `gorm:"-"                                    json:"un_cleared_balance"`
-	ReservedBalance  decimal.NullDecimal `gorm:"-"                                    json:"reserved_balance"`
-	LedgerID         string              `gorm:"type:varchar(50)"                     json:"ledger_id"`
-	Data             data.JSONMap        `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
-	LedgerType       string              `gorm:"type:varchar(50)"                     json:"ledger_type"`
+	Currency         string            `gorm:"type:varchar(10)"                     json:"currency"`
+	Balance          *decimalx.Decimal `gorm:"-"                                    json:"balance"`
+	UnClearedBalance *decimalx.Decimal `gorm:"-"                                    json:"un_cleared_balance"`
+	ReservedBalance  *decimalx.Decimal `gorm:"-"                                    json:"reserved_balance"`
+	LedgerID         string            `gorm:"type:varchar(50)"                     json:"ledger_id"`
+	Data             data.JSONMap      `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
+	LedgerType       string            `gorm:"type:varchar(50)"                     json:"ledger_type"`
 }
 
 func (acc *Account) ToAPI() *ledgerv1.Account {
-	accountBalance := decimal.Zero
-	if acc.Balance.Valid {
-		accountBalance = acc.Balance.Decimal
-	}
-	balance := utility2.ToMoney(acc.Currency, accountBalance)
+	accountBalance := utility.DerefOr(acc.Balance, decimalx.Zero())
+	balance := utilmoney.ToMoney(acc.Currency, accountBalance)
 
-	reservedBalanceAmt := decimal.Zero
-	if acc.ReservedBalance.Valid {
-		reservedBalanceAmt = acc.ReservedBalance.Decimal
-	}
+	reservedBalanceAmt := utility.DerefOr(acc.ReservedBalance, decimalx.Zero())
+	reservedBalance := utilmoney.ToMoney(acc.Currency, reservedBalanceAmt)
 
-	reservedBalance := utility2.ToMoney(acc.Currency, reservedBalanceAmt)
-
-	unClearedBalanceAmt := decimal.Zero
-	if acc.UnClearedBalance.Valid {
-		unClearedBalanceAmt = acc.UnClearedBalance.Decimal
-	}
-	unClearedBalance := utility2.ToMoney(acc.Currency, unClearedBalanceAmt)
+	unClearedBalanceAmt := utility.DerefOr(acc.UnClearedBalance, decimalx.Zero())
+	unClearedBalance := utilmoney.ToMoney(acc.Currency, unClearedBalanceAmt)
 
 	return &ledgerv1.Account{
 		Id: acc.ID, Ledger: acc.LedgerID,
-		Balance: &balance, ReservedBalance: &reservedBalance, UnclearedBalance: &unClearedBalance,
+		Balance: balance, ReservedBalance: reservedBalance, UnclearedBalance: unClearedBalance,
 		Data: acc.Data.ToProtoStruct()}
 }
 
@@ -133,18 +124,18 @@ func (tx *Transaction) ToAPI() *ledgerv1.Transaction {
 }
 
 func TransactionEntryFromAPI(aEntry *ledgerv1.TransactionEntry) *TransactionEntry {
+	amt := utilmoney.FromMoney(aEntry.GetAmount())
 	return &TransactionEntry{
 		AccountID: aEntry.GetAccountId(),
-		Amount:    decimal.NewNullDecimal(utility2.FromMoney(aEntry.GetAmount())),
+		Amount:    &amt,
 		Credit:    aEntry.GetCredit(),
 	}
 }
 
 func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
 	var amount *money.Money
-	if te.Amount.Valid {
-		amt := utility2.ToMoney("", te.Amount.Decimal)
-		amount = &amt
+	if te.Amount != nil {
+		amount = utilmoney.ToMoney("", *te.Amount)
 	}
 
 	return &ledgerv1.TransactionEntry{
@@ -170,30 +161,30 @@ type Transaction struct {
 // TransactionEntry represents a transaction line in a ledger.
 type TransactionEntry struct {
 	data.BaseModel
-	AccountID     string              `gorm:"type:varchar(50);not null;index" json:"account_id"`
-	TransactionID string              `gorm:"type:varchar(50);not null;index" json:"transaction_id"`
-	Currency      string              `gorm:"-"                               json:"currency"`
-	Amount        decimal.NullDecimal `gorm:"type:numeric(29,9)"              json:"amount"`
-	Credit        bool                `                                       json:"credit"`
-	Balance       decimal.NullDecimal `gorm:"type:numeric(29,9)"              json:"balance"`
-	ClearedAt     time.Time           `gorm:"-"                               json:"cleared_at"`
-	TransactedAt  time.Time           `gorm:"-"                               json:"transacted_at"`
+	AccountID     string            `gorm:"type:varchar(50);not null;index" json:"account_id"`
+	TransactionID string            `gorm:"type:varchar(50);not null;index" json:"transaction_id"`
+	Currency      string            `gorm:"-"                               json:"currency"`
+	Amount        *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"amount"`
+	Credit        bool              `                                       json:"credit"`
+	Balance       *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"balance"`
+	ClearedAt     time.Time         `gorm:"-"                               json:"cleared_at"`
+	TransactedAt  time.Time         `gorm:"-"                               json:"transacted_at"`
 }
 
 func (te *TransactionEntry) Equal(ot TransactionEntry) bool {
 	return te.AccountID == ot.AccountID && te.Credit == ot.Credit &&
-		te.Amount.Valid && ot.Amount.Valid &&
-		te.Amount.Decimal.Equal(ot.Amount.Decimal)
+		te.Amount != nil && ot.Amount != nil &&
+		te.Amount.Equal(*ot.Amount)
 }
 
 // IsZeroSum validates the Amount list of a transaction.
 func (tx *Transaction) IsZeroSum() bool {
-	sum := decimal.NewFromInt(0)
+	sum := decimalx.Zero()
 	for _, entry := range tx.Entries {
 		if entry.Credit {
-			sum = sum.Add(entry.Amount.Decimal)
+			sum = sum.Add(*entry.Amount)
 		} else {
-			sum = sum.Sub(entry.Amount.Decimal)
+			sum = sum.Sub(*entry.Amount)
 		}
 	}
 	return sum.IsZero()

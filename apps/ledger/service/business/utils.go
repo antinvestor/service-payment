@@ -2,6 +2,8 @@ package business
 
 import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/internal/utility"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // DefaultTimestampLayout is the timestamp layout followed in Ledger.
@@ -15,7 +17,9 @@ func (entries OrderedEntries) Len() int      { return len(entries) }
 func (entries OrderedEntries) Swap(i, j int) { entries[i], entries[j] = entries[j], entries[i] }
 func (entries OrderedEntries) Less(i, j int) bool {
 	if entries[i].AccountID == entries[j].AccountID {
-		return entries[i].Amount.Decimal.LessThan(entries[j].Amount.Decimal)
+		amtI := utility.DerefOr(entries[i].Amount, decimalx.Zero())
+		amtJ := utility.DerefOr(entries[j].Amount, decimalx.Zero())
+		return amtI.LessThan(amtJ)
 	}
 	return entries[i].AccountID < entries[j].AccountID
 }
@@ -42,8 +46,8 @@ func containsSameElements(l1 []*models.TransactionEntry, l2 []*models.Transactio
 			return false
 		}
 
-		amount1 := entry.Amount.Decimal.Abs()
-		amount2 := entry2.Amount.Decimal.Abs()
+		amount1 := utility.AbsDecimal(utility.DerefOr(entry.Amount, decimalx.Zero()))
+		amount2 := utility.AbsDecimal(utility.DerefOr(entry2.Amount, decimalx.Zero()))
 		if !amount1.Equal(amount2) {
 			return false
 		}

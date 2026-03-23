@@ -5,7 +5,8 @@ import (
 	"sort"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/shopspring/decimal"
+	"github.com/antinvestor/service-payments/internal/utility"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // infinityExponent is the exponent used to represent effectively infinite upper bounds in tier pricing.
@@ -50,18 +51,18 @@ func (pe *PricingEngine) rateComponent(
 	subscriptionID string,
 	currency string,
 ) *models.RatedLine {
-	qty := mu.Quantity.Decimal
+	qty := *mu.Quantity
 
 	// Apply free tier
-	if comp.FreeQuantity.Valid && comp.FreeQuantity.Decimal.IsPositive() {
-		qty = qty.Sub(comp.FreeQuantity.Decimal)
+	if comp.FreeQuantity != nil && comp.FreeQuantity.IsPositive() {
+		qty = qty.Sub(*comp.FreeQuantity)
 		if qty.IsNegative() {
-			qty = decimal.Zero
+			qty = decimalx.Zero()
 		}
 	}
 
-	var amount decimal.Decimal
-	var unitPrice decimal.Decimal
+	var amount decimalx.Decimal
+	var unitPrice decimalx.Decimal
 	var description string
 
 	switch comp.PricingModel {
@@ -80,8 +81,8 @@ func (pe *PricingEngine) rateComponent(
 	}
 
 	// Apply minimum charge
-	if comp.MinimumCharge.Valid && amount.LessThan(comp.MinimumCharge.Decimal) {
-		amount = comp.MinimumCharge.Decimal
+	if comp.MinimumCharge != nil && amount.LessThan(*comp.MinimumCharge) {
+		amount = *comp.MinimumCharge
 		description = fmt.Sprintf("%s (minimum charge applied)", description)
 	}
 
@@ -91,46 +92,46 @@ func (pe *PricingEngine) rateComponent(
 		ComponentID:    comp.GetID(),
 		MeteredUsageID: mu.GetID(),
 		Description:    description,
-		Quantity:       decimal.NewNullDecimal(qty),
-		UnitPrice:      decimal.NewNullDecimal(unitPrice),
-		Amount:         decimal.NewNullDecimal(amount),
+		Quantity:       utility.DecPtr(qty),
+		UnitPrice:      utility.DecPtr(unitPrice),
+		Amount:         utility.DecPtr(amount),
 		Currency:       currency,
 		PricingModel:   comp.PricingModel,
 	}
 }
 
 // RateFlat returns a flat fee regardless of usage.
-func (pe *PricingEngine) RateFlat(comp *models.Component) (decimal.Decimal, decimal.Decimal, string) {
+func (pe *PricingEngine) RateFlat(comp *models.Component) (decimalx.Decimal, decimalx.Decimal, string) {
 	if len(comp.Tiers) == 0 {
-		return decimal.Zero, decimal.Zero, fmt.Sprintf("%s: flat (no tiers)", comp.Name)
+		return decimalx.Zero(), decimalx.Zero(), fmt.Sprintf("%s: flat (no tiers)", comp.Name)
 	}
 
 	tier := comp.Tiers[0]
-	fee := tier.FlatFee.Decimal
+	fee := *tier.FlatFee
 	return fee, fee, fmt.Sprintf("%s: flat fee", comp.Name)
 }
 
 // RatePerUnit returns quantity * unit price.
 func (pe *PricingEngine) RatePerUnit(
-	qty decimal.Decimal,
+	qty decimalx.Decimal,
 	comp *models.Component,
-) (decimal.Decimal, decimal.Decimal, string) {
+) (decimalx.Decimal, decimalx.Decimal, string) {
 	if len(comp.Tiers) == 0 {
-		return decimal.Zero, decimal.Zero, fmt.Sprintf("%s: per-unit (no tiers)", comp.Name)
+		return decimalx.Zero(), decimalx.Zero(), fmt.Sprintf("%s: per-unit (no tiers)", comp.Name)
 	}
 
 	tier := comp.Tiers[0]
-	up := tier.UnitPrice.Decimal
+	up := *tier.UnitPrice
 	return qty.Mul(up), up, fmt.Sprintf("%s: %s x %s per %s", comp.Name, qty.String(), up.String(), comp.UnitName)
 }
 
 // RateTiered applies graduated tiered pricing where each tier prices only the units within its bounds.
 func (pe *PricingEngine) RateTiered(
-	qty decimal.Decimal,
+	qty decimalx.Decimal,
 	comp *models.Component,
-) (decimal.Decimal, decimal.Decimal, string) {
+) (decimalx.Decimal, decimalx.Decimal, string) {
 	tiers := sortTiers(comp.Tiers)
-	total := decimal.Zero
+	total := decimalx.Zero()
 	remaining := qty
 
 	for _, tier := range tiers {
@@ -138,25 +139,25 @@ func (pe *PricingEngine) RateTiered(
 			break
 		}
 
-		lower := tier.LowerBound.Decimal
-		upper := decimal.New(1, infinityExponent) // effectively infinity
-		if tier.UpperBound.Valid && tier.UpperBound.Decimal.IsPositive() {
-			upper = tier.UpperBound.Decimal
+		lower := *tier.LowerBound
+		upper := decimalx.New(1, infinityExponent) // effectively infinity
+		if tier.UpperBound != nil && tier.UpperBound.IsPositive() {
+			upper = *tier.UpperBound
 		}
 
 		tierWidth := upper.Sub(lower)
-		unitsInTier := decimal.Min(remaining, tierWidth)
+		unitsInTier := utility.MinDecimal(remaining, tierWidth)
 
-		tierAmount := unitsInTier.Mul(tier.UnitPrice.Decimal)
-		if tier.FlatFee.Valid {
-			tierAmount = tierAmount.Add(tier.FlatFee.Decimal)
+		tierAmount := unitsInTier.Mul(*tier.UnitPrice)
+		if tier.FlatFee != nil {
+			tierAmount = tierAmount.Add(*tier.FlatFee)
 		}
 
 		total = total.Add(tierAmount)
 		remaining = remaining.Sub(unitsInTier)
 	}
 
-	avgUnit := decimal.Zero
+	avgUnit := decimalx.Zero()
 	if !qty.IsZero() {
 		avgUnit = total.Div(qty)
 	}
@@ -167,21 +168,21 @@ func (pe *PricingEngine) RateTiered(
 // RateVolume applies volume pricing where the tier is selected based on total quantity
 // and ALL units are priced at that tier's rate.
 func (pe *PricingEngine) RateVolume(
-	qty decimal.Decimal,
+	qty decimalx.Decimal,
 	comp *models.Component,
-) (decimal.Decimal, decimal.Decimal, string) {
+) (decimalx.Decimal, decimalx.Decimal, string) {
 	tiers := sortTiers(comp.Tiers)
 
 	var selectedTier *models.Tier
 	for i := range tiers {
 		tier := tiers[i]
-		lower := tier.LowerBound.Decimal
-		upper := decimal.New(1, infinityExponent)
-		if tier.UpperBound.Valid && tier.UpperBound.Decimal.IsPositive() {
-			upper = tier.UpperBound.Decimal
+		lower := *tier.LowerBound
+		upper := decimalx.New(1, infinityExponent)
+		if tier.UpperBound != nil && tier.UpperBound.IsPositive() {
+			upper = *tier.UpperBound
 		}
 
-		if qty.GreaterThanOrEqual(lower) && qty.LessThan(upper) {
+		if !qty.LessThan(lower) && qty.LessThan(upper) {
 			selectedTier = tier
 			break
 		}
@@ -192,13 +193,13 @@ func (pe *PricingEngine) RateVolume(
 	}
 
 	if selectedTier == nil {
-		return decimal.Zero, decimal.Zero, fmt.Sprintf("%s: volume (no matching tier)", comp.Name)
+		return decimalx.Zero(), decimalx.Zero(), fmt.Sprintf("%s: volume (no matching tier)", comp.Name)
 	}
 
-	up := selectedTier.UnitPrice.Decimal
+	up := *selectedTier.UnitPrice
 	total := qty.Mul(up)
-	if selectedTier.FlatFee.Valid {
-		total = total.Add(selectedTier.FlatFee.Decimal)
+	if selectedTier.FlatFee != nil {
+		total = total.Add(*selectedTier.FlatFee)
 	}
 
 	return total, up, fmt.Sprintf("%s: volume %s %s @ %s", comp.Name, qty.String(), comp.UnitName, up.String())
@@ -207,31 +208,31 @@ func (pe *PricingEngine) RateVolume(
 // RateStairstep applies stair-step pricing where a flat fee is charged based on the tier
 // the quantity falls into (quantity is not multiplied).
 func (pe *PricingEngine) RateStairstep(
-	qty decimal.Decimal,
+	qty decimalx.Decimal,
 	comp *models.Component,
-) (decimal.Decimal, decimal.Decimal, string) {
+) (decimalx.Decimal, decimalx.Decimal, string) {
 	tiers := sortTiers(comp.Tiers)
 
 	for _, tier := range tiers {
-		lower := tier.LowerBound.Decimal
-		upper := decimal.New(1, infinityExponent)
-		if tier.UpperBound.Valid && tier.UpperBound.Decimal.IsPositive() {
-			upper = tier.UpperBound.Decimal
+		lower := *tier.LowerBound
+		upper := decimalx.New(1, infinityExponent)
+		if tier.UpperBound != nil && tier.UpperBound.IsPositive() {
+			upper = *tier.UpperBound
 		}
 
-		if qty.GreaterThanOrEqual(lower) && qty.LessThan(upper) {
-			fee := tier.FlatFee.Decimal
+		if !qty.LessThan(lower) && qty.LessThan(upper) {
+			fee := *tier.FlatFee
 			return fee, fee, fmt.Sprintf("%s: stairstep %s %s", comp.Name, qty.String(), comp.UnitName)
 		}
 	}
 
 	if len(tiers) > 0 {
 		last := tiers[len(tiers)-1]
-		fee := last.FlatFee.Decimal
+		fee := *last.FlatFee
 		return fee, fee, fmt.Sprintf("%s: stairstep %s %s (max tier)", comp.Name, qty.String(), comp.UnitName)
 	}
 
-	return decimal.Zero, decimal.Zero, fmt.Sprintf("%s: stairstep (no tiers)", comp.Name)
+	return decimalx.Zero(), decimalx.Zero(), fmt.Sprintf("%s: stairstep (no tiers)", comp.Name)
 }
 
 func sortTiers(tiers []*models.Tier) []*models.Tier {

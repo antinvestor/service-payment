@@ -7,8 +7,9 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerModels "github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/data"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 )
 
 // LedgerIntegration posts billing events to the ledger.
@@ -47,7 +48,7 @@ func (l *ledgerIntegration) PostInvoiceToLedger(
 	arAccountID, revenueAccountID string,
 ) (string, error) {
 	txnID := fmt.Sprintf("billing_inv_%s", invoice.GetID())
-	amount := invoice.TotalAmount.Decimal
+	amount := utility.DerefOr(invoice.TotalAmount, decimalx.Zero())
 
 	if amount.IsZero() {
 		return "", nil
@@ -60,12 +61,12 @@ func (l *ledgerIntegration) PostInvoiceToLedger(
 		Entries: []*ledgerModels.TransactionEntry{
 			{
 				AccountID: arAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    false, // Debit AR
 			},
 			{
 				AccountID: revenueAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    true, // Credit Revenue
 			},
 		},
@@ -86,7 +87,7 @@ func (l *ledgerIntegration) PostCreditGrantToLedger(
 	creditLiabilityAccountID, sourceAccountID string,
 ) (string, error) {
 	txnID := fmt.Sprintf("billing_credit_grant_%s", grant.GetID())
-	amount := grant.OriginalAmount.Decimal
+	amount := utility.DerefOr(grant.OriginalAmount, decimalx.Zero())
 
 	txn := &ledgerModels.Transaction{
 		BaseModel:       data.BaseModel{ID: txnID},
@@ -95,12 +96,12 @@ func (l *ledgerIntegration) PostCreditGrantToLedger(
 		Entries: []*ledgerModels.TransactionEntry{
 			{
 				AccountID: creditLiabilityAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    false, // Debit Credit Liability
 			},
 			{
 				AccountID: sourceAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    true, // Credit source
 			},
 		},
@@ -121,7 +122,7 @@ func (l *ledgerIntegration) PostCreditConsumeToLedger(
 	revenueAccountID, creditLiabilityAccountID string,
 ) (string, error) {
 	txnID := fmt.Sprintf("billing_credit_consume_%s", entry.GetID())
-	amount := entry.Amount.Decimal
+	amount := utility.DerefOr(entry.Amount, decimalx.Zero())
 
 	txn := &ledgerModels.Transaction{
 		BaseModel:       data.BaseModel{ID: txnID},
@@ -130,12 +131,12 @@ func (l *ledgerIntegration) PostCreditConsumeToLedger(
 		Entries: []*ledgerModels.TransactionEntry{
 			{
 				AccountID: revenueAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    false, // Debit Revenue
 			},
 			{
 				AccountID: creditLiabilityAccountID,
-				Amount:    decimal.NewNullDecimal(amount),
+				Amount:    utility.DecPtr(amount),
 				Credit:    true, // Credit Credit Liability
 			},
 		},

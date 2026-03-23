@@ -7,9 +7,10 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/internal/utility"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -17,10 +18,10 @@ import (
 // CreditEngine manages prepaid credit grants and consumption.
 type CreditEngine interface {
 	GrantCredit(ctx context.Context, grant *models.CreditGrant) (*models.CreditGrant, error)
-	ApplyCredits(ctx context.Context, profileID string, currency string, amount decimal.Decimal,
-		billingRunID string, invoiceID string) (decimal.Decimal, []*models.CreditEntry, error)
+	ApplyCredits(ctx context.Context, profileID string, currency string, amount decimalx.Decimal,
+		billingRunID string, invoiceID string) (decimalx.Decimal, []*models.CreditEntry, error)
 	ExpireCredits(ctx context.Context, profileID string, currency string) ([]*models.CreditEntry, error)
-	GetBalance(ctx context.Context, profileID string, currency string) (decimal.Decimal, error)
+	GetBalance(ctx context.Context, profileID string, currency string) (decimalx.Decimal, error)
 }
 
 type creditEngine struct {
@@ -48,8 +49,8 @@ func (e *creditEngine) GrantCredit(ctx context.Context, grant *models.CreditGran
 	if grant.ProfileID == "" {
 		return nil, ErrCreditProfileIDRequired
 	}
-	if !grant.OriginalAmount.Valid || grant.OriginalAmount.Decimal.IsZero() ||
-		grant.OriginalAmount.Decimal.IsNegative() {
+	if grant.OriginalAmount == nil || grant.OriginalAmount.IsZero() ||
+		grant.OriginalAmount.IsNegative() {
 		return nil, ErrCreditAmountRequired
 	}
 	if grant.Currency == "" {
@@ -89,10 +90,10 @@ func (e *creditEngine) ApplyCredits(
 	ctx context.Context,
 	profileID string,
 	currency string,
-	amount decimal.Decimal,
+	amount decimalx.Decimal,
 	billingRunID string,
 	invoiceID string,
-) (decimal.Decimal, []*models.CreditEntry, error) {
+) (decimalx.Decimal, []*models.CreditEntry, error) {
 	if amount.IsZero() || amount.IsNegative() {
 		return amount, nil, nil
 	}
@@ -121,13 +122,14 @@ func (e *creditEngine) ApplyCredits(
 				break
 			}
 
-			available := grant.RemainingAmount.Decimal
+			available := utility.DerefOr(grant.RemainingAmount, decimalx.Zero())
 			if available.IsZero() || available.IsNegative() {
 				continue
 			}
 
-			consume := decimal.Min(remaining, available)
-			grant.RemainingAmount = decimal.NewNullDecimal(available.Sub(consume))
+			consume := utility.MinDecimal(remaining, available)
+			sub := available.Sub(consume)
+			grant.RemainingAmount = &sub
 
 			if err := tx.Model(grant).
 				Where("id = ? AND version = ?", grant.GetID(), grant.GetVersion()).
@@ -140,7 +142,7 @@ func (e *creditEngine) ApplyCredits(
 				BillingRunID:  billingRunID,
 				InvoiceID:     invoiceID,
 				EntryType:     models.CreditEntryTypeConsume,
-				Amount:        decimal.NewNullDecimal(consume),
+				Amount:        utility.DecPtr(consume),
 				Currency:      currency,
 				Description:   fmt.Sprintf("Credit consumed from: %s", grant.Name),
 			}
@@ -187,12 +189,14 @@ func (e *creditEngine) ExpireCredits(
 		}
 
 		for _, grant := range grants {
-			if grant.RemainingAmount.Decimal.IsZero() {
+			remainingAmt := utility.DerefOr(grant.RemainingAmount, decimalx.Zero())
+			if remainingAmt.IsZero() {
 				continue
 			}
 
-			expireAmount := grant.RemainingAmount.Decimal
-			grant.RemainingAmount = decimal.NewNullDecimal(decimal.Zero)
+			expireAmount := remainingAmt
+			zero := decimalx.Zero()
+			grant.RemainingAmount = &zero
 
 			if err := tx.Model(grant).
 				Where("id = ? AND version = ?", grant.GetID(), grant.GetVersion()).
@@ -203,7 +207,7 @@ func (e *creditEngine) ExpireCredits(
 			entry := &models.CreditEntry{
 				CreditGrantID: grant.GetID(),
 				EntryType:     models.CreditEntryTypeExpire,
-				Amount:        decimal.NewNullDecimal(expireAmount),
+				Amount:        utility.DecPtr(expireAmount),
 				Currency:      currency,
 				Description:   fmt.Sprintf("Credit expired: %s", grant.Name),
 			}
@@ -225,20 +229,20 @@ func (e *creditEngine) ExpireCredits(
 	return entries, nil
 }
 
-func (e *creditEngine) GetBalance(ctx context.Context, profileID string, currency string) (decimal.Decimal, error) {
+func (e *creditEngine) GetBalance(ctx context.Context, profileID string, currency string) (decimalx.Decimal, error) {
 	if profileID == "" {
-		return decimal.Zero, apperrors.ErrUnspecifiedID
+		return decimalx.Zero(), apperrors.ErrUnspecifiedID
 	}
 
 	grants, err := e.grantRepo.ListActiveByProfile(ctx, profileID, currency)
 	if err != nil {
-		return decimal.Zero, err
+		return decimalx.Zero(), err
 	}
 
-	total := decimal.Zero
+	total := decimalx.Zero()
 	for _, grant := range grants {
-		if grant.RemainingAmount.Valid {
-			total = total.Add(grant.RemainingAmount.Decimal)
+		if grant.RemainingAmount != nil {
+			total = total.Add(*grant.RemainingAmount)
 		}
 	}
 

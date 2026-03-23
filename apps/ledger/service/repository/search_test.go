@@ -8,11 +8,12 @@ import (
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
+	"github.com/antinvestor/service-payments/internal/utility"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/frametests/definition"
 	"github.com/pitabwire/frame/workerpool"
-	"github.com/shopspring/decimal"
+	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -105,12 +106,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(1000)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(1000)),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(1000)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(1000)),
 			},
 		},
 		Data: map[string]interface{}{
@@ -133,12 +134,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(100)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(100)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(100)),
 			},
 		},
 		Data: map[string]interface{}{
@@ -160,12 +161,12 @@ func (ss *SearchSuite) setupFixtures(ctx context.Context, resources *tests.Servi
 			{
 				AccountID: "acc1",
 				Credit:    false,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(400)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(400)),
 			},
 			{
 				AccountID: "acc2",
 				Credit:    true,
-				Amount:    decimal.NewNullDecimal(decimal.NewFromInt(400)),
+				Amount:    utility.DecPtr(decimalx.NewFromInt64(400)),
 			},
 		},
 		Data: map[string]interface{}{

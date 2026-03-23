@@ -87,6 +87,6 @@ func setupSettingsClient(
 	return settings.NewClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.SettingsServiceURI,
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_settings"},
+		Audiences:             []string{"service_setting"},
 	})
 }

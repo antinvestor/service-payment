@@ -1,0 +1,26 @@
+version: v2
+modules:
+  - path: payment
+    name: buf.build/antinvestor/payment
+  - path: ledger
+    name: buf.build/antinvestor/ledger
+  - path: billing
+    name: buf.build/antinvestor/billing
+deps:
+  - buf.build/antinvestor/common
+  - buf.build/bufbuild/protovalidate
+  - buf.build/googleapis/googleapis
+  - buf.build/gnostic/gnostic
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - FIELD_NOT_REQUIRED
+    - PACKAGE_NO_IMPORT_CYCLE
+breaking:
+  use:
+    - FILE
+  except:
+    - EXTENSION_NO_DELETE
+    - FIELD_SAME_DEFAULT

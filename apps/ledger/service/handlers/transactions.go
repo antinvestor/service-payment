@@ -6,7 +6,6 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
-	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // SearchTransactions finds transactions matching specified criteria.
@@ -16,10 +15,6 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
 ) error {
-	if err := ledgerSrv.authz.CanTransactionView(ctx); err != nil {
-		return authorizer.ToConnectError(err)
-	}
-
 	return ToConnectError(ledgerSrv.Transaction.SearchTransactions(
 		ctx,
 		req.Msg,
@@ -37,10 +32,6 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateTransactionRequest],
 ) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanTransactionCreate(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
-
 	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req.Msg)
 	if err != nil {
 		return nil, ToConnectError(err)
@@ -59,10 +50,6 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.ReverseTransactionRequest],
 ) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanTransactionReverse(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
-
 	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req.Msg)
 	if err != nil {
 		return nil, ToConnectError(err)
@@ -81,10 +68,6 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateTransactionRequest],
 ) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
-	if err := ledgerSrv.authz.CanTransactionUpdate(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
-
 	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req.Msg)
 	if err != nil {
 		return nil, ToConnectError(err)

@@ -8,10 +8,8 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
-	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/internal/apperrors"
-	"github.com/pitabwire/frame/security/authorizer"
 )
 
 // ToConnectError translates application errors into appropriate ConnectRPC
@@ -69,7 +67,6 @@ type LedgerServer struct {
 	Ledger      business.LedgerBusiness
 	Account     business.AccountBusiness
 	Transaction business.TransactionBusiness
-	authz       authz.Middleware
 }
 
 // NewLedgerServer creates a new LedgerServer with injected dependencies.
@@ -77,13 +74,11 @@ func NewLedgerServer(
 	ledgerBusiness business.LedgerBusiness,
 	accountBusiness business.AccountBusiness,
 	transactionBusiness business.TransactionBusiness,
-	authzMiddleware authz.Middleware,
 ) ledgerv1connect.LedgerServiceHandler {
 	return &LedgerServer{
 		Ledger:      ledgerBusiness,
 		Account:     accountBusiness,
 		Transaction: transactionBusiness,
-		authz:       authzMiddleware,
 	}
 }
 
@@ -94,10 +89,6 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
 ) error {
-	if err := ledgerSrv.authz.CanLedgerView(ctx); err != nil {
-		return authorizer.ToConnectError(err)
-	}
-
 	// Search ledgers using business layer
 	return ToConnectError(
 		ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
@@ -114,10 +105,6 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateLedgerRequest],
 ) (*connect.Response[ledgerv1.CreateLedgerResponse], error) {
-	if err := ledgerSrv.authz.CanLedgerManage(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
-
 	// Create the ledger using business layer
 	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req.Msg)
 	if err != nil {
@@ -137,10 +124,6 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.UpdateLedgerRequest],
 ) (*connect.Response[ledgerv1.UpdateLedgerResponse], error) {
-	if err := ledgerSrv.authz.CanLedgerManage(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
-
 	// Update the ledger using business layer
 	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req.Msg)
 	if err != nil {

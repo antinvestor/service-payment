@@ -8,7 +8,9 @@ import (
 	_ "net/http/pprof"
 
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
+	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
+	"github.com/antinvestor/apis/go/common/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
@@ -61,13 +63,8 @@ func main() {
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
 
-	// Create authorisation middleware
-	sm := service.SecurityManager()
-	authorizer := sm.GetAuthorizer(ctx)
-	authzMiddleware := authz.NewMiddleware(authorizer)
-
 	// Create handler with injected business layer
-	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness, authzMiddleware)
+	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness)
 
 	// Handle database migration if requested
 	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
@@ -111,13 +108,20 @@ func setupConnectServer(
 	securityMan security.Manager,
 	implementation ledgerv1connect.LedgerServiceHandler,
 ) http.Handler {
+	auth := securityMan.GetAuthorizer(ctx)
+
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
-	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(
-		securityMan.GetAuthorizer(ctx), authz.NamespaceTenancyAccess)
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess)
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
+	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
+	sd := ledgerpbv1.File_ledger_v1_ledger_proto.Services().ByName("LedgerService")
+	procMap := permissions.BuildProcedureMap(sd)
+	functionChecker := authorizer.NewFunctionChecker(auth, "service_ledger")
+	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
+
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
-		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor)
+		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor, functionAccessInterceptor)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}

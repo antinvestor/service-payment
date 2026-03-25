@@ -10,15 +10,12 @@ import (
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
-	"github.com/antinvestor/service-payments/apps/default/service/authz"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
-	"github.com/pitabwire/frame/security/authorizer"
 )
 
 var _ paymentv1connect.PaymentServiceHandler = (*PaymentServer)(nil)
 
 type PaymentServer struct {
-	authz           authz.Middleware
 	PaymentBusiness business.PaymentBusiness
 	ProfileCli      profilev1connect.ProfileServiceClient
 	LedgerCli       ledgerv1connect.LedgerServiceClient
@@ -27,14 +24,12 @@ type PaymentServer struct {
 
 // NewPaymentServer creates a new PaymentServer with the required dependencies.
 func NewPaymentServer(
-	authzMiddleware authz.Middleware,
 	paymentBusiness business.PaymentBusiness,
 	profileCli profilev1connect.ProfileServiceClient,
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) *PaymentServer {
 	return &PaymentServer{
-		authz:           authzMiddleware,
 		PaymentBusiness: paymentBusiness,
 		ProfileCli:      profileCli,
 		PartitionCli:    partitionCli,
@@ -46,9 +41,6 @@ func (ps *PaymentServer) Send(
 	ctx context.Context,
 	req *connect.Request[paymentv1.SendRequest],
 ) (*connect.Response[paymentv1.SendResponse], error) {
-	if err := ps.authz.CanPaymentSend(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.Send(ctx, req.Msg.GetData())
 	if err != nil {
 		return nil, err
@@ -60,9 +52,6 @@ func (ps *PaymentServer) Status(
 	ctx context.Context,
 	req *connect.Request[commonv1.StatusRequest],
 ) (*connect.Response[commonv1.StatusResponse], error) {
-	if err := ps.authz.CanPaymentStatusView(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.Status(ctx, req.Msg)
 	if err != nil {
 		return nil, err
@@ -75,9 +64,6 @@ func (ps *PaymentServer) StatusUpdate(
 	ctx context.Context,
 	req *connect.Request[commonv1.StatusUpdateRequest],
 ) (*connect.Response[commonv1.StatusUpdateResponse], error) {
-	if err := ps.authz.CanPaymentStatusUpdate(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.StatusUpdate(ctx, req.Msg)
 	if err != nil {
 		return nil, err
@@ -91,9 +77,6 @@ func (ps *PaymentServer) Release(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ReleaseRequest],
 ) (*connect.Response[paymentv1.ReleaseResponse], error) {
-	if err := ps.authz.CanPaymentRelease(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.Release(ctx, req.Msg)
 
 	if err != nil {
@@ -108,9 +91,6 @@ func (ps *PaymentServer) Receive(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ReceiveRequest],
 ) (*connect.Response[paymentv1.ReceiveResponse], error) {
-	if err := ps.authz.CanPaymentReceive(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.Receive(ctx, req.Msg.GetData())
 
 	if err != nil {
@@ -125,9 +105,6 @@ func (ps *PaymentServer) InitiatePrompt(
 	ctx context.Context,
 	req *connect.Request[paymentv1.InitiatePromptRequest],
 ) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
-	if err := ps.authz.CanPromptInitiate(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.InitiatePrompt(ctx, req.Msg)
 
 	if err != nil {
@@ -142,9 +119,6 @@ func (ps *PaymentServer) CreatePaymentLink(
 	ctx context.Context,
 	req *connect.Request[paymentv1.CreatePaymentLinkRequest],
 ) (*connect.Response[paymentv1.CreatePaymentLinkResponse], error) {
-	if err := ps.authz.CanPaymentLinkCreate(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.CreatePaymentLink(ctx, req.Msg)
 
 	if err != nil {
@@ -160,9 +134,6 @@ func (ps *PaymentServer) Search(
 	req *connect.Request[commonv1.SearchRequest],
 	stream *connect.ServerStream[paymentv1.SearchResponse],
 ) error {
-	if err := ps.authz.CanPaymentsSearch(ctx); err != nil {
-		return authorizer.ToConnectError(err)
-	}
 	resultPipe, err := ps.PaymentBusiness.Search(ctx, req.Msg)
 	if err != nil {
 		return err
@@ -191,9 +162,6 @@ func (ps *PaymentServer) Reconcile(
 	ctx context.Context,
 	req *connect.Request[paymentv1.ReconcileRequest],
 ) (*connect.Response[paymentv1.ReconcileResponse], error) {
-	if err := ps.authz.CanReconcile(ctx); err != nil {
-		return nil, authorizer.ToConnectError(err)
-	}
 	response, err := ps.PaymentBusiness.Reconcile(ctx, req.Msg)
 
 	if err != nil {

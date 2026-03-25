@@ -154,7 +154,6 @@ func (s *LedgerHandlersTestSuite) TestCreateLedger() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		req := &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -189,7 +188,6 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedger() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Create ledger first
@@ -230,7 +228,6 @@ func (s *LedgerHandlersTestSuite) TestCreateAccount() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Create ledger first
@@ -271,7 +268,6 @@ func (s *LedgerHandlersTestSuite) TestUpdateAccount() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Create ledger and account
@@ -320,7 +316,6 @@ func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Setup ledgers and accounts
@@ -394,7 +389,6 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Setup
@@ -473,7 +467,6 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Setup
@@ -555,7 +548,6 @@ func (s *LedgerHandlersTestSuite) TestCreateLedgerMissingID() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -580,7 +572,6 @@ func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
@@ -614,7 +605,6 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedgerMissingID() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		_, err := ledgerServer.UpdateLedger(ctx, &connect.Request[ledgerv1.UpdateLedgerRequest]{
@@ -639,7 +629,6 @@ func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// UpdateAccount error path — non-existent account
@@ -689,7 +678,6 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 			resources.LedgerBusiness,
 			resources.AccountBusiness,
 			resources.TransactionBusiness,
-			s.AuthzMiddleware,
 		)
 
 		// Create HTTP test server with connect handler and inject test claims

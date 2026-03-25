@@ -40,11 +40,10 @@ type ServiceResources struct {
 
 type BaseTestSuite struct {
 	frametests.FrameBaseTestSuite
-	AuthzMiddleware authz.Middleware
-	ctx             context.Context
-	resources       *ServiceResources
-	ketoReadURI     string
-	ketoWriteURI    string
+	ctx          context.Context
+	resources    *ServiceResources
+	ketoReadURI  string
+	ketoWriteURI string
 }
 
 // ServiceResources returns the shared service dependencies for the test suite.
@@ -126,9 +125,6 @@ func (bs *BaseTestSuite) CreateService(
 			frame.WithDatastore(), frametests.WithNoopDriver()}, frameOpts...)
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frameOpts...)
-
-	sm := svc.SecurityManager()
-	bs.AuthzMiddleware = authz.NewMiddleware(sm.GetAuthorizer(ctx))
 
 	dbManager := svc.DatastoreManager()
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)

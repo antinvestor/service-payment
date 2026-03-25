@@ -2,6 +2,15 @@ package authz
 
 import "github.com/pitabwire/frame/security"
 
+const (
+	NamespacePayment       = "service_payment"
+	NamespaceTenancyAccess = "tenancy_access"
+	NamespaceProfile       = "profile_user"
+
+	RoleMember  = "member"
+	RoleService = "service"
+)
+
 // BuildAccessTuple creates a tenancy_access#member tuple for a user.
 func BuildAccessTuple(tenancyPath, profileID string) security.RelationTuple {
 	return security.RelationTuple{

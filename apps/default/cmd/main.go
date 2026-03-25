@@ -7,9 +7,11 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
 	apis "github.com/antinvestor/apis/go/common"
+	"github.com/antinvestor/apis/go/common/permissions"
 	"github.com/antinvestor/apis/go/ledger"
 	"github.com/antinvestor/apis/go/partition"
 	paymentv1 "github.com/antinvestor/apis/go/payment/v1"
@@ -199,22 +201,25 @@ func setupConnectServer(
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	partitionCli partitionv1connect.PartitionServiceClient,
 ) http.Handler {
+	auth := securityMan.GetAuthorizer(ctx)
+
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
-	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(
-		securityMan.GetAuthorizer(ctx), authz.NamespaceTenancyAccess)
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess)
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
+	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
+	sd := paymentpbv1.File_payment_v1_payment_proto.Services().ByName("PaymentService")
+	procMap := permissions.BuildProcedureMap(sd)
+	functionChecker := authorizer.NewFunctionChecker(auth, "service_payment")
+	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
+
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
-		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor)
+		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor, functionAccessInterceptor)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
-	// Layer 2: Functional permissions middleware (service_payment).
-	authzMiddleware := authz.NewMiddleware(securityMan.GetAuthorizer(ctx))
-
 	implementation := handlers.NewPaymentServer(
-		authzMiddleware,
 		paymentBusiness,
 		profileCli,
 		ledgerCli,

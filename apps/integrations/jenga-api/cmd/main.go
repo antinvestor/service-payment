@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	apis "github.com/antinvestor/apis/go/common"
-	"github.com/antinvestor/apis/go/payment"
+	apis "github.com/antinvestor/common"
+	"github.com/antinvestor/common/connection"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventscallback"
@@ -113,11 +113,11 @@ func setupPaymentClient(
 	ctx context.Context,
 	cfg aconfig.JengaConfig,
 ) paymentv1connect.PaymentServiceClient {
-	ledgerCli, err := payment.NewClient(ctx, &cfg, apis.ServiceTarget{
+	ledgerCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PaymentServiceURI,
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_payment"},
-	})
+	}, paymentv1connect.NewPaymentServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
 	}

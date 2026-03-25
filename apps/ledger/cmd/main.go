@@ -10,7 +10,7 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
 	"connectrpc.com/connect"
-	"github.com/antinvestor/apis/go/common/permissions"
+	"github.com/antinvestor/common/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"

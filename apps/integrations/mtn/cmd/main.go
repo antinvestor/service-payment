@@ -5,9 +5,8 @@ import (
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
-	apis "github.com/antinvestor/apis/go/common"
-	"github.com/antinvestor/apis/go/payment"
-	"github.com/antinvestor/apis/go/settings"
+	apis "github.com/antinvestor/common"
+	"github.com/antinvestor/common/connection"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/handlers"
@@ -73,20 +72,20 @@ func setupPaymentClient(
 	ctx context.Context,
 	cfg aconfig.MtnConfig,
 ) (paymentv1connect.PaymentServiceClient, error) {
-	return payment.NewClient(ctx, &cfg, apis.ServiceTarget{
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PaymentServiceURI,
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_payment"},
-	})
+	}, paymentv1connect.NewPaymentServiceClient)
 }
 
 func setupSettingsClient(
 	ctx context.Context,
 	cfg aconfig.MtnConfig,
 ) (settingsv1connect.SettingsServiceClient, error) {
-	return settings.NewClient(ctx, &cfg, apis.ServiceTarget{
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.SettingsServiceURI,
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_setting"},
-	})
+	}, settingsv1connect.NewSettingsServiceClient)
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"net/http"
 
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
@@ -10,12 +11,9 @@ import (
 	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
-	apis "github.com/antinvestor/apis/go/common"
-	"github.com/antinvestor/apis/go/common/permissions"
-	"github.com/antinvestor/apis/go/ledger"
-	"github.com/antinvestor/apis/go/partition"
-	paymentv1 "github.com/antinvestor/apis/go/payment/v1"
-	"github.com/antinvestor/apis/go/profile"
+	apis "github.com/antinvestor/common"
+	"github.com/antinvestor/common/connection"
+	"github.com/antinvestor/common/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/default/config"
 	"github.com/antinvestor/service-payments/apps/default/service/authz"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
@@ -30,6 +28,9 @@ import (
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/util"
 )
+
+//go:embed spec/payment.openapi.yaml
+var paymentAPISpecFile []byte
 
 func main() {
 	ctx := context.Background()
@@ -149,11 +150,11 @@ func setupProfileClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) profilev1connect.ProfileServiceClient {
-	profileCli, err := profile.NewClient(ctx, &cfg, apis.ServiceTarget{
+	profileCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.ProfileServiceURI,
 		WorkloadAPITargetPath: cfg.ProfileServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_profile"},
-	})
+	}, profilev1connect.NewProfileServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup profile client")
 	}
@@ -165,11 +166,11 @@ func setupLedgerClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) ledgerv1connect.LedgerServiceClient {
-	ledgerCli, err := ledger.NewClient(ctx, &cfg, apis.ServiceTarget{
+	ledgerCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.LedgerServiceURI,
 		WorkloadAPITargetPath: cfg.LedgerServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_ledger"},
-	})
+	}, ledgerv1connect.NewLedgerServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
 	}
@@ -181,11 +182,11 @@ func setupPartitionClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
 ) partitionv1connect.PartitionServiceClient {
-	partitionCli, err := partition.NewClient(ctx, &cfg, apis.ServiceTarget{
+	partitionCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PartitionServiceURI,
 		WorkloadAPITargetPath: cfg.PartitionServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_tenancy"},
-	})
+	}, partitionv1connect.NewPartitionServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")
 	}
@@ -231,7 +232,7 @@ func setupConnectServer(
 
 	mux := http.NewServeMux()
 	mux.Handle("/", serverHandler)
-	mux.Handle("/openapi.yaml", apis.NewOpenAPIHandler(paymentv1.ApiSpecFile, nil))
+	mux.Handle("/openapi.yaml", apis.NewOpenAPIHandler(paymentAPISpecFile, nil))
 
 	return mux
 }

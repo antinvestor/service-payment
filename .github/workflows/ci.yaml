@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
 jobs:
-  ci:
-    uses: antinvestor/common/.github/workflows/service-ci.yaml@main
-    with:
-      app_dirs: "apps/default apps/billing apps/ledger apps/integrations/airtel apps/integrations/jenga-api apps/integrations/mpesa apps/integrations/mtn apps/integrations/polar apps/integrations/stripe"
+  test:
+    uses: antinvestor/common/.github/workflows/go-test.yml@main
+  lint:
+    uses: antinvestor/common/.github/workflows/golangci-lint.yml@main

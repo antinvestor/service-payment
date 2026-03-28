@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.0
-	github.com/pitabwire/frame v1.86.0
+	github.com/pitabwire/frame v1.87.0
 	github.com/pitabwire/util v0.7.0
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/money v0.7.1

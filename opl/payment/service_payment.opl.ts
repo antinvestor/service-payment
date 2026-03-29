@@ -18,10 +18,9 @@ class service_payment implements Namespace {
     member: profile_user[]
     service: (profile_user | tenancy_access)[]
 
-    // Direct permission grants (prefixed with granted_ to avoid conflicts with permits)
     granted_payment_send: (profile_user | service_payment)[]
     granted_payment_receive: (profile_user | service_payment)[]
-    granted_payments_search: (profile_user | service_payment)[]
+    granted_payment_search: (profile_user | service_payment)[]
     granted_payment_status_view: (profile_user | service_payment)[]
     granted_payment_status_update: (profile_user | service_payment)[]
     granted_payment_release: (profile_user | service_payment)[]
@@ -32,68 +31,68 @@ class service_payment implements Namespace {
 
   permits = {
     payment_send: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_send.includes(ctx.subject),
 
     payment_receive: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_receive.includes(ctx.subject),
 
-    payments_search: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
+    payment_search: (ctx: Context): boolean =>
       this.related.admin.includes(ctx.subject) ||
-      this.related.operator.includes(ctx.subject) ||
-      this.related.viewer.includes(ctx.subject) ||
       this.related.member.includes(ctx.subject) ||
-      this.related.granted_payments_search.includes(ctx.subject),
+      this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
+      this.related.viewer.includes(ctx.subject) ||
+      this.related.granted_payment_search.includes(ctx.subject),
 
     payment_status_view: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
-      this.related.operator.includes(ctx.subject) ||
-      this.related.viewer.includes(ctx.subject) ||
       this.related.member.includes(ctx.subject) ||
+      this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
+      this.related.viewer.includes(ctx.subject) ||
       this.related.granted_payment_status_view.includes(ctx.subject),
 
     payment_status_update: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_status_update.includes(ctx.subject),
 
     payment_release: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_release.includes(ctx.subject),
 
     prompt_initiate: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_prompt_initiate.includes(ctx.subject),
 
     payment_link_create: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
       this.related.operator.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_link_create.includes(ctx.subject),
 
     reconcile: (ctx: Context): boolean =>
-      this.related.service.includes(ctx.subject) ||
-      this.related.owner.includes(ctx.subject) ||
       this.related.admin.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
       this.related.granted_reconcile.includes(ctx.subject),
   }
 }

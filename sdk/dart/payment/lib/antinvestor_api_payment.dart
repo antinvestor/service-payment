@@ -13,7 +13,7 @@ export 'src/v1/payment.connect.spec.dart';
 // Ledger service
 export 'src/v1/ledger.pb.dart' hide Account;
 export 'src/v1/ledger.pbenum.dart';
-export 'src/v1/ledger.pbjson.dart' hide Account$json;
+export 'src/v1/ledger.pbjson.dart' hide Account$json, accountDescriptor;
 export 'src/v1/ledger.connect.client.dart';
 export 'src/v1/ledger.connect.spec.dart';
 

@@ -211,7 +211,7 @@ func setupConnectServer(
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
 	sd := paymentpbv1.File_payment_v1_payment_proto.Services().ByName("PaymentService")
 	procMap := permissions.BuildProcedureMap(sd)
-	functionChecker := authorizer.NewFunctionChecker(auth, "service_payment")
+	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
 
 	defaultInterceptorList, err := connectInterceptors.DefaultList(

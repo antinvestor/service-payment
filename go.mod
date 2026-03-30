@@ -6,9 +6,10 @@ toolchain go1.26.1
 
 require (
 	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260324161332-d0a9b7014ead.2
+	buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.10-20260324161332-d0a9b7014ead.1
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260325040325-9771112f2289.1
 	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20260219061847-e0e18ead5e6b.2
-	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20260324161144-47104ea3f3d7.2
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.10-20260219061847-e0e18ead5e6b.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20260330075109-319b4e3fd9dd.2
 	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260330075109-d1271ebf7d84.2
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260324161250-0e292d0a2261.1

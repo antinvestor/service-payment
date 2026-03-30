@@ -11,9 +11,9 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
-	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
@@ -32,7 +32,7 @@ func NewPaymentBusiness(
 	workMan workerpool.Manager,
 	eventMan fevents.Manager,
 	profileCli profilev1connect.ProfileServiceClient,
-	partitionCli partitionv1connect.PartitionServiceClient,
+	tenancyCli tenancyv1connect.TenancyServiceClient,
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	paymentRepo repository.PaymentRepository,
 	statusRepo repository.StatusRepository,
@@ -44,7 +44,7 @@ func NewPaymentBusiness(
 	return &paymentBusiness{
 		eventMan:        eventMan,
 		profileCli:      profileCli,
-		partitionCli:    partitionCli,
+		tenancyCli:      tenancyCli,
 		ledgerCli:       ledgerCli,
 		paymentRepo:     paymentRepo,
 		statusRepo:      statusRepo,
@@ -60,7 +60,7 @@ type paymentBusiness struct {
 	qMan            queue.Manager
 	eventMan        fevents.Manager
 	profileCli      profilev1connect.ProfileServiceClient
-	partitionCli    partitionv1connect.PartitionServiceClient
+	tenancyCli      tenancyv1connect.TenancyServiceClient
 	ledgerCli       ledgerv1connect.LedgerServiceClient
 	paymentRepo     repository.PaymentRepository
 	statusRepo      repository.StatusRepository

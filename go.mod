@@ -10,12 +10,12 @@ require (
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260325040325-9771112f2289.1
 	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20260219061847-e0e18ead5e6b.2
 	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260324161003-ddbe06cec7a0.1
-	buf.build/gen/go/antinvestor/partition/connectrpc/go v1.19.1-20260324161119-1d8321d2c242.2
 	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20260324161144-47104ea3f3d7.2
 	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260324161144-47104ea3f3d7.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20260324161209-9468cfa0f32b.2
 	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260324161250-0e292d0a2261.2
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260324161250-0e292d0a2261.1
+	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.19.1-20260330064539-b81b51773e97.2
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/common v1.3.0
@@ -39,8 +39,8 @@ require (
 )
 
 require (
-	buf.build/gen/go/antinvestor/partition/protocolbuffers/go v1.36.11-20260321071111-e3ff42086d9d.1 // indirect
 	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260219062039-499f582dea7e.1 // indirect
+	buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go v1.36.11-20260330064539-b81b51773e97.1 // indirect
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.1.3 // indirect

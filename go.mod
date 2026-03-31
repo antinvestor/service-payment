@@ -16,8 +16,8 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/lib/pq v1.12.0
-	github.com/pitabwire/frame v1.92.0
+	github.com/lib/pq v1.12.1
+	github.com/pitabwire/frame v1.92.2
 	github.com/pitabwire/util v0.7.0
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/money v0.7.1

@@ -106,7 +106,7 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 		return
 	}
 
-	logger.WithField("trans_id", req.TransID).WithField("msisdn", req.MSISDN).Debug("C2B validation received")
+	logger.WithFields(map[string]any{"trans_id": req.TransID, "msisdn": req.MSISDN}).Debug("C2B validation received")
 
 	// Accept the transaction
 	w.Header().Set("Content-Type", "application/json")

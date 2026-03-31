@@ -113,8 +113,8 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 	if !ok {
 		return errors.New("invalid payload type, expected *models.PaymentLink")
 	}
-	logger := util.Log(ctx).WithField("paymentLinkId", paymentLink.ID)
-	logger.Info("Processing create.payment_link event")
+	logger := util.Log(ctx).WithField("payment_link_id", paymentLink.ID)
+	logger.Debug("processing create.payment_link event")
 
 	requestBody, err := h.prepareRequest(paymentLink)
 	if err != nil {
@@ -188,13 +188,7 @@ func (h *CreatePaymentLink) getErrorResponse(err error, response *models.Payment
 
 func (h *CreatePaymentLink) logResponse(response *models.PaymentLinkResponse) {
 	logger := util.Log(context.Background())
-	dataJSON, err := json.Marshal(response.Data)
-	if err != nil {
-		logger.WithError(err).Error("failed to marshal payment link data")
-	} else {
-		logger.WithField("paymentLinkData", string(dataJSON)).Info("Payment link data")
-	}
-	logger.WithField("response", response).Info("Payment link creation response received")
+	logger.Debug("payment link creation response received")
 }
 
 func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err error) error {

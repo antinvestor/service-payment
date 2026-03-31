@@ -66,7 +66,7 @@ func (event *PaymentOutRoute) Execute(ctx context.Context, payload any) error {
 	}
 	paymentID := *paymentPtr
 
-	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{"payment_id": paymentID, "type": event.Name()})
 	logger.Debug("handling event")
 
 	p, err := event.paymentRepo.GetByID(ctx, paymentID)

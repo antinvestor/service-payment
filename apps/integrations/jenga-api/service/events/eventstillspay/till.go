@@ -65,8 +65,8 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type")
 	}
 
-	logger := util.Log(ctx).WithField("type", event.Name()).WithField("TillsPayRequest", request)
-	logger.WithField("request", request).Debug("processing tills pay")
+	logger := util.Log(ctx).WithFields(map[string]any{"type": event.Name(), "payment_ref": request.Payment.Ref})
+	logger.Debug("processing tills pay")
 
 	// Generate bearer token for authorization
 	token, err := event.client.GenerateBearerToken()
@@ -74,15 +74,14 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 		logger.WithError(err).Error("failed to generate bearer token")
 		return err
 	}
-	logger.WithField("token", token.AccessToken).Info("generated token for tills pay")
 
 	// Initiate the tills/pay API call
-	resp, err := event.client.InitiateTillsPay(*request, token.AccessToken)
+	_, err = event.client.InitiateTillsPay(*request, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("failed to initiate tills pay")
 		return err
 	}
-	logger.WithField("response", resp).Info("tills pay response")
+	logger.Debug("tills pay completed")
 
 	return nil
 }

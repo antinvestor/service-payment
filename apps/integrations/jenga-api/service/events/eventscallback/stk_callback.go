@@ -67,7 +67,8 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 		"additional_info": string(callbackJSON),
 	}
 
-	logger.WithField("callback", callback).Info("Received Jenga STK callback")
+	logger = logger.WithField("transaction_ref", callback.Transaction)
+	logger.Debug("received Jenga STK callback")
 
 	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
 	amount := utilmoney.ToMoney(callback.Currency, amtDec)

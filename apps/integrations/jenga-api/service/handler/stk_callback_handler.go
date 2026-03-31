@@ -38,15 +38,11 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log the callback for debugging
-	logger.WithField("callback", callback).Info("received callback")
-
-	// Add additional information to the callback context for logging
-	logger = logger.
-		WithField("transaction_ref", callback.Transaction).
-		WithField("telco_ref", callback.Telco).
-		WithField("status", callback.Status).
-		WithField("mobile_number", callback.MobileNumber)
+	logger = logger.WithFields(map[string]any{
+		"transaction_ref": callback.Transaction,
+		"status":          callback.Status,
+	})
+	logger.Debug("received STK callback")
 
 	// Process the callback synchronously using the request's context
 	err := js.eventMan.Emit(ctx, "jenga.callback.receive.payment", &callback)
@@ -56,7 +52,7 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Callback processed successfully")
+	logger.Debug("callback processed successfully")
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)

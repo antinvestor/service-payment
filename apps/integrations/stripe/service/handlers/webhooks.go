@@ -64,7 +64,7 @@ func (s *StripeWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	logger = logger.WithField("event_type", event.Type).WithField("event_id", event.ID)
+	logger = logger.WithFields(map[string]any{"event_type": event.Type, "event_id": event.ID})
 	logger.Debug("processing Stripe webhook event")
 
 	var statusErr error

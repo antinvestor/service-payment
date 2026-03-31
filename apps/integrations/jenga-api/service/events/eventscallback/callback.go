@@ -59,7 +59,8 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		return errors.New("invalid payload type")
 	}
 
-	logger.WithField("callback", req).Info("Received Jenga callback for payment processing")
+	logger = logger.WithField("transaction_ref", req.Transaction.Reference)
+	logger.Debug("received Jenga callback for payment processing")
 
 	callbackJSON, err := json.Marshal(req)
 	if err != nil {

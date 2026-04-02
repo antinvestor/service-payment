@@ -117,7 +117,7 @@ func setupConnectServer(
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
 	sd := ledgerpbv1.File_ledger_v1_ledger_proto.Services().ByName("LedgerService")
 	procMap := permissions.BuildProcedureMap(sd)
-	functionChecker := authorizer.NewFunctionChecker(auth, "service_ledger")
+	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
 
 	defaultInterceptorList, err := connectInterceptors.DefaultList(

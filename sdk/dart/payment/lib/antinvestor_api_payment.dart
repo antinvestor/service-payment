@@ -3,6 +3,8 @@
 /// Provides Payment service functionality using Connect RPC protocol.
 library;
 
+export 'src/client.dart';
+
 // Payment service
 export 'src/v1/payment.pb.dart';
 export 'src/v1/payment.pbenum.dart';

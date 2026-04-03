@@ -3,6 +3,7 @@
 /// Provides Ledger service functionality using Connect RPC protocol.
 library;
 
+export 'src/client.dart';
 export 'src/v1/ledger.connect.client.dart';
 export 'src/v1/ledger.connect.spec.dart';
 export 'src/v1/ledger.pb.dart';

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/money"

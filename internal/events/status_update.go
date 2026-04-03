@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/pitabwire/util"
 )

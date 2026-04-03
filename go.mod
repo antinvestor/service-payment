@@ -5,7 +5,13 @@ go 1.26
 toolchain go1.26.1
 
 require (
+	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.1-20260329102121-237cbb4b83da.2
+	buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260329102121-237cbb4b83da.1
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260325040325-9771112f2289.1
+	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.1-20260329102121-402b2e01be6f.2
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260329102121-402b2e01be6f.1
+	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.1-20260329102121-be3a38195953.2
+	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260329102121-be3a38195953.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.1-20260330075109-319b4e3fd9dd.2
 	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.1-20260402103759-84a057273744.2
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260402103759-84a057273744.1
@@ -13,10 +19,10 @@ require (
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/common v1.4.2
-	github.com/moby/moby/api v1.54.1-0.20260401134807-948d5691a093
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.2
+	github.com/moby/moby/api v1.54.1-0.20260401134807-948d5691a093
 	github.com/pitabwire/frame v1.93.4
 	github.com/pitabwire/util v0.8.0
 	github.com/pitabwire/util/decimalx v0.7.1

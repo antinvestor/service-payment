@@ -7,8 +7,8 @@ import (
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
 
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/common/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
@@ -115,7 +115,7 @@ func setupConnectServer(
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
-	sd := ledgerpbv1.File_ledger_v1_ledger_proto.Services().ByName("LedgerService")
+	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
 	procMap := permissions.BuildProcedureMap(sd)
 	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)

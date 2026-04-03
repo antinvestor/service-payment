@@ -4,9 +4,9 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"

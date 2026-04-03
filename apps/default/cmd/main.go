@@ -5,9 +5,9 @@ import (
 	_ "embed"
 	"net/http"
 
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
@@ -209,7 +209,7 @@ func setupConnectServer(
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
-	sd := paymentpbv1.File_payment_v1_payment_proto.Services().ByName("PaymentService")
+	sd := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
 	procMap := permissions.BuildProcedureMap(sd)
 	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)

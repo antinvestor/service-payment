@@ -10,7 +10,7 @@ package business_test
 
 // 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 // 	tenancyv1 "buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go/tenancy/v1"
-// 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+// 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 // 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 
 // 	money "google.golang.org/genproto/googleapis/type/money"

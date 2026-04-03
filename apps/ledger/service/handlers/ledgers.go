@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/internal/apperrors"

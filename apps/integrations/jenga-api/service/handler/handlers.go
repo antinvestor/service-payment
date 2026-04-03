@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"

@@ -76,7 +76,10 @@ func (c *polarClient) CreateCheckout(
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{"status": resp.StatusCode, "response": string(respBody)}).Debug("checkout response")
+	logger.WithFields(map[string]any{
+		"status":   resp.StatusCode,
+		"response": string(respBody),
+	}).Debug("checkout response")
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("checkout creation failed with status %d: %s", resp.StatusCode, string(respBody))

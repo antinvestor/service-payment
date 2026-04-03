@@ -132,7 +132,10 @@ func (c *client) doAuthenticatedPost(
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{"status": resp.StatusCode, "response": string(respBody)}).Debug(logType + " response")
+	logger.WithFields(map[string]any{
+		"status":   resp.StatusCode,
+		"response": string(respBody),
+	}).Debug(logType + " response")
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s failed with status %d: %s", logType, resp.StatusCode, string(respBody))

@@ -155,7 +155,10 @@ func (c *airtelClient) CollectionPush(
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{"status": resp.StatusCode, "response": string(respBody)}).Debug("collection response")
+	logger.WithFields(map[string]any{
+		"status":   resp.StatusCode,
+		"response": string(respBody),
+	}).Debug("collection response")
 
 	var collResp CollectionResponse
 	if err = json.Unmarshal(respBody, &collResp); err != nil {
@@ -218,7 +221,10 @@ func (c *airtelClient) Disburse(
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{"status": resp.StatusCode, "response": string(respBody)}).Debug("disbursement response")
+	logger.WithFields(map[string]any{
+		"status":   resp.StatusCode,
+		"response": string(respBody),
+	}).Debug("disbursement response")
 
 	var disbResp DisbursementResponse
 	if err = json.Unmarshal(respBody, &disbResp); err != nil {

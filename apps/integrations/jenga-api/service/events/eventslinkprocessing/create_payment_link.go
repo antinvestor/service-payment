@@ -186,7 +186,7 @@ func (h *CreatePaymentLink) getErrorResponse(err error, response *models.Payment
 	return fmt.Sprintf("API call failed with status: %v, message: %s", response.Status, response.Message)
 }
 
-func (h *CreatePaymentLink) logResponse(response *models.PaymentLinkResponse) {
+func (h *CreatePaymentLink) logResponse(_ *models.PaymentLinkResponse) {
 	logger := util.Log(context.Background())
 	logger.Debug("payment link creation response received")
 }

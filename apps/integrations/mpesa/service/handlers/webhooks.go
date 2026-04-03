@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 	"github.com/pitabwire/frame/data"
@@ -106,7 +106,7 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 		return
 	}
 
-	logger.WithField("trans_id", req.TransID).WithField("msisdn", req.MSISDN).Debug("C2B validation received")
+	logger.WithFields(map[string]any{"trans_id": req.TransID, "msisdn": req.MSISDN}).Debug("C2B validation received")
 
 	// Accept the transaction
 	w.Header().Set("Content-Type", "application/json")

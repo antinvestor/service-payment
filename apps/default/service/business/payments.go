@@ -9,11 +9,11 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
-	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
@@ -32,7 +32,7 @@ func NewPaymentBusiness(
 	workMan workerpool.Manager,
 	eventMan fevents.Manager,
 	profileCli profilev1connect.ProfileServiceClient,
-	partitionCli partitionv1connect.PartitionServiceClient,
+	tenancyCli tenancyv1connect.TenancyServiceClient,
 	ledgerCli ledgerv1connect.LedgerServiceClient,
 	paymentRepo repository.PaymentRepository,
 	statusRepo repository.StatusRepository,
@@ -44,7 +44,7 @@ func NewPaymentBusiness(
 	return &paymentBusiness{
 		eventMan:        eventMan,
 		profileCli:      profileCli,
-		partitionCli:    partitionCli,
+		tenancyCli:      tenancyCli,
 		ledgerCli:       ledgerCli,
 		paymentRepo:     paymentRepo,
 		statusRepo:      statusRepo,
@@ -60,7 +60,7 @@ type paymentBusiness struct {
 	qMan            queue.Manager
 	eventMan        fevents.Manager
 	profileCli      profilev1connect.ProfileServiceClient
-	partitionCli    partitionv1connect.PartitionServiceClient
+	tenancyCli      tenancyv1connect.TenancyServiceClient
 	ledgerCli       ledgerv1connect.LedgerServiceClient
 	paymentRepo     repository.PaymentRepository
 	statusRepo      repository.StatusRepository
@@ -163,8 +163,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 }
 
 func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", message)
-	logger.Info("handling receive request")
+	logger := util.Log(ctx)
+	logger.Debug("handling receive request")
 
 	p := &models.Payment{
 		SenderProfileType:    message.GetSource().GetProfileType(),
@@ -257,8 +257,8 @@ func (pb *paymentBusiness) Status(
 	ctx context.Context,
 	statusReq *commonv1.StatusRequest,
 ) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", statusReq)
-	logger.Info("handling status check request")
+	logger := util.Log(ctx).WithField("entity_id", statusReq.GetId())
+	logger.Debug("handling status check request")
 
 	var extras data.JSONMap
 	extras = extras.FromProtoStruct(statusReq.GetExtras())
@@ -266,7 +266,6 @@ func (pb *paymentBusiness) Status(
 
 	status, err := pb.statusRepo.GetByEntity(ctx, statusReq.GetId(), entityType)
 	if err != nil {
-		logger.WithError(err).Error("could not get status")
 		return nil, err
 	}
 	return status.ToAPI(), nil
@@ -276,15 +275,14 @@ func (pb *paymentBusiness) StatusUpdate(
 	ctx context.Context,
 	req *commonv1.StatusUpdateRequest,
 ) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", req)
-	logger.Info("handling unified status update request")
+	logger := util.Log(ctx).WithField("entity_id", req.GetId())
+	logger.Debug("handling status update request")
 
 	var extras data.JSONMap
 	extras = extras.FromProtoStruct(req.GetExtras())
 
 	entityType := extras.GetString("entity_type")
 	if entityType == "" {
-		logger.Error("entity_type must be provided in extras for status update")
 		return nil, errors.New("entity_type must be provided in extras for status update")
 	}
 
@@ -337,7 +335,7 @@ func (pb *paymentBusiness) Search(
 	ctx context.Context,
 	searchQuery *commonv1.SearchRequest,
 ) (workerpool.JobResultPipe[[]*paymentv1.Payment], error) {
-	logger := util.Log(ctx).WithField("request", searchQuery)
+	logger := util.Log(ctx)
 	logger.Debug("handling payment search request")
 
 	cursor := searchQuery.GetCursor()
@@ -372,7 +370,6 @@ func (pb *paymentBusiness) Search(
 	query := data.NewSearchQuery(searchOpts...)
 	results, err := pb.paymentRepo.Search(ctx, query)
 	if err != nil {
-		logger.WithError(err).Error("failed to search payments")
 		return nil, err
 	}
 
@@ -411,7 +408,7 @@ func (pb *paymentBusiness) Release(
 	ctx context.Context,
 	paymentReq *paymentv1.ReleaseRequest,
 ) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", paymentReq)
+	logger := util.Log(ctx).WithField("payment_id", paymentReq.GetId())
 	logger.Debug("handling release request")
 
 	p, err := pb.paymentRepo.GetByID(ctx, paymentReq.GetId())
@@ -460,8 +457,8 @@ func (pb *paymentBusiness) InitiatePrompt(
 	ctx context.Context,
 	req *paymentv1.InitiatePromptRequest,
 ) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", req)
-	logger.Info("handling initiate prompt request")
+	logger := util.Log(ctx)
+	logger.Debug("handling initiate prompt request")
 
 	// Build Account from request
 	account := models.Account{
@@ -517,7 +514,8 @@ func (pb *paymentBusiness) InitiatePrompt(
 		p.ID = p.GetID()
 	}
 
-	logger.WithField("promptId", p.ID).Info("Prompt ID set")
+	logger = logger.WithField("prompt_id", p.ID)
+	logger.Debug("prompt ID set")
 
 	p.Extra["transaction_ref"] = transactionRef
 	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()
@@ -530,7 +528,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		return nil, err
 	}
 
-	logger.WithField("promptId", p.ID).Info("Prompt saved and event emitted for STK/USSD processing")
+	logger.Debug("prompt saved and event emitted for STK/USSD processing")
 
 	// Create status using repository
 	status := &models.Status{
@@ -563,8 +561,8 @@ func (pb *paymentBusiness) CreatePaymentLink(
 	ctx context.Context,
 	req *paymentv1.CreatePaymentLinkRequest,
 ) (*commonv1.StatusResponse, error) {
-	logger := util.Log(ctx).WithField("request", req)
-	logger.Info("handling create payment link request")
+	logger := util.Log(ctx)
+	logger.Debug("handling create payment link request")
 
 	// Validate required fields
 	if req == nil || req.GetPaymentLink() == nil {
@@ -746,11 +744,9 @@ func (pb *paymentBusiness) createDepositStep1(
 	// ensure accounts exist
 	ledgerRef := "main_ledger" // adjust if you have ledger identifiers
 	if err := pb.ensureLedgerAccount(ctx, mobileOpRef, ledgerRef, "mobile_operator"); err != nil {
-		logger.WithError(err).Error("ensure mobile operator account")
 		return err
 	}
 	if err := pb.ensureLedgerAccount(ctx, unidentifiedRef, ledgerRef, "suspense"); err != nil {
-		logger.WithError(err).Error("ensure unidentified deposits account")
 		return err
 	}
 
@@ -808,7 +804,7 @@ func (pb *paymentBusiness) createDepositStep1(
 		logger.WithError(err).Error("failed to create deposit step1 transaction")
 		return err
 	}
-	logger.Info("created deposit step1 transaction (MobileOperator -> UnidentifiedDeposits)")
+	logger.Debug("created deposit step1 transaction")
 	return nil
 }
 
@@ -838,7 +834,6 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 	var accounts []*ledgerv1.Account
 	for accountStream.Receive() {
 		if accountStream.Err() != nil {
-			logger.WithError(accountStream.Err()).Error("failed to receive account")
 			return accountStream.Err()
 		}
 
@@ -846,7 +841,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 	}
 
 	if len(accounts) > 0 {
-		logger.Info("account already exists")
+		logger.Debug("account already exists")
 		return nil
 	}
 
@@ -869,7 +864,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 		return err
 	}
 
-	logger.Info("successfully created ledger account")
+	logger.Debug("successfully created ledger account")
 	return nil
 }
 

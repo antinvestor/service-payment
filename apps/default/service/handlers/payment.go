@@ -4,11 +4,11 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
 )
@@ -19,7 +19,7 @@ type PaymentServer struct {
 	PaymentBusiness business.PaymentBusiness
 	ProfileCli      profilev1connect.ProfileServiceClient
 	LedgerCli       ledgerv1connect.LedgerServiceClient
-	PartitionCli    partitionv1connect.PartitionServiceClient
+	TenancyCli      tenancyv1connect.TenancyServiceClient
 }
 
 // NewPaymentServer creates a new PaymentServer with the required dependencies.
@@ -27,12 +27,12 @@ func NewPaymentServer(
 	paymentBusiness business.PaymentBusiness,
 	profileCli profilev1connect.ProfileServiceClient,
 	ledgerCli ledgerv1connect.LedgerServiceClient,
-	partitionCli partitionv1connect.PartitionServiceClient,
+	tenancyCli tenancyv1connect.TenancyServiceClient,
 ) *PaymentServer {
 	return &PaymentServer{
 		PaymentBusiness: paymentBusiness,
 		ProfileCli:      profileCli,
-		PartitionCli:    partitionCli,
+		TenancyCli:      tenancyCli,
 		LedgerCli:       ledgerCli,
 	}
 }

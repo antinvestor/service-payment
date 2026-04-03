@@ -7,7 +7,7 @@ import (
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
 
-	"buf.build/gen/go/antinvestor/billing/connectrpc/go/billing/v1/billingv1connect"
+	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"

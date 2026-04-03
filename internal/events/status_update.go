@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/pitabwire/util"
 )
@@ -49,7 +49,7 @@ func (e *PaymentStatusUpdate) Validate(_ context.Context, payload any) error {
 func (e *PaymentStatusUpdate) Execute(ctx context.Context, payload any) error {
 	statusUpdateRequest, _ := payload.(*commonv1.StatusUpdateRequest)
 
-	logger := util.Log(ctx).WithField("type", e.Name()).WithField("payment_id", statusUpdateRequest.GetId())
+	logger := util.Log(ctx).WithFields(map[string]any{"type": e.Name(), "payment_id": statusUpdateRequest.GetId()})
 	defer logger.Release()
 
 	logger.Debug("event handler started")

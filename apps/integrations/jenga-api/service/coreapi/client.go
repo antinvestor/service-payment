@@ -261,8 +261,7 @@ func (c *Client) InitiateTillsPay(
 		request.Payment.Ref,
 	)
 	logger := util.Log(context.Background())
-	logger.Debug("------------------------------signature--------------------------------")
-	logger.WithField("signature", signature).Debug("generated signature")
+	logger.Debug("generated payment signature")
 	if err != nil {
 		return nil, err
 	}

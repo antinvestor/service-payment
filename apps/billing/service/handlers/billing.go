@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"buf.build/gen/go/antinvestor/billing/connectrpc/go/billing/v1/billingv1connect"
-	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/billing/v1"
+	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
+	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"

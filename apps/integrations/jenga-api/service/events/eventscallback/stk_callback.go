@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/frame/data"
@@ -67,7 +67,8 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 		"additional_info": string(callbackJSON),
 	}
 
-	logger.WithField("callback", callback).Info("Received Jenga STK callback")
+	logger = logger.WithField("transaction_ref", callback.Transaction)
+	logger.Debug("received Jenga STK callback")
 
 	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
 	amount := utilmoney.ToMoney(callback.Currency, amtDec)

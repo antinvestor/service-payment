@@ -10,3 +10,34 @@ plugins:
       - features=connectrpc;gnostic;protovalidate
       - content-types=json
       - allow-get
+
+  # Dart protobuf generation - one output per module
+  - remote: buf.build/protocolbuffers/dart:v21.1.2
+    out: ../sdk/dart/payment/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/connectrpc/dart
+    out: ../sdk/dart/payment/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/protocolbuffers/dart:v21.1.2
+    out: ../sdk/dart/ledger/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/connectrpc/dart
+    out: ../sdk/dart/ledger/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/protocolbuffers/dart:v21.1.2
+    out: ../sdk/dart/billing/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/connectrpc/dart
+    out: ../sdk/dart/billing/lib/src
+    include_imports: true
+    include_wkt: true

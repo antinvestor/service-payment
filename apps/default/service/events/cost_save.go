@@ -29,21 +29,16 @@ func (e *CostSave) PayloadType() any {
 	return &models.Cost{}
 }
 
-func (e *CostSave) Validate(ctx context.Context, payload any) error {
-	logger := util.Log(ctx).WithField("function", "CostSave.Validate")
-
+func (e *CostSave) Validate(_ context.Context, payload any) error {
 	cost, ok := payload.(*models.Cost)
 	if !ok {
-		logger.Error("Payload is not of type models.Cost")
 		return errors.New("payload is not of type models.Cost")
 	}
 
 	if cost.ID == "" {
-		logger.Error("Cost ID is not set")
 		return errors.New("cost ID should already have been set")
 	}
 
-	logger.Debug("Cost ID validation successful")
 	return nil
 }
 
@@ -53,7 +48,7 @@ func (e *CostSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Cost")
 	}
 
-	logger := util.Log(ctx).WithField("payload", cost).WithField("type", e.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{"cost_id": cost.ID, "type": e.Name()})
 	logger.Debug("handling event")
 
 	err := e.costRepo.Create(ctx, cost)

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"

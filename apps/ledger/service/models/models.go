@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/ledger/v1"
+	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/money"

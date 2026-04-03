@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/frame/data"
@@ -59,7 +59,8 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		return errors.New("invalid payload type")
 	}
 
-	logger.WithField("callback", req).Info("Received Jenga callback for payment processing")
+	logger = logger.WithField("transaction_ref", req.Transaction.Reference)
+	logger.Debug("received Jenga callback for payment processing")
 
 	callbackJSON, err := json.Marshal(req)
 	if err != nil {

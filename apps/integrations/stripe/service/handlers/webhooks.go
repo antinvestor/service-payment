@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
@@ -64,7 +64,7 @@ func (s *StripeWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	logger = logger.WithField("event_type", event.Type).WithField("event_id", event.ID)
+	logger = logger.WithFields(map[string]any{"event_type": event.Type, "event_id": event.ID})
 	logger.Debug("processing Stripe webhook event")
 
 	var statusErr error

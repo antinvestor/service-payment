@@ -5,11 +5,11 @@ import (
 	_ "embed"
 	"net/http"
 
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/ledger/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/partition/connectrpc/go/partition/v1/partitionv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
-	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	apis "github.com/antinvestor/common"
 	"github.com/antinvestor/common/connection"
@@ -72,7 +72,7 @@ func main() {
 	// Setup clients
 	profileCli := setupProfileClient(ctx, cfg)
 	ledgerCli := setupLedgerClient(ctx, cfg)
-	partitionCli := setupPartitionClient(ctx, cfg)
+	tenancyCli := setupTenancyClient(ctx, cfg)
 
 	// Initialize repositories
 	paymentRepo := repository.NewPaymentRepository(ctx, dbPool, workMan)
@@ -85,7 +85,7 @@ func main() {
 
 	// Initialize business layer
 	paymentBusiness, err := business.NewPaymentBusiness(
-		ctx, workMan, evtsMan, profileCli, partitionCli, ledgerCli,
+		ctx, workMan, evtsMan, profileCli, tenancyCli, ledgerCli,
 		paymentRepo, statusRepo, costRepo, accountRepo, promptRepo, paymentLinkRepo,
 	)
 	if err != nil {
@@ -93,7 +93,7 @@ func main() {
 	}
 
 	// Setup Connect server
-	connectHandler := setupConnectServer(ctx, sm, paymentBusiness, profileCli, ledgerCli, partitionCli)
+	connectHandler := setupConnectServer(ctx, sm, paymentBusiness, profileCli, ledgerCli, tenancyCli)
 
 	// Setup HTTP handlers
 	serviceOptions := []frame.Option{frame.WithDatastore(), frame.WithHTTPHandler(connectHandler)}
@@ -177,20 +177,20 @@ func setupLedgerClient(
 	return ledgerCli
 }
 
-// setupPartitionClient creates and configures the partition service client.
-func setupPartitionClient(
+// setupTenancyClient creates and configures the partition service client.
+func setupTenancyClient(
 	ctx context.Context,
 	cfg aconfig.PaymentConfig,
-) partitionv1connect.PartitionServiceClient {
-	partitionCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
-		Endpoint:              cfg.PartitionServiceURI,
-		WorkloadAPITargetPath: cfg.PartitionServiceWorkloadAPITargetPath,
+) tenancyv1connect.TenancyServiceClient {
+	tenancyCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.TenancyServiceURI,
+		WorkloadAPITargetPath: cfg.TenancyServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_tenancy"},
-	}, partitionv1connect.NewPartitionServiceClient)
+	}, tenancyv1connect.NewTenancyServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")
 	}
-	return partitionCli
+	return tenancyCli
 }
 
 // setupConnectServer initializes and configures the Connect RPC server.
@@ -200,7 +200,7 @@ func setupConnectServer(
 	paymentBusiness business.PaymentBusiness,
 	profileCli profilev1connect.ProfileServiceClient,
 	ledgerCli ledgerv1connect.LedgerServiceClient,
-	partitionCli partitionv1connect.PartitionServiceClient,
+	tenancyCli tenancyv1connect.TenancyServiceClient,
 ) http.Handler {
 	auth := securityMan.GetAuthorizer(ctx)
 
@@ -209,9 +209,9 @@ func setupConnectServer(
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
-	sd := paymentpbv1.File_payment_v1_payment_proto.Services().ByName("PaymentService")
+	sd := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
 	procMap := permissions.BuildProcedureMap(sd)
-	functionChecker := authorizer.NewFunctionChecker(auth, "service_payment")
+	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
 
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
@@ -224,7 +224,7 @@ func setupConnectServer(
 		paymentBusiness,
 		profileCli,
 		ledgerCli,
-		partitionCli,
+		tenancyCli,
 	)
 
 	_, serverHandler := paymentv1connect.NewPaymentServiceHandler(

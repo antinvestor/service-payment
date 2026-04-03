@@ -185,8 +185,10 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/nats-io/jwt/v2 v2.8.0 h1:K7uzyz50+yGZDO5o772eRE7atlcSEENpL7P+b74JV1g=
 github.com/nats-io/jwt/v2 v2.8.0/go.mod h1:me11pOkwObtcBNR8AiMrUbtVOUGkqYjMQZ6jnSdVUIA=
+github.com/nats-io/jwt/v2 v2.8.1 h1:V0xpGuD/N8Mi+fQNDynXohVvp7ZztevW5io8CUWlPmU=
 github.com/nats-io/nats-server/v2 v2.12.5 h1:EOHLbsLJgUHUwzkj9gBTOlubkX+dmSs0EYWMdBiHivU=
 github.com/nats-io/nats-server/v2 v2.12.5/go.mod h1:JQDAKcwdXs0NRhvYO31dzsXkzCyDkOBS7SKU3Nozu14=
+github.com/nats-io/nats-server/v2 v2.12.6 h1:Egbx9Vl7Ch8wTtpXPGqbehkZ+IncKqShUxvrt1+Enc8=
 github.com/nats-io/nats.go v1.50.0 h1:5zAeQrTvyrKrWLJ0fu02W3br8ym57qf7csDzgLOpcds=
 github.com/nats-io/nats.go v1.50.0/go.mod h1:26HypzazeOkyO3/mqd1zZd53STJN0EjCYF9Uy2ZOBno=
 github.com/nats-io/nkeys v0.4.15 h1:JACV5jRVO9V856KOapQ7x+EY8Jo3qw1vJt/9Jpwzkk4=
@@ -205,8 +207,12 @@ github.com/panjf2000/ants/v2 v2.12.0 h1:u9JhESo83i/GkZnhfTNuFMMWcNt7mnV1bGJ6FT4w
 github.com/panjf2000/ants/v2 v2.12.0/go.mod h1:tSQuaNQ6r6NRhPt+IZVUevvDyFMTs+eS4ztZc52uJTY=
 github.com/pitabwire/frame v1.93.3 h1:N2IBX3e9fajJFk6Jc90qKnSJnMZAt6Ysh75nrQ/v/lA=
 github.com/pitabwire/frame v1.93.3/go.mod h1:lKWlNG3qWgcVpHkw+qLqdAchbTQgOM3BTYvFFHInguQ=
+github.com/pitabwire/frame v1.93.4 h1:JBmN9FElhE04kCflPsDCilib+6ZZHY9PDxIo9GzOiHQ=
+github.com/pitabwire/frame v1.93.4/go.mod h1:jeFJgAyH+Oz3NjiyHQsHhDizB+fYrYNXFGbrSfHnjuU=
 github.com/pitabwire/natspubsub v0.8.0 h1:Z3cevthjRVmGhqycGYm6KxvVIiXYNNklBi2Ig2jd8UM=
 github.com/pitabwire/natspubsub v0.8.0/go.mod h1:ytLmmd6CZ5m2ackMRDDvF5gmXHDuTG+1vcjiLRUKSgs=
+github.com/pitabwire/natspubsub v0.8.1 h1:1FjZ4wGbLWKFdH29rEErsq/B4ZL8ZsX6zyd1jLuaE1Q=
+github.com/pitabwire/natspubsub v0.8.1/go.mod h1:mAHWmEWQiq69YVgiqn6Ml4UlhFTGSJISm6byjw2GcBY=
 github.com/pitabwire/util v0.8.0 h1:LNKCTMmfurjk4ShG1peTuMFGsOAR5o5jIZ84lHNvwlU=
 github.com/pitabwire/util v0.8.0/go.mod h1:JrLiS3K4VXsLZE38LLvq1N0X2j0fs33QLz/zMXf3zc4=
 github.com/pitabwire/util/decimalx v0.7.1 h1:oXdZQC//UW0sMXhPzot3tkZqNNte4HxYECzdQmEFXN8=

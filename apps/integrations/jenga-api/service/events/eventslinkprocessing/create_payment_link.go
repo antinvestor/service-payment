@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
@@ -113,8 +113,8 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 	if !ok {
 		return errors.New("invalid payload type, expected *models.PaymentLink")
 	}
-	logger := util.Log(ctx).WithField("paymentLinkId", paymentLink.ID)
-	logger.Info("Processing create.payment_link event")
+	logger := util.Log(ctx).WithField("payment_link_id", paymentLink.ID)
+	logger.Debug("processing create.payment_link event")
 
 	requestBody, err := h.prepareRequest(paymentLink)
 	if err != nil {
@@ -186,15 +186,9 @@ func (h *CreatePaymentLink) getErrorResponse(err error, response *models.Payment
 	return fmt.Sprintf("API call failed with status: %v, message: %s", response.Status, response.Message)
 }
 
-func (h *CreatePaymentLink) logResponse(response *models.PaymentLinkResponse) {
+func (h *CreatePaymentLink) logResponse(_ *models.PaymentLinkResponse) {
 	logger := util.Log(context.Background())
-	dataJSON, err := json.Marshal(response.Data)
-	if err != nil {
-		logger.WithError(err).Error("failed to marshal payment link data")
-	} else {
-		logger.WithField("paymentLinkData", string(dataJSON)).Info("Payment link data")
-	}
-	logger.WithField("response", response).Info("Payment link creation response received")
+	logger.Debug("payment link creation response received")
 }
 
 func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err error) error {

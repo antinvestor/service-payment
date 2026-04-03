@@ -16,7 +16,7 @@ type JengaConfig struct {
 	JengaCallbackURL                    string `envDefault:"http://localhost:8080/callback"                                                           env:"JENGA_CALLBACK_URL"                       required:"true"`
 	Env                                 string `envDefault:"https://uat.finserve.africa"                                                              env:"JENGA_ENV"`
 	ProfileServiceURI                   string `envDefault:"127.0.0.1:7005"                                                                           env:"PROFILE_SERVICE_URI"`
-	PartitionServiceURI                 string `envDefault:"127.0.0.1:7003"                                                                           env:"PARTITION_SERVICE_URI"`
+	TenancyServiceURI                   string `envDefault:"127.0.0.1:7003"                                                                           env:"TENANCY_SERVICE_URI"`
 	SecurelyRunService                  bool   `envDefault:"false"                                                                                    env:"SECURELY_RUN_SERVICE"`
 	PaymentServiceURI                   string `envDefault:"localhost:50051"                                                                          env:"PAYMENT_SERVICE_URI"                      required:"true"`
 	PaymentServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-payment"                                                          env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`

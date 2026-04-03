@@ -17,7 +17,7 @@ func Migrate(ctx context.Context, dsMan datastore.Manager, migrationPath string)
 		return errors.New("migration path cannot be empty")
 	}
 
-	logger.WithField("migration_path", migrationPath).Info("Starting database migration")
+	logger.WithField("migration_path", migrationPath).Debug("starting database migration")
 
 	// Get the default database pool
 	pool := dsMan.GetPool(ctx, datastore.DefaultPoolName)
@@ -44,10 +44,10 @@ func Migrate(ctx context.Context, dsMan datastore.Manager, migrationPath string)
 	// AutoMigrate all dbModels
 	err := db.AutoMigrate(dbModels...)
 	if err != nil {
-		logger.WithError(err).Error("Failed to run auto migration")
+		logger.WithError(err).Error("failed to run auto migration")
 		return err
 	}
 
-	logger.Info("Database migration completed successfully")
+	logger.Debug("database migration completed successfully")
 	return nil
 }

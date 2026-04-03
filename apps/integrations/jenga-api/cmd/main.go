@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	apis "github.com/antinvestor/common"
 	"github.com/antinvestor/common/connection"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"

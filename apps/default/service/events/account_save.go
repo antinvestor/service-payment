@@ -29,21 +29,16 @@ func (e *AccountSave) PayloadType() any {
 	return &models.Account{}
 }
 
-func (e *AccountSave) Validate(ctx context.Context, payload any) error {
-	logger := util.Log(ctx).WithField("function", "AccountSave.Validate")
-
+func (e *AccountSave) Validate(_ context.Context, payload any) error {
 	account, ok := payload.(*models.Account)
 	if !ok {
-		logger.Error("Payload is not of type models.Account")
 		return errors.New("payload is not of type models.Account")
 	}
 
 	if account.ID == "" {
-		logger.Error("Account ID is not set")
 		return errors.New("account ID should already have been set")
 	}
 
-	logger.Debug("Account ID validation successful")
 	return nil
 }
 
@@ -53,7 +48,7 @@ func (e *AccountSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Account")
 	}
 
-	logger := util.Log(ctx).WithField("payload", account).WithField("type", e.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{"account_id": account.ID, "type": e.Name()})
 	logger.Debug("handling event")
 
 	if account.Version > 0 {

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/billing/v1"
+	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"

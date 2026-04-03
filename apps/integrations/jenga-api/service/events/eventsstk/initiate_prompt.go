@@ -10,7 +10,7 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
@@ -101,8 +101,8 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type, expected *models.Prompt")
 	}
 
-	logger := util.Log(ctx).WithField("promptId", prompt.ID)
-	logger.Info("Processing initiate.prompt event")
+	logger := util.Log(ctx).WithField("prompt_id", prompt.ID)
+	logger.Debug("processing initiate.prompt event")
 
 	account, err := parseAccountInfo(prompt.Account)
 	if err != nil {
@@ -143,7 +143,7 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		ID: prompt.ID,
 	}
 
-	logger.WithField("stkRequest", stkRequest).Info("Prepared STK request")
+	logger.Debug("prepared STK request")
 
 	token, err := h.client.GenerateBearerToken()
 	if err != nil {
@@ -159,7 +159,7 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 			fmt.Errorf("initiate STK/USSD push: %w", err))
 	}
 
-	logger.WithField("response", response).Info("STK/USSD push response received")
+	logger.Debug("STK/USSD push response received")
 
 	if updateErr := h.updateStatus(
 		ctx,
@@ -208,7 +208,7 @@ func getStringWithDefault(extras map[string]interface{}, key, defaultValue strin
 
 // handleError updates the status to failed and returns the error.
 func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionRef string, err error) error {
-	logger := util.Log(ctx).WithField("promptId", promptID)
+	logger := util.Log(ctx).WithField("prompt_id", promptID)
 
 	extras := data.JSONMap{
 		"update_type":     updateTypePrompt,

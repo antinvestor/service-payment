@@ -61,7 +61,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	}
 	paymentID := *paymentIDPtr
 
-	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{"payment_id": paymentID, "type": event.Name()})
 	logger.Debug("handling payment event")
 
 	// Fetch payment record by ID
@@ -73,7 +73,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 	// Fetch payment status
 	status, err := event.statusRepo.GetByEntity(ctx, payment.ID, "payment")
 	if err != nil {
-		logger.WithError(err).WithField("status_id", payment.ID).Warn("could not get payment status")
+		logger.WithError(err).Warn("could not get payment status")
 		return err
 	}
 
@@ -90,9 +90,7 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
-	logger.WithField("payment_id", payment.GetID()).
-		WithField("route", payment.RouteID).
-		Debug("Payment message successfully queued")
+	logger.WithField("route_id", payment.RouteID).Debug("payment message successfully queued")
 
 	// Update payment status using unified Status
 	status = &models.Status{

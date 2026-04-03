@@ -62,7 +62,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type *string")
 	}
 	paymentID := *paymentIDPtr
-	logger := util.Log(ctx).WithField("payload", paymentID).WithField("type", event.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{"payment_id": paymentID, "type": event.Name()})
 	logger.Debug("handling event")
 
 	p, err := event.paymentRepo.GetByID(ctx, paymentID)
@@ -76,10 +76,7 @@ func (event *PaymentInQueue) Execute(ctx context.Context, payload any) error {
 		return event.handlePublishError(ctx, err, p)
 	}
 
-	logger.
-		WithField("payment", p.ID).
-		WithField("route", p.RouteID).
-		Debug(" Successfully routed in payment")
+	logger.WithField("route_id", p.RouteID).Debug("successfully routed in payment")
 
 	// Unified status
 	status := models.Status{

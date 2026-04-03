@@ -9,8 +9,8 @@ package business_test
 // 	"github.com/antinvestor/apis/go/common"
 
 // 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-// 	partitionv1 "buf.build/gen/go/antinvestor/partition/protocolbuffers/go/partition/v1"
-// 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/payment/v1"
+// 	tenancyv1 "buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go/tenancy/v1"
+// 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 // 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
 
 // 	money "google.golang.org/genproto/googleapis/type/money"
@@ -125,33 +125,33 @@ package business_test
 // 	return profileCli
 // }
 
-// func getPartitionCli(t *testing.T) *partitionV1.PartitionClient {
+// func getTenancyCli(t *testing.T) *tenancyV1.TenancyClient {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
-// 	mockPartitionService := partitionV1.NewMockPartitionServiceClient(ctrl)
+// 	mockTenancyService := tenancyV1.NewMockTenancyServiceClient(ctrl)
 
-// 	mockPartitionService.EXPECT().
+// 	mockTenancyService.EXPECT().
 // 		GetAccess(gomock.Any(), gomock.Any()).
-// 		Return(&partitionV1.GetAccessResponse{Data: &partitionV1.AccessObject{
+// 		Return(&tenancyV1.GetAccessResponse{Data: &tenancyV1.AccessObject{
 // 			AccessId: "test_access-id",
-// 			Partition: &partitionV1.PartitionObject{
+// 			Partition: &tenancyV1.PartitionObject{
 // 				Id:       "test_partition-id",
 // 				TenantId: "test_tenant-id",
 // 			},
 // 		}}, nil).AnyTimes()
 
-// 	profileCli := partitionV1.Init(&common.GrpcClientBase{}, mockPartitionService)
+// 	profileCli := tenancyV1.Init(&common.GrpcClientBase{}, mockTenancyService)
 // 	return profileCli
 // }
 
 // func TestNewPaymentBusiness_Success(t *testing.T) {
 // 	profileCli := getProfileCli(t)
-// 	partitionCli := getPartitionCli(t)
+// 	tenancyCli := getTenancyCli(t)
 
 // 	type args struct {
 // 		ctxService   *ctxSrv
 // 		profileCli   *profilev1.ProfileClient
-// 		partitionCli *partitionV1.PartitionClient
+// 		tenancyCli *tenancyV1.TenancyClient
 // 	}
 // 	tests := []struct {
 // 		name      string
@@ -164,7 +164,7 @@ package business_test
 // 			args: args{
 // 				ctxService:   nil,
 // 				profileCli:   profileCli,
-// 				partitionCli: partitionCli},
+// 				tenancyCli: tenancyCli},
 // 			expectErr: false,
 // 		},
 // 	}
@@ -175,7 +175,7 @@ package business_test
 // 				t.Errorf("failed to get service: %v", err)
 // 			}
 
-// 			pb, err := business.NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.partitionCli)
+// 			pb, err := business.NewPaymentBusiness(service.ctx, service.srv, tt.args.profileCli, tt.args.tenancyCli)
 
 // 			if err != nil {
 // 				t.Errorf("expected no error, got %v", err)
@@ -190,12 +190,12 @@ package business_test
 
 // func TestNewPaymentBusinessWithNils(t *testing.T) {
 // 	profileCli := getProfileCli(t)
-// 	partitionCli := getPartitionCli(t)
+// 	tenancyCli := getTenancyCli(t)
 
 // 	type args struct {
 // 		ctxService   *ctxSrv
 // 		profileCli   *profilev1.ProfileClient
-// 		partitionCli *partitionV1.PartitionClient
+// 		tenancyCli *tenancyV1.TenancyClient
 // 	}
 // 	tests := []struct {
 // 		name      string
@@ -208,7 +208,7 @@ package business_test
 // 			args: args{
 // 				ctxService:   nil,
 // 				profileCli:   nil,
-// 				partitionCli: nil},
+// 				tenancyCli: nil},
 // 			expectErr: true,
 // 		},
 // 	}
@@ -218,7 +218,7 @@ package business_test
 // 			if err != nil {
 // 				t.Errorf("failed to get service: %v", err)
 // 			}
-// 			pb, err := business.NewPaymentBusiness(service.ctx, nil, profileCli, partitionCli)
+// 			pb, err := business.NewPaymentBusiness(service.ctx, nil, profileCli, tenancyCli)
 
 // 			if !errors.Is(err, business.ErrInitializationFail) {
 // 				t.Errorf("expected ErrInitializationFail, got %v", err)
@@ -233,12 +233,12 @@ package business_test
 
 // func TestSendPaymentWithValidData(t *testing.T) {
 // 	profileCli := getProfileCli(t)
-// 	partitionCli := getPartitionCli(t)
+// 	tenancyCli := getTenancyCli(t)
 
 // 	type fields struct {
 // 		ctxService   *ctxSrv
 // 		profileCli   *profilev1.ProfileClient
-// 		partitionCli *partitionV1.PartitionClient
+// 		tenancyCli *tenancyV1.TenancyClient
 // 	}
 
 // 	type args struct {
@@ -258,7 +258,7 @@ package business_test
 // 			fields: fields{
 // 				ctxService:   nil,
 // 				profileCli:   profileCli,
-// 				partitionCli: partitionCli,
+// 				tenancyCli: tenancyCli,
 // 			},
 // 			args: args{
 // 				ctx: nil,
@@ -304,7 +304,7 @@ package business_test
 // 				ctxService.ctx,
 // 				ctxService.srv,
 // 				tt.fields.profileCli,
-// 				tt.fields.partitionCli,
+// 				tt.fields.tenancyCli,
 // 			)
 
 // 			if err != nil {
@@ -336,12 +336,12 @@ package business_test
 
 // func TestSendPaymentWithAmountMissing(t *testing.T) {
 // 	profileCli := getProfileCli(t)
-// 	partitionCli := getPartitionCli(t)
+// 	tenancyCli := getTenancyCli(t)
 
 // 	type fields struct {
 // 		ctxService   *ctxSrv
 // 		profileCli   *profilev1.ProfileClient
-// 		partitionCli *partitionV1.PartitionClient
+// 		tenancyCli *tenancyV1.TenancyClient
 // 	}
 
 // 	type args struct {
@@ -361,7 +361,7 @@ package business_test
 // 			fields: fields{
 // 				ctxService:   nil,
 // 				profileCli:   profileCli,
-// 				partitionCli: partitionCli,
+// 				tenancyCli: tenancyCli,
 // 			},
 // 			args: args{
 // 				ctx: nil,
@@ -406,7 +406,7 @@ package business_test
 // 				ctxService.ctx,
 // 				ctxService.srv,
 // 				tt.fields.profileCli,
-// 				tt.fields.partitionCli,
+// 				tt.fields.tenancyCli,
 // 			)
 
 // 			if err != nil {

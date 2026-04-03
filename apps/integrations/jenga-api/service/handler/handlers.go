@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/payment/v1/paymentv1connect"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
@@ -65,7 +65,7 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 	// Execute event synchronously with request context
 	err := js.eventMan.Emit(ctx, event.Name(), &request)
 	if err != nil {
-		logger.WithError(err).WithField("reference", request.Payment.Ref).Error("failed to process tills pay request")
+		logger.WithError(err).WithField("payment_ref", request.Payment.Ref).Error("failed to process tills pay request")
 		http.Error(w, "Failed to process tills pay request", http.StatusInternalServerError)
 		return
 	}

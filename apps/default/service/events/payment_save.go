@@ -52,8 +52,8 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Payment")
 	}
 
-	logger := util.Log(ctx).WithField("type", event.Name())
-	logger.WithField("payload", payment).Debug("handling event")
+	logger := util.Log(ctx).WithFields(map[string]any{"payment_id": payment.GetID(), "type": event.Name()})
+	logger.Debug("handling event")
 
 	err := event.paymentRepo.Create(ctx, payment)
 	if err != nil {

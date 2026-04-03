@@ -46,7 +46,11 @@ func (e *StatusSave) Execute(ctx context.Context, payload any) error {
 		return errors.New("payload is not of type models.Status")
 	}
 
-	logger := util.Log(ctx).WithField("payload", status).WithField("type", e.Name())
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"entity_id":   status.EntityID,
+		"entity_type": status.EntityType,
+		"type":        e.Name(),
+	})
 	logger.Debug("handling event")
 
 	err := e.statusRepo.Create(ctx, status)

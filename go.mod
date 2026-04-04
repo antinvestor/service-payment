@@ -23,7 +23,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.2
 	github.com/moby/moby/api v1.54.1-0.20260401134807-948d5691a093
-	github.com/pitabwire/frame v1.93.4
+	github.com/pitabwire/frame v1.93.5
 	github.com/pitabwire/util v0.8.0
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/money v0.7.1

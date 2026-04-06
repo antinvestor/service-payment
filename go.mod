@@ -21,8 +21,8 @@ require (
 	github.com/antinvestor/common v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/lib/pq v1.12.2
-	github.com/moby/moby/api v1.54.1-0.20260401134807-948d5691a093
+	github.com/lib/pq v1.12.3
+	github.com/moby/moby/api v1.54.1
 	github.com/pitabwire/frame v1.93.8
 	github.com/pitabwire/util v0.8.0
 	github.com/pitabwire/util/decimalx v0.7.1
@@ -88,7 +88,7 @@ require (
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
-	github.com/moby/moby/client v0.3.1-0.20260401134807-948d5691a093 // indirect
+	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect

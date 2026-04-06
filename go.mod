@@ -18,12 +18,12 @@ require (
 	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.19.1-20260330064539-b81b51773e97.2
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/common v1.4.2
+	github.com/antinvestor/common v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.2
 	github.com/moby/moby/api v1.54.1-0.20260401134807-948d5691a093
-	github.com/pitabwire/frame v1.93.5
+	github.com/pitabwire/frame v1.93.8
 	github.com/pitabwire/util v0.8.0
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/money v0.7.1

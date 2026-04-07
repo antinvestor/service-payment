@@ -4,18 +4,16 @@ import (
 	"context"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	apis "github.com/antinvestor/common"
 	"github.com/antinvestor/common/connection"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventscallback"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventslinkprocessing"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventsstk"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
-	handler "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
+	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/queue"
+	"github.com/antinvestor/service-payments/internal/events"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
-	"github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
 )
 
@@ -29,15 +27,16 @@ func main() {
 	}
 
 	if cfg.Name() == "" {
-		cfg.ServiceName = "service_jenga_api"
+		cfg.ServiceName = "integration_payment_jenga"
 	}
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
 	defer svc.Stop(ctx)
 
 	logger := svc.Log(ctx)
+	eventsMan := svc.EventsManager()
 
-	// Use Frame's HTTP client manager instead of creating our own
+	// Use Frame's HTTP client for the Jenga API client
 	httpClient := svc.HTTPClientManager().Client(ctx)
 
 	//nolint:revive,staticcheck // clientApi more readable than clientAPI
@@ -50,40 +49,29 @@ func main() {
 		cfg.JengaPrivateKey,
 	)
 
-	evtsMan := svc.EventsManager()
-
+	// Setup service clients
 	paymentCli, err := setupPaymentClient(ctx, cfg)
 	if err != nil {
 		logger.WithError(err).Fatal("could not setup payment client")
 	}
 
-	// Initialize event handlers
-	initiatePrompt := eventsstk.NewInitiatePrompt(clientApi, paymentCli, cfg.JengaCallbackURL)
-	createPaymentLink := eventslinkprocessing.NewCreatePaymentLink(clientApi, paymentCli)
-	callbackHandler := eventscallback.NewJengaCallbackReceivePayment(paymentCli)
-	tillsPayHandler := eventstillspay.NewJengaTillsPay(clientApi)
-
-	js := handler.NewJobServer(evtsMan, clientApi, paymentCli)
-
-	eventHandlers := []events.EventI{
-		callbackHandler,
-		initiatePrompt,
-		createPaymentLink,
-		tillsPayHandler,
+	settingsCli, err := setupSettingsClient(ctx, cfg)
+	if err != nil {
+		logger.WithError(err).Fatal("could not setup settings client")
 	}
 
-	// NATS configuration
-	natsURL := cfg.NATS_URL
-	promptTopic := initiatePrompt.Name()
-	paymentLinkTopic := createPaymentLink.Name()
+	// Create webhook server for Jenga API callbacks
+	webhookServer := handlers.NewWebhookServer(paymentCli)
+
+	// Create queue workers following the standard integration pattern
+	paymentWorker := queue.NewPaymentHandler(eventsMan, clientApi, settingsCli, &cfg)
+	promptWorker := queue.NewPromptHandler(eventsMan, clientApi, settingsCli, &cfg)
 
 	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(js.NewRouter()),
-		frame.WithRegisterEvents(eventHandlers...),
-		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
-		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
-		frame.WithRegisterSubscriber(promptTopic, natsURL+promptTopic, initiatePrompt),
-		frame.WithRegisterSubscriber(paymentLinkTopic, natsURL+paymentLinkTopic, createPaymentLink),
+		frame.WithHTTPHandler(webhookServer.NewRouter()),
+		frame.WithRegisterEvents(events.NewPaymentStatusUpdate(ctx, paymentCli)),
+		frame.WithRegisterSubscriber(cfg.QueuePaymentName, cfg.QueuePaymentURI, paymentWorker),
+		frame.WithRegisterSubscriber(cfg.QueuePromptName, cfg.QueuePromptURI, promptWorker),
 	}
 
 	svc.Init(ctx, serviceOptions...)
@@ -103,4 +91,15 @@ func setupPaymentClient(
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_payment"},
 	}, paymentv1connect.NewPaymentServiceClient)
+}
+
+func setupSettingsClient(
+	ctx context.Context,
+	cfg aconfig.JengaConfig,
+) (settingsv1connect.SettingsServiceClient, error) {
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.SettingsServiceURI,
+		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_setting"},
+	}, settingsv1connect.NewSettingsServiceClient)
 }

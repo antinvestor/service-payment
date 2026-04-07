@@ -4,25 +4,48 @@ import (
 	"github.com/pitabwire/frame/config"
 )
 
+// Header constants for credential resolution via queue message headers.
+const (
+	// HeaderConnectionCredentials is the settings key header for credential lookup.
+	HeaderConnectionCredentials = "X-API_CONNECTION_CREDENTIALS"
+
+	HeaderMerchantCode   = "X-JENGA_MERCHANT_CODE"
+	HeaderConsumerSecret = "X-JENGA_CONSUMER_SECRET"
+	HeaderAPIKey         = "X-JENGA_API_KEY"
+	HeaderCallbackURL    = "X-JENGA_CALLBACK_URL"
+	HeaderEnvironment    = "X-JENGA_ENVIRONMENT"
+	HeaderPrivateKeyPath = "X-JENGA_PRIVATE_KEY_PATH"
+)
+
 type JengaConfig struct {
 	config.ConfigurationDefault
-	// JENGA_PRIVATE_KEY_PATH=/app/keys/privatekey.pem
-	// JENGA_PUBLIC_KEY_PATH=/app/keys/publickey.pem
-	JengaPrivateKey string `envDefault:"/app/keys/privatekey.pem" env:"JENGA_PRIVATE_KEY_PATH" required:"true"`
+
+	// Service dependencies
+	PaymentServiceURI                    string `envDefault:"localhost:50051"                                         env:"PAYMENT_SERVICE_URI"                      required:"true"`
+	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment"                         env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                                         env:"SETTINGS_SERVICE_URI"`
+	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings"                         env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
+
+	// Settings integration identifiers for per-tenant credential lookup
+	SettingsIntegrationName string `envDefault:"Jenga"   env:"SETTINGS_INTEGRATION_NAME"`
+	SettingsIntegrationID   string `envDefault:"Default" env:"SETTINGS_INTEGRATION_ID"`
+
+	// Jenga API credentials (defaults, overridden by per-tenant settings or headers)
+	JengaPrivateKey string `envDefault:"/keys/privatekey.pem" env:"JENGA_PRIVATE_KEY_PATH"`
 	//nolint:revive // ApiKey follows external API naming convention
-	ApiKey                              string `envDefault:"SZq0WmmtX6mfo3fARW7yHeEzhfs3sOiEj2TgS2jb9gFz80JPfvTF1g4nr1uziA1meg3uFB1/Cm+ZXdTDob4z0Q==" env:"JENGA_API_KEY"                            required:"true"` //nolint:staticcheck // API field name
-	ConsumerSecret                      string `envDefault:"JZkt2pAIiS4F4RP4x6zQ97f1dn9j1N"                                                           env:"JENGA_CONSUMER_SECRET"                    required:"true"`
-	MerchantCode                        string `envDefault:"8503993262"                                                                               env:"JENGA_MERCHANT_CODE"                      required:"true"`
-	JengaCallbackURL                    string `envDefault:"http://localhost:8080/callback"                                                           env:"JENGA_CALLBACK_URL"                       required:"true"`
-	Env                                 string `envDefault:"https://uat.finserve.africa"                                                              env:"JENGA_ENV"`
-	ProfileServiceURI                   string `envDefault:"127.0.0.1:7005"                                                                           env:"PROFILE_SERVICE_URI"`
-	TenancyServiceURI                   string `envDefault:"127.0.0.1:7003"                                                                           env:"TENANCY_SERVICE_URI"`
-	SecurelyRunService                  bool   `envDefault:"false"                                                                                    env:"SECURELY_RUN_SERVICE"`
-	PaymentServiceURI                   string `envDefault:"localhost:50051"                                                                          env:"PAYMENT_SERVICE_URI"                      required:"true"`
-	PaymentServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-payment"                                                          env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
-	// NATS_URL=nats://${NATS_USER}:${NATS_PASSWORD}@nats-server:4222
-	//nolint:revive,staticcheck // NATS_URL follows environment variable ALL_CAPS convention
-	NATS_URL string `envDefault:"nats://ant:secret@nats-server:4222?subject=" env:"NATS_URL" required:"true"`
-	//nolint:revive,staticcheck // DATABASE_URL follows environment variable ALL_CAPS convention
-	DATABASE_URL string `envDefault:"postgres://ant:secret@payment_db:5432/service_payment?sslmode=disable" env:"DATABASE_URL" required:"true"`
+	ApiKey         string `env:"JENGA_API_KEY"         required:"false"` //nolint:staticcheck // API field name
+	ConsumerSecret string `env:"JENGA_CONSUMER_SECRET" required:"false"`
+	MerchantCode   string `env:"JENGA_MERCHANT_CODE"   required:"false"`
+
+	// Jenga environment and callback
+	JengaCallbackURL string `envDefault:"http://localhost/receivepayments" env:"JENGA_CALLBACK_URL" required:"true"`
+	Env              string `envDefault:"https://uat.finserve.africa"      env:"JENGA_ENV"`
+
+	// Queue configuration - payment queue for disbursements (tills pay, B2B)
+	QueuePaymentName string `envDefault:"jenga.payments.dequeue"       env:"QUEUE_JENGA_PAYMENT_NAME"`
+	QueuePaymentURI  string `envDefault:"mem://jenga.payments.dequeue" env:"QUEUE_JENGA_PAYMENT_URI"`
+
+	// Queue configuration - prompt queue for STK/USSD push
+	QueuePromptName string `envDefault:"jenga.prompts.dequeue"       env:"QUEUE_JENGA_PROMPT_NAME"`
+	QueuePromptURI  string `envDefault:"mem://jenga.prompts.dequeue" env:"QUEUE_JENGA_PROMPT_URI"`
 }

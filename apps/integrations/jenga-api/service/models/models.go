@@ -158,7 +158,8 @@ type Prompt struct {
 	State                int32             `gorm:"type:integer"`
 	Status               int32             `gorm:"type:integer"`
 	Route                string            `gorm:"type:varchar(50)"`
-	Account              data.JSONMap      `gorm:"type:jsonb"`
+	AccountID            string            `gorm:"type:varchar(50)"                      json:"accountID"`
+	Account              data.JSONMap      `gorm:"type:jsonb"                            json:"account"`
 	Extra                data.JSONMap      `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 }
 

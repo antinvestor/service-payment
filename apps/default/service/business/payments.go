@@ -547,7 +547,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		return nil, err
 	}
 
-	err = pb.qMan.Publish(ctx, "initiate.prompt", p)
+	err = pb.qMan.Publish(ctx, "initiate_prompt", p)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish initiate-prompt")
 		return nil, err
@@ -674,7 +674,7 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		return nil, statusEmitErr
 	}
 
-	err = pb.qMan.Publish(ctx, "create.payment.link", paymentLink)
+	err = pb.qMan.Publish(ctx, "create_payment_link", paymentLink)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish create-payment-link")
 		// Emit the status event even if publish fails

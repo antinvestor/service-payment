@@ -112,13 +112,20 @@ spec:
           image: ghcr.io/antinvestor/service-payment/jenga-api:latest
           ports:
             - containerPort: 80
+              name: http
+            - containerPort: 6060
+              name: pprof
           resources:
+            # Right-sized: Jenga is an integration bridge (no DB, no heavy compute).
+            # With NATS JetStream subscribers (not mem://), idle CPU is near zero.
+            # The service only uses CPU when processing queue messages or callbacks.
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
-              cpu: 250m
-              memory: 256Mi
+              # No CPU limit — avoids kernel CFS throttling which causes latency spikes.
+              # Memory limit prevents OOM from affecting other pods.
+              memory: 128Mi
           readinessProbe:
             httpGet:
               path: /healthz
@@ -145,6 +152,15 @@ spec:
           env:
             - name: JENGA_PRIVATE_KEY_PATH
               value: "/keys/privatekey.pem"
+            # Profiling: enable pprof on port 6060 for CPU/memory profiling
+            # kubectl port-forward pod/<pod> 6060:6060
+            # go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+            - name: PROFILER_ENABLE
+              value: "true"
+            # Debug: enable Frame introspection endpoints at /debug/frame/*
+            # Exposes /debug/frame/queues, /debug/frame/config, /debug/frame/health
+            - name: FRAME_DEBUG_ENDPOINTS
+              value: "true"
             # NATS JetStream: payment subscriber — subject matches Route.URI in the database
             - name: QUEUE_JENGA_PAYMENT_URI
               value: "nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.payments&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file&consumer_durable_name=svc_payment_jenga_payments&consumer_ack_policy=explicit&consumer_deliver_policy=all&consumer_replay_policy=instant"

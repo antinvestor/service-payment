@@ -96,8 +96,11 @@ func main() {
 	// Setup Connect server
 	connectHandler := setupConnectServer(ctx, sm, paymentBusiness, profileCli, ledgerCli, tenancyCli)
 
+	// Register permission manifest for the payment service namespace.
+	paymentSD := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
+
 	// Setup HTTP handlers
-	serviceOptions := []frame.Option{frame.WithDatastore(), frame.WithHTTPHandler(connectHandler)}
+	serviceOptions := []frame.Option{frame.WithDatastore(), frame.WithHTTPHandler(connectHandler), frame.WithPermissionRegistration(paymentSD)}
 
 	// Register queue publishers
 

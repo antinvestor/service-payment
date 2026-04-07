@@ -33,12 +33,9 @@ func (plr *paymentLinkRepository) GetByPartitionAndID(
 	return link, err
 }
 
-func (plr *paymentLinkRepository) GetByProfileID(ctx context.Context, _ string) ([]*models.PaymentLink, error) {
-	// Note: PaymentLink doesn't have direct profile association,
-	// this method is included for interface consistency
-	var links []*models.PaymentLink
-	err := plr.Pool().DB(ctx, true).Find(&links).Error
-	return links, err
+func (plr *paymentLinkRepository) GetByProfileID(_ context.Context, _ string) ([]*models.PaymentLink, error) {
+	// PaymentLink has no direct profile association — return empty rather than scanning entire table
+	return nil, nil
 }
 
 // Legacy method for backward compatibility.

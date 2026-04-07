@@ -24,7 +24,10 @@ func NewStatusRepository(ctx context.Context, dbPool pool.Pool, workMan workerpo
 
 func (sr *statusRepository) GetByEntity(ctx context.Context, entityID, entityType string) (*models.Status, error) {
 	status := &models.Status{}
-	err := sr.Pool().DB(ctx, true).First(status, "entity_id = ? AND entity_type = ?", entityID, entityType).Error
+	err := sr.Pool().DB(ctx, true).
+		Where("entity_id = ? AND entity_type = ?", entityID, entityType).
+		Order("created_at DESC").
+		First(status).Error
 	return status, err
 }
 
@@ -34,14 +37,20 @@ func (sr *statusRepository) GetByEntityIDList(
 	entityType string,
 ) (map[string]*models.Status, error) {
 	var statusList []*models.Status
-	err := sr.Pool().DB(ctx, true).Find(&statusList, "entity_id IN ? AND entity_type = ?", entityIDs, entityType).Error
+	err := sr.Pool().DB(ctx, true).
+		Where("entity_id IN ? AND entity_type = ?", entityIDs, entityType).
+		Order("created_at DESC").
+		Find(&statusList).Error
 	if err != nil {
 		return nil, err
 	}
 
+	// Keep only the latest status per entity (first occurrence due to DESC order)
 	statusMap := map[string]*models.Status{}
 	for _, status := range statusList {
-		statusMap[status.EntityID] = status
+		if _, exists := statusMap[status.EntityID]; !exists {
+			statusMap[status.EntityID] = status
+		}
 	}
 
 	return statusMap, err

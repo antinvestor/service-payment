@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -107,8 +108,8 @@ type Cost struct {
 
 type Status struct {
 	data.BaseModel
-	EntityID   string       `gorm:"type:varchar(50)"`
-	EntityType string       `gorm:"type:varchar(50)"`
+	EntityID   string       `gorm:"type:varchar(50);index:idx_status_entity"`
+	EntityType string       `gorm:"type:varchar(50);index:idx_status_entity"`
 	Extra      data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
 	State      int32
 	Status     int32
@@ -379,10 +380,10 @@ func (model *PaymentLink) ToAPI(message map[string]string) *paymentv1.CreatePaym
 
 // Helper to map string to paymentv1.NotificationType enum.
 func topaymentv1NotificationType(s string) paymentv1.NotificationType {
-	switch s {
-	case "email":
+	switch strings.ToUpper(s) {
+	case "EMAIL":
 		return paymentv1.NotificationType_NOTIFICATION_TYPE_EMAIL
-	case "sms":
+	case "SMS":
 		return paymentv1.NotificationType_NOTIFICATION_TYPE_SMS
 	default:
 		return paymentv1.NotificationType_NOTIFICATION_TYPE_UNSPECIFIED

@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 )
+
+const credentialCacheTTL = 5 * time.Minute
 
 // JengaCredentials holds per-request credentials for Jenga API calls.
 type JengaCredentials struct {
@@ -22,23 +26,30 @@ type JengaCredentials struct {
 	PrivateKeyPath string
 }
 
-// credentialResolver provides shared credential extraction logic for queue handlers.
+type credsCacheEntry struct {
+	creds  *JengaCredentials
+	expiry time.Time
+}
+
+// credentialResolver provides shared credential extraction logic with caching.
 type credentialResolver struct {
 	settingsCli settingsv1connect.SettingsServiceClient
 	cfg         *config.JengaConfig
+	mu          sync.RWMutex
+	cache       map[string]*credsCacheEntry
 }
 
 func (r *credentialResolver) extractCredentials(
 	ctx context.Context,
 	headers map[string]string,
 ) (*JengaCredentials, error) {
-	// Try settings service lookup first (per-tenant)
+	// Try settings service lookup first (per-tenant), with cache
 	connection, ok := headers[config.HeaderConnectionCredentials]
 	if ok && connection != "" {
 		if r.settingsCli == nil {
 			return nil, errors.New("settings client not configured but connection credentials header is present")
 		}
-		creds, err := r.credentialsFromSettings(ctx, connection)
+		creds, err := r.cachedCredentialsFromSettings(ctx, connection)
 		if err != nil {
 			return nil, err
 		}
@@ -61,6 +72,41 @@ func (r *credentialResolver) extractCredentials(
 	if creds.MerchantCode == "" || creds.ConsumerSecret == "" || creds.APIKey == "" {
 		return nil, errors.New("missing required Jenga credentials (merchant_code, consumer_secret, api_key)")
 	}
+
+	return creds, nil
+}
+
+func (r *credentialResolver) cachedCredentialsFromSettings(
+	ctx context.Context,
+	connection string,
+) (*JengaCredentials, error) {
+	// Fast path: read from cache
+	r.mu.RLock()
+	if r.cache != nil {
+		if entry, ok := r.cache[connection]; ok && time.Now().Before(entry.expiry) {
+			creds := entry.creds
+			r.mu.RUnlock()
+			return creds, nil
+		}
+	}
+	r.mu.RUnlock()
+
+	// Slow path: fetch from settings service
+	creds, err := r.credentialsFromSettings(ctx, connection)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the result
+	r.mu.Lock()
+	if r.cache == nil {
+		r.cache = make(map[string]*credsCacheEntry)
+	}
+	r.cache[connection] = &credsCacheEntry{
+		creds:  creds,
+		expiry: time.Now().Add(credentialCacheTTL),
+	}
+	r.mu.Unlock()
 
 	return creds, nil
 }

@@ -68,6 +68,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 
 	callbackJSON, _ := json.Marshal(callback)
 	cbJSON := data.JSONMap{"additional_info": string(callbackJSON)}
+	extras := cbJSON.ToProtoStruct() // compute once, reuse
 
 	// Determine final status from callback
 	status := commonv1.STATUS_SUCCESSFUL
@@ -81,7 +82,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 		State:      commonv1.STATE_ACTIVE,
 		Status:     status,
 		ExternalId: callback.Transaction,
-		Extras:     cbJSON.ToProtoStruct(),
+		Extras:     extras,
 	}))
 	if err != nil {
 		logger.WithError(err).Error("failed to update status after STK callback")
@@ -100,7 +101,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 			TransactionId: callback.Transaction,
 			Amount:        amount,
 			Cost:          cost,
-			Extra:         cbJSON.ToProtoStruct(),
+			Extra:         extras,
 		}
 
 		if _, receiveErr := ws.paymentCli.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{

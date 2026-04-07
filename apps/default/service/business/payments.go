@@ -932,6 +932,5 @@ func (pb *paymentBusiness) Reconcile(
 	_ context.Context,
 	_ *paymentv1.ReconcileRequest,
 ) (*paymentv1.ReconcileResponse, error) {
-	// TODO implement me
-	panic("implement me")
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("reconcile not yet implemented"))
 }

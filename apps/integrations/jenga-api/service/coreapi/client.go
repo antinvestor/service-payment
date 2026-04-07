@@ -8,15 +8,25 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/util"
 )
 
-// Client represents the Jenga API client.
-// It uses per-request Credentials for multi-tenant support.
+const tokenCacheTTL = 50 * time.Minute // Jenga tokens last ~60min, refresh early
+
+type tokenEntry struct {
+	token  string
+	expiry time.Time
+}
+
+// Client represents the Jenga API client with per-tenant token caching.
 type Client struct {
 	HTTPClient *http.Client
+	mu         sync.RWMutex
+	tokens     map[string]*tokenEntry // keyed by MerchantCode
 }
 
 // New creates a new instance of the Jenga API client.
@@ -24,6 +34,7 @@ type Client struct {
 func New(httpClient *http.Client) *Client {
 	return &Client{
 		HTTPClient: httpClient,
+		tokens:     make(map[string]*tokenEntry),
 	}
 }
 
@@ -37,7 +48,28 @@ type BearerTokenResponse struct {
 }
 
 // GenerateBearerToken generates a Bearer token using the provided credentials.
+// Tokens are cached per MerchantCode with a 50-minute TTL to avoid redundant auth calls.
 func (c *Client) GenerateBearerToken(ctx context.Context, creds *Credentials) (*BearerTokenResponse, error) {
+	cacheKey := creds.MerchantCode
+
+	// Fast path: check cache under read lock
+	c.mu.RLock()
+	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
+		token := entry.token
+		c.mu.RUnlock()
+		return &BearerTokenResponse{AccessToken: token}, nil
+	}
+	c.mu.RUnlock()
+
+	// Slow path: acquire write lock and double-check
+	c.mu.Lock()
+	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
+		token := entry.token
+		c.mu.Unlock()
+		return &BearerTokenResponse{AccessToken: token}, nil
+	}
+	c.mu.Unlock()
+
 	logger := util.Log(ctx).WithField("operation", "GenerateBearerToken")
 
 	url := fmt.Sprintf("%s/authentication/api/v3/authenticate/merchant", creds.Environment)
@@ -81,7 +113,15 @@ func (c *Client) GenerateBearerToken(ctx context.Context, creds *Credentials) (*
 		return nil, fmt.Errorf("unmarshal token response: %w", unmarshalErr)
 	}
 
-	logger.Debug("bearer token generated successfully")
+	// Cache the token
+	c.mu.Lock()
+	c.tokens[cacheKey] = &tokenEntry{
+		token:  tokenResponse.AccessToken,
+		expiry: time.Now().Add(tokenCacheTTL),
+	}
+	c.mu.Unlock()
+
+	logger.Debug("bearer token generated and cached")
 	return &tokenResponse, nil
 }
 

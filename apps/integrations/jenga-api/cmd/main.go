@@ -50,7 +50,7 @@ func main() {
 
 	settingsCli, err := setupSettingsClient(ctx, cfg)
 	if err != nil {
-		logger.WithError(err).Fatal("could not setup settings client")
+		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
 	// Create webhook server for Jenga API callbacks

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
@@ -403,7 +404,7 @@ func (s *BillingServer) IngestUsageEvent(
 			return nil, connect.NewError(connect.CodeInvalidArgument,
 				fmt.Errorf("event at index %d: timestamp is required", i))
 		}
-		qty, _ := decimalx.NewFromString(fmt.Sprintf("%g", e.GetQuantity()))
+		qty, _ := decimalx.NewFromString(strconv.FormatFloat(e.GetQuantity(), 'f', -1, 64))
 		events[i] = &models.UsageEvent{
 			SubscriptionID: e.GetSubscriptionId(),
 			MetricKey:      e.GetMetricKey(),
@@ -651,7 +652,7 @@ func (s *BillingServer) CreateDiscount(
 		Name:         req.Msg.GetName(),
 		DiscountType: discountTypeFromProto(req.Msg.GetDiscountType()),
 		Value: func() *decimalx.Decimal {
-			v, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Msg.GetValue()))
+			v, _ := decimalx.NewFromString(strconv.FormatFloat(req.Msg.GetValue(), 'f', -1, 64))
 			return v.Ptr()
 		}(),
 		Currency:        req.Msg.GetCurrency(),

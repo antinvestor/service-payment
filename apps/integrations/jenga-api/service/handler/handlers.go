@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -92,9 +91,9 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 
 	// If payment was successful, also record the received payment
 	if callback.Status {
-		amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
+		amtDec, _ := decimalx.NewFromString(callback.RequestAmount.String())
 		amount := utilmoney.ToMoney(callback.Currency, amtDec)
-		costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Charge))
+		costDec, _ := decimalx.NewFromString(callback.Charge.String())
 		cost := utilmoney.ToMoney(callback.Currency, costDec)
 
 		payment := &paymentv1.Payment{
@@ -151,9 +150,9 @@ func (ws *WebhookServer) HandleGeneralCallback(w http.ResponseWriter, r *http.Re
 	callbackJSON, _ := json.Marshal(callback)
 	cbJSON := data.JSONMap{"additional_info": string(callbackJSON)}
 
-	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Transaction.Amount))
+	amtDec, _ := decimalx.NewFromString(callback.Transaction.Amount.String())
 	amount := utilmoney.ToMoney(callback.Transaction.Currency, amtDec)
-	costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Transaction.ServiceCharge))
+	costDec, _ := decimalx.NewFromString(callback.Transaction.ServiceCharge.String())
 	cost := utilmoney.ToMoney(callback.Transaction.Currency, costDec)
 
 	payment := &paymentv1.Payment{

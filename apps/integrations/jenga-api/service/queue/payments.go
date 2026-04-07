@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
@@ -14,6 +13,7 @@ import (
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
+	utilmoney "github.com/pitabwire/util/money"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -66,8 +66,9 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	apiCreds := toAPICreds(jengaCreds)
 
-	// Format amount preserving sub-unit precision
-	amount := formatMoneyAmount(payment.GetAmount())
+	// Convert protobuf Money to exact decimal string via utilmoney (no float64 intermediate)
+	amountDecimal := utilmoney.FromMoney(payment.GetAmount())
+	amount := amountDecimal.String()
 	currency := payment.GetAmount().GetCurrencyCode()
 	if currency == "" {
 		currency = "KES"
@@ -120,21 +121,6 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	})
 
 	return nil
-}
-
-// formatMoneyAmount converts a protobuf Money value to a decimal string preserving sub-unit precision.
-func formatMoneyAmount(amount interface {
-	GetUnits() int64
-	GetNanos() int32
-},
-) string {
-	if amount == nil {
-		return "0"
-	}
-	units := amount.GetUnits()
-	nanos := amount.GetNanos()
-	total := float64(units) + float64(nanos)/1e9 //nolint:mnd // nano conversion factor
-	return strconv.FormatFloat(total, 'f', 2, 64)
 }
 
 // toAPICreds converts queue JengaCredentials to the coreapi.Credentials used by the API client.

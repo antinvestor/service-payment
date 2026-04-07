@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -22,7 +21,6 @@ const (
 	defaultTelco    = "Safaricom"
 	defaultPushType = "STK"
 	dateFormat      = "2006-01-02"
-	amountFormat    = "%.2f"
 )
 
 type promptHandler struct {
@@ -67,7 +65,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	})
 	logger.Info("processing STK prompt request")
 
-	creds, err := h.extractCredentials(ctx, headers)
+	jengaCreds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve Jenga credentials")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
@@ -77,7 +75,9 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		return nil
 	}
 
-	// Extract transaction ref and other extras
+	apiCreds := toAPICreds(jengaCreds)
+
+	// Extract transaction ref
 	transactionRef, _ := prompt.Extra["transaction_ref"].(string)
 	if transactionRef == "" {
 		logger.Error("transaction reference is missing")
@@ -88,17 +88,27 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		return nil
 	}
 
-	logger = logger.WithField("transaction_ref", transactionRef)
+	// Validate amount is present
+	if prompt.Amount == nil {
+		logger.Error("prompt amount is nil")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error":       "payment amount is required",
+			"entity_type": "prompt",
+		})
+		return nil
+	}
+
+	logger = logger.WithFields(map[string]any{
+		"transaction_ref": transactionRef,
+		"amount":          prompt.Amount.String(),
+	})
 
 	currency := getStringWithDefault(prompt.Extra, "currency", defaultCurrency)
 	telco := getStringWithDefault(prompt.Extra, "telco", defaultTelco)
 	pushType := getStringWithDefault(prompt.Extra, "pushType", defaultPushType)
 
-	var amountStr string
-	if prompt.Amount != nil {
-		amtFloat, _ := strconv.ParseFloat(prompt.Amount.String(), 64)
-		amountStr = fmt.Sprintf(amountFormat, amtFloat)
-	}
+	// Use exact decimal string — no float64 conversion to avoid precision loss
+	amountStr := prompt.Amount.String()
 
 	// Parse account info from the prompt
 	account := prompt.Account
@@ -119,23 +129,24 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 			Telco:        telco,
 			MobileNumber: prompt.SourceContactID,
 			Date:         time.Now().Format(dateFormat),
-			CallBackUrl:  creds.CallbackURL,
+			CallBackUrl:  jengaCreds.CallbackURL,
 			PushType:     pushType,
 		},
 		ID: promptID,
 	}
 
-	token, err := h.jengaCli.GenerateBearerToken(ctx)
+	token, err := h.jengaCli.GenerateBearerToken(ctx, apiCreds)
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token for STK push")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       fmt.Sprintf("generate bearer token: %v", err),
-			"entity_type": "prompt",
+			"error":           fmt.Sprintf("generate bearer token: %v", err),
+			"transaction_ref": transactionRef,
+			"entity_type":     "prompt",
 		})
 		return nil
 	}
 
-	resp, err := h.jengaCli.InitiateSTKUSSD(ctx, stkRequest, token.AccessToken)
+	resp, err := h.jengaCli.InitiateSTKUSSD(ctx, apiCreds, stkRequest, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("STK/USSD push initiation failed")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
@@ -148,7 +159,6 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 	logger.WithFields(map[string]any{
 		"response_transaction_id": resp.TransactionID,
-		"response_status":         resp.Status,
 		"response_message":        resp.Message,
 	}).Info("STK/USSD push initiated successfully")
 

@@ -40,14 +40,7 @@ func main() {
 	httpClient := svc.HTTPClientManager().Client(ctx)
 
 	//nolint:revive,staticcheck // clientApi more readable than clientAPI
-	clientApi := coreapi.New(
-		httpClient,
-		cfg.MerchantCode,
-		cfg.ConsumerSecret,
-		cfg.ApiKey,
-		cfg.Env,
-		cfg.JengaPrivateKey,
-	)
+	clientApi := coreapi.New(httpClient)
 
 	// Setup service clients
 	paymentCli, err := setupPaymentClient(ctx, cfg)

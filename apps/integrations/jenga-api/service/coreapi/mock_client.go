@@ -12,9 +12,8 @@ type MockClient struct {
 	mock.Mock
 }
 
-// GenerateBearerToken mocks the GenerateBearerToken method.
-func (m *MockClient) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse, error) {
-	args := m.Called(ctx)
+func (m *MockClient) GenerateBearerToken(ctx context.Context, creds *Credentials) (*BearerTokenResponse, error) {
+	args := m.Called(ctx, creds)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -25,13 +24,13 @@ func (m *MockClient) GenerateBearerToken(ctx context.Context) (*BearerTokenRespo
 	return resp, args.Error(1)
 }
 
-// InitiateSTKUSSD mocks the InitiateSTKUSSD method.
 func (m *MockClient) InitiateSTKUSSD(
 	ctx context.Context,
+	creds *Credentials,
 	request models.STKUSSDRequest,
 	accessToken string,
 ) (*models.STKUSSDResponse, error) {
-	args := m.Called(ctx, request, accessToken)
+	args := m.Called(ctx, creds, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -42,13 +41,13 @@ func (m *MockClient) InitiateSTKUSSD(
 	return resp, args.Error(1)
 }
 
-// CreatePaymentLink mocks the CreatePaymentLink method.
 func (m *MockClient) CreatePaymentLink(
 	ctx context.Context,
+	creds *Credentials,
 	request models.PaymentLinkRequest,
 	accessToken string,
 ) (*models.PaymentLinkResponse, error) {
-	args := m.Called(ctx, request, accessToken)
+	args := m.Called(ctx, creds, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -59,13 +58,13 @@ func (m *MockClient) CreatePaymentLink(
 	return resp, args.Error(1)
 }
 
-// InitiateTillsPay mocks the InitiateTillsPay method.
 func (m *MockClient) InitiateTillsPay(
 	ctx context.Context,
+	creds *Credentials,
 	request models.TillsPayRequest,
 	accessToken string,
 ) (*models.TillsPayResponse, error) {
-	args := m.Called(ctx, request, accessToken)
+	args := m.Called(ctx, creds, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

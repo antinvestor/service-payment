@@ -34,8 +34,18 @@ func (r *credentialResolver) extractCredentials(
 ) (*JengaCredentials, error) {
 	// Try settings service lookup first (per-tenant)
 	connection, ok := headers[config.HeaderConnectionCredentials]
-	if ok && connection != "" && r.settingsCli != nil {
-		return r.credentialsFromSettings(ctx, connection)
+	if ok && connection != "" {
+		if r.settingsCli == nil {
+			return nil, errors.New("settings client not configured but connection credentials header is present")
+		}
+		creds, err := r.credentialsFromSettings(ctx, connection)
+		if err != nil {
+			return nil, err
+		}
+		if creds.MerchantCode == "" || creds.ConsumerSecret == "" || creds.APIKey == "" {
+			return nil, errors.New("incomplete Jenga credentials from settings (merchant_code, consumer_secret, api_key)")
+		}
+		return creds, nil
 	}
 
 	// Try direct headers, fall back to config

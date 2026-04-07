@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/money"
@@ -40,7 +42,7 @@ func (ws *WebhookServer) NewRouter() *http.ServeMux {
 
 // HandleStkCallback processes STK push callback notifications from Jenga.
 func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := injectTenantFromQuery(r.Context(), r)
 	logger := util.Log(ctx).WithField("handler", "HandleStkCallback")
 
 	var callback models.StkCallback
@@ -66,6 +68,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 	logger.Info("received STK callback from Jenga")
 
 	callbackJSON, _ := json.Marshal(callback)
+	cbJSON := data.JSONMap{"additional_info": string(callbackJSON)}
 
 	// Determine final status from callback
 	status := commonv1.STATUS_SUCCESSFUL
@@ -73,32 +76,8 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 		status = commonv1.STATUS_FAILED
 	}
 
-	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
-	amount := utilmoney.ToMoney(callback.Currency, amtDec)
-	costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Charge))
-	cost := utilmoney.ToMoney(callback.Currency, costDec)
-
-	cbJSON := data.JSONMap{"additional_info": string(callbackJSON)}
-
-	payment := &paymentv1.Payment{
-		TransactionId: callback.Transaction,
-		Amount:        amount,
-		Cost:          cost,
-		Extra:         cbJSON.ToProtoStruct(),
-	}
-
-	// Report the payment back to the payment service
-	_, err := ws.paymentCli.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{
-		Data: payment,
-	}))
-	if err != nil {
-		logger.WithError(err).Error("failed to forward STK callback to payment service")
-		http.Error(w, "Failed to process callback", http.StatusInternalServerError)
-		return
-	}
-
-	// Also update the prompt status
-	_, err = ws.paymentCli.StatusUpdate(ctx, connect.NewRequest(&commonv1.StatusUpdateRequest{
+	// Update the prompt status via StatusUpdate
+	_, err := ws.paymentCli.StatusUpdate(ctx, connect.NewRequest(&commonv1.StatusUpdateRequest{
 		Id:         callback.Transaction,
 		State:      commonv1.STATE_ACTIVE,
 		Status:     status,
@@ -106,7 +85,30 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 		Extras:     cbJSON.ToProtoStruct(),
 	}))
 	if err != nil {
-		logger.WithError(err).Warn("failed to update prompt status after STK callback")
+		logger.WithError(err).Error("failed to update status after STK callback")
+		http.Error(w, "Failed to process callback", http.StatusInternalServerError)
+		return
+	}
+
+	// If payment was successful, also record the received payment
+	if callback.Status {
+		amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
+		amount := utilmoney.ToMoney(callback.Currency, amtDec)
+		costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.Charge))
+		cost := utilmoney.ToMoney(callback.Currency, costDec)
+
+		payment := &paymentv1.Payment{
+			TransactionId: callback.Transaction,
+			Amount:        amount,
+			Cost:          cost,
+			Extra:         cbJSON.ToProtoStruct(),
+		}
+
+		if _, receiveErr := ws.paymentCli.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{
+			Data: payment,
+		})); receiveErr != nil {
+			logger.WithError(receiveErr).Warn("failed to record received payment from STK callback")
+		}
 	}
 
 	logger.Info("STK callback processed successfully")
@@ -121,7 +123,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 
 // HandleGeneralCallback processes general payment callback notifications from Jenga.
 func (ws *WebhookServer) HandleGeneralCallback(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	ctx := injectTenantFromQuery(r.Context(), r)
 	logger := util.Log(ctx).WithField("handler", "HandleGeneralCallback")
 
 	var callback models.CallbackRequest
@@ -184,4 +186,18 @@ func (ws *WebhookServer) HandleGeneralCallback(w http.ResponseWriter, r *http.Re
 		"status":  "success",
 		"message": "Callback received successfully",
 	})
+}
+
+// injectTenantFromQuery extracts tenant_id and partition_id from URL query params and injects into context.
+func injectTenantFromQuery(ctx context.Context, r *http.Request) context.Context {
+	tenantID := r.URL.Query().Get("tenant_id")
+	partitionID := r.URL.Query().Get("partition_id")
+	if tenantID == "" && partitionID == "" {
+		return ctx
+	}
+	claims := &security.AuthenticationClaims{
+		TenantID:    tenantID,
+		PartitionID: partitionID,
+	}
+	return claims.ClaimsToContext(ctx)
 }

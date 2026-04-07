@@ -12,21 +12,22 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 // testMode is a flag to skip actual signature validation during tests.
 //
 //nolint:gochecknoglobals // Required for test mode flag
-var testMode = false
+var testMode atomic.Bool
 
 // SetTestMode sets the test mode flag for signature generation.
 func SetTestMode(enabled bool) {
-	testMode = enabled
+	testMode.Store(enabled)
 }
 
 // IsTestMode returns whether test mode is enabled.
 func IsTestMode() bool {
-	return testMode
+	return testMode.Load()
 }
 
 // GenerateSignature generates a SHA-256 signature with RSA private key.

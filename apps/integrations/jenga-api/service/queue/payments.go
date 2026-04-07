@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -51,13 +50,11 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	paymentID := payment.GetId()
 	logger = logger.WithFields(map[string]any{
 		"payment_id": paymentID,
-		"amount":     formatMoneyAmount(payment.GetAmount()),
-		"currency":   payment.GetAmount().GetCurrencyCode(),
 		"recipient":  payment.GetRecipient().GetContactId(),
 	})
 	logger.Info("processing payment disbursement")
 
-	creds, err := h.extractCredentials(ctx, headers)
+	jengaCreds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve Jenga credentials")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
@@ -67,7 +64,9 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		return nil
 	}
 
-	// Build tills-pay request from payment protobuf
+	apiCreds := toAPICreds(jengaCreds)
+
+	// Format amount preserving sub-unit precision
 	amount := formatMoneyAmount(payment.GetAmount())
 	currency := payment.GetAmount().GetCurrencyCode()
 	if currency == "" {
@@ -76,7 +75,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	tillsReq := models.TillsPayRequest{
 		Merchant: models.TillsPayMerchant{
-			Till: creds.MerchantCode,
+			Till: jengaCreds.MerchantCode,
 		},
 		Payment: models.TillsPayPayment{
 			Ref:      paymentID,
@@ -89,7 +88,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		},
 	}
 
-	token, err := h.jengaCli.GenerateBearerToken(ctx)
+	token, err := h.jengaCli.GenerateBearerToken(ctx, apiCreds)
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token for disbursement")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
@@ -99,7 +98,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		return nil
 	}
 
-	resp, err := h.jengaCli.InitiateTillsPay(ctx, tillsReq, token.AccessToken)
+	resp, err := h.jengaCli.InitiateTillsPay(ctx, apiCreds, tillsReq, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("tills pay disbursement failed")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
@@ -110,9 +109,8 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 
 	logger.WithFields(map[string]any{
-		"transaction_id":  resp.TransactionID,
-		"merchant_name":   resp.MerchantName,
-		"response_status": resp.Status,
+		"transaction_id": resp.TransactionID,
+		"merchant_name":  resp.MerchantName,
 	}).Info("tills pay disbursement initiated")
 
 	h.emitStatus(ctx, paymentID, resp.TransactionID, commonv1.STATUS_IN_PROCESS, map[string]any{
@@ -124,16 +122,28 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	return nil
 }
 
-// formatMoneyAmount converts a protobuf Money value to string.
+// formatMoneyAmount converts a protobuf Money value to a decimal string preserving sub-unit precision.
 func formatMoneyAmount(amount interface {
 	GetUnits() int64
 	GetNanos() int32
-}) string {
+},
+) string {
 	if amount == nil {
 		return "0"
 	}
 	units := amount.GetUnits()
 	nanos := amount.GetNanos()
-	total := float64(units) + float64(nanos)/1e9
-	return strconv.FormatInt(int64(math.Round(total)), 10)
+	total := float64(units) + float64(nanos)/1e9 //nolint:mnd // nano conversion factor
+	return strconv.FormatFloat(total, 'f', 2, 64)
+}
+
+// toAPICreds converts queue JengaCredentials to the coreapi.Credentials used by the API client.
+func toAPICreds(creds *JengaCredentials) *coreapi.Credentials {
+	return &coreapi.Credentials{
+		MerchantCode:   creds.MerchantCode,
+		ConsumerSecret: creds.ConsumerSecret,
+		APIKey:         creds.APIKey,
+		Environment:    creds.Environment,
+		PrivateKeyPath: creds.PrivateKeyPath,
+	}
 }

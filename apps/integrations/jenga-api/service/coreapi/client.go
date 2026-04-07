@@ -14,25 +14,16 @@ import (
 )
 
 // Client represents the Jenga API client.
+// It uses per-request Credentials for multi-tenant support.
 type Client struct {
-	MerchantCode    string
-	ConsumerSecret  string
-	APIKey          string
-	HTTPClient      *http.Client
-	Env             string
-	JengaPrivateKey string
+	HTTPClient *http.Client
 }
 
 // New creates a new instance of the Jenga API client.
 // The httpClient must be provided by the caller (e.g. from Frame's HTTPClientManager).
-func New(httpClient *http.Client, merchantCode, consumerSecret, apiKey, env, privateKeyPath string) *Client {
+func New(httpClient *http.Client) *Client {
 	return &Client{
-		MerchantCode:    merchantCode,
-		ConsumerSecret:  consumerSecret,
-		APIKey:          apiKey,
-		HTTPClient:      httpClient,
-		Env:             env,
-		JengaPrivateKey: privateKeyPath,
+		HTTPClient: httpClient,
 	}
 }
 
@@ -45,14 +36,14 @@ type BearerTokenResponse struct {
 	TokenType    string `json:"tokenType"`
 }
 
-// GenerateBearerToken generates a Bearer token for authorization.
-func (c *Client) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse, error) {
+// GenerateBearerToken generates a Bearer token using the provided credentials.
+func (c *Client) GenerateBearerToken(ctx context.Context, creds *Credentials) (*BearerTokenResponse, error) {
 	logger := util.Log(ctx).WithField("operation", "GenerateBearerToken")
 
-	url := fmt.Sprintf("%s/authentication/api/v3/authenticate/merchant", c.Env)
+	url := fmt.Sprintf("%s/authentication/api/v3/authenticate/merchant", creds.Environment)
 	body := map[string]string{
-		"merchantCode":   c.MerchantCode,
-		"consumerSecret": c.ConsumerSecret,
+		"merchantCode":   creds.MerchantCode,
+		"consumerSecret": creds.ConsumerSecret,
 	}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -64,7 +55,7 @@ func (c *Client) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse,
 		return nil, fmt.Errorf("create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Api-Key", c.APIKey)
+	req.Header.Set("Api-Key", creds.APIKey)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -94,10 +85,9 @@ func (c *Client) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse,
 	return &tokenResponse, nil
 }
 
-func (c *Client) GeneratePaymentSignature(args ...string) (string, error) {
-	privateKeyPath := c.JengaPrivateKey
+func generatePaymentSignature(privateKeyPath string, args ...string) (string, error) {
 	if privateKeyPath == "" {
-		privateKeyPath = "/app/keys/privatekey.pem"
+		privateKeyPath = "/keys/privatekey.pem"
 	}
 
 	signature, err := GenerateSignature(strings.Join(args, ""), privateKeyPath)
@@ -110,6 +100,7 @@ func (c *Client) GeneratePaymentSignature(args ...string) (string, error) {
 // InitiateSTKUSSD initiates an STK/USSD push request.
 func (c *Client) InitiateSTKUSSD(
 	ctx context.Context,
+	creds *Credentials,
 	request models.STKUSSDRequest,
 	accessToken string,
 ) (*models.STKUSSDResponse, error) {
@@ -121,9 +112,10 @@ func (c *Client) InitiateSTKUSSD(
 		"currency":    request.Payment.Currency,
 	})
 
-	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
+	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", creds.Environment)
 
-	signature, err := c.GeneratePaymentSignature(
+	signature, err := generatePaymentSignature(
+		creds.PrivateKeyPath,
 		request.Merchant.AccountNumber,
 		request.Payment.Ref,
 		request.Payment.MobileNumber,
@@ -154,15 +146,31 @@ func (c *Client) InitiateSTKUSSD(
 	}
 	defer util.CloseAndLogOnError(ctx, resp.Body, "close STK response body")
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read STK response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.WithFields(map[string]any{
+			"status_code": resp.StatusCode,
+			"response":    string(respBody),
+		}).Error("STK/USSD push request failed")
+		return nil, fmt.Errorf("STK push failed: status %s, body: %s", resp.Status, string(respBody))
+	}
+
 	var stkUssdResponse models.STKUSSDResponse
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); decodeErr != nil {
+	if decodeErr := json.Unmarshal(respBody, &stkUssdResponse); decodeErr != nil {
 		return nil, fmt.Errorf("decode STK response: %w", decodeErr)
 	}
 
+	if !stkUssdResponse.Status {
+		return nil, fmt.Errorf("STK push rejected: code=%d message=%s", stkUssdResponse.Code, stkUssdResponse.Message)
+	}
+
 	logger.WithFields(map[string]any{
-		"response_status": stkUssdResponse.Status,
-		"response_code":   stkUssdResponse.Code,
-		"transaction_id":  stkUssdResponse.TransactionID,
+		"transaction_id": stkUssdResponse.TransactionID,
+		"response_code":  stkUssdResponse.Code,
 	}).Info("STK/USSD push initiated")
 
 	return &stkUssdResponse, nil
@@ -171,6 +179,7 @@ func (c *Client) InitiateSTKUSSD(
 // CreatePaymentLink creates a payment link using the Jenga API.
 func (c *Client) CreatePaymentLink(
 	ctx context.Context,
+	creds *Credentials,
 	request models.PaymentLinkRequest,
 	accessToken string,
 ) (*models.PaymentLinkResponse, error) {
@@ -181,9 +190,10 @@ func (c *Client) CreatePaymentLink(
 		"currency":     request.PaymentLink.Currency,
 	})
 
-	url := fmt.Sprintf("%s/api-checkout/api/v1/create/payment-link", c.Env)
+	url := fmt.Sprintf("%s/api-checkout/api/v1/create/payment-link", creds.Environment)
 
-	signature, err := c.GeneratePaymentSignature(
+	signature, err := generatePaymentSignature(
+		creds.PrivateKeyPath,
 		request.PaymentLink.ExpiryDate,
 		fmt.Sprint(request.PaymentLink.Amount),
 		request.PaymentLink.Currency,
@@ -218,22 +228,27 @@ func (c *Client) CreatePaymentLink(
 		return nil, fmt.Errorf("read payment link response: %w", err)
 	}
 
-	var paymentLinkResponse models.PaymentLinkResponse
-	if unmarshalErr := json.Unmarshal(respBody, &paymentLinkResponse); unmarshalErr != nil {
+	if resp.StatusCode != http.StatusOK {
 		logger.WithFields(map[string]any{
 			"status_code": resp.StatusCode,
 			"response":    string(respBody),
-		}).Error("failed to parse payment link response")
+		}).Error("payment link creation request failed")
+		return nil, fmt.Errorf("payment link failed: status %s, body: %s", resp.Status, string(respBody))
+	}
+
+	var paymentLinkResponse models.PaymentLinkResponse
+	if unmarshalErr := json.Unmarshal(respBody, &paymentLinkResponse); unmarshalErr != nil {
 		return nil, fmt.Errorf(
 			"parse payment link response: %w (status: %s, body: %s)",
 			unmarshalErr, resp.Status, string(respBody),
 		)
 	}
 
-	logger.WithFields(map[string]any{
-		"response_status": paymentLinkResponse.Status,
-		"response_code":   paymentLinkResponse.Code,
-	}).Info("payment link creation completed")
+	if !paymentLinkResponse.Status {
+		return nil, fmt.Errorf("payment link rejected: code=%d message=%s", paymentLinkResponse.Code, paymentLinkResponse.Message)
+	}
+
+	logger.WithField("response_code", paymentLinkResponse.Code).Info("payment link created")
 
 	return &paymentLinkResponse, nil
 }
@@ -241,6 +256,7 @@ func (c *Client) CreatePaymentLink(
 // InitiateTillsPay initiates a tills/pay request.
 func (c *Client) InitiateTillsPay(
 	ctx context.Context,
+	creds *Credentials,
 	request models.TillsPayRequest,
 	accessToken string,
 ) (*models.TillsPayResponse, error) {
@@ -252,9 +268,10 @@ func (c *Client) InitiateTillsPay(
 		"currency":    request.Payment.Currency,
 	})
 
-	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", c.Env)
+	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", creds.Environment)
 
-	signature, err := c.GeneratePaymentSignature(
+	signature, err := generatePaymentSignature(
+		creds.PrivateKeyPath,
 		request.Merchant.Till,
 		request.Partner.ID,
 		request.Payment.Amount,
@@ -289,22 +306,29 @@ func (c *Client) InitiateTillsPay(
 		return nil, fmt.Errorf("read tills pay response: %w", err)
 	}
 
-	var tillsPayResponse models.TillsPayResponse
-	if unmarshalErr := json.Unmarshal(respBody, &tillsPayResponse); unmarshalErr != nil {
+	if resp.StatusCode != http.StatusOK {
 		logger.WithFields(map[string]any{
 			"status_code": resp.StatusCode,
 			"response":    string(respBody),
-		}).Error("failed to parse tills pay response")
+		}).Error("tills pay request failed")
+		return nil, fmt.Errorf("tills pay failed: status %s, body: %s", resp.Status, string(respBody))
+	}
+
+	var tillsPayResponse models.TillsPayResponse
+	if unmarshalErr := json.Unmarshal(respBody, &tillsPayResponse); unmarshalErr != nil {
 		return nil, fmt.Errorf(
 			"parse tills pay response: %w (status: %s, body: %s)",
 			unmarshalErr, resp.Status, string(respBody),
 		)
 	}
 
+	if !tillsPayResponse.Status {
+		return nil, fmt.Errorf("tills pay rejected: code=%d message=%s", tillsPayResponse.Code, tillsPayResponse.Message)
+	}
+
 	logger.WithFields(map[string]any{
-		"response_status": tillsPayResponse.Status,
-		"transaction_id":  tillsPayResponse.TransactionID,
-		"merchant_name":   tillsPayResponse.MerchantName,
+		"transaction_id": tillsPayResponse.TransactionID,
+		"merchant_name":  tillsPayResponse.MerchantName,
 	}).Info("tills pay completed")
 
 	return &tillsPayResponse, nil

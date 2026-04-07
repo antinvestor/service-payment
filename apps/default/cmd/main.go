@@ -85,7 +85,8 @@ func main() {
 
 	// Initialize business layer
 	paymentBusiness, err := business.NewPaymentBusiness(
-		ctx, workMan, evtsMan, profileCli, tenancyCli, ledgerCli,
+		ctx, workMan, qMan, cfg.InitiatePromptTopicName, cfg.PaymentLinkTopicName,
+		evtsMan, profileCli, tenancyCli, ledgerCli,
 		paymentRepo, statusRepo, costRepo, accountRepo, promptRepo, paymentLinkRepo,
 	)
 	if err != nil {

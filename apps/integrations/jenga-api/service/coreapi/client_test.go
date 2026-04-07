@@ -14,6 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testCreds(serverURL string) *coreapi.Credentials {
+	return &coreapi.Credentials{
+		MerchantCode:   "TEST_MERCHANT",
+		ConsumerSecret: "TEST_SECRET",
+		APIKey:         "TEST_API_KEY",
+		Environment:    serverURL,
+	}
+}
+
 func TestGenerateBearerToken(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -53,16 +62,11 @@ func TestGenerateBearerToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Check request method
 				assert.Equal(t, http.MethodPost, r.Method)
-
-				// Check headers
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				assert.NotEmpty(t, r.Header.Get("Api-Key"))
 
-				// Set response
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.responseStatus)
 				_, err := w.Write([]byte(tt.responseBody))
@@ -70,19 +74,11 @@ func TestGenerateBearerToken(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// Create client pointing to test server
-			client := &coreapi.Client{
-				MerchantCode:   "TEST_MERCHANT",
-				ConsumerSecret: "TEST_SECRET",
-				APIKey:         "TEST_API_KEY",
-				HTTPClient:     server.Client(),
-				Env:            server.URL, // Use test server URL
-			}
+			client := coreapi.New(server.Client())
+			creds := testCreds(server.URL)
 
-			// Call the method
-			token, err := client.GenerateBearerToken(context.Background())
+			token, err := client.GenerateBearerToken(context.Background(), creds)
 
-			// Check expectations
 			if tt.expectError {
 				require.Error(t, err)
 				require.Nil(t, token)
@@ -95,9 +91,9 @@ func TestGenerateBearerToken(t *testing.T) {
 }
 
 func TestInitiateSTKUSSD(t *testing.T) {
-	// Enable test mode to skip actual signature validation
 	coreapi.SetTestMode(true)
-	defer func() { coreapi.SetTestMode(false) }()
+	defer coreapi.SetTestMode(false)
+
 	tests := []struct {
 		name             string
 		request          models.STKUSSDRequest
@@ -133,84 +129,46 @@ func TestInitiateSTKUSSD(t *testing.T) {
 			},
 		},
 		{
-			name: "Error - 400 Bad Request",
+			name: "Error - 400 Bad Request returns error",
 			request: models.STKUSSDRequest{
-				Merchant: models.Merchant{
-					AccountNumber: "12345",
-					CountryCode:   "KE",
-				},
+				Merchant: models.Merchant{AccountNumber: "12345", CountryCode: "KE"},
 				Payment: models.Payment{
-					Ref:          "REF123",
-					Amount:       "100",
-					Currency:     "KES",
-					Telco:        "Unknown",
-					MobileNumber: "254712345678",
+					Ref: "REF123", Amount: "100", Currency: "KES",
+					Telco: "Unknown", MobileNumber: "254712345678",
 				},
 			},
-			responseStatus: http.StatusBadRequest,
-			responseBody:   `{"status":false,"code":400,"message":"Invalid request parameters"}`,
-			expectError:    false, // Not expecting an error because we still parse the response
-			expectedResponse: &models.STKUSSDResponse{
-				Status:  false,
-				Code:    400,
-				Message: "Invalid request parameters",
-			},
+			responseStatus:   http.StatusBadRequest,
+			responseBody:     `{"status":false,"code":400,"message":"Invalid request parameters"}`,
+			expectError:      true,
+			expectedResponse: nil,
 		},
 	}
 
-	// Create a temporary file for private key testing
-	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
-	require.NoError(t, err)
-	defer func() {
-		removeErr := os.Remove(tmpFile.Name())
-		require.NoError(t, removeErr)
-	}()
-	// Write dummy key content
-	_, err = tmpFile.WriteString(
-		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
-	)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Check request method and headers
 				assert.Equal(t, http.MethodPost, r.Method)
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 				assert.NotEmpty(t, r.Header.Get("Signature"))
 
-				// Check request body
 				var requestBody models.STKUSSDRequest
 				decodeErr := json.NewDecoder(r.Body).Decode(&requestBody)
 				assert.NoError(t, decodeErr)
 				assert.Equal(t, tt.request, requestBody)
 
-				// Send response
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.responseStatus)
-				_, err = w.Write([]byte(tt.responseBody))
-				assert.NoError(t, err)
+				_, writeErr := w.Write([]byte(tt.responseBody))
+				assert.NoError(t, writeErr)
 			}))
 			defer server.Close()
 
-			// Create client pointing to test server
-			client := &coreapi.Client{
-				MerchantCode:    "TEST_MERCHANT",
-				ConsumerSecret:  "TEST_SECRET",
-				APIKey:          "TEST_API_KEY",
-				HTTPClient:      server.Client(),
-				Env:             server.URL, // Use test server URL
-				JengaPrivateKey: tmpFile.Name(),
-			}
+			client := coreapi.New(server.Client())
+			creds := testCreds(server.URL)
 
-			// Call the method
-			response, respErr := client.InitiateSTKUSSD(context.Background(), tt.request, "test-token")
+			response, respErr := client.InitiateSTKUSSD(context.Background(), creds, tt.request, "test-token")
 
-			// Check expectations
 			if tt.expectError {
 				require.Error(t, respErr)
 				require.Nil(t, response)
@@ -222,121 +180,19 @@ func TestInitiateSTKUSSD(t *testing.T) {
 	}
 }
 
-func TestInitiateAccountBalance(t *testing.T) {
-	// Enable test mode to skip actual signature validation
-	coreapi.SetTestMode(true)
-	defer func() { coreapi.SetTestMode(false) }()
-	tests := []struct {
-		name        string
-		countryCode string
-		//nolint:revive // accountId follows API convention in test
-		accountId        string //nolint:staticcheck // API field name
-		responseStatus   int
-		responseBody     string
-		expectError      bool
-		expectedResponse *models.BalanceResponse
-	}{
-		{
-			name:           "Success - 200 OK",
-			countryCode:    "KE",
-			accountId:      "12345",
-			responseStatus: http.StatusOK,
-			responseBody:   `{"status":true,"code":200,"message":"Success","data":{"balances":[{"amount":"1000.00","type":"available"}],"currency":"KES"}}`,
-			expectError:    false,
-			expectedResponse: &models.BalanceResponse{
-				Status:  true,
-				Code:    200,
-				Message: "Success",
-				Data: struct {
-					Balances []struct {
-						Amount string `json:"amount"`
-						Type   string `json:"type"`
-					} `json:"balances"`
-					Currency string `json:"currency"`
-				}{
-					Balances: []struct {
-						Amount string `json:"amount"`
-						Type   string `json:"type"`
-					}{
-						{
-							Amount: "1000.00",
-							Type:   "available",
-						},
-					},
-					Currency: "KES",
-				},
-			},
-		},
-		{
-			name:           "Error - 404 Not Found",
-			countryCode:    "KE",
-			accountId:      "invalid",
-			responseStatus: http.StatusNotFound,
-			responseBody:   `{"status":false,"code":404,"message":"Account not found"}`,
-			expectError:    false, // Not expecting an error because we still parse the response
-			expectedResponse: &models.BalanceResponse{
-				Status:  false,
-				Code:    404,
-				Message: "Account not found",
-			},
-		},
-	}
-
-	// Create a temporary file for private key testing
-	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
-	require.NoError(t, err)
-	defer func() {
-		removeErr := os.Remove(tmpFile.Name())
-		require.NoError(t, removeErr)
-	}()
-	// Write dummy key content
-	_, err = tmpFile.WriteString(
-		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
-	)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Check request method and headers
-				assert.Equal(t, http.MethodGet, r.Method)
-				assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
-				assert.NotEmpty(t, r.Header.Get("Signature"))
-
-				// Send response
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(tt.responseStatus)
-				_, err = w.Write([]byte(tt.responseBody))
-				assert.NoError(t, err)
-			}))
-			defer server.Close()
-		})
-	}
-}
-
 func TestGenerateSignature(t *testing.T) {
-	// Disable test mode for the signature generation tests
-	// since these tests specifically validate the signature generation logic
 	coreapi.SetTestMode(false)
-	defer func() { coreapi.SetTestMode(false) }()
-	// Create a temporary file for testing
+	defer coreapi.SetTestMode(false)
+
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	require.NoError(t, err)
-	defer func() {
-		removeErr := os.Remove(tmpFile.Name())
-		require.NoError(t, removeErr)
-	}()
+	defer os.Remove(tmpFile.Name()) //nolint:errcheck
 
-	// Write dummy key content
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",
 	)
 	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
 
 	tests := []struct {
 		name        string
@@ -350,9 +206,6 @@ func TestGenerateSignature(t *testing.T) {
 			keyPath:     "nonexistent.pem",
 			expectError: true,
 		},
-		// Note: We can't easily test the success case with actual signature verification
-		// since we're using a dummy private key. We can at least test the function doesn't crash
-		// with a valid file path
 		{
 			name:        "File exists but contains invalid key",
 			message:     "test message",

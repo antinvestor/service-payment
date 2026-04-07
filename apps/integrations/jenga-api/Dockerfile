@@ -17,7 +17,7 @@ RUN go mod download
 
 # Copy project files
 COPY ./apps/integrations/jenga-api ./apps/integrations/jenga-api
-#COPY ./internal ./internal
+COPY ./internal ./internal
 
 # Build static binary for target platform
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
@@ -31,7 +31,6 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 
 # ---------- Final ----------
 FROM cgr.dev/chainguard/static:latest
-# Add Maintainer Info
 LABEL maintainer="Bwire Peter <bwire517@gmail.com>"
 
 USER 65532:65532
@@ -55,10 +54,7 @@ WORKDIR /
 # Copy from builder stage
 COPY --from=builder /app/binary /jenga-api
 
-# Copy the keys directory
-COPY --chown=65532:65532 keys /keys
-
-# Only set non-sensitive defaults; secrets must come from K8s Secrets or env injection
+# Keys must be mounted via K8s Secret volume at runtime — never baked into the image
 ENV LOG_LEVEL=info
 ENV JENGA_PRIVATE_KEY_PATH=/keys/privatekey.pem
 

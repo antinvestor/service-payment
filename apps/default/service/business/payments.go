@@ -30,6 +30,9 @@ import (
 func NewPaymentBusiness(
 	_ context.Context,
 	workMan workerpool.Manager,
+	qMan queue.Manager,
+	promptTopicName string,
+	paymentLinkTopicName string,
 	eventMan fevents.Manager,
 	profileCli profilev1connect.ProfileServiceClient,
 	tenancyCli tenancyv1connect.TenancyServiceClient,
@@ -42,33 +45,38 @@ func NewPaymentBusiness(
 	paymentLinkRepo repository.PaymentLinkRepository,
 ) (PaymentBusiness, error) {
 	return &paymentBusiness{
-		eventMan:        eventMan,
-		profileCli:      profileCli,
-		tenancyCli:      tenancyCli,
-		ledgerCli:       ledgerCli,
-		paymentRepo:     paymentRepo,
-		statusRepo:      statusRepo,
-		costRepo:        costRepo,
-		accountRepo:     accountRepo,
-		promptRepo:      promptRepo,
-		paymentLinkRepo: paymentLinkRepo,
-		workMan:         workMan,
+		qMan:                 qMan,
+		promptTopicName:      promptTopicName,
+		paymentLinkTopicName: paymentLinkTopicName,
+		eventMan:             eventMan,
+		profileCli:           profileCli,
+		tenancyCli:           tenancyCli,
+		ledgerCli:            ledgerCli,
+		paymentRepo:          paymentRepo,
+		statusRepo:           statusRepo,
+		costRepo:             costRepo,
+		accountRepo:          accountRepo,
+		promptRepo:           promptRepo,
+		paymentLinkRepo:      paymentLinkRepo,
+		workMan:              workMan,
 	}, nil
 }
 
 type paymentBusiness struct {
-	qMan            queue.Manager
-	eventMan        fevents.Manager
-	profileCli      profilev1connect.ProfileServiceClient
-	tenancyCli      tenancyv1connect.TenancyServiceClient
-	ledgerCli       ledgerv1connect.LedgerServiceClient
-	paymentRepo     repository.PaymentRepository
-	statusRepo      repository.StatusRepository
-	costRepo        repository.CostRepository
-	accountRepo     repository.AccountRepository
-	promptRepo      repository.PromptRepository
-	paymentLinkRepo repository.PaymentLinkRepository
-	workMan         workerpool.Manager
+	qMan                 queue.Manager
+	promptTopicName      string
+	paymentLinkTopicName string
+	eventMan             fevents.Manager
+	profileCli           profilev1connect.ProfileServiceClient
+	tenancyCli           tenancyv1connect.TenancyServiceClient
+	ledgerCli            ledgerv1connect.LedgerServiceClient
+	paymentRepo          repository.PaymentRepository
+	statusRepo           repository.StatusRepository
+	costRepo             repository.CostRepository
+	accountRepo          repository.AccountRepository
+	promptRepo           repository.PromptRepository
+	paymentLinkRepo      repository.PaymentLinkRepository
+	workMan              workerpool.Manager
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
@@ -547,7 +555,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 		return nil, err
 	}
 
-	err = pb.qMan.Publish(ctx, "initiate_prompt", p)
+	err = pb.qMan.Publish(ctx, pb.promptTopicName, p)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish initiate-prompt")
 		return nil, err
@@ -674,7 +682,7 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		return nil, statusEmitErr
 	}
 
-	err = pb.qMan.Publish(ctx, "create_payment_link", paymentLink)
+	err = pb.qMan.Publish(ctx, pb.paymentLinkTopicName, paymentLink)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish create-payment-link")
 		// Emit the status event even if publish fails

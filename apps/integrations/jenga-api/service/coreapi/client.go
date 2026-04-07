@@ -3,22 +3,14 @@ package coreapi
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/pitabwire/util"
-)
-
-const (
-	maxIdleConns    = 10
-	idleConnTimeout = 30 * time.Second
-	httpTimeout     = 30 * time.Second
 )
 
 // Client represents the Jenga API client.
@@ -32,29 +24,15 @@ type Client struct {
 }
 
 // New creates a new instance of the Jenga API client.
-func New(merchantCode, consumerSecret, apiKey, env string, _ string) *Client {
-	// Create a custom transport with TLS configuration
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-		MaxIdleConns:       maxIdleConns,
-		IdleConnTimeout:    idleConnTimeout,
-		DisableCompression: true,
-	}
-
-	// Create HTTP client with the custom transport
-	httpClient := &http.Client{
-		Transport: tr,
-		Timeout:   httpTimeout,
-	}
-
+// The httpClient must be provided by the caller (e.g. from Frame's HTTPClientManager).
+func New(httpClient *http.Client, merchantCode, consumerSecret, apiKey, env, privateKeyPath string) *Client {
 	return &Client{
-		MerchantCode:   merchantCode,
-		ConsumerSecret: consumerSecret,
-		APIKey:         apiKey,
-		HTTPClient:     httpClient,
-		Env:            env,
+		MerchantCode:    merchantCode,
+		ConsumerSecret:  consumerSecret,
+		APIKey:          apiKey,
+		HTTPClient:      httpClient,
+		Env:             env,
+		JengaPrivateKey: privateKeyPath,
 	}
 }
 
@@ -68,7 +46,9 @@ type BearerTokenResponse struct {
 }
 
 // GenerateBearerToken generates a Bearer token for authorization.
-func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
+func (c *Client) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse, error) {
+	logger := util.Log(ctx).WithField("operation", "GenerateBearerToken")
+
 	url := fmt.Sprintf("%s/authentication/api/v3/authenticate/merchant", c.Env)
 	body := map[string]string{
 		"merchantCode":   c.MerchantCode,
@@ -76,62 +56,73 @@ func (c *Client) GenerateBearerToken() (*BearerTokenResponse, error) {
 	}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal token request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Api-Key", c.APIKey)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute token request: %w", err)
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
-		}
-	}()
+	defer util.CloseAndLogOnError(ctx, resp.Body, "close token response body")
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read token response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to generate token: %s, body: %s", resp.Status, string(respBody))
+		logger.WithFields(map[string]any{
+			"status_code": resp.StatusCode,
+			"response":    string(respBody),
+		}).Error("bearer token generation failed")
+		return nil, fmt.Errorf("generate token: status %s, body: %s", resp.Status, string(respBody))
 	}
 
 	var tokenResponse BearerTokenResponse
 	if unmarshalErr := json.Unmarshal(respBody, &tokenResponse); unmarshalErr != nil {
-		return nil, unmarshalErr
+		return nil, fmt.Errorf("unmarshal token response: %w", unmarshalErr)
 	}
+
+	logger.Debug("bearer token generated successfully")
 	return &tokenResponse, nil
 }
 
 func (c *Client) GeneratePaymentSignature(args ...string) (string, error) {
-	// Generate signature
-	// Use the private key path stored in the client configuration
 	privateKeyPath := c.JengaPrivateKey
 	if privateKeyPath == "" {
-		privateKeyPath = "app/keys/privatekey.pem" // Fallback to default path
+		privateKeyPath = "/app/keys/privatekey.pem"
 	}
 
 	signature, err := GenerateSignature(strings.Join(args, ""), privateKeyPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signature: %w", err)
+		return "", fmt.Errorf("generate signature: %w", err)
 	}
 	return signature, nil
 }
 
 // InitiateSTKUSSD initiates an STK/USSD push request.
-func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error) {
+func (c *Client) InitiateSTKUSSD(
+	ctx context.Context,
+	request models.STKUSSDRequest,
+	accessToken string,
+) (*models.STKUSSDResponse, error) {
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"operation":   "InitiateSTKUSSD",
+		"payment_ref": request.Payment.Ref,
+		"mobile":      request.Payment.MobileNumber,
+		"amount":      request.Payment.Amount,
+		"currency":    request.Payment.Currency,
+	})
+
 	url := fmt.Sprintf("%s/v3-apis/payment-api/v3.0/stkussdpush/initiate", c.Env)
 
-	// Generate the signature for the request
 	signature, err := c.GeneratePaymentSignature(
 		request.Merchant.AccountNumber,
 		request.Payment.Ref,
@@ -141,17 +132,17 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 		request.Payment.Currency,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate STK signature: %w", err)
 	}
 
 	jsonBody, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal STK request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create STK request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -159,58 +150,58 @@ func (c *Client) InitiateSTKUSSD(request models.STKUSSDRequest, accessToken stri
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute STK request: %w", err)
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
-		}
-	}()
+	defer util.CloseAndLogOnError(ctx, resp.Body, "close STK response body")
 
 	var stkUssdResponse models.STKUSSDResponse
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&stkUssdResponse); decodeErr != nil {
-		return nil, decodeErr
+		return nil, fmt.Errorf("decode STK response: %w", decodeErr)
 	}
+
+	logger.WithFields(map[string]any{
+		"response_status": stkUssdResponse.Status,
+		"response_code":   stkUssdResponse.Code,
+		"transaction_id":  stkUssdResponse.TransactionID,
+	}).Info("STK/USSD push initiated")
+
 	return &stkUssdResponse, nil
 }
 
 // CreatePaymentLink creates a payment link using the Jenga API.
 func (c *Client) CreatePaymentLink(
+	ctx context.Context,
 	request models.PaymentLinkRequest,
 	accessToken string,
 ) (*models.PaymentLinkResponse, error) {
-	// Compose the endpoint URL
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"operation":    "CreatePaymentLink",
+		"external_ref": request.PaymentLink.ExternalRef,
+		"amount":       request.PaymentLink.Amount,
+		"currency":     request.PaymentLink.Currency,
+	})
+
 	url := fmt.Sprintf("%s/api-checkout/api/v1/create/payment-link", c.Env)
 
-	// Prepare signature fields as per the formula:
-	// paymentLink.expiryDate+paymentLink.amount+paymentLink.currency+paymentLink.amountOption+paymentLink.externalRef
-	expiryDate := request.PaymentLink.ExpiryDate
-	amount := fmt.Sprint(
-		request.PaymentLink.Amount,
-	) // Convert amount to string for signature generation.request.PaymentLink.Amount
-	currency := request.PaymentLink.Currency
-	amountOption := request.PaymentLink.AmountOption
-	externalRef := request.PaymentLink.ExternalRef
-
 	signature, err := c.GeneratePaymentSignature(
-		expiryDate,
-		amount,
-		currency,
-		amountOption,
-		externalRef,
+		request.PaymentLink.ExpiryDate,
+		fmt.Sprint(request.PaymentLink.Amount),
+		request.PaymentLink.Currency,
+		request.PaymentLink.AmountOption,
+		request.PaymentLink.ExternalRef,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate payment link signature: %w", err)
 	}
 
 	jsonBody, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal payment link request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create payment link request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -218,41 +209,51 @@ func (c *Client) CreatePaymentLink(
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute payment link request: %w", err)
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
-		}
-	}()
+	defer util.CloseAndLogOnError(ctx, resp.Body, "close payment link response body")
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read payment link response: %w", err)
 	}
 
 	var paymentLinkResponse models.PaymentLinkResponse
 	if unmarshalErr := json.Unmarshal(respBody, &paymentLinkResponse); unmarshalErr != nil {
+		logger.WithFields(map[string]any{
+			"status_code": resp.StatusCode,
+			"response":    string(respBody),
+		}).Error("failed to parse payment link response")
 		return nil, fmt.Errorf(
-			"failed to parse response: %w (status: %s, body: %s)",
-			unmarshalErr,
-			resp.Status,
-			string(respBody),
+			"parse payment link response: %w (status: %s, body: %s)",
+			unmarshalErr, resp.Status, string(respBody),
 		)
 	}
+
+	logger.WithFields(map[string]any{
+		"response_status": paymentLinkResponse.Status,
+		"response_code":   paymentLinkResponse.Code,
+	}).Info("payment link creation completed")
 
 	return &paymentLinkResponse, nil
 }
 
 // InitiateTillsPay initiates a tills/pay request.
 func (c *Client) InitiateTillsPay(
+	ctx context.Context,
 	request models.TillsPayRequest,
 	accessToken string,
 ) (*models.TillsPayResponse, error) {
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"operation":   "InitiateTillsPay",
+		"till":        request.Merchant.Till,
+		"payment_ref": request.Payment.Ref,
+		"amount":      request.Payment.Amount,
+		"currency":    request.Payment.Currency,
+	})
+
 	url := fmt.Sprintf("%s/v3-apis/transaction-api/v3.0/tills/pay", c.Env)
 
-	// Generate the signature for the request
-	// merchant.till+partner.id+payment.amount+payment.currency+payment.ref
 	signature, err := c.GeneratePaymentSignature(
 		request.Merchant.Till,
 		request.Partner.ID,
@@ -260,20 +261,18 @@ func (c *Client) InitiateTillsPay(
 		request.Payment.Currency,
 		request.Payment.Ref,
 	)
-	logger := util.Log(context.Background())
-	logger.Debug("generated payment signature")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate tills pay signature: %w", err)
 	}
 
 	jsonBody, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal tills pay request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create tills pay request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -281,28 +280,32 @@ func (c *Client) InitiateTillsPay(
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("execute tills pay request: %w", err)
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			util.Log(context.Background()).WithError(closeErr).Error("failed to close response body")
-		}
-	}()
+	defer util.CloseAndLogOnError(ctx, resp.Body, "close tills pay response body")
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read tills pay response: %w", err)
 	}
 
 	var tillsPayResponse models.TillsPayResponse
 	if unmarshalErr := json.Unmarshal(respBody, &tillsPayResponse); unmarshalErr != nil {
+		logger.WithFields(map[string]any{
+			"status_code": resp.StatusCode,
+			"response":    string(respBody),
+		}).Error("failed to parse tills pay response")
 		return nil, fmt.Errorf(
-			"failed to parse response: %w (status: %s, body: %s)",
-			unmarshalErr,
-			resp.Status,
-			string(respBody),
+			"parse tills pay response: %w (status: %s, body: %s)",
+			unmarshalErr, resp.Status, string(respBody),
 		)
 	}
+
+	logger.WithFields(map[string]any{
+		"response_status": tillsPayResponse.Status,
+		"transaction_id":  tillsPayResponse.TransactionID,
+		"merchant_name":   tillsPayResponse.MerchantName,
+	}).Info("tills pay completed")
 
 	return &tillsPayResponse, nil
 }

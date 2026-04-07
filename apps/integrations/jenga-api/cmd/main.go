@@ -13,7 +13,6 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventsstk"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/events/eventstillspay"
 	handler "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/router"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/events"
@@ -25,7 +24,8 @@ func main() {
 
 	cfg, err := config.LoadWithOIDC[aconfig.JengaConfig](ctx)
 	if err != nil {
-		panic(err)
+		util.Log(ctx).WithError(err).Fatal("could not process configs")
+		return
 	}
 
 	if cfg.Name() == "" {
@@ -34,11 +34,15 @@ func main() {
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
 	defer svc.Stop(ctx)
-	logger := util.Log(ctx).WithField("type", "main")
 
-	// Setup Jenga API client
+	logger := svc.Log(ctx)
+
+	// Use Frame's HTTP client manager instead of creating our own
+	httpClient := svc.HTTPClientManager().Client(ctx)
+
 	//nolint:revive,staticcheck // clientApi more readable than clientAPI
 	clientApi := coreapi.New(
+		httpClient,
 		cfg.MerchantCode,
 		cfg.ConsumerSecret,
 		cfg.ApiKey,
@@ -46,39 +50,20 @@ func main() {
 		cfg.JengaPrivateKey,
 	)
 
-	// Get managers
 	evtsMan := svc.EventsManager()
-	// Setup payment service client using Connect RPC
-	paymentCli := setupPaymentClient(ctx, cfg)
 
-	// Initialize event handlers using constructors
-	initiatePrompt := eventsstk.NewInitiatePrompt(
-		clientApi,
-		paymentCli,
-		cfg.JengaCallbackURL,
-	)
+	paymentCli, err := setupPaymentClient(ctx, cfg)
+	if err != nil {
+		logger.WithError(err).Fatal("could not setup payment client")
+	}
 
-	createPaymentLink := eventslinkprocessing.NewCreatePaymentLink(
-		clientApi,
-		paymentCli,
-	)
+	// Initialize event handlers
+	initiatePrompt := eventsstk.NewInitiatePrompt(clientApi, paymentCli, cfg.JengaCallbackURL)
+	createPaymentLink := eventslinkprocessing.NewCreatePaymentLink(clientApi, paymentCli)
+	callbackHandler := eventscallback.NewJengaCallbackReceivePayment(paymentCli)
+	tillsPayHandler := eventstillspay.NewJengaTillsPay(clientApi)
 
-	callbackHandler := eventscallback.NewJengaCallbackReceivePayment(
-		paymentCli,
-	)
-
-	tillsPayHandler := eventstillspay.NewJengaTillsPay(
-		clientApi,
-	)
-
-	// Initialize JobServer with dependencies
-	js := handler.NewJobServer(
-		evtsMan,
-		clientApi,
-		paymentCli,
-	)
-
-	httpRouter := router.NewRouter(js)
+	js := handler.NewJobServer(evtsMan, clientApi, paymentCli)
 
 	eventHandlers := []events.EventI{
 		callbackHandler,
@@ -93,7 +78,7 @@ func main() {
 	paymentLinkTopic := createPaymentLink.Name()
 
 	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(httpRouter),
+		frame.WithHTTPHandler(js.NewRouter()),
 		frame.WithRegisterEvents(eventHandlers...),
 		frame.WithRegisterPublisher(promptTopic, natsURL+promptTopic),
 		frame.WithRegisterPublisher(paymentLinkTopic, natsURL+paymentLinkTopic),
@@ -103,23 +88,19 @@ func main() {
 
 	svc.Init(ctx, serviceOptions...)
 
-	logger.Info("Jenga API service started successfully on port 8080")
-	if runErr := svc.Run(ctx, ":8080"); runErr != nil {
-		logger.WithError(runErr).Fatal("Failed to run Jenga API service")
+	logger.Info("Initiating Jenga API integration server operations")
+	if runErr := svc.Run(ctx, ""); runErr != nil {
+		logger.WithError(runErr).Error("could not run Server")
 	}
 }
 
 func setupPaymentClient(
 	ctx context.Context,
 	cfg aconfig.JengaConfig,
-) paymentv1connect.PaymentServiceClient {
-	ledgerCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+) (paymentv1connect.PaymentServiceClient, error) {
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PaymentServiceURI,
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
 		Audiences:             []string{"service_payment"},
 	}, paymentv1connect.NewPaymentServiceClient)
-	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
-	}
-	return ledgerCli
 }

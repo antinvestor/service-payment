@@ -61,7 +61,7 @@ func (h *InitiatePrompt) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *InitiatePrompt) Validate(ctx context.Context, payload any) error {
+func (h *InitiatePrompt) Validate(_ context.Context, payload any) error {
 	prompt, ok := payload.(*models.Prompt)
 	if !ok {
 		return errors.New("invalid payload type, expected *models.Prompt")
@@ -81,14 +81,14 @@ func (h *InitiatePrompt) Validate(ctx context.Context, payload any) error {
 }
 
 // Handle implements the frame.SubscribeWorker interface.
-func (h *InitiatePrompt) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
+func (h *InitiatePrompt) Handle(ctx context.Context, _ map[string]string, message []byte) error {
 	payload := h.PayloadType()
 	if err := json.Unmarshal(message, payload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
+		return fmt.Errorf("unmarshal payload: %w", err)
 	}
 
 	if err := h.Validate(ctx, payload); err != nil {
-		return fmt.Errorf("payload validation failed: %w", err)
+		return fmt.Errorf("validate payload: %w", err)
 	}
 
 	return h.Execute(ctx, payload)
@@ -101,8 +101,13 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type, expected *models.Prompt")
 	}
 
-	logger := util.Log(ctx).WithField("prompt_id", prompt.ID)
-	logger.Debug("processing initiate.prompt event")
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"event":     h.Name(),
+		"prompt_id": prompt.ID,
+		"mobile":    prompt.SourceContactID,
+		"amount":    prompt.Amount.String(),
+	})
+	logger.Info("processing STK prompt initiation")
 
 	account, err := parseAccountInfo(prompt.Account)
 	if err != nil {
@@ -115,6 +120,8 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		logger.Error("transaction reference is missing or invalid")
 		return errors.New("transaction reference is required")
 	}
+
+	logger = logger.WithField("transaction_ref", transactionRef)
 
 	currency := getStringWithDefault(prompt.Extra, "currency", defaultCurrency)
 	telco := getStringWithDefault(prompt.Extra, "telco", defaultTelco)
@@ -143,32 +150,30 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 		ID: prompt.ID,
 	}
 
-	logger.Debug("prepared STK request")
-
-	token, err := h.client.GenerateBearerToken()
+	token, err := h.client.GenerateBearerToken(ctx)
 	if err != nil {
-		logger.WithError(err).Error("failed to generate bearer token")
+		logger.WithError(err).Error("failed to generate bearer token for STK push")
 		return h.handleError(ctx, prompt.ID, transactionRef,
 			fmt.Errorf("generate bearer token: %w", err))
 	}
 
-	response, err := h.client.InitiateSTKUSSD(*stkRequest, token.AccessToken)
+	response, err := h.client.InitiateSTKUSSD(ctx, *stkRequest, token.AccessToken)
 	if err != nil {
-		logger.WithError(err).Error("failed to initiate STK/USSD push")
+		logger.WithError(err).Error("STK/USSD push initiation failed")
 		return h.handleError(ctx, prompt.ID, transactionRef,
 			fmt.Errorf("initiate STK/USSD push: %w", err))
 	}
 
-	logger.Debug("STK/USSD push response received")
+	logger.WithFields(map[string]any{
+		"response_transaction_id": response.TransactionID,
+		"response_status":         response.Status,
+		"response_message":        response.Message,
+	}).Info("STK/USSD push initiated successfully")
 
 	if updateErr := h.updateStatus(
-		ctx,
-		prompt.ID,
-		transactionRef,
-		response.TransactionID,
-		response.Message,
+		ctx, prompt.ID, transactionRef, response.TransactionID, response.Message,
 	); updateErr != nil {
-		logger.WithError(updateErr).Error("failed to update payment status")
+		logger.WithError(updateErr).Error("failed to update payment status after successful push")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
 
@@ -178,7 +183,6 @@ func (h *InitiatePrompt) Execute(ctx context.Context, payload any) error {
 // parseAccountInfo unmarshals the account JSON from the prompt.
 func parseAccountInfo(accountJSON data.JSONMap) (*models.Account, error) {
 	var account models.Account
-	// Convert JSONMap to bytes first, then unmarshal
 	bytes, err := json.Marshal(accountJSON)
 	if err != nil {
 		return nil, fmt.Errorf("marshal account JSON: %w", err)
@@ -208,7 +212,10 @@ func getStringWithDefault(extras map[string]interface{}, key, defaultValue strin
 
 // handleError updates the status to failed and returns the error.
 func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionRef string, err error) error {
-	logger := util.Log(ctx).WithField("prompt_id", promptID)
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"prompt_id":       promptID,
+		"transaction_ref": transactionRef,
+	})
 
 	extras := data.JSONMap{
 		"update_type":     updateTypePrompt,
@@ -225,10 +232,11 @@ func (h *InitiatePrompt) handleError(ctx context.Context, promptID, transactionR
 	}
 
 	if _, updateErr := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest)); updateErr != nil {
-		logger.WithError(updateErr).Error("failed to update payment status")
+		logger.WithError(updateErr).Error("failed to update payment status to failed")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
 
+	logger.Info("payment status updated to failed")
 	return err
 }
 

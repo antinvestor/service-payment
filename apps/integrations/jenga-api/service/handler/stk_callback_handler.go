@@ -10,19 +10,7 @@ import (
 
 func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := util.Log(ctx).WithField("type", "CallbackHandler")
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Verify Basic Auth if needed
-	// authHeader := r.Header.Get("Authorization")
-	// if authHeader == "" {
-	// 	http.Error(w, "Authorization header required", http.StatusUnauthorized)
-	// 	return
-	// }
+	logger := util.Log(ctx).WithField("handler", "HandleStkCallback")
 
 	var callback models.StkCallback
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
@@ -31,7 +19,6 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields in the callback
 	if callback.Transaction == "" || callback.MobileNumber == "" || callback.Currency == "" {
 		logger.Error("missing required fields in callback")
 		http.Error(w, "Missing required fields in callback", http.StatusBadRequest)
@@ -40,11 +27,13 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithFields(map[string]any{
 		"transaction_ref": callback.Transaction,
+		"mobile_number":   callback.MobileNumber,
 		"status":          callback.Status,
+		"amount":          callback.RequestAmount,
+		"currency":        callback.Currency,
 	})
-	logger.Debug("received STK callback")
+	logger.Info("received STK callback")
 
-	// Process the callback synchronously using the request's context
 	err := js.eventMan.Emit(ctx, "jenga.callback.receive.payment", &callback)
 	if err != nil {
 		logger.WithError(err).Error("failed to emit callback event")
@@ -52,9 +41,8 @@ func (js *JobServer) HandleStkCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("callback processed successfully")
+	logger.Info("STK callback processed successfully")
 
-	// Return success response
 	w.WriteHeader(http.StatusOK)
 	if encodeErr := json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",

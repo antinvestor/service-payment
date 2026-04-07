@@ -29,7 +29,7 @@ func (event *JengaStkCallback) PayloadType() any {
 	return &models.StkCallback{}
 }
 
-func (event *JengaStkCallback) Validate(ctx context.Context, payload any) error {
+func (event *JengaStkCallback) Validate(_ context.Context, payload any) error {
 	callback, ok := payload.(*models.StkCallback)
 	if !ok {
 		return errors.New("invalid payload type")
@@ -46,8 +46,6 @@ func (event *JengaStkCallback) Validate(ctx context.Context, payload any) error 
 }
 
 func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
-	logger := util.Log(ctx)
-
 	if event.PaymentClient == nil {
 		return errors.New("payment client not initialized")
 	}
@@ -57,18 +55,28 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type")
 	}
 
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"event":           event.Name(),
+		"transaction_ref": callback.Transaction,
+		"mobile_number":   callback.MobileNumber,
+		"amount":          callback.RequestAmount,
+		"debited_amount":  callback.DebitedAmount,
+		"charge":          callback.Charge,
+		"currency":        callback.Currency,
+		"telco":           callback.TelcoName,
+		"stk_status":      callback.Status,
+	})
+	logger.Info("processing STK callback")
+
 	callbackJSON, err := json.Marshal(callback)
 	if err != nil {
-		logger.WithError(err).Error("failed to marshal callback")
-		return nil
+		logger.WithError(err).Error("failed to marshal STK callback for audit trail")
+		return fmt.Errorf("marshal STK callback: %w", err)
 	}
 
 	cbJSON := data.JSONMap{
 		"additional_info": string(callbackJSON),
 	}
-
-	logger = logger.WithField("transaction_ref", callback.Transaction)
-	logger.Debug("received Jenga STK callback")
 
 	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", callback.RequestAmount))
 	amount := utilmoney.ToMoney(callback.Currency, amtDec)
@@ -86,9 +94,10 @@ func (event *JengaStkCallback) Execute(ctx context.Context, payload any) error {
 		Data: payment,
 	}))
 	if err != nil {
-		logger.WithError(err).Error("failed to process STK callback")
-		return err
+		logger.WithError(err).Error("failed to forward STK payment to payment service")
+		return fmt.Errorf("receive STK payment: %w", err)
 	}
 
+	logger.Info("STK callback forwarded successfully")
 	return nil
 }

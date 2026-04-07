@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	handlers "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -317,26 +316,4 @@ func TestAccountBalanceHandler(t *testing.T) {
 			mockService.AssertExpectations(t)
 		})
 	}
-}
-
-func TestHealthHandler(t *testing.T) {
-	// Create request
-	req, err := http.NewRequest(http.MethodGet, "/health", nil)
-	require.NoError(t, err)
-
-	// Create response recorder
-	rr := httptest.NewRecorder()
-
-	// Call the handler
-	handlers.HealthHandler(rr, req)
-
-	// Check response
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
-
-	// Parse response body
-	var responseBody map[string]string
-	err = json.Unmarshal(rr.Body.Bytes(), &responseBody)
-	require.NoError(t, err)
-	require.Equal(t, "ok", responseBody["status"])
 }

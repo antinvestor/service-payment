@@ -66,7 +66,7 @@ func (h *CreatePaymentLink) PayloadType() any {
 	return &models.PaymentLink{}
 }
 
-func (h *CreatePaymentLink) Validate(ctx context.Context, payload any) error {
+func (h *CreatePaymentLink) Validate(_ context.Context, payload any) error {
 	paymentLink, ok := payload.(*models.PaymentLink)
 	if !ok {
 		return errors.New("invalid payload type, expected *models.PaymentLink")
@@ -97,13 +97,13 @@ func (h *CreatePaymentLink) Validate(ctx context.Context, payload any) error {
 	return nil
 }
 
-func (h *CreatePaymentLink) Handle(ctx context.Context, metadata map[string]string, message []byte) error {
+func (h *CreatePaymentLink) Handle(ctx context.Context, _ map[string]string, message []byte) error {
 	payload := h.PayloadType()
 	if err := json.Unmarshal(message, payload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
+		return fmt.Errorf("unmarshal payload: %w", err)
 	}
 	if err := h.Validate(ctx, payload); err != nil {
-		return fmt.Errorf("payload validation failed: %w", err)
+		return fmt.Errorf("validate payload: %w", err)
 	}
 	return h.Execute(ctx, payload)
 }
@@ -113,32 +113,43 @@ func (h *CreatePaymentLink) Execute(ctx context.Context, payload any) error {
 	if !ok {
 		return errors.New("invalid payload type, expected *models.PaymentLink")
 	}
-	logger := util.Log(ctx).WithField("payment_link_id", paymentLink.ID)
-	logger.Debug("processing create.payment_link event")
+
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"event":           h.Name(),
+		"payment_link_id": paymentLink.ID,
+		"external_ref":    paymentLink.ExternalRef,
+		"amount":          paymentLink.Amount.String(),
+		"currency":        paymentLink.Currency,
+		"link_type":       paymentLink.PaymentLinkType,
+	})
+	logger.Info("processing payment link creation")
 
 	requestBody, err := h.prepareRequest(paymentLink)
 	if err != nil {
-		logger.WithError(err).Error("failed to prepare request")
+		logger.WithError(err).Error("failed to prepare payment link request")
 		return h.handleError(ctx, paymentLink.ID, fmt.Errorf("prepare request: %w", err))
 	}
 
-	token, err := h.client.GenerateBearerToken()
+	token, err := h.client.GenerateBearerToken(ctx)
 	if err != nil {
-		logger.WithError(err).Error("failed to generate bearer token")
+		logger.WithError(err).Error("failed to generate bearer token for payment link")
 		return h.handleError(ctx, paymentLink.ID, fmt.Errorf("generate bearer token: %w", err))
 	}
 
-	response, err := h.client.CreatePaymentLink(requestBody, token.AccessToken)
+	response, err := h.client.CreatePaymentLink(ctx, requestBody, token.AccessToken)
 	if err != nil || !response.Status {
 		errorMsg := h.getErrorResponse(err, response)
-		logger.WithError(err).Error("failed to create payment link")
+		logger.WithError(err).WithField("api_error", errorMsg).Error("payment link creation failed")
 		return h.handleError(ctx, paymentLink.ID, fmt.Errorf("create payment link: %v", errorMsg))
 	}
 
-	h.logResponse(response)
+	logger.WithFields(map[string]any{
+		"response_status": response.Status,
+		"response_code":   response.Code,
+	}).Info("payment link created successfully")
 
 	if updateErr := h.updateStatusSuccess(ctx, paymentLink.ID); updateErr != nil {
-		logger.WithError(updateErr).Error("failed to update payment link status")
+		logger.WithError(updateErr).Error("failed to update payment link status to success")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
 	return nil
@@ -186,13 +197,8 @@ func (h *CreatePaymentLink) getErrorResponse(err error, response *models.Payment
 	return fmt.Sprintf("API call failed with status: %v, message: %s", response.Status, response.Message)
 }
 
-func (h *CreatePaymentLink) logResponse(_ *models.PaymentLinkResponse) {
-	logger := util.Log(context.Background())
-	logger.Debug("payment link creation response received")
-}
-
 func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err error) error {
-	logger := util.Log(ctx)
+	logger := util.Log(ctx).WithField("payment_link_id", id)
 
 	extras := data.JSONMap{
 		"update_type": updateTypePaymentLink,
@@ -208,9 +214,11 @@ func (h *CreatePaymentLink) handleError(ctx context.Context, id string, err erro
 	}
 
 	if _, updateErr := h.paymentClient.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest)); updateErr != nil {
-		logger.WithError(updateErr).Error("failed to update payment link status")
+		logger.WithError(updateErr).Error("failed to update payment link status to failed")
 		return fmt.Errorf("update payment status: %w", updateErr)
 	}
+
+	logger.Info("payment link status updated to failed")
 	return err
 }
 

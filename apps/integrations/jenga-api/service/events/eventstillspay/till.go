@@ -4,6 +4,7 @@ package eventstillspay
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
@@ -31,7 +32,7 @@ func (event *JengaTillsPay) PayloadType() any {
 	return &models.TillsPayRequest{}
 }
 
-func (event *JengaTillsPay) Validate(ctx context.Context, payload any) error {
+func (event *JengaTillsPay) Validate(_ context.Context, payload any) error {
 	request, ok := payload.(*models.TillsPayRequest)
 	if !ok {
 		return errors.New("invalid payload type")
@@ -65,23 +66,33 @@ func (event *JengaTillsPay) Execute(ctx context.Context, payload any) error {
 		return errors.New("invalid payload type")
 	}
 
-	logger := util.Log(ctx).WithFields(map[string]any{"type": event.Name(), "payment_ref": request.Payment.Ref})
-	logger.Debug("processing tills pay")
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"event":       event.Name(),
+		"payment_ref": request.Payment.Ref,
+		"till":        request.Merchant.Till,
+		"amount":      request.Payment.Amount,
+		"currency":    request.Payment.Currency,
+		"partner_id":  request.Partner.ID,
+	})
+	logger.Info("processing tills pay")
 
-	// Generate bearer token for authorization
-	token, err := event.client.GenerateBearerToken()
+	token, err := event.client.GenerateBearerToken(ctx)
 	if err != nil {
-		logger.WithError(err).Error("failed to generate bearer token")
-		return err
+		logger.WithError(err).Error("failed to generate bearer token for tills pay")
+		return fmt.Errorf("generate bearer token: %w", err)
 	}
 
-	// Initiate the tills/pay API call
-	_, err = event.client.InitiateTillsPay(*request, token.AccessToken)
+	response, err := event.client.InitiateTillsPay(ctx, *request, token.AccessToken)
 	if err != nil {
-		logger.WithError(err).Error("failed to initiate tills pay")
-		return err
+		logger.WithError(err).Error("tills pay initiation failed")
+		return fmt.Errorf("initiate tills pay: %w", err)
 	}
-	logger.Debug("tills pay completed")
+
+	logger.WithFields(map[string]any{
+		"response_status": response.Status,
+		"transaction_id":  response.TransactionID,
+		"merchant_name":   response.MerchantName,
+	}).Info("tills pay completed successfully")
 
 	return nil
 }

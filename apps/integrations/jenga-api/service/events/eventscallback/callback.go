@@ -52,27 +52,32 @@ func (event *JengaCallbackReceivePayment) Validate(_ context.Context, payload an
 }
 
 func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload any) error {
-	logger := util.Log(ctx)
-
 	req, ok := payload.(*models.CallbackRequest)
 	if !ok {
 		return errors.New("invalid payload type")
 	}
 
-	logger = logger.WithField("transaction_ref", req.Transaction.Reference)
-	logger.Debug("received Jenga callback for payment processing")
+	logger := util.Log(ctx).WithFields(map[string]any{
+		"event":           event.Name(),
+		"transaction_ref": req.Transaction.Reference,
+		"callback_type":   req.CallbackType,
+		"amount":          req.Transaction.Amount,
+		"currency":        req.Transaction.Currency,
+		"payment_mode":    req.Transaction.PaymentMode,
+		"status":          req.Transaction.Status,
+	})
+	logger.Info("processing payment callback")
 
 	callbackJSON, err := json.Marshal(req)
 	if err != nil {
-		logger.WithError(err).Error("failed to marshal callback")
-		return nil
+		logger.WithError(err).Error("failed to marshal callback for audit trail")
+		return fmt.Errorf("marshal callback: %w", err)
 	}
 
 	cbJSON := data.JSONMap{
 		"additional_info": string(callbackJSON),
 	}
 
-	// Create base payment structure
 	amtDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Transaction.Amount))
 	amount := utilmoney.ToMoney(req.Transaction.Currency, amtDec)
 	costDec, _ := decimalx.NewFromString(fmt.Sprintf("%g", req.Transaction.ServiceCharge))
@@ -90,15 +95,14 @@ func (event *JengaCallbackReceivePayment) Execute(ctx context.Context, payload a
 		Extra:         cbJSON.ToProtoStruct(),
 	}
 
-	receiveRequest := &paymentv1.ReceiveRequest{
+	_, err = event.paymentClient.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{
 		Data: payment,
+	}))
+	if err != nil {
+		logger.WithError(err).Error("failed to forward payment to payment service")
+		return fmt.Errorf("receive payment: %w", err)
 	}
 
-	// Invoke the Connect RPC receive method
-	_, err = event.paymentClient.Receive(ctx, connect.NewRequest(receiveRequest))
-	if err != nil {
-		logger.WithError(err).Error("failed to receive payment")
-		return err
-	}
+	logger.Info("payment callback forwarded successfully")
 	return nil
 }

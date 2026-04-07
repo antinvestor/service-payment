@@ -1,6 +1,8 @@
 package coreapi
 
 import (
+	"context"
+
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
 	"github.com/stretchr/testify/mock"
 )
@@ -11,8 +13,8 @@ type MockClient struct {
 }
 
 // GenerateBearerToken mocks the GenerateBearerToken method.
-func (m *MockClient) GenerateBearerToken() (*BearerTokenResponse, error) {
-	args := m.Called()
+func (m *MockClient) GenerateBearerToken(ctx context.Context) (*BearerTokenResponse, error) {
+	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -25,10 +27,11 @@ func (m *MockClient) GenerateBearerToken() (*BearerTokenResponse, error) {
 
 // InitiateSTKUSSD mocks the InitiateSTKUSSD method.
 func (m *MockClient) InitiateSTKUSSD(
+	ctx context.Context,
 	request models.STKUSSDRequest,
 	accessToken string,
 ) (*models.STKUSSDResponse, error) {
-	args := m.Called(request, accessToken)
+	args := m.Called(ctx, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -39,42 +42,13 @@ func (m *MockClient) InitiateSTKUSSD(
 	return resp, args.Error(1)
 }
 
-// InitiateAccountBalance mocks the InitiateAccountBalance method.
-//
-//nolint:revive // accountId follows API parameter naming convention
-func (m *MockClient) InitiateAccountBalance(
-	countryCode, accountId, accessToken string, //nolint:staticcheck // API parameter name
-) (*models.BalanceResponse, error) {
-	args := m.Called(countryCode, accountId, accessToken)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	resp, ok := args.Get(0).(*models.BalanceResponse)
-	if !ok {
-		return nil, args.Error(1)
-	}
-	return resp, args.Error(1)
-}
-
-// FetchBillers mocks the FetchBillers method.
-func (m *MockClient) FetchBillers(token string) ([]models.Biller, error) {
-	args := m.Called(token)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	resp, ok := args.Get(0).([]models.Biller)
-	if !ok {
-		return nil, args.Error(1)
-	}
-	return resp, args.Error(1)
-}
-
 // CreatePaymentLink mocks the CreatePaymentLink method.
 func (m *MockClient) CreatePaymentLink(
+	ctx context.Context,
 	request models.PaymentLinkRequest,
 	accessToken string,
 ) (*models.PaymentLinkResponse, error) {
-	args := m.Called(request, accessToken)
+	args := m.Called(ctx, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -87,10 +61,11 @@ func (m *MockClient) CreatePaymentLink(
 
 // InitiateTillsPay mocks the InitiateTillsPay method.
 func (m *MockClient) InitiateTillsPay(
+	ctx context.Context,
 	request models.TillsPayRequest,
 	accessToken string,
 ) (*models.TillsPayResponse, error) {
-	args := m.Called(request, accessToken)
+	args := m.Called(ctx, request, accessToken)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

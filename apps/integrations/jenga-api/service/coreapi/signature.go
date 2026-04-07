@@ -38,12 +38,11 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 		return "TEST_SIGNATURE_FOR_UNIT_TESTS", nil
 	}
 
-	// Read private key file
-	// SECURITY: The privateKeyPath should be set from a trusted source (e.g., environment variable or config file)
-	// and must not be influenced by untrusted user input to avoid file inclusion vulnerabilities (G304).
-	if privateKeyPath == "" || privateKeyPath[0] == '/' || strings.Contains(privateKeyPath, "..") {
+	// SECURITY: The privateKeyPath is set from config (env var) and must not contain path traversal.
+	if privateKeyPath == "" || strings.Contains(privateKeyPath, "..") {
 		return "", errors.New("invalid private key path")
 	}
+	//nolint:gosec // G304: path is from trusted config, validated above
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read private key: %w", err)

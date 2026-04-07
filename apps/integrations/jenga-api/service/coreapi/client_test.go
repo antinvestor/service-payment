@@ -1,6 +1,7 @@
 package coreapi_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -79,7 +80,7 @@ func TestGenerateBearerToken(t *testing.T) {
 			}
 
 			// Call the method
-			token, err := client.GenerateBearerToken()
+			token, err := client.GenerateBearerToken(context.Background())
 
 			// Check expectations
 			if tt.expectError {
@@ -207,7 +208,7 @@ func TestInitiateSTKUSSD(t *testing.T) {
 			}
 
 			// Call the method
-			response, respErr := client.InitiateSTKUSSD(tt.request, "test-token")
+			response, respErr := client.InitiateSTKUSSD(context.Background(), tt.request, "test-token")
 
 			// Check expectations
 			if tt.expectError {

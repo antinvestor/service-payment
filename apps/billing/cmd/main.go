@@ -118,7 +118,7 @@ func main() {
 	// Startup service
 	err = service.Run(ctx, "")
 	if err != nil {
-		log.Printf("main -- Could not run Server : %v", err)
+		log.WithError(err).Error("could not run Server")
 	}
 }
 

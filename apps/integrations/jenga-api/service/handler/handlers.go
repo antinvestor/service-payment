@@ -12,8 +12,6 @@ import (
 	"github.com/pitabwire/util"
 )
 
-// job server handlers
-
 type JobServer struct {
 	eventMan      events.Manager
 	client        coreapi.JengaApiClient
@@ -33,15 +31,17 @@ func NewJobServer(
 	}
 }
 
-func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
+// NewRouter creates the HTTP router with all Jenga API routes.
+func (js *JobServer) NewRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /receivepayments", js.HandleStkCallback)
+	mux.HandleFunc("POST /payments/tills-pay", js.InitiateTillsPay)
+	return mux
+}
 
-	// background context for async processing
+func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := util.Log(ctx).WithField("type", "InitiateTillsPay")
+	logger := util.Log(ctx).WithField("handler", "InitiateTillsPay")
 
 	var request models.TillsPayRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -50,27 +50,34 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields (basic check, event will do full validation)
 	if request.Merchant.Till == "" || request.Payment.Ref == "" || request.Payment.Amount == "" ||
 		request.Payment.Currency == "" ||
 		request.Partner.ID == "" ||
 		request.Partner.Ref == "" {
+		logger.Error("missing required fields in tills pay request")
 		http.Error(w, "Invalid request: missing required fields", http.StatusBadRequest)
 		return
 	}
 
-	// Create event handler
+	logger = logger.WithFields(map[string]any{
+		"payment_ref": request.Payment.Ref,
+		"till":        request.Merchant.Till,
+		"amount":      request.Payment.Amount,
+		"currency":    request.Payment.Currency,
+	})
+	logger.Info("processing tills pay request")
+
 	event := eventstillspay.NewJengaTillsPay(js.client)
 
-	// Execute event synchronously with request context
 	err := js.eventMan.Emit(ctx, event.Name(), &request)
 	if err != nil {
-		logger.WithError(err).WithField("payment_ref", request.Payment.Ref).Error("failed to process tills pay request")
+		logger.WithError(err).Error("failed to process tills pay request")
 		http.Error(w, "Failed to process tills pay request", http.StatusInternalServerError)
 		return
 	}
 
-	// Return success response after processing
+	logger.Info("tills pay request processed successfully")
+
 	w.Header().Set("Content-Type", "application/json")
 	if encodeErr := json.NewEncoder(w).Encode(map[string]string{
 		"status":      "success",
@@ -78,16 +85,6 @@ func (js *JobServer) InitiateTillsPay(w http.ResponseWriter, r *http.Request) {
 		"referenceId": request.Payment.Ref,
 	}); encodeErr != nil {
 		logger.WithError(encodeErr).Error("failed to encode response")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-}
-
-// HealthHandler is a simple health check handler.
-func HealthHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

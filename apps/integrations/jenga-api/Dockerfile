@@ -54,7 +54,9 @@ WORKDIR /
 # Copy from builder stage
 COPY --from=builder /app/binary /jenga-api
 
-# Keys must be mounted via K8s Secret volume at runtime — never baked into the image
+# Copy UAT keys (production keys should be mounted via K8s Secret)
+COPY --chown=65532:65532 apps/integrations/jenga-api/keys /keys
+
 ENV LOG_LEVEL=info
 ENV JENGA_PRIVATE_KEY_PATH=/keys/privatekey.pem
 

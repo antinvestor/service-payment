@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS to match container CPU quota
-
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
 

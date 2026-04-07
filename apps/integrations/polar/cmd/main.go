@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 
-	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS to match container CPU quota
-
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	apis "github.com/antinvestor/common"

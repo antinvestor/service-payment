@@ -30,7 +30,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/testcontainers/testcontainers-go v0.41.1-0.20260403073310-3e56fb95cf73
-	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/text v0.35.0
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7
 	google.golang.org/grpc v1.80.0

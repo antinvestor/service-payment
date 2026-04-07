@@ -104,9 +104,13 @@ spec:
             periodSeconds: 5
             failureThreshold: 12
           env:
-            # Secrets should come from K8s Secrets, not hardcoded
             - name: JENGA_PRIVATE_KEY_PATH
               value: "/keys/privatekey.pem"
+            # NATS queue URIs — REQUIRED for production (without these, subscribers are disabled)
+            - name: QUEUE_JENGA_PAYMENT_URI
+              value: "nats://nats-server:4222?subject=jenga.payments.dequeue"
+            - name: QUEUE_JENGA_PROMPT_URI
+              value: "nats://nats-server:4222?subject=jenga.prompts.dequeue"
           volumeMounts:
             - name: keys
               mountPath: /keys

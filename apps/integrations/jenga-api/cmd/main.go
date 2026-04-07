@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
@@ -63,8 +64,17 @@ func main() {
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouter()),
 		frame.WithRegisterEvents(events.NewPaymentStatusUpdate(ctx, paymentCli)),
-		frame.WithRegisterSubscriber(cfg.QueuePaymentName, cfg.QueuePaymentURI, paymentWorker),
-		frame.WithRegisterSubscriber(cfg.QueuePromptName, cfg.QueuePromptURI, promptWorker),
+	}
+
+	// Skip mem:// subscribers — the gocloud mem driver polls at 250ms intervals,
+	// burning CPU when idle. Only register subscribers for real queue brokers.
+	if !strings.HasPrefix(cfg.QueuePaymentURI, "mem://") {
+		serviceOptions = append(serviceOptions,
+			frame.WithRegisterSubscriber(cfg.QueuePaymentName, cfg.QueuePaymentURI, paymentWorker))
+	}
+	if !strings.HasPrefix(cfg.QueuePromptURI, "mem://") {
+		serviceOptions = append(serviceOptions,
+			frame.WithRegisterSubscriber(cfg.QueuePromptName, cfg.QueuePromptURI, promptWorker))
 	}
 
 	svc.Init(ctx, serviceOptions...)

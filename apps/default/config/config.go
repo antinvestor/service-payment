@@ -15,7 +15,7 @@ type PaymentConfig struct {
 
 	SecurelyRunService      bool   `envDefault:"true"                      env:"SECURELY_RUN_SERVICE"`
 	InitiatePromptTopicName string `envDefault:"initiate_prompt"           env:"INITIATE_PROMPT_TOPIC_NAME" required:"true"`
-	InitiatePromptTopicURI  string `envDefault:"mem://initiate_prompt"     env:"INITIATE_PROMPT_TOPIC_URi"  required:"true"`
+	InitiatePromptTopicURI  string `envDefault:"mem://initiate_prompt"     env:"INITIATE_PROMPT_TOPIC_URI"  required:"true"`
 	PaymentLinkTopicName    string `envDefault:"create_payment_link"       env:"PAYMENT_LINK_TOPIC_NAME"    required:"true"`
-	PaymentLinkTopicURI     string `envDefault:"mem://create_payment_link" env:"PAYMENT_LINK_TOPIC_URi"     required:"true"`
+	PaymentLinkTopicURI     string `envDefault:"mem://create_payment_link" env:"PAYMENT_LINK_TOPIC_URI"     required:"true"`
 }

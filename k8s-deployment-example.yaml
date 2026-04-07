@@ -1,25 +1,30 @@
-# Example Kubernetes deployment for service-payment
+# Kubernetes deployment for service-payment
 #
-# NATS Architecture:
-#   The payment service uses NATS for two message flows:
+# NATS JetStream Architecture:
+#
+#   All queue communication uses NATS JetStream for reliable, persistent delivery.
+#   JetStream guarantees messages survive consumer restarts and NATS server restarts.
+#
+#   Two publish-subscribe flows:
 #
 #   1. ROUTED PAYMENTS (disbursements/receives):
-#      payment-default publishes to Route.URI from the database.
-#      Each Route row points to a NATS subject (e.g., nats://...?subject=jenga.payments.dequeue).
-#      The integration service subscribes to that same subject via QUEUE_*_PAYMENT_URI.
+#      payment-default publishes to Route.URI stored in the database.
+#      Each Route row has a JetStream URI as its URI field.
+#      The integration subscribes to the same subject via QUEUE_*_PAYMENT_URI.
 #
 #   2. PROMPTS / PAYMENT LINKS (direct):
 #      payment-default publishes to INITIATE_PROMPT_TOPIC_URI / PAYMENT_LINK_TOPIC_URI.
-#      The integration that handles prompts subscribes to the SAME subject via QUEUE_*_PROMPT_URI.
-#      Only ONE integration should subscribe to each direct topic per deployment.
+#      The target integration subscribes to the same subject via QUEUE_*_PROMPT_URI.
+#      Only ONE integration handles each direct topic per deployment.
 #
-#   Subject matching is critical: the publisher subject MUST equal the subscriber subject.
+#   Subject naming convention: svc.payment.<integration>.<purpose>
+#   Stream naming convention:  svc_payment_<integration>
 #
-# Database Route seeding example (for routed payments):
+# Database Route seeding (for routed payments):
 #   INSERT INTO routes (id, name, route_type, mode, uri, partition_id, tenant_id)
 #   VALUES ('route-jenga-tx', 'Jenga Disbursement', 'bank_transfer', 'tx',
-#           'nats://nats-server:4222?subject=jenga.payments.dequeue',
-#           '<partition-id>', '<tenant-id>');
+#     'nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.payments&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file&consumer_durable_name=svc_payment_jenga_payments&consumer_ack_policy=explicit&consumer_deliver_policy=all&consumer_replay_policy=instant',
+#     '<partition-id>', '<tenant-id>');
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -71,12 +76,22 @@ spec:
             periodSeconds: 5
             failureThreshold: 12
           env:
-            # NATS: prompt/payment-link publisher topics
-            # The subject here must match the integration subscriber's QUEUE_*_PROMPT_URI subject
+            # NATS JetStream: prompt publisher — subject must match the integration's QUEUE_*_PROMPT_URI
             - name: INITIATE_PROMPT_TOPIC_URI
-              value: "nats://nats-server:4222?subject=jenga.prompts.dequeue"
+              value: "nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.prompts&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file"
             - name: PAYMENT_LINK_TOPIC_URI
-              value: "nats://nats-server:4222?subject=jenga.payment_links.dequeue"
+              value: "nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.payment_links&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file"
+            # NATS credentials from secret
+            - name: QUEUE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: nats-credentials
+                  key: username
+            - name: QUEUE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nats-credentials
+                  key: password
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -130,13 +145,23 @@ spec:
           env:
             - name: JENGA_PRIVATE_KEY_PATH
               value: "/keys/privatekey.pem"
-            # NATS: subscriber queues — subjects must match the publishers
-            # Payment queue: matches Route.URI in the database
+            # NATS JetStream: payment subscriber — subject matches Route.URI in the database
             - name: QUEUE_JENGA_PAYMENT_URI
-              value: "nats://nats-server:4222?subject=jenga.payments.dequeue"
-            # Prompt queue: matches INITIATE_PROMPT_TOPIC_URI in the payment-default service
+              value: "nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.payments&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file&consumer_durable_name=svc_payment_jenga_payments&consumer_ack_policy=explicit&consumer_deliver_policy=all&consumer_replay_policy=instant"
+            # NATS JetStream: prompt subscriber — subject matches INITIATE_PROMPT_TOPIC_URI in payment-default
             - name: QUEUE_JENGA_PROMPT_URI
-              value: "nats://nats-server:4222?subject=jenga.prompts.dequeue"
+              value: "nats://$(QUEUE_USERNAME):$(QUEUE_PASSWORD)@queue.datastore.svc.cluster.local:4222?subject=svc.payment.jenga.prompts&jetstream=true&stream_name=svc_payment_jenga&stream_subjects=svc.payment.jenga.%3E&stream_retention=workqueue&stream_storage=file&consumer_durable_name=svc_payment_jenga_prompts&consumer_ack_policy=explicit&consumer_deliver_policy=all&consumer_replay_policy=instant"
+            # NATS credentials from secret
+            - name: QUEUE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: nats-credentials
+                  key: username
+            - name: QUEUE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nats-credentials
+                  key: password
           volumeMounts:
             - name: keys
               mountPath: /keys

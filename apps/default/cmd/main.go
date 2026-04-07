@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"net/http"
 
+	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS to match container CPU quota
+
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"

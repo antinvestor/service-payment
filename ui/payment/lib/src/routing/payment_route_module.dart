@@ -1,5 +1,6 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/navigation/nav_items.dart';
+import 'package:antinvestor_ui_core/permissions/permission_manifest.dart';
 import 'package:antinvestor_ui_core/routing/route_module.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -67,30 +68,35 @@ class PaymentRouteModule extends RouteModule {
         icon: Icons.payments_outlined,
         activeIcon: Icons.payments,
         route: '/payments',
+        requiredPermissions: {'payment_search'},
         children: [
           NavItem(
             id: 'payments-list',
             label: 'All Payments',
             icon: Icons.list,
             route: '/payments',
+            requiredPermissions: {'payment_search'},
           ),
           NavItem(
             id: 'payments-send',
             label: 'Send',
             icon: Icons.send,
             route: '/payments/send',
+            requiredPermissions: {'payment_send'},
           ),
           NavItem(
             id: 'payments-receive',
             label: 'Receive',
             icon: Icons.call_received,
             route: '/payments/receive',
+            requiredPermissions: {'payment_receive'},
           ),
           NavItem(
             id: 'payments-links',
             label: 'Payment Links',
             icon: Icons.link,
             route: '/payments/links',
+            requiredPermissions: {'payment_link_create'},
           ),
         ],
       ),
@@ -99,10 +105,42 @@ class PaymentRouteModule extends RouteModule {
 
   @override
   Map<String, Set<String>> get routePermissions => {
-        '/payments': {'payment:read', 'admin'},
-        '/payments/detail': {'payment:read', 'admin'},
-        '/payments/send': {'payment:write', 'admin'},
-        '/payments/receive': {'payment:write', 'admin'},
-        '/payments/links': {'payment:read', 'admin'},
+        '/payments': {'payment_search'},
+        '/payments/detail': {'payment_search'},
+        '/payments/send': {'payment_send'},
+        '/payments/receive': {'payment_receive'},
+        '/payments/links': {'payment_link_create'},
       };
+
+  @override
+  PermissionManifest get permissionManifest => const PermissionManifest(
+        namespace: 'service_payment',
+        permissions: [
+          PermissionEntry(
+            key: 'payment_search',
+            label: 'Search Payments',
+            scope: PermissionScope.service,
+          ),
+          PermissionEntry(
+            key: 'payment_send',
+            label: 'Send Payments',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'payment_receive',
+            label: 'Receive Payments',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'payment_link_create',
+            label: 'Create Payment Links',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'payment_reconcile',
+            label: 'Reconcile Payments',
+            scope: PermissionScope.action,
+          ),
+        ],
+      );
 }

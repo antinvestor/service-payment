@@ -1,4 +1,5 @@
 import 'package:antinvestor_ui_core/navigation/nav_items.dart';
+import 'package:antinvestor_ui_core/permissions/permission_manifest.dart';
 import 'package:antinvestor_ui_core/routing/route_module.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -81,48 +82,56 @@ class BillingRouteModule extends RouteModule {
           label: 'Billing',
           icon: Icons.receipt_long_outlined,
           activeIcon: Icons.receipt_long,
+          requiredPermissions: const {'catalog_view', 'subscription_view'},
           children: [
             const NavItem(
               id: 'billing_catalogs',
               label: 'Catalogs',
               icon: Icons.menu_book_outlined,
               route: '/billing/catalogs',
+              requiredPermissions: {'catalog_view'},
             ),
             const NavItem(
               id: 'billing_subscriptions',
               label: 'Subscriptions',
               icon: Icons.autorenew_outlined,
               route: '/billing/subscriptions',
+              requiredPermissions: {'subscription_view'},
             ),
             const NavItem(
               id: 'billing_invoices',
               label: 'Invoices',
               icon: Icons.description_outlined,
               route: '/billing/invoices',
+              requiredPermissions: {'invoice_view'},
             ),
             const NavItem(
               id: 'billing_usage',
               label: 'Usage Events',
               icon: Icons.bar_chart_outlined,
               route: '/billing/usage',
+              requiredPermissions: {'usage_view'},
             ),
             const NavItem(
               id: 'billing_runs',
               label: 'Billing Runs',
               icon: Icons.play_circle_outline,
               route: '/billing/runs',
+              requiredPermissions: {'billing_run_execute'},
             ),
             const NavItem(
               id: 'billing_credits',
               label: 'Credits',
               icon: Icons.account_balance_wallet_outlined,
               route: '/billing/credits',
+              requiredPermissions: {'credit_manage'},
             ),
             const NavItem(
               id: 'billing_discounts',
               label: 'Discounts',
               icon: Icons.local_offer_outlined,
               route: '/billing/discounts',
+              requiredPermissions: {'discount_view'},
             ),
           ],
         ),
@@ -130,12 +139,74 @@ class BillingRouteModule extends RouteModule {
 
   @override
   Map<String, Set<String>> get routePermissions => {
-        '/billing/catalogs': {'billing:read', 'admin'},
-        '/billing/subscriptions': {'billing:read', 'admin'},
-        '/billing/invoices': {'billing:read', 'admin'},
-        '/billing/usage': {'billing:read', 'admin'},
-        '/billing/runs': {'billing:write', 'admin'},
-        '/billing/credits': {'billing:write', 'admin'},
-        '/billing/discounts': {'billing:read', 'admin'},
+        '/billing/catalogs': {'catalog_view'},
+        '/billing/subscriptions': {'subscription_view'},
+        '/billing/invoices': {'invoice_view'},
+        '/billing/usage': {'usage_view'},
+        '/billing/runs': {'billing_run_execute'},
+        '/billing/credits': {'credit_manage'},
+        '/billing/discounts': {'discount_view'},
       };
+
+  @override
+  PermissionManifest get permissionManifest => const PermissionManifest(
+        namespace: 'service_billing',
+        permissions: [
+          PermissionEntry(
+            key: 'catalog_view',
+            label: 'View Catalogs',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'catalog_manage',
+            label: 'Manage Catalogs',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'subscription_view',
+            label: 'View Subscriptions',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'subscription_manage',
+            label: 'Manage Subscriptions',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'invoice_view',
+            label: 'View Invoices',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'invoice_manage',
+            label: 'Manage Invoices',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'usage_view',
+            label: 'View Usage Events',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'billing_run_execute',
+            label: 'Execute Billing Runs',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'credit_manage',
+            label: 'Manage Credits',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'discount_view',
+            label: 'View Discounts',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'discount_manage',
+            label: 'Manage Discounts',
+            scope: PermissionScope.action,
+          ),
+        ],
+      );
 }

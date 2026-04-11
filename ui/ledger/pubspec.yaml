@@ -20,7 +20,7 @@ dependencies:
   flutter:
     sdk: flutter
   antinvestor_ui_core: ^0.1.0
-  antinvestor_api_ledger: ^1.53.0
+  antinvestor_api_ledger: ^1.52.0
   antinvestor_api_common: ^1.52.0
   connectrpc: ^1.0.0
   flutter_riverpod: ^3.2.1

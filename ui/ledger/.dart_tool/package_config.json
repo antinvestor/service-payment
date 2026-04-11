@@ -26,8 +26,8 @@
       "languageVersion": "3.7"
     },
     {
-      "name": "antinvestor_api_payment",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_payment-1.53.0",
+      "name": "antinvestor_api_ledger",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_ledger-1.52.1",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
@@ -848,7 +848,7 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "antinvestor_ui_payment",
+      "name": "antinvestor_ui_ledger",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.11"

@@ -33,14 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.52.0"
-  antinvestor_api_payment:
+  antinvestor_api_ledger:
     dependency: "direct main"
     description:
-      name: antinvestor_api_payment
-      sha256: "66c9a8f1cd4431b5f1196217f594a9d2851d1eb4c5e595cd7b092f45ee855d08"
+      name: antinvestor_api_ledger
+      sha256: "0959f833b43c4161a2b785bb848781c4ce23cb02f22579185b2affbb01ede575"
       url: "https://pub.dev"
     source: hosted
-    version: "1.53.0"
+    version: "1.52.1"
   antinvestor_ui_core:
     dependency: "direct main"
     description:

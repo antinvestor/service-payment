@@ -20,16 +20,16 @@
       "languageVersion": "3.6"
     },
     {
+      "name": "antinvestor_api_billing",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_billing-0.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
       "name": "antinvestor_api_common",
       "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_common-1.52.0",
       "packageUri": "lib/",
       "languageVersion": "3.7"
-    },
-    {
-      "name": "antinvestor_api_payment",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_payment-1.53.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
     },
     {
       "name": "antinvestor_ui_core",
@@ -848,7 +848,7 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "antinvestor_ui_payment",
+      "name": "antinvestor_ui_billing",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.11"

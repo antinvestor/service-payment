@@ -1,14 +1,14 @@
 {
   "roots": [
-    "antinvestor_ui_payment"
+    "antinvestor_ui_ledger"
   ],
   "packages": [
     {
-      "name": "antinvestor_ui_payment",
+      "name": "antinvestor_ui_ledger",
       "version": "0.1.0",
       "dependencies": [
         "antinvestor_api_common",
-        "antinvestor_api_payment",
+        "antinvestor_api_ledger",
         "antinvestor_ui_core",
         "connectrpc",
         "flutter",
@@ -164,8 +164,8 @@
       ]
     },
     {
-      "name": "antinvestor_api_payment",
-      "version": "1.53.0",
+      "name": "antinvestor_api_ledger",
+      "version": "1.52.1",
       "dependencies": [
         "antinvestor_api_common",
         "connectrpc",

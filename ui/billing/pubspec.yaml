@@ -3,8 +3,16 @@ description: >
   Billing management UI library for Antinvestor. Embeddable screens and widgets
   for catalogs, subscriptions, usage-based billing, invoicing, credits, and
   discounts.
-publish_to: 'none'
 version: 0.1.0
+repository: https://github.com/antinvestor/service-payment
+homepage: https://github.com/antinvestor/service-payment/tree/main/ui/billing
+issue_tracker: https://github.com/antinvestor/service-payment/issues
+topics:
+  - flutter
+  - ui
+  - billing
+  - antinvestor
+  - subscriptions
 
 environment:
   sdk: ^3.11.0
@@ -12,8 +20,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  antinvestor_ui_core:
-    path: ../../../common/ui_core
+  antinvestor_ui_core: ^0.1.0
   antinvestor_api_billing: ^1.53.0
   antinvestor_api_common: ^1.52.0
   connectrpc: ^1.0.0

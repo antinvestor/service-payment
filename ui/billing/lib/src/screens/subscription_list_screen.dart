@@ -1,15 +1,14 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_ui_core/widgets/entity_list_page.dart';
+import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/subscription_providers.dart';
-import '../widgets/subscription_card.dart';
 import '../widgets/subscription_state_badge.dart';
 
-/// Screen that lists subscriptions with search and state filter.
+/// Screen that lists subscriptions with search and state filter using DataTable.
 class SubscriptionListScreen extends ConsumerStatefulWidget {
   const SubscriptionListScreen({super.key});
 
@@ -29,44 +28,63 @@ class _SubscriptionListScreenState
         ref.watch(subscriptionListProvider(_searchQuery));
 
     return asyncSubscriptions.when(
-      loading: () => _buildShell(isLoading: true, items: const []),
-      error: (error, _) => _buildShell(
-        error: friendlyError(error),
-        items: const [],
-      ),
+      loading: () => _buildTable(items: const []),
+      error: (error, _) => _buildTable(items: const []),
       data: (subscriptions) {
         final filtered = _stateFilter == null
             ? subscriptions
             : subscriptions.where((s) => s.state == _stateFilter).toList();
-        return _buildShell(items: filtered);
+        return _buildTable(items: filtered);
       },
     );
   }
 
-  Widget _buildShell({
-    required List<Subscription> items,
-    bool isLoading = false,
-    String? error,
-  }) {
-    return EntityListPage<Subscription>(
+  Widget _buildTable({required List<Subscription> items}) {
+    return AdminEntityListPage<Subscription>(
       title: 'Subscriptions',
-      icon: Icons.subscriptions,
-      items: items,
-      isLoading: isLoading,
-      error: error,
-      onRetry: () =>
-          ref.invalidate(subscriptionListProvider(_searchQuery)),
+      breadcrumbs: const ['Billing', 'Subscriptions'],
       searchHint: 'Search by profile ID...',
-      onSearchChanged: (query) {
+      onSearch: (query) {
         setState(() => _searchQuery = query.trim());
       },
-      filterWidget: _buildStateFilter(),
-      itemBuilder: (context, subscription) {
-        return SubscriptionCard(
-          subscription: subscription,
-          onTap: () =>
-              context.go('/billing/subscriptions/${subscription.id}'),
-        );
+      actions: [_buildStateFilter()],
+      columns: const [
+        DataColumn(label: Text('ID')),
+        DataColumn(label: Text('Profile')),
+        DataColumn(label: Text('Plan')),
+        DataColumn(label: Text('State')),
+        DataColumn(label: Text('Start')),
+        DataColumn(label: Text('End')),
+        DataColumn(label: Text('Currency')),
+      ],
+      items: items,
+      rowBuilder: (sub, selected, onSelect) => DataRow(
+        selected: selected,
+        onSelectChanged: (_) => onSelect(),
+        cells: [
+          DataCell(Text(_truncate(sub.id, 12))),
+          DataCell(Text(_truncate(sub.profileId, 12))),
+          DataCell(Text(_truncate(sub.planId, 12))),
+          DataCell(SubscriptionStateBadge(state: sub.state)),
+          DataCell(Text(_formatTimestamp(sub.startAt))),
+          DataCell(Text(_formatTimestamp(sub.endAt))),
+          DataCell(Text(sub.currency)),
+        ],
+      ),
+      onRowNavigate: (sub) =>
+          context.go('/billing/subscriptions/${sub.id}'),
+      exportRow: (sub) => [
+        sub.id,
+        sub.profileId,
+        sub.planId,
+        subscriptionStateLabel(sub.state),
+        _formatTimestamp(sub.startAt),
+        _formatTimestamp(sub.endAt),
+        sub.currency,
+      ],
+      onExport: (format, rowCount) {
+        debugPrint(
+            'AUDIT: Exported $rowCount subscriptions as $format');
       },
     );
   }
@@ -92,5 +110,22 @@ class _SubscriptionListScreenState
         setState(() => _stateFilter = value);
       },
     );
+  }
+
+  String _truncate(String value, int maxLength) {
+    if (value.length <= maxLength) return value;
+    return '${value.substring(0, maxLength - 1)}...';
+  }
+
+  String _formatTimestamp(dynamic ts) {
+    try {
+      final seconds = ts.seconds.toInt();
+      if (seconds == 0) return '';
+      final dt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
+          '${dt.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
   }
 }

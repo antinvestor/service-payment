@@ -1,5 +1,5 @@
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
-import 'package:antinvestor_ui_core/widgets/entity_list_page.dart';
+import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/ledger_providers.dart';
 import '../widgets/ledger_type_badge.dart';
 
-/// Screen that lists ledgers with search and LedgerType filter.
+/// Screen that lists ledgers with search and LedgerType filter using DataTable.
 class LedgerListScreen extends ConsumerStatefulWidget {
   const LedgerListScreen({super.key});
 
@@ -25,42 +25,53 @@ class _LedgerListScreenState extends ConsumerState<LedgerListScreen> {
     final asyncLedgers = ref.watch(ledgerSearchProvider(_searchQuery));
 
     return asyncLedgers.when(
-      loading: () => _buildShell(isLoading: true, items: const []),
-      error: (error, _) => _buildShell(
-        error: friendlyError(error),
-        items: const [],
-      ),
+      loading: () => _buildTable(items: const []),
+      error: (error, _) => _buildTable(items: const []),
       data: (ledgers) {
         final filtered = _typeFilter == null
             ? ledgers
             : ledgers.where((l) => l.type == _typeFilter).toList();
-        return _buildShell(items: filtered);
+        return _buildTable(items: filtered);
       },
     );
   }
 
-  Widget _buildShell({
-    required List<Ledger> items,
-    bool isLoading = false,
-    String? error,
-  }) {
-    return EntityListPage<Ledger>(
+  Widget _buildTable({required List<Ledger> items}) {
+    return AdminEntityListPage<Ledger>(
       title: 'Ledgers',
-      icon: Icons.account_tree,
-      items: items,
-      isLoading: isLoading,
-      error: error,
-      onRetry: () => ref.invalidate(ledgerSearchProvider(_searchQuery)),
+      breadcrumbs: const ['Ledger', 'Ledgers'],
       searchHint: 'Search ledgers...',
-      onSearchChanged: (query) {
+      onSearch: (query) {
         setState(() => _searchQuery = query.trim());
       },
-      filterWidget: _buildTypeFilter(),
-      itemBuilder: (context, ledger) {
-        return _LedgerListTile(
-          ledger: ledger,
-          onTap: () => context.go('/ledger/ledgers/${ledger.id}'),
-        );
+      actions: [_buildTypeFilter()],
+      columns: const [
+        DataColumn(label: Text('ID')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('Parent')),
+        DataColumn(label: Text('Data')),
+      ],
+      items: items,
+      rowBuilder: (ledger, selected, onSelect) => DataRow(
+        selected: selected,
+        onSelectChanged: (_) => onSelect(),
+        cells: [
+          DataCell(Text(_truncate(ledger.id, 16))),
+          DataCell(LedgerTypeBadge(type: ledger.type)),
+          DataCell(Text(ledger.parent)),
+          DataCell(Text(_dataPreview(ledger))),
+        ],
+      ),
+      onRowNavigate: (ledger) =>
+          context.go('/ledger/ledgers/${ledger.id}'),
+      exportRow: (ledger) => [
+        ledger.id,
+        ledgerTypeLabel(ledger.type),
+        ledger.parent,
+        _dataPreview(ledger),
+      ],
+      onExport: (format, rowCount) {
+        debugPrint('AUDIT: Exported $rowCount ledgers as $format');
       },
     );
   }
@@ -87,84 +98,20 @@ class _LedgerListScreenState extends ConsumerState<LedgerListScreen> {
       },
     );
   }
-}
 
-class _LedgerListTile extends StatelessWidget {
-  const _LedgerListTile({
-    required this.ledger,
-    this.onTap,
-  });
+  String _truncate(String value, int maxLength) {
+    if (value.length <= maxLength) return value;
+    return '${value.substring(0, maxLength - 1)}...';
+  }
 
-  final Ledger ledger;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: ledgerTypeColor(ledger.type).withAlpha(25),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.account_tree,
-                  size: 20,
-                  color: ledgerTypeColor(ledger.type),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ledger.id,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (ledger.parent.isNotEmpty)
-                      Text(
-                        'Parent: ${ledger.parent}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              LedgerTypeBadge(type: ledger.type),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _dataPreview(Ledger ledger) {
+    try {
+      final fields = ledger.data.fields;
+      if (fields.isEmpty) return '';
+      final keys = fields.keys.take(3).join(', ');
+      return '{$keys${fields.length > 3 ? ', ...' : ''}}';
+    } catch (_) {
+      return '';
+    }
   }
 }

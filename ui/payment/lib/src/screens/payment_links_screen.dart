@@ -1,13 +1,13 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
-import 'package:antinvestor_ui_core/widgets/entity_list_page.dart';
+import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/payment_link_providers.dart';
-import '../widgets/payment_link_card.dart';
 
-/// Screen that lists payment links with search functionality.
+/// Screen that lists payment links with search functionality using DataTable.
 class PaymentLinksScreen extends ConsumerStatefulWidget {
   const PaymentLinksScreen({super.key});
 
@@ -23,43 +23,75 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
     final asyncLinks = ref.watch(paymentLinkSearchProvider(_searchQuery));
 
     return asyncLinks.when(
-      loading: () => _buildShell(isLoading: true, items: const []),
-      error: (error, _) => _buildShell(
-        error: friendlyError(error),
-        items: const [],
-      ),
-      data: (links) => _buildShell(items: links),
+      loading: () => _buildTable(items: const []),
+      error: (error, _) => _buildTable(items: const []),
+      data: (links) => _buildTable(items: links),
     );
   }
 
-  Widget _buildShell({
-    required List<Payment> items,
-    bool isLoading = false,
-    String? error,
-  }) {
-    return EntityListPage<Payment>(
+  Widget _buildTable({required List<Payment> items}) {
+    return AdminEntityListPage<Payment>(
       title: 'Payment Links',
-      icon: Icons.link,
-      items: items,
-      isLoading: isLoading,
-      error: error,
-      onRetry: () => ref.invalidate(paymentLinkSearchProvider(_searchQuery)),
+      breadcrumbs: const ['Payments', 'Links'],
       searchHint: 'Search payment links...',
-      onSearchChanged: (query) {
+      onSearch: (query) {
         setState(() => _searchQuery = query.trim());
       },
-      actionLabel: 'Create Link',
-      onAction: () => _showCreateDialog(context),
-      itemBuilder: (context, payment) {
-        return PaymentLinkCard(
-          payment: payment,
-        );
+      onAdd: () => _showCreateDialog(context),
+      addLabel: 'Create Link',
+      columns: const [
+        DataColumn(label: Text('Name')),
+        DataColumn(label: Text('Amount')),
+        DataColumn(label: Text('Currency')),
+        DataColumn(label: Text('Type')),
+        DataColumn(label: Text('Expiry')),
+        DataColumn(label: Text('Ref')),
+      ],
+      items: items,
+      rowBuilder: (link, selected, onSelect) => DataRow(
+        selected: selected,
+        onSelectChanged: (_) => onSelect(),
+        cells: [
+          DataCell(Text(link.source.profileName.isNotEmpty
+              ? link.source.profileName
+              : link.id)),
+          DataCell(Text(formatMoney(link.amount))),
+          DataCell(Text(link.amount.currencyCode)),
+          DataCell(Text(link.route.isNotEmpty ? link.route : '')),
+          DataCell(Text(link.dateCreated.isNotEmpty
+              ? _formatDate(link.dateCreated)
+              : '')),
+          DataCell(Text(link.referenceId)),
+        ],
+      ),
+      exportRow: (link) => [
+        link.source.profileName.isNotEmpty
+            ? link.source.profileName
+            : link.id,
+        formatMoney(link.amount),
+        link.amount.currencyCode,
+        link.route,
+        link.dateCreated,
+        link.referenceId,
+      ],
+      onExport: (format, rowCount) {
+        debugPrint(
+            'AUDIT: Exported $rowCount payment links as $format');
       },
     );
+  }
+
+  String _formatDate(String rfc3339) {
+    try {
+      final dt = DateTime.parse(rfc3339);
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
+          '${dt.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return rfc3339.length > 10 ? rfc3339.substring(0, 10) : rfc3339;
+    }
   }
 
   Future<void> _showCreateDialog(BuildContext context) async {
-    final theme = Theme.of(context);
     final referenceController = TextEditingController();
     final amountController = TextEditingController();
 

@@ -1,6 +1,4 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,9 +26,12 @@ final invoiceProvider =
 });
 
 /// Notifier for invoice mutations (issue, void, recordPayment).
-class InvoiceNotifier extends StateNotifier<AsyncValue<void>> {
-  InvoiceNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class InvoiceNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<Invoice> issue(IssueInvoiceRequest request) async {
     state = const AsyncValue.loading();
@@ -70,7 +71,4 @@ class InvoiceNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final invoiceNotifierProvider =
-    StateNotifierProvider<InvoiceNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return InvoiceNotifier(client);
-});
+    NotifierProvider<InvoiceNotifier, AsyncValue<void>>(InvoiceNotifier.new);

@@ -1,4 +1,3 @@
-import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
@@ -37,7 +36,7 @@ class PaymentStateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalized = this.state.toLowerCase().trim();
+    final normalized = state.toLowerCase().trim();
     final (label, color, icon) = _stateInfo(normalized);
     return StatusBadge(label: label, color: color, icon: icon);
   }

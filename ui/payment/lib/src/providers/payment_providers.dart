@@ -1,6 +1,3 @@
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest, StatusRequest, StatusResponse, StatusUpdateRequest,
-    StatusUpdateResponse;
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,9 +26,12 @@ final paymentStatusProvider =
 });
 
 /// Notifier for payment mutations (send, receive, release, reconcile, statusUpdate).
-class PaymentNotifier extends StateNotifier<AsyncValue<void>> {
-  PaymentNotifier(this._client) : super(const AsyncValue.data(null));
-  final PaymentServiceClient _client;
+class PaymentNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  PaymentServiceClient get _client =>
+      ref.read(paymentServiceClientProvider);
 
   /// Send returns StatusResponse (via SendResponse.data).
   Future<StatusResponse> send(SendRequest request) async {
@@ -99,7 +99,4 @@ class PaymentNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final paymentNotifierProvider =
-    StateNotifierProvider<PaymentNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(paymentServiceClientProvider);
-  return PaymentNotifier(client);
-});
+    NotifierProvider<PaymentNotifier, AsyncValue<void>>(PaymentNotifier.new);

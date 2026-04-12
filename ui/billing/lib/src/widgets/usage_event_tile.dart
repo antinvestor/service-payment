@@ -1,5 +1,6 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
+
+import '../utils/money_format.dart';
 import 'package:flutter/material.dart';
 
 /// A list tile displaying a usage event: metric, quantity, timestamp, amount.
@@ -105,7 +106,7 @@ class UsageEventTile extends StatelessWidget {
                         const Spacer(),
                         if (event.hasAmount())
                           Text(
-                            formatMoney(event.amount),
+                            fmtMoney(event.amount),
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.onSurfaceVariant,

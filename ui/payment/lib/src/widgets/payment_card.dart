@@ -1,7 +1,7 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 
+import '../utils/money_format.dart';
 import 'payment_status_badge.dart';
 
 /// A card widget displaying a payment summary: amount, route, source to
@@ -62,7 +62,7 @@ class PaymentCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            formatMoney(payment.amount),
+                            fmtMoney(payment.amount),
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: isOutbound ? Colors.red : Colors.green,
@@ -130,7 +130,7 @@ class PaymentCard extends StatelessWidget {
                       children: [
                         if (payment.hasCost())
                           Text(
-                            'Cost: ${formatMoney(payment.cost)}',
+                            'Cost: ${fmtMoney(payment.cost)}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -154,7 +154,7 @@ class PaymentCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  PaymentStatusBadge(status: payment.status),
+                  PaymentStatusBadge(status: payment.status.name),
                   const SizedBox(height: 4),
                   Icon(
                     Icons.chevron_right,
@@ -170,7 +170,7 @@ class PaymentCard extends StatelessWidget {
     );
   }
 
-  String _contactLabel(ContactLink contact) {
+  String _accountLabel(ContactLink contact) {
     if (contact.profileName.isNotEmpty) return contact.profileName;
     if (contact.detail.isNotEmpty) return contact.detail;
     if (contact.profileId.isNotEmpty) return contact.profileId;

@@ -13,9 +13,12 @@ final billingRunProvider =
 });
 
 /// Notifier for billing run mutations (runBilling).
-class BillingRunNotifier extends StateNotifier<AsyncValue<void>> {
-  BillingRunNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class BillingRunNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<BillingRun> runBilling(RunBillingRequest request) async {
     state = const AsyncValue.loading();
@@ -31,7 +34,5 @@ class BillingRunNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final billingRunNotifierProvider =
-    StateNotifierProvider<BillingRunNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return BillingRunNotifier(client);
-});
+    NotifierProvider<BillingRunNotifier, AsyncValue<void>>(
+        BillingRunNotifier.new);

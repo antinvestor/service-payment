@@ -13,9 +13,12 @@ final creditBalanceProvider =
 });
 
 /// Notifier for credit mutations (grantCredit).
-class CreditNotifier extends StateNotifier<AsyncValue<void>> {
-  CreditNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class CreditNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<GrantCreditResponse> grantCredit(GrantCreditRequest request) async {
     state = const AsyncValue.loading();
@@ -31,7 +34,4 @@ class CreditNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final creditNotifierProvider =
-    StateNotifierProvider<CreditNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return CreditNotifier(client);
-});
+    NotifierProvider<CreditNotifier, AsyncValue<void>>(CreditNotifier.new);

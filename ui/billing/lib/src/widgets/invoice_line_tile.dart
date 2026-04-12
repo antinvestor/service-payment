@@ -1,5 +1,6 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
+
+import '../utils/money_format.dart';
 import 'package:flutter/material.dart';
 
 /// A list tile displaying an invoice line: description, quantity, unit price, amount.
@@ -29,9 +30,9 @@ class InvoiceLineTile extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                if (line.lineType.isNotEmpty)
+                if (line.hasLineType())
                   Text(
-                    line.lineType,
+                    line.lineType.name,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -58,7 +59,7 @@ class InvoiceLineTile extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              formatMoney(line.unitPrice),
+              fmtMoney(line.unitPrice),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -74,7 +75,7 @@ class InvoiceLineTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  formatMoney(line.netAmount),
+                  fmtMoney(line.netAmount),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -99,10 +100,10 @@ class InvoiceLineTile extends StatelessWidget {
   String _adjustmentsLabel() {
     final parts = <String>[];
     if (line.hasDiscountAmount()) {
-      parts.add('-${formatMoney(line.discountAmount)} disc');
+      parts.add('-${fmtMoney(line.discountAmount)} disc');
     }
     if (line.hasCreditAmount()) {
-      parts.add('-${formatMoney(line.creditAmount)} credit');
+      parts.add('-${fmtMoney(line.creditAmount)} credit');
     }
     return parts.join(', ');
   }

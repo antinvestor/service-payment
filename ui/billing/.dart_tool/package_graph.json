@@ -11,6 +11,7 @@
         "antinvestor_api_common",
         "antinvestor_ui_core",
         "connectrpc",
+        "fixnum",
         "flutter",
         "flutter_riverpod",
         "go_router",
@@ -143,6 +144,11 @@
         "riverpod",
         "state_notifier"
       ]
+    },
+    {
+      "name": "fixnum",
+      "version": "1.1.1",
+      "dependencies": []
     },
     {
       "name": "connectrpc",
@@ -617,11 +623,6 @@
         "state_notifier",
         "test"
       ]
-    },
-    {
-      "name": "fixnum",
-      "version": "1.1.1",
-      "dependencies": []
     },
     {
       "name": "flutter_web_plugins",

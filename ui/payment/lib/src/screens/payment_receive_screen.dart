@@ -1,12 +1,14 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/form_field_card.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart'
+    hide moneyFromString;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/payment_providers.dart';
+import '../utils/money_format.dart';
 import '../widgets/account_field.dart';
 import '../widgets/payment_route_selector.dart';
 
@@ -257,11 +259,6 @@ class _PaymentReceiveScreenState extends ConsumerState<PaymentReceiveScreen> {
     });
 
     try {
-      final amount = moneyFromString(
-        _amountController.text,
-        _currencyController.text.trim().toUpperCase(),
-      );
-
       final source = ContactLink()
         ..detail = _sourceAccountController.text.trim()
         ..profileName = _sourceNameController.text.trim();
@@ -274,13 +271,17 @@ class _PaymentReceiveScreenState extends ConsumerState<PaymentReceiveScreen> {
         ..route = _selectedRoute ?? ''
         ..source = source
         ..recipient = recipient
-        ..amount = amount
         ..referenceId = _referenceController.text.trim();
+      setMoneyFields(
+        payment.ensureAmount(),
+        _amountController.text,
+        _currencyController.text.trim().toUpperCase(),
+      );
 
       final request = ReceiveRequest()..data = payment;
 
       final notifier = ref.read(paymentNotifierProvider.notifier);
-      final statusResponse = await notifier.receive(request);
+      await notifier.receive(request);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

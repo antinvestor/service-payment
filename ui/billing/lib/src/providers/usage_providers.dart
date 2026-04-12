@@ -1,6 +1,4 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,9 +17,12 @@ final usageEventSearchProvider =
 });
 
 /// Notifier for usage event mutations (ingest).
-class UsageEventNotifier extends StateNotifier<AsyncValue<void>> {
-  UsageEventNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class UsageEventNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   /// Ingest returns a list of string IDs for the ingested events.
   Future<List<String>> ingest(IngestUsageEventRequest request) async {
@@ -38,7 +39,5 @@ class UsageEventNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final usageEventNotifierProvider =
-    StateNotifierProvider<UsageEventNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return UsageEventNotifier(client);
-});
+    NotifierProvider<UsageEventNotifier, AsyncValue<void>>(
+        UsageEventNotifier.new);

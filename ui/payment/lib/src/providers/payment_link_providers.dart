@@ -1,5 +1,3 @@
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest, StatusResponse;
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,9 +18,12 @@ final paymentLinkSearchProvider =
 });
 
 /// Notifier for payment link mutations.
-class PaymentLinkNotifier extends StateNotifier<AsyncValue<void>> {
-  PaymentLinkNotifier(this._client) : super(const AsyncValue.data(null));
-  final PaymentServiceClient _client;
+class PaymentLinkNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  PaymentServiceClient get _client =>
+      ref.read(paymentServiceClientProvider);
 
   /// CreatePaymentLink returns StatusResponse (via CreatePaymentLinkResponse.data).
   Future<StatusResponse> create(CreatePaymentLinkRequest request) async {
@@ -39,7 +40,5 @@ class PaymentLinkNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final paymentLinkNotifierProvider =
-    StateNotifierProvider<PaymentLinkNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(paymentServiceClientProvider);
-  return PaymentLinkNotifier(client);
-});
+    NotifierProvider<PaymentLinkNotifier, AsyncValue<void>>(
+        PaymentLinkNotifier.new);

@@ -1,12 +1,11 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
 import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
-import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/invoice_providers.dart';
+import '../utils/money_format.dart';
 import '../widgets/invoice_state_badge.dart';
 
 /// Screen that lists invoices with search and InvoiceStateBadge using DataTable.
@@ -58,8 +57,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
               : _truncate(invoice.id, 12))),
           DataCell(Text(_truncate(invoice.profileId, 12))),
           DataCell(InvoiceStateBadge(state: invoice.state)),
-          DataCell(Text(formatMoney(invoice.subtotalAmount))),
-          DataCell(Text(formatMoney(invoice.totalAmount))),
+          DataCell(Text(fmtMoney(invoice.subtotalAmount))),
+          DataCell(Text(fmtMoney(invoice.totalAmount))),
           DataCell(Text(_formatTimestamp(invoice.dueAt))),
           DataCell(Text(_formatTimestamp(invoice.issuedAt))),
         ],
@@ -72,8 +71,8 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
             : invoice.id,
         invoice.profileId,
         invoiceStateLabel(invoice.state),
-        formatMoney(invoice.subtotalAmount),
-        formatMoney(invoice.totalAmount),
+        fmtMoney(invoice.subtotalAmount),
+        fmtMoney(invoice.totalAmount),
         _formatTimestamp(invoice.dueAt),
         _formatTimestamp(invoice.issuedAt),
       ],

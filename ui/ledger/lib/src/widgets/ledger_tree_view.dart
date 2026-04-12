@@ -137,9 +137,9 @@ class _LedgerTreeNodeState extends State<_LedgerTreeNode> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (widget.ledger.data.isNotEmpty)
+                      if (widget.ledger.data.fields.isNotEmpty)
                         Text(
-                          _dataPreview(widget.ledger.data),
+                          _dataPreview(widget.ledger.data.fields),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -185,9 +185,9 @@ class _LedgerTreeNodeState extends State<_LedgerTreeNode> {
     );
   }
 
-  String _dataPreview(Map<String, String> data) {
+  String _dataPreview(Map<String, dynamic> data) {
     if (data.isEmpty) return '';
     final entries = data.entries.take(3);
-    return entries.map((e) => '${e.key}: ${e.value}').join(', ');
+    return entries.map((e) => '${e.key}: ${e.value.stringValue}').join(', ');
   }
 }

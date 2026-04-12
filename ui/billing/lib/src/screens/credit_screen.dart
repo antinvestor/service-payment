@@ -1,11 +1,11 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/form_field_card.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/credit_providers.dart';
+import '../utils/money_format.dart';
 
 /// Screen for granting credit and viewing credit balance.
 class CreditScreen extends ConsumerStatefulWidget {
@@ -248,12 +248,15 @@ class _CreditScreenState extends ConsumerState<CreditScreen> {
 
     try {
       final notifier = ref.read(creditNotifierProvider.notifier);
-      final moneyAmount = moneyFromString(amountText, currency.toUpperCase());
       final request = GrantCreditRequest()
         ..profileId = profileId
         ..currency = currency
-        ..name = _descriptionController.text.trim()
-        ..amount = moneyAmount;
+        ..name = _descriptionController.text.trim();
+      setMoneyFields(
+        request.ensureAmount(),
+        amountText,
+        currency.toUpperCase(),
+      );
       await notifier.grantCredit(request);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -335,7 +338,7 @@ class _CreditBalanceDisplay extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                formatMoney(response.balance),
+                fmtMoney(response.balance),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: Colors.green,

@@ -1,5 +1,4 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'billing_transport_provider.dart';
@@ -23,9 +22,12 @@ final subscriptionProvider =
 });
 
 /// Notifier for subscription mutations (create, cancel).
-class SubscriptionNotifier extends StateNotifier<AsyncValue<void>> {
-  SubscriptionNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class SubscriptionNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<Subscription> create(CreateSubscriptionRequest request) async {
     state = const AsyncValue.loading();
@@ -53,7 +55,5 @@ class SubscriptionNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final subscriptionNotifierProvider =
-    StateNotifierProvider<SubscriptionNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return SubscriptionNotifier(client);
-});
+    NotifierProvider<SubscriptionNotifier, AsyncValue<void>>(
+        SubscriptionNotifier.new);

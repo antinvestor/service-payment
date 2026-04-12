@@ -1,6 +1,4 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,9 +26,12 @@ final catalogVersionProvider =
 });
 
 /// Notifier for catalog mutations (create, publish, plans, components, tiers).
-class CatalogNotifier extends StateNotifier<AsyncValue<void>> {
-  CatalogNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class CatalogNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<CatalogVersion> create(CreateCatalogVersionRequest request) async {
     state = const AsyncValue.loading();
@@ -94,7 +95,4 @@ class CatalogNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final catalogNotifierProvider =
-    StateNotifierProvider<CatalogNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return CatalogNotifier(client);
-});
+    NotifierProvider<CatalogNotifier, AsyncValue<void>>(CatalogNotifier.new);

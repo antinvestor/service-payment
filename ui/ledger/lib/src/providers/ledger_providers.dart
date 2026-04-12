@@ -1,6 +1,7 @@
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest;
+// ignore_for_file: implementation_imports
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
+import 'package:antinvestor_api_ledger/src/common/v1/common.pb.dart'
+    as ledger_common;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,7 +11,7 @@ import 'ledger_transport_provider.dart';
 final ledgerSearchProvider =
     FutureProvider.family<List<Ledger>, String>((ref, query) async {
   final client = ref.watch(ledgerServiceClientProvider);
-  final request = SearchRequest()..query = query;
+  final request = ledger_common.SearchRequest()..query = query;
   final stream = client.searchLedgers(request);
   return collectStream<SearchLedgersResponse, Ledger>(
     stream,
@@ -19,9 +20,12 @@ final ledgerSearchProvider =
 });
 
 /// Notifier for ledger mutations (create, update).
-class LedgerNotifier extends StateNotifier<AsyncValue<void>> {
-  LedgerNotifier(this._client) : super(const AsyncValue.data(null));
-  final LedgerServiceClient _client;
+class LedgerNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  LedgerServiceClient get _client =>
+      ref.read(ledgerServiceClientProvider);
 
   Future<Ledger> create(CreateLedgerRequest request) async {
     state = const AsyncValue.loading();
@@ -49,7 +53,4 @@ class LedgerNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final ledgerNotifierProvider =
-    StateNotifierProvider<LedgerNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(ledgerServiceClientProvider);
-  return LedgerNotifier(client);
-});
+    NotifierProvider<LedgerNotifier, AsyncValue<void>>(LedgerNotifier.new);

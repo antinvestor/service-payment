@@ -1,5 +1,6 @@
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
+
+import '../utils/money_format.dart';
 import 'package:flutter/material.dart';
 
 /// A card widget displaying account balances: balance, uncleared, and reserved.
@@ -84,21 +85,21 @@ class AccountBalanceCard extends StatelessWidget {
                 children: [
                   _BalanceTile(
                     label: 'Balance',
-                    value: formatMoney(account.balance),
+                    value: fmtMoney(account.balance),
                     color: theme.colorScheme.primary,
                     theme: theme,
                   ),
                   const SizedBox(width: 12),
                   _BalanceTile(
                     label: 'Uncleared',
-                    value: formatMoney(account.unclearedBalance),
+                    value: fmtMoney(account.unclearedBalance),
                     color: Colors.orange,
                     theme: theme,
                   ),
                   const SizedBox(width: 12),
                   _BalanceTile(
                     label: 'Reserved',
-                    value: formatMoney(account.reservedBalance),
+                    value: fmtMoney(account.reservedBalance),
                     color: Colors.red,
                     theme: theme,
                   ),

@@ -220,7 +220,7 @@ class _InfoTab extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Data / metadata
-          if (ledger.data.isNotEmpty) ...[
+          if (ledger.data.fields.isNotEmpty) ...[
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -240,8 +240,8 @@ class _InfoTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...ledger.data.entries.map(
-                      (e) => _metadataRow(theme, e.key, e.value),
+                    ...ledger.data.fields.entries.map(
+                      (e) => _metadataRow(theme, e.key, e.value.stringValue),
                     ),
                   ],
                 ),
@@ -411,7 +411,7 @@ class _AccountsTab extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(24),
           itemCount: accounts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final account = accounts[index];
             return AccountBalanceCard(

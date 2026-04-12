@@ -1,6 +1,4 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_api_common/antinvestor_api_common.dart'
-    show SearchRequest;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,9 +17,12 @@ final discountSearchProvider =
 });
 
 /// Notifier for discount mutations (create).
-class DiscountNotifier extends StateNotifier<AsyncValue<void>> {
-  DiscountNotifier(this._client) : super(const AsyncValue.data(null));
-  final BillingServiceClient _client;
+class DiscountNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncValue.data(null);
+
+  BillingServiceClient get _client =>
+      ref.read(billingServiceClientProvider);
 
   Future<Discount> create(CreateDiscountRequest request) async {
     state = const AsyncValue.loading();
@@ -37,7 +38,5 @@ class DiscountNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final discountNotifierProvider =
-    StateNotifierProvider<DiscountNotifier, AsyncValue<void>>((ref) {
-  final client = ref.watch(billingServiceClientProvider);
-  return DiscountNotifier(client);
-});
+    NotifierProvider<DiscountNotifier, AsyncValue<void>>(
+        DiscountNotifier.new);

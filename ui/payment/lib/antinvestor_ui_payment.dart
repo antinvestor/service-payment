@@ -2,7 +2,7 @@
 ///
 /// Provides embeddable screens, widgets, and Riverpod providers for
 /// searching, sending, receiving, and managing payments and payment links.
-library antinvestor_ui_payment;
+library;
 
 // Providers
 export 'src/providers/payment_transport_provider.dart';

@@ -3,7 +3,7 @@
 /// Provides embeddable screens, widgets, and Riverpod providers for
 /// catalogs, subscriptions, usage-based billing, invoicing, credits,
 /// and discounts.
-library antinvestor_ui_billing;
+library;
 
 // Providers
 export 'src/providers/billing_transport_provider.dart';

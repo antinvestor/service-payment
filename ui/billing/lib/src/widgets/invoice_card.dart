@@ -1,7 +1,7 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 
+import '../utils/money_format.dart';
 import 'invoice_state_badge.dart';
 
 /// A card widget displaying an invoice summary: number, total, state, due date.
@@ -67,7 +67,7 @@ class InvoiceCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatMoney(invoice.totalAmount),
+                          fmtMoney(invoice.totalAmount),
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: theme.colorScheme.primary,

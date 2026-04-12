@@ -1,11 +1,11 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
 import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
-import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/payment_link_providers.dart';
+import '../utils/money_format.dart';
 
 /// Screen that lists payment links with search functionality using DataTable.
 class PaymentLinksScreen extends ConsumerStatefulWidget {
@@ -55,7 +55,7 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
           DataCell(Text(link.source.profileName.isNotEmpty
               ? link.source.profileName
               : link.id)),
-          DataCell(Text(formatMoney(link.amount))),
+          DataCell(Text(fmtMoney(link.amount))),
           DataCell(Text(link.amount.currencyCode)),
           DataCell(Text(link.route.isNotEmpty ? link.route : '')),
           DataCell(Text(link.dateCreated.isNotEmpty
@@ -68,7 +68,7 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
         link.source.profileName.isNotEmpty
             ? link.source.profileName
             : link.id,
-        formatMoney(link.amount),
+        fmtMoney(link.amount),
         link.amount.currencyCode,
         link.route,
         link.dateCreated,
@@ -137,7 +137,7 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
                     ref.read(paymentLinkNotifierProvider.notifier);
                 await notifier.create(request);
                 if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
+                if (context.mounted) {
                   ref.invalidate(paymentLinkSearchProvider(_searchQuery));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

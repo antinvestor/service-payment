@@ -2,7 +2,7 @@
 ///
 /// Provides embeddable screens, widgets, and Riverpod providers for
 /// managing ledgers, accounts, transactions, and transaction entries.
-library antinvestor_ui_ledger;
+library;
 
 // Providers
 export 'src/providers/ledger_transport_provider.dart';

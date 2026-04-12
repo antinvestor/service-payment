@@ -2,7 +2,7 @@ name: antinvestor_ui_payment
 description: >
   Payment management UI library for Antinvestor. Embeddable screens and widgets
   for payments, payment links, and reconciliation.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/antinvestor/service-payment
 homepage: https://github.com/antinvestor/service-payment/tree/main/ui/payment
 issue_tracker: https://github.com/antinvestor/service-payment/issues

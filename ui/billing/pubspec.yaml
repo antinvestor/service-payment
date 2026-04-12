@@ -3,7 +3,7 @@ description: >
   Billing management UI library for Antinvestor. Embeddable screens and widgets
   for catalogs, subscriptions, usage-based billing, invoicing, credits, and
   discounts.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/antinvestor/service-payment
 homepage: https://github.com/antinvestor/service-payment/tree/main/ui/billing
 issue_tracker: https://github.com/antinvestor/service-payment/issues

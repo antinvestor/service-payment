@@ -74,8 +74,12 @@ func main() {
 	// Setup Connect server with injected dependencies
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), ledgerServer)
 
-	// Setup HTTP handlers
-	serviceOptions := []frame.Option{frame.WithHTTPHandler(connectHandler)}
+	// Setup HTTP handlers and register permissions with Keto
+	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
+	serviceOptions := []frame.Option{
+		frame.WithHTTPHandler(connectHandler),
+		frame.WithPermissionRegistration(sd),
+	}
 	service.Init(ctx, serviceOptions...)
 
 	// Startup service

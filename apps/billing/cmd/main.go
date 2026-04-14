@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof"
 
 	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
+	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
@@ -111,8 +112,12 @@ func main() {
 	// Setup Connect server with injected dependencies
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), billingServer)
 
-	// Setup HTTP handlers
-	serviceOptions := []frame.Option{frame.WithHTTPHandler(connectHandler)}
+	// Setup HTTP handlers and register permissions with Keto
+	sd := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
+	serviceOptions := []frame.Option{
+		frame.WithHTTPHandler(connectHandler),
+		frame.WithPermissionRegistration(sd),
+	}
 	service.Init(ctx, serviceOptions...)
 
 	// Startup service

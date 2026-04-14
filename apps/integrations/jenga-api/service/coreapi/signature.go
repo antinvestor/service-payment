@@ -43,7 +43,7 @@ func GenerateSignature(message, privateKeyPath string) (string, error) {
 	if privateKeyPath == "" || strings.Contains(privateKeyPath, "..") {
 		return "", errors.New("invalid private key path")
 	}
-	//nolint:gosec // G304: path is from trusted config, validated above
+
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read private key: %w", err)

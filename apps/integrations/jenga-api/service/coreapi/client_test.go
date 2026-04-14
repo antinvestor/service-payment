@@ -186,7 +186,7 @@ func TestGenerateSignature(t *testing.T) {
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name()) //nolint:errcheck
+	defer os.Remove(tmpFile.Name())
 
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",

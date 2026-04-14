@@ -43,13 +43,18 @@ func NewPromptHandler(
 	}
 }
 
-func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
+//nolint:funlen // payment prompt handling requires sequential provider API steps
+func (h *promptHandler) Handle(
+	ctx context.Context,
+	headers map[string]string,
+	payload []byte,
+) error {
 	logger := util.Log(ctx).WithField("handler", "jenga.prompt")
 	defer logger.Release()
 
 	// The payment service publishes models.Prompt as JSON (Go struct, not protobuf)
 	var prompt models.Prompt
-	if err := json.Unmarshal(payload, &prompt); err != nil {
+	if err := json.Unmarshal(payload, &prompt); err != nil { //nolint:musttag // Prompt uses GORM tags, not json tags
 		logger.WithError(err).Error("failed to unmarshal prompt")
 		return nil // non-retriable
 	}

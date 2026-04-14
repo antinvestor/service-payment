@@ -66,7 +66,7 @@ func TestHandleStkCallback(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck
+				json.NewEncoder(w).Encode(map[string]string{
 					"status": "success",
 				})
 			}

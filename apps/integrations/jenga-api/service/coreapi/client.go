@@ -92,7 +92,7 @@ func (c *Client) GenerateBearerToken(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Api-Key", creds.APIKey)
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.HTTPClient.Do(req) //nolint:bodyclose // closed via defer util.CloseAndLogOnError
 	if err != nil {
 		return nil, fmt.Errorf("execute token request: %w", err)
 	}
@@ -183,7 +183,7 @@ func (c *Client) InitiateSTKUSSD(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.HTTPClient.Do(req) //nolint:bodyclose // closed via defer util.CloseAndLogOnError
 	if err != nil {
 		return nil, fmt.Errorf("execute STK request: %w", err)
 	}
@@ -268,7 +268,7 @@ func (c *Client) CreatePaymentLink(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.HTTPClient.Do(req) //nolint:bodyclose // closed via defer util.CloseAndLogOnError
 	if err != nil {
 		return nil, fmt.Errorf("execute payment link request: %w", err)
 	}
@@ -354,7 +354,7 @@ func (c *Client) InitiateTillsPay(
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Signature", signature)
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.HTTPClient.Do(req) //nolint:bodyclose // closed via defer util.CloseAndLogOnError
 	if err != nil {
 		return nil, fmt.Errorf("execute tills pay request: %w", err)
 	}

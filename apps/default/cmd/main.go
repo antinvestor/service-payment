@@ -32,7 +32,7 @@ import (
 //go:embed spec/payment.openapi.yaml
 var paymentAPISpecFile []byte
 
-func main() {
+func main() { //nolint:funlen // service wiring requires sequential setup
 	ctx := context.Background()
 
 	// Initialize configuration

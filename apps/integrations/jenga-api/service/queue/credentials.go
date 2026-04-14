@@ -54,7 +54,9 @@ func (r *credentialResolver) extractCredentials(
 			return nil, err
 		}
 		if creds.MerchantCode == "" || creds.ConsumerSecret == "" || creds.APIKey == "" {
-			return nil, errors.New("incomplete Jenga credentials from settings (merchant_code, consumer_secret, api_key)")
+			return nil, errors.New(
+				"incomplete Jenga credentials from settings (merchant_code, consumer_secret, api_key)",
+			)
 		}
 		return creds, nil
 	}

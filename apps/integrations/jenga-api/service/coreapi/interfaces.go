@@ -18,7 +18,22 @@ type Credentials struct {
 //nolint:revive // JengaApiClient follows original API naming convention
 type JengaApiClient interface { //nolint:staticcheck // API interface name
 	GenerateBearerToken(ctx context.Context, creds *Credentials) (*BearerTokenResponse, error)
-	InitiateSTKUSSD(ctx context.Context, creds *Credentials, request models.STKUSSDRequest, accessToken string) (*models.STKUSSDResponse, error)
-	CreatePaymentLink(ctx context.Context, creds *Credentials, request models.PaymentLinkRequest, accessToken string) (*models.PaymentLinkResponse, error)
-	InitiateTillsPay(ctx context.Context, creds *Credentials, request models.TillsPayRequest, accessToken string) (*models.TillsPayResponse, error)
+	InitiateSTKUSSD(
+		ctx context.Context,
+		creds *Credentials,
+		request models.STKUSSDRequest,
+		accessToken string,
+	) (*models.STKUSSDResponse, error)
+	CreatePaymentLink(
+		ctx context.Context,
+		creds *Credentials,
+		request models.PaymentLinkRequest,
+		accessToken string,
+	) (*models.PaymentLinkResponse, error)
+	InitiateTillsPay(
+		ctx context.Context,
+		creds *Credentials,
+		request models.TillsPayRequest,
+		accessToken string,
+	) (*models.TillsPayResponse, error)
 }

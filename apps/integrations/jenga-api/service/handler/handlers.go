@@ -115,7 +115,7 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck // best-effort response
+	json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck,gosec // best-effort response
 		"status":  "success",
 		"message": "Callback received successfully",
 	})
@@ -182,7 +182,7 @@ func (ws *WebhookServer) HandleGeneralCallback(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck // best-effort response
+	json.NewEncoder(w).Encode(map[string]string{ //nolint:errcheck,gosec // best-effort response
 		"status":  "success",
 		"message": "Callback received successfully",
 	})

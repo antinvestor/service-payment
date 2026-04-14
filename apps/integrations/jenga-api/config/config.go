@@ -11,7 +11,7 @@ const (
 
 	HeaderMerchantCode   = "X-JENGA_MERCHANT_CODE"
 	HeaderConsumerSecret = "X-JENGA_CONSUMER_SECRET"
-	HeaderAPIKey         = "X-JENGA_API_KEY"
+	HeaderAPIKey         = "X-JENGA_API_KEY" //nolint:gosec // header name, not a credential
 	HeaderCallbackURL    = "X-JENGA_CALLBACK_URL"
 	HeaderEnvironment    = "X-JENGA_ENVIRONMENT"
 	HeaderPrivateKeyPath = "X-JENGA_PRIVATE_KEY_PATH"
@@ -33,9 +33,9 @@ type JengaConfig struct {
 	// Jenga API credentials (defaults, overridden by per-tenant settings or headers)
 	JengaPrivateKey string `envDefault:"/keys/privatekey.pem" env:"JENGA_PRIVATE_KEY_PATH"`
 	//nolint:revive // ApiKey follows external API naming convention
-	ApiKey         string `                                  env:"JENGA_API_KEY"          required:"false"` //nolint:staticcheck // API field name
-	ConsumerSecret string `                                  env:"JENGA_CONSUMER_SECRET"  required:"false"`
-	MerchantCode   string `                                  env:"JENGA_MERCHANT_CODE"    required:"false"`
+	ApiKey         string `env:"JENGA_API_KEY"         required:"false"` //nolint:staticcheck // API field name
+	ConsumerSecret string `env:"JENGA_CONSUMER_SECRET" required:"false"`
+	MerchantCode   string `env:"JENGA_MERCHANT_CODE"   required:"false"`
 
 	// Jenga environment and callback
 	JengaCallbackURL string `envDefault:"http://localhost/receivepayments" env:"JENGA_CALLBACK_URL" required:"true"`

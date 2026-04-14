@@ -18,7 +18,7 @@ RUN go mod download
 # Copy project files
 COPY ./apps/billing ./apps/billing
 COPY ./apps/ledger ./apps/ledger
-COPY ./internal ./internal
+COPY ./pkg ./pkg
 
 
 # Build static binary for target platform

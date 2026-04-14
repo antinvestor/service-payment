@@ -49,7 +49,10 @@ type BearerTokenResponse struct {
 
 // GenerateBearerToken generates a Bearer token using the provided credentials.
 // Tokens are cached per MerchantCode with a 50-minute TTL to avoid redundant auth calls.
-func (c *Client) GenerateBearerToken(ctx context.Context, creds *Credentials) (*BearerTokenResponse, error) {
+func (c *Client) GenerateBearerToken(
+	ctx context.Context,
+	creds *Credentials,
+) (*BearerTokenResponse, error) {
 	cacheKey := creds.MerchantCode
 
 	// Fast path: check cache under read lock
@@ -196,7 +199,11 @@ func (c *Client) InitiateSTKUSSD(
 			"status_code": resp.StatusCode,
 			"response":    string(respBody),
 		}).Error("STK/USSD push request failed")
-		return nil, fmt.Errorf("STK push failed: status %s, body: %s", resp.Status, string(respBody))
+		return nil, fmt.Errorf(
+			"STK push failed: status %s, body: %s",
+			resp.Status,
+			string(respBody),
+		)
 	}
 
 	var stkUssdResponse models.STKUSSDResponse
@@ -205,7 +212,11 @@ func (c *Client) InitiateSTKUSSD(
 	}
 
 	if !stkUssdResponse.Status {
-		return nil, fmt.Errorf("STK push rejected: code=%d message=%s", stkUssdResponse.Code, stkUssdResponse.Message)
+		return nil, fmt.Errorf(
+			"STK push rejected: code=%d message=%s",
+			stkUssdResponse.Code,
+			stkUssdResponse.Message,
+		)
 	}
 
 	logger.WithFields(map[string]any{
@@ -273,7 +284,11 @@ func (c *Client) CreatePaymentLink(
 			"status_code": resp.StatusCode,
 			"response":    string(respBody),
 		}).Error("payment link creation request failed")
-		return nil, fmt.Errorf("payment link failed: status %s, body: %s", resp.Status, string(respBody))
+		return nil, fmt.Errorf(
+			"payment link failed: status %s, body: %s",
+			resp.Status,
+			string(respBody),
+		)
 	}
 
 	var paymentLinkResponse models.PaymentLinkResponse
@@ -285,7 +300,11 @@ func (c *Client) CreatePaymentLink(
 	}
 
 	if !paymentLinkResponse.Status {
-		return nil, fmt.Errorf("payment link rejected: code=%d message=%s", paymentLinkResponse.Code, paymentLinkResponse.Message)
+		return nil, fmt.Errorf(
+			"payment link rejected: code=%d message=%s",
+			paymentLinkResponse.Code,
+			paymentLinkResponse.Message,
+		)
 	}
 
 	logger.WithField("response_code", paymentLinkResponse.Code).Info("payment link created")
@@ -351,7 +370,11 @@ func (c *Client) InitiateTillsPay(
 			"status_code": resp.StatusCode,
 			"response":    string(respBody),
 		}).Error("tills pay request failed")
-		return nil, fmt.Errorf("tills pay failed: status %s, body: %s", resp.Status, string(respBody))
+		return nil, fmt.Errorf(
+			"tills pay failed: status %s, body: %s",
+			resp.Status,
+			string(respBody),
+		)
 	}
 
 	var tillsPayResponse models.TillsPayResponse
@@ -363,7 +386,11 @@ func (c *Client) InitiateTillsPay(
 	}
 
 	if !tillsPayResponse.Status {
-		return nil, fmt.Errorf("tills pay rejected: code=%d message=%s", tillsPayResponse.Code, tillsPayResponse.Message)
+		return nil, fmt.Errorf(
+			"tills pay rejected: code=%d message=%s",
+			tillsPayResponse.Code,
+			tillsPayResponse.Message,
+		)
 	}
 
 	logger.WithFields(map[string]any{

@@ -94,18 +94,35 @@ func main() {
 	}
 
 	// Setup Connect server
-	connectHandler := setupConnectServer(ctx, sm, paymentBusiness, profileCli, ledgerCli, tenancyCli)
+	connectHandler := setupConnectServer(
+		ctx,
+		sm,
+		paymentBusiness,
+		profileCli,
+		ledgerCli,
+		tenancyCli,
+	)
 
 	// Register permission manifest for the payment service namespace.
 	paymentSD := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
 
 	// Setup HTTP handlers
-	serviceOptions := []frame.Option{frame.WithDatastore(), frame.WithHTTPHandler(connectHandler), frame.WithPermissionRegistration(paymentSD)}
+	serviceOptions := []frame.Option{
+		frame.WithDatastore(),
+		frame.WithHTTPHandler(connectHandler),
+		frame.WithPermissionRegistration(paymentSD),
+	}
 
 	// Register queue publishers
 
-	promptPublisher := frame.WithRegisterPublisher(cfg.InitiatePromptTopicName, cfg.InitiatePromptTopicURI)
-	paymentLinkPublisher := frame.WithRegisterPublisher(cfg.PaymentLinkTopicName, cfg.PaymentLinkTopicURI)
+	promptPublisher := frame.WithRegisterPublisher(
+		cfg.InitiatePromptTopicName,
+		cfg.InitiatePromptTopicURI,
+	)
+	paymentLinkPublisher := frame.WithRegisterPublisher(
+		cfg.PaymentLinkTopicName,
+		cfg.PaymentLinkTopicURI,
+	)
 
 	// Register event handlers with proper constructors
 	serviceOptions = append(serviceOptions,
@@ -210,13 +227,18 @@ func setupConnectServer(
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
 	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess)
-	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
+	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(
+		tenancyAccessChecker,
+	)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.
 	sd := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
 	procMap := permissions.BuildProcedureMap(sd)
 	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
-	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
+	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(
+		functionChecker,
+		procMap,
+	)
 
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
 		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor, functionAccessInterceptor)

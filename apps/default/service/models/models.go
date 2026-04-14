@@ -110,7 +110,7 @@ type Status struct {
 	data.BaseModel
 	EntityID   string       `gorm:"type:varchar(50);index:idx_status_entity"`
 	EntityType string       `gorm:"type:varchar(50);index:idx_status_entity"`
-	Extra      data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
+	Extra      data.JSONMap `gorm:"index:,type:gin;option:jsonb_path_ops"    json:"extra"`
 	State      int32
 	Status     int32
 }

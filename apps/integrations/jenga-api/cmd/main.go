@@ -9,7 +9,7 @@ import (
 	"github.com/antinvestor/common/connection"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
+	handlers "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/queue"
 	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/pitabwire/frame"

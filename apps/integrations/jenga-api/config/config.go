@@ -21,10 +21,10 @@ type JengaConfig struct {
 	config.ConfigurationDefault
 
 	// Service dependencies
-	PaymentServiceURI                    string `envDefault:"localhost:50051"                                         env:"PAYMENT_SERVICE_URI"                      required:"true"`
-	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment"                         env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
-	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                                         env:"SETTINGS_SERVICE_URI"`
-	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings"                         env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	PaymentServiceURI                    string `envDefault:"localhost:50051"                 env:"PAYMENT_SERVICE_URI"                       required:"true"`
+	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment" env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                  env:"SETTINGS_SERVICE_URI"`
+	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings" env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
 
 	// Settings integration identifiers for per-tenant credential lookup
 	SettingsIntegrationName string `envDefault:"Jenga"   env:"SETTINGS_INTEGRATION_NAME"`
@@ -33,9 +33,9 @@ type JengaConfig struct {
 	// Jenga API credentials (defaults, overridden by per-tenant settings or headers)
 	JengaPrivateKey string `envDefault:"/keys/privatekey.pem" env:"JENGA_PRIVATE_KEY_PATH"`
 	//nolint:revive // ApiKey follows external API naming convention
-	ApiKey         string `env:"JENGA_API_KEY"         required:"false"` //nolint:staticcheck // API field name
-	ConsumerSecret string `env:"JENGA_CONSUMER_SECRET" required:"false"`
-	MerchantCode   string `env:"JENGA_MERCHANT_CODE"   required:"false"`
+	ApiKey         string `                                  env:"JENGA_API_KEY"          required:"false"` //nolint:staticcheck // API field name
+	ConsumerSecret string `                                  env:"JENGA_CONSUMER_SECRET"  required:"false"`
+	MerchantCode   string `                                  env:"JENGA_MERCHANT_CODE"    required:"false"`
 
 	// Jenga environment and callback
 	JengaCallbackURL string `envDefault:"http://localhost/receivepayments" env:"JENGA_CALLBACK_URL" required:"true"`

@@ -7,7 +7,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"

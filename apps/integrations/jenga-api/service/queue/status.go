@@ -4,7 +4,7 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"github.com/antinvestor/service-payments/internal/events"
+	"github.com/antinvestor/service-payments/pkg/events"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"

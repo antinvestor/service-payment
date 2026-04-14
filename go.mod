@@ -22,7 +22,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.1
-	github.com/pitabwire/frame v1.93.9
+	github.com/pitabwire/frame v1.94.0
 	github.com/pitabwire/util v0.8.0
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/money v0.7.1

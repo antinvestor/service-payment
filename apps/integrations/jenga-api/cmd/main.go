@@ -11,7 +11,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/queue"
-	"github.com/antinvestor/service-payments/internal/events"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/util"

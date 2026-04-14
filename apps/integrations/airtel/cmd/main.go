@@ -11,7 +11,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/handlers"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/queue"
-	"github.com/antinvestor/service-payments/internal/events"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/util"

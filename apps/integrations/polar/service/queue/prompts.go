@@ -13,7 +13,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
-	"github.com/antinvestor/service-payments/internal/events"
+	"github.com/antinvestor/service-payments/pkg/events"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"

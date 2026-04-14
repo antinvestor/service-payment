@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame"
 )
 

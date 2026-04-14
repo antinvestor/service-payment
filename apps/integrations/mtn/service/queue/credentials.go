@@ -12,7 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
-	"github.com/antinvestor/service-payments/internal/events"
+	"github.com/antinvestor/service-payments/pkg/events"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 )
 
 // QueryContainer represents the format of query subsection inside `must` or `should`.

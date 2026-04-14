@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"

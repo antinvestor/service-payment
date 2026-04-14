@@ -13,7 +13,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
-	"github.com/antinvestor/service-payments/internal/apperrors"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/frametests/definition"
 	"github.com/pitabwire/util"

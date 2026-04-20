@@ -44,9 +44,9 @@ func (r *usageEventRepository) ListBySubscriptionAndPeriod(
 
 	var list []*models.UsageEvent
 	result := r.Pool().DB(ctx, true).
-		Where("subscription_id = ? AND metric_key = ? AND timestamp >= ? AND timestamp < ?",
+		Where("subscription_id = ? AND metric_key = ? AND true_created_at >= ? AND true_created_at < ?",
 			subscriptionID, metricKey, start, end).
-		Order("timestamp ASC").
+		Order("true_created_at ASC").
 		Find(&list)
 	if result.Error != nil {
 		return nil, apperrors.ErrSystemFailure.Override(result.Error)

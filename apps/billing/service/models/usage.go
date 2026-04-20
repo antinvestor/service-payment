@@ -15,6 +15,6 @@ type UsageEvent struct {
 	ProfileID      string            `gorm:"type:varchar(100);not null;index"       json:"profile_id"`
 	MetricKey      string            `gorm:"type:varchar(255);not null;index"       json:"metric_key"`
 	Quantity       *decimalx.Decimal `gorm:"type:numeric(29,9);not null"            json:"quantity"`
-	Timestamp      time.Time         `gorm:"type:timestamp;not null;index"          json:"timestamp"`
+	TrueCreatedAt  time.Time         `gorm:"column:true_created_at;type:timestamptz;not null;index" json:"true_created_at"`
 	Properties     data.JSONMap      `gorm:"type:jsonb;index:,gin:jsonb_path_ops"   json:"properties"`
 }

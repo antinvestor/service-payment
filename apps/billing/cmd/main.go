@@ -11,9 +11,11 @@ import (
 	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
+	"github.com/antinvestor/common/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
+	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 
 	// Ledger integration dependencies.
@@ -22,6 +24,7 @@ import (
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/security"
 	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/util"
@@ -55,6 +58,9 @@ func main() {
 	// Get the default database pool and work manager
 	dbManager := service.DatastoreManager()
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
+
+	// Register hypertables (no-op WARN if timescaledb extension is absent).
+	ensureHypertables(ctx, dbPool)
 	workMan := service.WorkManager()
 
 	// Create billing repositories (15 repos, bottom-up)
@@ -124,6 +130,15 @@ func main() {
 	err = service.Run(ctx, "")
 	if err != nil {
 		log.WithError(err).Error("could not run Server")
+	}
+}
+
+// ensureHypertables registers TimescaleDB hypertables idempotently.
+// Errors are logged as warnings so the service continues when TimescaleDB
+// is not yet available.
+func ensureHypertables(ctx context.Context, dbPool pool.Pool) {
+	if tsErr := timescale.Ensure(ctx, dbPool.DB(ctx, false), models.Hypertables()); tsErr != nil {
+		util.Log(ctx).WithError(tsErr).Warn("timescale hypertable setup skipped — will retry after cluster migration")
 	}
 }
 

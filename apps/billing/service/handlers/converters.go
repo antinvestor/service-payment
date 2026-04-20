@@ -330,7 +330,7 @@ func usageEventToProto(e *models.UsageEvent) *billingv1.UsageEvent {
 		SubscriptionId: e.SubscriptionID,
 		MetricKey:      e.MetricKey,
 		Quantity:       qty,
-		Timestamp:      timeToTimestamp(e.Timestamp),
+		Timestamp:      timeToTimestamp(e.TrueCreatedAt),
 		Properties:     jsonMapToStruct(e.Properties),
 	}
 }

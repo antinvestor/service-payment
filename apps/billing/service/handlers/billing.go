@@ -409,7 +409,7 @@ func (s *BillingServer) IngestUsageEvent(
 			SubscriptionID: e.GetSubscriptionId(),
 			MetricKey:      e.GetMetricKey(),
 			Quantity:       qty.Ptr(),
-			Timestamp:      e.GetTimestamp().AsTime(),
+			TrueCreatedAt:  e.GetTimestamp().AsTime(),
 			Properties:     structToJSONMap(e.GetProperties()),
 		}
 		if e.GetId() != "" {

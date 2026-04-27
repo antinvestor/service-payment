@@ -30,3 +30,6 @@ coverage.html
 # Shared Makefile cache
 .tmp/
 WORK_STATE.md
+
+# Compiled main binary (build artifact)
+/cmd

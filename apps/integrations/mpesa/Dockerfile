@@ -17,8 +17,6 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY ./apps/integrations/mpesa ./apps/integrations/mpesa
-COPY ./internal ./internal
-
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath \
      -ldflags="-s -w \

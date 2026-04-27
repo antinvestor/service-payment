@@ -16,6 +16,7 @@ ARG BUILDTIME
 COPY go.mod go.sum ./
 RUN go mod download
 
+COPY ./pkg ./pkg
 COPY ./apps/integrations/mtn ./apps/integrations/mtn
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath \

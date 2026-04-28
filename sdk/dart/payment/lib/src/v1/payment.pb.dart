@@ -14,10 +14,10 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../common/v1/common.pb.dart' as $9;
-import '../common/v1/common.pbenum.dart' as $9;
+import '../common/v1/common.pb.dart' as $7;
+import '../common/v1/common.pbenum.dart' as $7;
 import '../google/protobuf/struct.pb.dart' as $6;
-import '../google/type/money.pb.dart' as $7;
+import '../google/type/money.pb.dart' as $8;
 import 'payment.pbenum.dart';
 
 export 'payment.pbenum.dart';
@@ -31,12 +31,12 @@ class Payment extends $pb.GeneratedMessage {
     $core.String? batchId,
     $core.String? externalTransactionId,
     $core.String? route,
-    $9.ContactLink? source,
-    $9.ContactLink? recipient,
-    $7.Money? amount,
-    $7.Money? cost,
-    $9.STATE? state,
-    $9.STATUS? status,
+    $7.ContactLink? source,
+    $7.ContactLink? recipient,
+    $8.Money? amount,
+    $8.Money? cost,
+    $7.STATE? state,
+    $7.STATUS? status,
     $core.String? dateCreated,
     $core.String? dateProcessed,
     $core.bool? outbound,
@@ -104,12 +104,12 @@ class Payment extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'batchId')
     ..aOS(5, _omitFieldNames ? '' : 'externalTransactionId')
     ..aOS(6, _omitFieldNames ? '' : 'route')
-    ..aOM<$9.ContactLink>(7, _omitFieldNames ? '' : 'source', subBuilder: $9.ContactLink.create)
-    ..aOM<$9.ContactLink>(8, _omitFieldNames ? '' : 'recipient', subBuilder: $9.ContactLink.create)
-    ..aOM<$7.Money>(9, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(10, _omitFieldNames ? '' : 'cost', subBuilder: $7.Money.create)
-    ..e<$9.STATE>(11, _omitFieldNames ? '' : 'state', $pb.PbFieldType.OE, defaultOrMaker: $9.STATE.CREATED, valueOf: $9.STATE.valueOf, enumValues: $9.STATE.values)
-    ..e<$9.STATUS>(12, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $9.STATUS.UNKNOWN, valueOf: $9.STATUS.valueOf, enumValues: $9.STATUS.values)
+    ..aOM<$7.ContactLink>(7, _omitFieldNames ? '' : 'source', subBuilder: $7.ContactLink.create)
+    ..aOM<$7.ContactLink>(8, _omitFieldNames ? '' : 'recipient', subBuilder: $7.ContactLink.create)
+    ..aOM<$8.Money>(9, _omitFieldNames ? '' : 'amount', subBuilder: $8.Money.create)
+    ..aOM<$8.Money>(10, _omitFieldNames ? '' : 'cost', subBuilder: $8.Money.create)
+    ..e<$7.STATE>(11, _omitFieldNames ? '' : 'state', $pb.PbFieldType.OE, defaultOrMaker: $7.STATE.CREATED, valueOf: $7.STATE.valueOf, enumValues: $7.STATE.values)
+    ..e<$7.STATUS>(12, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $7.STATUS.UNKNOWN, valueOf: $7.STATUS.valueOf, enumValues: $7.STATUS.values)
     ..aOS(13, _omitFieldNames ? '' : 'dateCreated')
     ..aOS(14, _omitFieldNames ? '' : 'dateProcessed')
     ..aOB(15, _omitFieldNames ? '' : 'outbound')
@@ -193,62 +193,62 @@ class Payment extends $pb.GeneratedMessage {
   void clearRoute() => clearField(6);
 
   @$pb.TagNumber(7)
-  $9.ContactLink get source => $_getN(6);
+  $7.ContactLink get source => $_getN(6);
   @$pb.TagNumber(7)
-  set source($9.ContactLink v) { setField(7, v); }
+  set source($7.ContactLink v) { setField(7, v); }
   @$pb.TagNumber(7)
   $core.bool hasSource() => $_has(6);
   @$pb.TagNumber(7)
   void clearSource() => clearField(7);
   @$pb.TagNumber(7)
-  $9.ContactLink ensureSource() => $_ensure(6);
+  $7.ContactLink ensureSource() => $_ensure(6);
 
   @$pb.TagNumber(8)
-  $9.ContactLink get recipient => $_getN(7);
+  $7.ContactLink get recipient => $_getN(7);
   @$pb.TagNumber(8)
-  set recipient($9.ContactLink v) { setField(8, v); }
+  set recipient($7.ContactLink v) { setField(8, v); }
   @$pb.TagNumber(8)
   $core.bool hasRecipient() => $_has(7);
   @$pb.TagNumber(8)
   void clearRecipient() => clearField(8);
   @$pb.TagNumber(8)
-  $9.ContactLink ensureRecipient() => $_ensure(7);
+  $7.ContactLink ensureRecipient() => $_ensure(7);
 
   @$pb.TagNumber(9)
-  $7.Money get amount => $_getN(8);
+  $8.Money get amount => $_getN(8);
   @$pb.TagNumber(9)
-  set amount($7.Money v) { setField(9, v); }
+  set amount($8.Money v) { setField(9, v); }
   @$pb.TagNumber(9)
   $core.bool hasAmount() => $_has(8);
   @$pb.TagNumber(9)
   void clearAmount() => clearField(9);
   @$pb.TagNumber(9)
-  $7.Money ensureAmount() => $_ensure(8);
+  $8.Money ensureAmount() => $_ensure(8);
 
   @$pb.TagNumber(10)
-  $7.Money get cost => $_getN(9);
+  $8.Money get cost => $_getN(9);
   @$pb.TagNumber(10)
-  set cost($7.Money v) { setField(10, v); }
+  set cost($8.Money v) { setField(10, v); }
   @$pb.TagNumber(10)
   $core.bool hasCost() => $_has(9);
   @$pb.TagNumber(10)
   void clearCost() => clearField(10);
   @$pb.TagNumber(10)
-  $7.Money ensureCost() => $_ensure(9);
+  $8.Money ensureCost() => $_ensure(9);
 
   @$pb.TagNumber(11)
-  $9.STATE get state => $_getN(10);
+  $7.STATE get state => $_getN(10);
   @$pb.TagNumber(11)
-  set state($9.STATE v) { setField(11, v); }
+  set state($7.STATE v) { setField(11, v); }
   @$pb.TagNumber(11)
   $core.bool hasState() => $_has(10);
   @$pb.TagNumber(11)
   void clearState() => clearField(11);
 
   @$pb.TagNumber(12)
-  $9.STATUS get status => $_getN(11);
+  $7.STATUS get status => $_getN(11);
   @$pb.TagNumber(12)
-  set status($9.STATUS v) { setField(12, v); }
+  set status($7.STATUS v) { setField(12, v); }
   @$pb.TagNumber(12)
   $core.bool hasStatus() => $_has(11);
   @$pb.TagNumber(12)
@@ -375,7 +375,7 @@ class Account extends $pb.GeneratedMessage {
 /// Customer represents a payment link customer.
 class Customer extends $pb.GeneratedMessage {
   factory Customer({
-    $9.ContactLink? source,
+    $7.ContactLink? source,
     $core.String? firstAddress,
     $core.String? countryCode,
     $core.String? postalOrZipCode,
@@ -404,7 +404,7 @@ class Customer extends $pb.GeneratedMessage {
   factory Customer.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Customer', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.ContactLink>(1, _omitFieldNames ? '' : 'source', subBuilder: $9.ContactLink.create)
+    ..aOM<$7.ContactLink>(1, _omitFieldNames ? '' : 'source', subBuilder: $7.ContactLink.create)
     ..aOS(2, _omitFieldNames ? '' : 'firstAddress')
     ..aOS(3, _omitFieldNames ? '' : 'countryCode')
     ..aOS(4, _omitFieldNames ? '' : 'postalOrZipCode')
@@ -434,15 +434,15 @@ class Customer extends $pb.GeneratedMessage {
   static Customer? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.ContactLink get source => $_getN(0);
+  $7.ContactLink get source => $_getN(0);
   @$pb.TagNumber(1)
-  set source($9.ContactLink v) { setField(1, v); }
+  set source($7.ContactLink v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasSource() => $_has(0);
   @$pb.TagNumber(1)
   void clearSource() => clearField(1);
   @$pb.TagNumber(1)
-  $9.ContactLink ensureSource() => $_ensure(0);
+  $7.ContactLink ensureSource() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.String get firstAddress => $_getSZ(1);
@@ -495,7 +495,7 @@ class PaymentLink extends $pb.GeneratedMessage {
     $core.String? paymentLinkRef,
     $core.String? redirectUrl,
     $core.String? amountOption,
-    $7.Money? amount,
+    $8.Money? amount,
     $core.String? currency,
   }) {
     final $result = create();
@@ -556,7 +556,7 @@ class PaymentLink extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'paymentLinkRef')
     ..aOS(10, _omitFieldNames ? '' : 'redirectUrl')
     ..aOS(11, _omitFieldNames ? '' : 'amountOption')
-    ..aOM<$7.Money>(12, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aOM<$8.Money>(12, _omitFieldNames ? '' : 'amount', subBuilder: $8.Money.create)
     ..aOS(13, _omitFieldNames ? '' : 'currency')
     ..hasRequiredFields = false
   ;
@@ -682,15 +682,15 @@ class PaymentLink extends $pb.GeneratedMessage {
   void clearAmountOption() => clearField(11);
 
   @$pb.TagNumber(12)
-  $7.Money get amount => $_getN(11);
+  $8.Money get amount => $_getN(11);
   @$pb.TagNumber(12)
-  set amount($7.Money v) { setField(12, v); }
+  set amount($8.Money v) { setField(12, v); }
   @$pb.TagNumber(12)
   $core.bool hasAmount() => $_has(11);
   @$pb.TagNumber(12)
   void clearAmount() => clearField(12);
   @$pb.TagNumber(12)
-  $7.Money ensureAmount() => $_ensure(11);
+  $8.Money ensureAmount() => $_ensure(11);
 
   @$pb.TagNumber(13)
   $core.String get currency => $_getSZ(12);
@@ -758,7 +758,7 @@ class SendRequest extends $pb.GeneratedMessage {
 /// SendResponse confirms payment queuing.
 class SendResponse extends $pb.GeneratedMessage {
   factory SendResponse({
-    $9.StatusResponse? data,
+    $7.StatusResponse? data,
   }) {
     final $result = create();
     if (data != null) {
@@ -771,7 +771,7 @@ class SendResponse extends $pb.GeneratedMessage {
   factory SendResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SendResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $9.StatusResponse.create)
+    ..aOM<$7.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $7.StatusResponse.create)
     ..hasRequiredFields = false
   ;
 
@@ -797,15 +797,15 @@ class SendResponse extends $pb.GeneratedMessage {
   static SendResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.StatusResponse get data => $_getN(0);
+  $7.StatusResponse get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data($9.StatusResponse v) { setField(1, v); }
+  set data($7.StatusResponse v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
   void clearData() => clearField(1);
   @$pb.TagNumber(1)
-  $9.StatusResponse ensureData() => $_ensure(0);
+  $7.StatusResponse ensureData() => $_ensure(0);
 }
 
 /// ReceiveRequest queues an inbound payment.
@@ -864,7 +864,7 @@ class ReceiveRequest extends $pb.GeneratedMessage {
 /// ReceiveResponse confirms payment queuing.
 class ReceiveResponse extends $pb.GeneratedMessage {
   factory ReceiveResponse({
-    $9.StatusResponse? data,
+    $7.StatusResponse? data,
   }) {
     final $result = create();
     if (data != null) {
@@ -877,7 +877,7 @@ class ReceiveResponse extends $pb.GeneratedMessage {
   factory ReceiveResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ReceiveResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $9.StatusResponse.create)
+    ..aOM<$7.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $7.StatusResponse.create)
     ..hasRequiredFields = false
   ;
 
@@ -903,28 +903,28 @@ class ReceiveResponse extends $pb.GeneratedMessage {
   static ReceiveResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.StatusResponse get data => $_getN(0);
+  $7.StatusResponse get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data($9.StatusResponse v) { setField(1, v); }
+  set data($7.StatusResponse v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
   void clearData() => clearField(1);
   @$pb.TagNumber(1)
-  $9.StatusResponse ensureData() => $_ensure(0);
+  $7.StatusResponse ensureData() => $_ensure(0);
 }
 
 /// InitiatePromptRequest initiates a payment prompt (e.g., STK push).
 class InitiatePromptRequest extends $pb.GeneratedMessage {
   factory InitiatePromptRequest({
-    $9.ContactLink? source,
-    $9.ContactLink? recipient,
-    $7.Money? amount,
+    $7.ContactLink? source,
+    $7.ContactLink? recipient,
+    $8.Money? amount,
     $core.String? dateCreated,
     $core.String? deviceId,
     $core.String? id,
-    $9.STATE? state,
-    $9.STATUS? status,
+    $7.STATE? state,
+    $7.STATUS? status,
     $core.String? route,
     Account? recipientAccount,
     $6.Struct? extra,
@@ -970,14 +970,14 @@ class InitiatePromptRequest extends $pb.GeneratedMessage {
   factory InitiatePromptRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'InitiatePromptRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.ContactLink>(1, _omitFieldNames ? '' : 'source', subBuilder: $9.ContactLink.create)
-    ..aOM<$9.ContactLink>(2, _omitFieldNames ? '' : 'recipient', subBuilder: $9.ContactLink.create)
-    ..aOM<$7.Money>(3, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aOM<$7.ContactLink>(1, _omitFieldNames ? '' : 'source', subBuilder: $7.ContactLink.create)
+    ..aOM<$7.ContactLink>(2, _omitFieldNames ? '' : 'recipient', subBuilder: $7.ContactLink.create)
+    ..aOM<$8.Money>(3, _omitFieldNames ? '' : 'amount', subBuilder: $8.Money.create)
     ..aOS(4, _omitFieldNames ? '' : 'dateCreated')
     ..aOS(5, _omitFieldNames ? '' : 'deviceId')
     ..aOS(6, _omitFieldNames ? '' : 'id')
-    ..e<$9.STATE>(7, _omitFieldNames ? '' : 'state', $pb.PbFieldType.OE, defaultOrMaker: $9.STATE.CREATED, valueOf: $9.STATE.valueOf, enumValues: $9.STATE.values)
-    ..e<$9.STATUS>(8, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $9.STATUS.UNKNOWN, valueOf: $9.STATUS.valueOf, enumValues: $9.STATUS.values)
+    ..e<$7.STATE>(7, _omitFieldNames ? '' : 'state', $pb.PbFieldType.OE, defaultOrMaker: $7.STATE.CREATED, valueOf: $7.STATE.valueOf, enumValues: $7.STATE.values)
+    ..e<$7.STATUS>(8, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $7.STATUS.UNKNOWN, valueOf: $7.STATUS.valueOf, enumValues: $7.STATUS.values)
     ..aOS(9, _omitFieldNames ? '' : 'route')
     ..aOM<Account>(10, _omitFieldNames ? '' : 'recipientAccount', subBuilder: Account.create)
     ..aOM<$6.Struct>(11, _omitFieldNames ? '' : 'extra', subBuilder: $6.Struct.create)
@@ -1006,37 +1006,37 @@ class InitiatePromptRequest extends $pb.GeneratedMessage {
   static InitiatePromptRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.ContactLink get source => $_getN(0);
+  $7.ContactLink get source => $_getN(0);
   @$pb.TagNumber(1)
-  set source($9.ContactLink v) { setField(1, v); }
+  set source($7.ContactLink v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasSource() => $_has(0);
   @$pb.TagNumber(1)
   void clearSource() => clearField(1);
   @$pb.TagNumber(1)
-  $9.ContactLink ensureSource() => $_ensure(0);
+  $7.ContactLink ensureSource() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  $9.ContactLink get recipient => $_getN(1);
+  $7.ContactLink get recipient => $_getN(1);
   @$pb.TagNumber(2)
-  set recipient($9.ContactLink v) { setField(2, v); }
+  set recipient($7.ContactLink v) { setField(2, v); }
   @$pb.TagNumber(2)
   $core.bool hasRecipient() => $_has(1);
   @$pb.TagNumber(2)
   void clearRecipient() => clearField(2);
   @$pb.TagNumber(2)
-  $9.ContactLink ensureRecipient() => $_ensure(1);
+  $7.ContactLink ensureRecipient() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $7.Money get amount => $_getN(2);
+  $8.Money get amount => $_getN(2);
   @$pb.TagNumber(3)
-  set amount($7.Money v) { setField(3, v); }
+  set amount($8.Money v) { setField(3, v); }
   @$pb.TagNumber(3)
   $core.bool hasAmount() => $_has(2);
   @$pb.TagNumber(3)
   void clearAmount() => clearField(3);
   @$pb.TagNumber(3)
-  $7.Money ensureAmount() => $_ensure(2);
+  $8.Money ensureAmount() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.String get dateCreated => $_getSZ(3);
@@ -1066,18 +1066,18 @@ class InitiatePromptRequest extends $pb.GeneratedMessage {
   void clearId() => clearField(6);
 
   @$pb.TagNumber(7)
-  $9.STATE get state => $_getN(6);
+  $7.STATE get state => $_getN(6);
   @$pb.TagNumber(7)
-  set state($9.STATE v) { setField(7, v); }
+  set state($7.STATE v) { setField(7, v); }
   @$pb.TagNumber(7)
   $core.bool hasState() => $_has(6);
   @$pb.TagNumber(7)
   void clearState() => clearField(7);
 
   @$pb.TagNumber(8)
-  $9.STATUS get status => $_getN(7);
+  $7.STATUS get status => $_getN(7);
   @$pb.TagNumber(8)
-  set status($9.STATUS v) { setField(8, v); }
+  set status($7.STATUS v) { setField(8, v); }
   @$pb.TagNumber(8)
   $core.bool hasStatus() => $_has(7);
   @$pb.TagNumber(8)
@@ -1118,7 +1118,7 @@ class InitiatePromptRequest extends $pb.GeneratedMessage {
 /// InitiatePromptResponse confirms prompt initiation.
 class InitiatePromptResponse extends $pb.GeneratedMessage {
   factory InitiatePromptResponse({
-    $9.StatusResponse? data,
+    $7.StatusResponse? data,
   }) {
     final $result = create();
     if (data != null) {
@@ -1131,7 +1131,7 @@ class InitiatePromptResponse extends $pb.GeneratedMessage {
   factory InitiatePromptResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'InitiatePromptResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $9.StatusResponse.create)
+    ..aOM<$7.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $7.StatusResponse.create)
     ..hasRequiredFields = false
   ;
 
@@ -1157,15 +1157,15 @@ class InitiatePromptResponse extends $pb.GeneratedMessage {
   static InitiatePromptResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.StatusResponse get data => $_getN(0);
+  $7.StatusResponse get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data($9.StatusResponse v) { setField(1, v); }
+  set data($7.StatusResponse v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
   void clearData() => clearField(1);
   @$pb.TagNumber(1)
-  $9.StatusResponse ensureData() => $_ensure(0);
+  $7.StatusResponse ensureData() => $_ensure(0);
 }
 
 /// ReleaseRequest releases a queued payment for processing.
@@ -1236,7 +1236,7 @@ class ReleaseRequest extends $pb.GeneratedMessage {
 /// ReleaseResponse confirms payment release.
 class ReleaseResponse extends $pb.GeneratedMessage {
   factory ReleaseResponse({
-    $9.StatusResponse? data,
+    $7.StatusResponse? data,
   }) {
     final $result = create();
     if (data != null) {
@@ -1249,7 +1249,7 @@ class ReleaseResponse extends $pb.GeneratedMessage {
   factory ReleaseResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ReleaseResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $9.StatusResponse.create)
+    ..aOM<$7.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $7.StatusResponse.create)
     ..hasRequiredFields = false
   ;
 
@@ -1275,15 +1275,15 @@ class ReleaseResponse extends $pb.GeneratedMessage {
   static ReleaseResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.StatusResponse get data => $_getN(0);
+  $7.StatusResponse get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data($9.StatusResponse v) { setField(1, v); }
+  set data($7.StatusResponse v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
   void clearData() => clearField(1);
   @$pb.TagNumber(1)
-  $9.StatusResponse ensureData() => $_ensure(0);
+  $7.StatusResponse ensureData() => $_ensure(0);
 }
 
 /// ReconcileRequest reconciles an external transaction.
@@ -1292,7 +1292,7 @@ class ReconcileRequest extends $pb.GeneratedMessage {
     $core.String? externalTransactionId,
     $core.String? route,
     $core.bool? outbound,
-    $7.Money? amount,
+    $8.Money? amount,
     $core.String? owner,
     $core.String? countryCode,
   }) {
@@ -1325,7 +1325,7 @@ class ReconcileRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'externalTransactionId')
     ..aOS(2, _omitFieldNames ? '' : 'route')
     ..aOB(3, _omitFieldNames ? '' : 'outbound')
-    ..aOM<$7.Money>(4, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aOM<$8.Money>(4, _omitFieldNames ? '' : 'amount', subBuilder: $8.Money.create)
     ..aOS(5, _omitFieldNames ? '' : 'owner')
     ..aOS(6, _omitFieldNames ? '' : 'countryCode')
     ..hasRequiredFields = false
@@ -1380,15 +1380,15 @@ class ReconcileRequest extends $pb.GeneratedMessage {
   void clearOutbound() => clearField(3);
 
   @$pb.TagNumber(4)
-  $7.Money get amount => $_getN(3);
+  $8.Money get amount => $_getN(3);
   @$pb.TagNumber(4)
-  set amount($7.Money v) { setField(4, v); }
+  set amount($8.Money v) { setField(4, v); }
   @$pb.TagNumber(4)
   $core.bool hasAmount() => $_has(3);
   @$pb.TagNumber(4)
   void clearAmount() => clearField(4);
   @$pb.TagNumber(4)
-  $7.Money ensureAmount() => $_ensure(3);
+  $8.Money ensureAmount() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.String get owner => $_getSZ(4);
@@ -1415,7 +1415,7 @@ class ReconcileResponse extends $pb.GeneratedMessage {
     $core.String? id,
     $core.String? transactionId,
     $core.String? referenceId,
-    $9.STATUS? status,
+    $7.STATUS? status,
     $core.String? description,
   }) {
     final $result = create();
@@ -1444,7 +1444,7 @@ class ReconcileResponse extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'transactionId')
     ..aOS(3, _omitFieldNames ? '' : 'referenceId')
-    ..e<$9.STATUS>(4, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $9.STATUS.UNKNOWN, valueOf: $9.STATUS.valueOf, enumValues: $9.STATUS.values)
+    ..e<$7.STATUS>(4, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: $7.STATUS.UNKNOWN, valueOf: $7.STATUS.valueOf, enumValues: $7.STATUS.values)
     ..aOS(5, _omitFieldNames ? '' : 'description')
     ..hasRequiredFields = false
   ;
@@ -1498,9 +1498,9 @@ class ReconcileResponse extends $pb.GeneratedMessage {
   void clearReferenceId() => clearField(3);
 
   @$pb.TagNumber(4)
-  $9.STATUS get status => $_getN(3);
+  $7.STATUS get status => $_getN(3);
   @$pb.TagNumber(4)
-  set status($9.STATUS v) { setField(4, v); }
+  set status($7.STATUS v) { setField(4, v); }
   @$pb.TagNumber(4)
   $core.bool hasStatus() => $_has(3);
   @$pb.TagNumber(4)
@@ -1633,7 +1633,7 @@ class CreatePaymentLinkRequest extends $pb.GeneratedMessage {
 /// CreatePaymentLinkResponse returns the created payment link.
 class CreatePaymentLinkResponse extends $pb.GeneratedMessage {
   factory CreatePaymentLinkResponse({
-    $9.StatusResponse? data,
+    $7.StatusResponse? data,
   }) {
     final $result = create();
     if (data != null) {
@@ -1646,7 +1646,7 @@ class CreatePaymentLinkResponse extends $pb.GeneratedMessage {
   factory CreatePaymentLinkResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreatePaymentLinkResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'payment.v1'), createEmptyInstance: create)
-    ..aOM<$9.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $9.StatusResponse.create)
+    ..aOM<$7.StatusResponse>(1, _omitFieldNames ? '' : 'data', subBuilder: $7.StatusResponse.create)
     ..hasRequiredFields = false
   ;
 
@@ -1672,15 +1672,15 @@ class CreatePaymentLinkResponse extends $pb.GeneratedMessage {
   static CreatePaymentLinkResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $9.StatusResponse get data => $_getN(0);
+  $7.StatusResponse get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data($9.StatusResponse v) { setField(1, v); }
+  set data($7.StatusResponse v) { setField(1, v); }
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
   void clearData() => clearField(1);
   @$pb.TagNumber(1)
-  $9.StatusResponse ensureData() => $_ensure(0);
+  $7.StatusResponse ensureData() => $_ensure(0);
 }
 
 class PaymentServiceApi {
@@ -1699,16 +1699,16 @@ class PaymentServiceApi {
   $async.Future<CreatePaymentLinkResponse> createPaymentLink($pb.ClientContext? ctx, CreatePaymentLinkRequest request) =>
     _client.invoke<CreatePaymentLinkResponse>(ctx, 'PaymentService', 'CreatePaymentLink', request, CreatePaymentLinkResponse())
   ;
-  $async.Future<$9.StatusResponse> status($pb.ClientContext? ctx, $9.StatusRequest request) =>
-    _client.invoke<$9.StatusResponse>(ctx, 'PaymentService', 'Status', request, $9.StatusResponse())
+  $async.Future<$7.StatusResponse> status($pb.ClientContext? ctx, $7.StatusRequest request) =>
+    _client.invoke<$7.StatusResponse>(ctx, 'PaymentService', 'Status', request, $7.StatusResponse())
   ;
-  $async.Future<$9.StatusUpdateResponse> statusUpdate($pb.ClientContext? ctx, $9.StatusUpdateRequest request) =>
-    _client.invoke<$9.StatusUpdateResponse>(ctx, 'PaymentService', 'StatusUpdate', request, $9.StatusUpdateResponse())
+  $async.Future<$7.StatusUpdateResponse> statusUpdate($pb.ClientContext? ctx, $7.StatusUpdateRequest request) =>
+    _client.invoke<$7.StatusUpdateResponse>(ctx, 'PaymentService', 'StatusUpdate', request, $7.StatusUpdateResponse())
   ;
   $async.Future<ReleaseResponse> release($pb.ClientContext? ctx, ReleaseRequest request) =>
     _client.invoke<ReleaseResponse>(ctx, 'PaymentService', 'Release', request, ReleaseResponse())
   ;
-  $async.Future<SearchResponse> search($pb.ClientContext? ctx, $9.SearchRequest request) =>
+  $async.Future<SearchResponse> search($pb.ClientContext? ctx, $7.SearchRequest request) =>
     _client.invoke<SearchResponse>(ctx, 'PaymentService', 'Search', request, SearchResponse())
   ;
   $async.Future<ReconcileResponse> reconcile($pb.ClientContext? ctx, ReconcileRequest request) =>

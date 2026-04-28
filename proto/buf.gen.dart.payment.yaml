@@ -1,0 +1,16 @@
+# Per-module dart codegen for payment. Invoked by proto-generate-dart as:
+#   buf generate --template buf.gen.dart.payment.yaml payment
+version: v2
+managed:
+  enabled: true
+
+plugins:
+  - remote: buf.build/protocolbuffers/dart:v21.1.2
+    out: ../sdk/dart/payment/lib/src
+    include_imports: true
+    include_wkt: true
+
+  - remote: buf.build/connectrpc/dart
+    out: ../sdk/dart/payment/lib/src
+    include_imports: true
+    include_wkt: true

@@ -37,18 +37,18 @@ packages:
     dependency: "direct main"
     description:
       name: antinvestor_api_ledger
-      sha256: "0959f833b43c4161a2b785bb848781c4ce23cb02f22579185b2affbb01ede575"
+      sha256: "5723a6e003f9b11dcf7368519d2f77dc888a9758b158246d833afc2b117eb6e3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.52.1"
+    version: "1.53.0"
   antinvestor_ui_core:
     dependency: "direct main"
     description:
       name: antinvestor_ui_core
-      sha256: "5310e413c6015f6f6b1be59db8b77e4e1f0e7df07ed5244fdcf21b647bcd0985"
+      sha256: "7b8a0cdc83cfef3781e4c9f77a4ae7fb238267ed0f2cb40a8d3a2b43d1a6c5a8"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.2.0"
   args:
     dependency: transitive
     description:
@@ -484,18 +484,18 @@ packages:
     dependency: "direct main"
     description:
       name: go_router
-      sha256: "48fb2f42ad057476fa4b733cb95e9f9ea7b0b010bb349ea491dca7dbdb18ffc4"
+      sha256: "5540e4a3f416dd4a93458257b908eb88353cbd0fb5b0a3d1bd7d849ba1e88735"
       url: "https://pub.dev"
     source: hosted
-    version: "17.2.0"
+    version: "17.2.1"
   google_fonts:
     dependency: transitive
     description:
       name: google_fonts
-      sha256: ba03d03bcaa2f6cb7bd920e3b5027181db75ab524f8891c8bc3aa603885b8055
+      sha256: db9df7a5898d894eeda4c78143f35c30a243558be439518972366880b80bf88e
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.3"
+    version: "8.0.2"
   graphs:
     dependency: transitive
     description:

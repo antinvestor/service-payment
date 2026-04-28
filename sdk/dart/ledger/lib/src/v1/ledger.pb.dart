@@ -14,7 +14,7 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../common/v1/common.pb.dart' as $9;
+import '../common/v1/common.pb.dart' as $8;
 import '../google/protobuf/struct.pb.dart' as $6;
 import '../google/type/money.pb.dart' as $7;
 import 'ledger.pbenum.dart';
@@ -1676,7 +1676,7 @@ class LedgerServiceApi {
   $pb.RpcClient _client;
   LedgerServiceApi(this._client);
 
-  $async.Future<SearchLedgersResponse> searchLedgers($pb.ClientContext? ctx, $9.SearchRequest request) =>
+  $async.Future<SearchLedgersResponse> searchLedgers($pb.ClientContext? ctx, $8.SearchRequest request) =>
     _client.invoke<SearchLedgersResponse>(ctx, 'LedgerService', 'SearchLedgers', request, SearchLedgersResponse())
   ;
   $async.Future<CreateLedgerResponse> createLedger($pb.ClientContext? ctx, CreateLedgerRequest request) =>
@@ -1685,7 +1685,7 @@ class LedgerServiceApi {
   $async.Future<UpdateLedgerResponse> updateLedger($pb.ClientContext? ctx, UpdateLedgerRequest request) =>
     _client.invoke<UpdateLedgerResponse>(ctx, 'LedgerService', 'UpdateLedger', request, UpdateLedgerResponse())
   ;
-  $async.Future<SearchAccountsResponse> searchAccounts($pb.ClientContext? ctx, $9.SearchRequest request) =>
+  $async.Future<SearchAccountsResponse> searchAccounts($pb.ClientContext? ctx, $8.SearchRequest request) =>
     _client.invoke<SearchAccountsResponse>(ctx, 'LedgerService', 'SearchAccounts', request, SearchAccountsResponse())
   ;
   $async.Future<CreateAccountResponse> createAccount($pb.ClientContext? ctx, CreateAccountRequest request) =>
@@ -1694,7 +1694,7 @@ class LedgerServiceApi {
   $async.Future<UpdateAccountResponse> updateAccount($pb.ClientContext? ctx, UpdateAccountRequest request) =>
     _client.invoke<UpdateAccountResponse>(ctx, 'LedgerService', 'UpdateAccount', request, UpdateAccountResponse())
   ;
-  $async.Future<SearchTransactionsResponse> searchTransactions($pb.ClientContext? ctx, $9.SearchRequest request) =>
+  $async.Future<SearchTransactionsResponse> searchTransactions($pb.ClientContext? ctx, $8.SearchRequest request) =>
     _client.invoke<SearchTransactionsResponse>(ctx, 'LedgerService', 'SearchTransactions', request, SearchTransactionsResponse())
   ;
   $async.Future<CreateTransactionResponse> createTransaction($pb.ClientContext? ctx, CreateTransactionRequest request) =>
@@ -1706,7 +1706,7 @@ class LedgerServiceApi {
   $async.Future<UpdateTransactionResponse> updateTransaction($pb.ClientContext? ctx, UpdateTransactionRequest request) =>
     _client.invoke<UpdateTransactionResponse>(ctx, 'LedgerService', 'UpdateTransaction', request, UpdateTransactionResponse())
   ;
-  $async.Future<SearchTransactionEntriesResponse> searchTransactionEntries($pb.ClientContext? ctx, $9.SearchRequest request) =>
+  $async.Future<SearchTransactionEntriesResponse> searchTransactionEntries($pb.ClientContext? ctx, $8.SearchRequest request) =>
     _client.invoke<SearchTransactionEntriesResponse>(ctx, 'LedgerService', 'SearchTransactionEntries', request, SearchTransactionEntriesResponse())
   ;
 }

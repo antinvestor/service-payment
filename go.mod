@@ -18,7 +18,7 @@ require (
 	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.19.2-20260416193615-c7ebb768c716.1
 	connectrpc.com/connect v1.19.2
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/common v1.4.5-0.20260420095807-503acb7eca75
+	github.com/antinvestor/common v1.4.5
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.2

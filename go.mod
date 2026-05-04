@@ -32,7 +32,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.42.0
 	golang.org/x/text v0.36.0
 	google.golang.org/genproto v0.0.0-20260427160629-7cedc36a6bc4
-	google.golang.org/grpc v1.80.0
+	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.11
 	gorm.io/gorm v1.31.1
 )
@@ -50,7 +50,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/caarlos0/env/v11 v11.4.0 // indirect
+	github.com/caarlos0/env/v11 v11.4.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

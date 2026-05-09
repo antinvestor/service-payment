@@ -1,8 +1,7 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import '../utils/money_format.dart';
 
 /// A card widget displaying a payment (used for payment links) with
 /// copy-to-clipboard support.
@@ -67,7 +66,7 @@ class PaymentLinkCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     if (payment.hasAmount())
                       Text(
-                        fmtMoney(payment.amount),
+                        formatMoney(payment.amount),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

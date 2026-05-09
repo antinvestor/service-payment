@@ -1,6 +1,5 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
-
-import '../utils/money_format.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 
 /// A list tile displaying an invoice line: description, quantity, unit price, amount.
@@ -59,7 +58,7 @@ class InvoiceLineTile extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              fmtMoney(line.unitPrice),
+              formatMoney(line.unitPrice),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -75,7 +74,7 @@ class InvoiceLineTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  fmtMoney(line.netAmount),
+                  formatMoney(line.netAmount),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -100,10 +99,10 @@ class InvoiceLineTile extends StatelessWidget {
   String _adjustmentsLabel() {
     final parts = <String>[];
     if (line.hasDiscountAmount()) {
-      parts.add('-${fmtMoney(line.discountAmount)} disc');
+      parts.add('-${formatMoney(line.discountAmount)} disc');
     }
     if (line.hasCreditAmount()) {
-      parts.add('-${fmtMoney(line.creditAmount)} credit');
+      parts.add('-${formatMoney(line.creditAmount)} credit');
     }
     return parts.join(', ');
   }

@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/payment_providers.dart';
-import '../utils/money_format.dart';
 import '../widgets/account_field.dart';
 import '../widgets/payment_route_selector.dart';
 

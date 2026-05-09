@@ -20,7 +20,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  antinvestor_ui_core: ^0.2.0
+  antinvestor_ui_core: ^0.4.0
   antinvestor_api_billing: ^0.1.0
   antinvestor_api_common: ^1.52.0
   connectrpc: ^1.0.0

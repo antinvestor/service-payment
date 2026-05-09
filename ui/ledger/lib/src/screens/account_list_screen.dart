@@ -1,11 +1,11 @@
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/account_providers.dart';
-import '../utils/money_format.dart';
 
 /// Screen that lists accounts with search and balance display using DataTable.
 class AccountListScreen extends ConsumerStatefulWidget {
@@ -51,9 +51,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         cells: [
           DataCell(Text(_truncate(account.id, 16))),
           DataCell(Text(_truncate(account.ledger, 16))),
-          DataCell(Text(fmtMoney(account.balance))),
-          DataCell(Text(fmtMoney(account.unclearedBalance))),
-          DataCell(Text(fmtMoney(account.reservedBalance))),
+          DataCell(Text(formatMoney(account.balance))),
+          DataCell(Text(formatMoney(account.unclearedBalance))),
+          DataCell(Text(formatMoney(account.reservedBalance))),
         ],
       ),
       onRowNavigate: (account) =>
@@ -61,9 +61,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       exportRow: (account) => [
         account.id,
         account.ledger,
-        fmtMoney(account.balance),
-        fmtMoney(account.unclearedBalance),
-        fmtMoney(account.reservedBalance),
+        formatMoney(account.balance),
+        formatMoney(account.unclearedBalance),
+        formatMoney(account.reservedBalance),
       ],
       onExport: (format, rowCount) {
         debugPrint('AUDIT: Exported $rowCount accounts as $format');

@@ -1,3 +1,17 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package business_test
 
 import (
@@ -19,7 +33,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/genproto/googleapis/type/money"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -107,13 +120,13 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionWithBusinessValidation(
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 			TransactedAt: timeNow.Format(time.RFC3339),
@@ -152,13 +165,13 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionNonZeroSum() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Non-zero sum
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Non-zero sum
 				},
 			},
 		}
@@ -187,13 +200,13 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionInvalidDebitCredit() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false, // Debit
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    false, // Also debit - invalid but amounts equal for zero sum
-					Amount: &money.Money{
+					Amount: &commonv1.Money{
 						CurrencyCode: "USD",
 						Units:        -100,
 						Nanos:        0,
@@ -225,13 +238,13 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionWithNonExistentAccount(
 					Id:        "entry1",
 					AccountId: "non-existent-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -260,13 +273,13 @@ func (ts *TransactionBusinessSuite) TestCreateTransactionWithCurrencyMismatch() 
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "EUR", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "EUR", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "EUR", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "EUR", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -294,7 +307,7 @@ func (ts *TransactionBusinessSuite) TestCreateReservationTransaction() {
 					Id:        "reservation-entry",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 500, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 500, Nanos: 0},
 				},
 			},
 		}
@@ -325,13 +338,13 @@ func (ts *TransactionBusinessSuite) TestCreateReservationTransactionInvalidEntri
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -360,13 +373,13 @@ func (ts *TransactionBusinessSuite) TestReverseTransaction() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 1000, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 1000, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 1000, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 1000, Nanos: 0},
 				},
 			},
 		}
@@ -406,13 +419,13 @@ func (ts *TransactionBusinessSuite) TestGetTransaction() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 250, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 250, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 250, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 250, Nanos: 0},
 				},
 			},
 		}
@@ -453,8 +466,8 @@ func (ts *TransactionBusinessSuite) TestSearchTransactions() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -487,8 +500,8 @@ func (ts *TransactionBusinessSuite) TestSearchTransactionsWithFilter() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -523,8 +536,8 @@ func (ts *TransactionBusinessSuite) TestSearchAndDeleteOperations() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -684,8 +697,8 @@ func (ts *TransactionBusinessSuite) TestValidationErrors() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 0}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 0}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 0}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 0}},
 			},
 		})
 		require.Error(t, err)
@@ -722,7 +735,7 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_RESERVATION,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -741,8 +754,8 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Cleared:  false,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -763,8 +776,8 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Cleared:  false,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -782,8 +795,8 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -794,8 +807,8 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			CurrencyCode: "USD",
 			Type:         ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 999}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 999}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 999}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 999}},
 			},
 		})
 
@@ -816,9 +829,9 @@ func (ts *TransactionBusinessSuite) TestReverseNonNormalAndClearance() {
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
 			Entries: []*ledgerv1.TransactionEntry{
-				{AccountId: "asset-account", Credit: false, Amount: &money.Money{CurrencyCode: "USD", Units: 200}},
-				{AccountId: "asset-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
-				{AccountId: "income-account", Credit: true, Amount: &money.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: false, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 200}},
+				{AccountId: "asset-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "income-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
 			},
 		})
 		require.NoError(t, err)
@@ -842,13 +855,13 @@ func (ts *TransactionBusinessSuite) TestUpdateTransaction() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 300, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 300, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 300, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 300, Nanos: 0},
 				},
 			},
 		}
@@ -894,13 +907,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionExactDuplicate() {
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 			TransactedAt: time.Now().UTC().Format(time.RFC3339),
@@ -945,13 +958,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionConflictingEntries()
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -970,13 +983,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionConflictingEntries()
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Different amount
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Different amount
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Different amount
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 200, Nanos: 0}, // Different amount
 				},
 			},
 		}
@@ -1005,13 +1018,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionConflictingAccounts(
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -1039,13 +1052,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionConflictingAccounts(
 					Id:        "entry1",
 					AccountId: "additional-account", // Different account
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -1074,13 +1087,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionDifferentEntryOrder(
 					Id:        "entry1",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry2",
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -1099,13 +1112,13 @@ func (ts *TransactionBusinessSuite) TestDuplicateTransactionDifferentEntryOrder(
 					Id:        "entry2", // Different entry ID order
 					AccountId: "income-account",
 					Credit:    true,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 				{
 					Id:        "entry1", // Different entry ID order
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100, Nanos: 0},
 				},
 			},
 		}
@@ -1136,7 +1149,7 @@ func (ts *TransactionBusinessSuite) TestDuplicateReservationTransaction() {
 					Id:        "reservation-entry",
 					AccountId: "asset-account",
 					Credit:    false,
-					Amount:    &money.Money{CurrencyCode: "USD", Units: 500, Nanos: 0},
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 500, Nanos: 0},
 				},
 			},
 		}
@@ -1193,13 +1206,13 @@ func (ts *TransactionBusinessSuite) createTestTransaction(
 				Id:        "entry1",
 				AccountId: fmt.Sprintf("concurrent-account-%d", accountIndex),
 				Credit:    false,
-				Amount:    &money.Money{CurrencyCode: "USD", Units: amount, Nanos: 0},
+				Amount:    &commonv1.Money{CurrencyCode: "USD", Units: amount, Nanos: 0},
 			},
 			{
 				Id:        "entry2",
 				AccountId: "income-account",
 				Credit:    true,
-				Amount:    &money.Money{CurrencyCode: "USD", Units: amount, Nanos: 0},
+				Amount:    &commonv1.Money{CurrencyCode: "USD", Units: amount, Nanos: 0},
 			},
 		},
 	}

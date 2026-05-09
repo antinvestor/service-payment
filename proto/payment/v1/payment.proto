@@ -23,15 +23,15 @@ package payment.v1;
 // - Multiple payment routes (mobile money, bank transfer, cards)
 // - Payment links for customer-initiated payments
 // - Queue-and-release pattern for batch processing
-// - All monetary amounts use google.type.Money for currency safety
+// - All monetary amounts use common.v1.Money for currency safety
 // -----------------------------------------------------
 
 import "buf/validate/validate.proto";
 import "common/v1/common.proto";
+import "common/v1/money.proto";
 import "common/v1/permissions.proto";
 import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/struct.proto";
-import "google/type/money.proto";
 
 option go_package = "github.com/antinvestor/apis/go/payment/v1;paymentv1";
 option java_multiple_files = true;
@@ -94,8 +94,8 @@ message Payment {
   string route = 6; // Payment route (M-PESA, RTGS, CARD, INTERNAL)
   common.v1.ContactLink source = 7; // Payment source (payer)
   common.v1.ContactLink recipient = 8; // Payment recipient (payee)
-  google.type.Money amount = 9; // Payment amount
-  google.type.Money cost = 10; // Transaction cost/fee
+  common.v1.Money amount = 9; // Payment amount
+  common.v1.Money cost = 10; // Transaction cost/fee
   common.v1.STATE state = 11; // Processing state
   common.v1.STATUS status = 12; // Payment status
   string date_created = 13; // Creation timestamp (RFC3339)
@@ -137,7 +137,7 @@ message PaymentLink {
   string payment_link_ref = 9; // Generated payment link reference
   string redirect_url = 10; // Post-payment redirect URL
   string amount_option = 11; // Amount option (fixed, variable, minimum)
-  google.type.Money amount = 12; // Payment amount (if fixed)
+  common.v1.Money amount = 12; // Payment amount (if fixed)
   string currency = 13; // Currency code (ISO 4217)
 }
 
@@ -169,7 +169,7 @@ message ReceiveResponse {
 message InitiatePromptRequest {
   common.v1.ContactLink source = 1; // Payment source
   common.v1.ContactLink recipient = 2; // Payment recipient
-  google.type.Money amount = 3; // Payment amount
+  common.v1.Money amount = 3; // Payment amount
   string date_created = 4; // Creation timestamp (RFC3339)
   string device_id = 5; // Device ID for prompt
   string id = 6; // Payment ID
@@ -205,7 +205,7 @@ message ReconcileRequest {
   string external_transaction_id = 1; // Provider's transaction ID
   string route = 2; // Payment route
   bool outbound = 3; // Payment direction
-  google.type.Money amount = 4; // Transaction amount
+  common.v1.Money amount = 4; // Transaction amount
   string owner = 5; // Account owner
   string country_code = 6; // Country code (ISO 3166-1 alpha-2)
 }

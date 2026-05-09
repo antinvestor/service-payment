@@ -1,4 +1,5 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/invoice_providers.dart';
-import '../utils/money_format.dart';
 import '../widgets/invoice_line_tile.dart';
 import '../widgets/invoice_state_badge.dart';
 
@@ -123,7 +123,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Text(
-                      fmtMoney(invoice.totalAmount),
+                      formatMoney(invoice.totalAmount),
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: theme.colorScheme.primary,
@@ -172,15 +172,15 @@ class InvoiceDetailScreen extends ConsumerWidget {
                       _metadataRow(
                           theme, 'Number', invoice.invoiceNumber),
                     _metadataRow(theme, 'Subtotal',
-                        fmtMoney(invoice.subtotalAmount)),
+                        formatMoney(invoice.subtotalAmount)),
                     if (invoice.hasDiscountAmount())
                       _metadataRow(theme, 'Discount',
-                          fmtMoney(invoice.discountAmount)),
+                          formatMoney(invoice.discountAmount)),
                     if (invoice.hasCreditAmount())
                       _metadataRow(theme, 'Credit',
-                          fmtMoney(invoice.creditAmount)),
+                          formatMoney(invoice.creditAmount)),
                     _metadataRow(
-                        theme, 'Total', fmtMoney(invoice.totalAmount)),
+                        theme, 'Total', formatMoney(invoice.totalAmount)),
                     if (invoice.hasDueAt())
                       _metadataRow(
                         theme,
@@ -408,7 +408,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Record Payment'),
         content: Text(
-          'Record full payment of ${fmtMoney(invoice.totalAmount)} '
+          'Record full payment of ${formatMoney(invoice.totalAmount)} '
           'for invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}?',
         ),
         actions: [

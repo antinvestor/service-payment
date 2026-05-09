@@ -14,10 +14,10 @@ import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
 import '../common/v1/common.pbjson.dart' as $9;
+import '../common/v1/money.pbjson.dart' as $7;
 import '../google/protobuf/struct.pbjson.dart' as $6;
 import '../google/protobuf/timestamp.pbjson.dart' as $2;
 import '../google/type/interval.pbjson.dart' as $8;
-import '../google/type/money.pbjson.dart' as $7;
 
 @$core.Deprecated('Use pricingModelDescriptor instead')
 const PricingModel$json = {
@@ -221,8 +221,8 @@ const Component$json = {
     {'1': 'pricing_model', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.PricingModel', '10': 'pricingModel'},
     {'1': 'aggregation_type', '3': 7, '4': 1, '5': 14, '6': '.billing.v1.AggregationType', '10': 'aggregationType'},
     {'1': 'unit_name', '3': 8, '4': 1, '5': 9, '10': 'unitName'},
-    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'freeQuantity'},
-    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'minimumCharge'},
+    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'freeQuantity'},
+    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'minimumCharge'},
     {'1': 'data', '3': 11, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
     {'1': 'tiers', '3': 12, '4': 3, '5': 11, '6': '.billing.v1.Tier', '10': 'tiers'},
   ],
@@ -235,11 +235,10 @@ final $typed_data.Uint8List componentDescriptor = $convert.base64Decode(
     'dHJpY19rZXkYBSABKAlSCW1ldHJpY0tleRI9Cg1wcmljaW5nX21vZGVsGAYgASgOMhguYmlsbG'
     'luZy52MS5QcmljaW5nTW9kZWxSDHByaWNpbmdNb2RlbBJGChBhZ2dyZWdhdGlvbl90eXBlGAcg'
     'ASgOMhsuYmlsbGluZy52MS5BZ2dyZWdhdGlvblR5cGVSD2FnZ3JlZ2F0aW9uVHlwZRIbCgl1bm'
-    'l0X25hbWUYCCABKAlSCHVuaXROYW1lEjcKDWZyZWVfcXVhbnRpdHkYCSABKAsyEi5nb29nbGUu'
-    'dHlwZS5Nb25leVIMZnJlZVF1YW50aXR5EjkKDm1pbmltdW1fY2hhcmdlGAogASgLMhIuZ29vZ2'
-    'xlLnR5cGUuTW9uZXlSDW1pbmltdW1DaGFyZ2USKwoEZGF0YRgLIAEoCzIXLmdvb2dsZS5wcm90'
-    'b2J1Zi5TdHJ1Y3RSBGRhdGESJgoFdGllcnMYDCADKAsyEC5iaWxsaW5nLnYxLlRpZXJSBXRpZX'
-    'Jz');
+    'l0X25hbWUYCCABKAlSCHVuaXROYW1lEjUKDWZyZWVfcXVhbnRpdHkYCSABKAsyEC5jb21tb24u'
+    'djEuTW9uZXlSDGZyZWVRdWFudGl0eRI3Cg5taW5pbXVtX2NoYXJnZRgKIAEoCzIQLmNvbW1vbi'
+    '52MS5Nb25leVINbWluaW11bUNoYXJnZRIrCgRkYXRhGAsgASgLMhcuZ29vZ2xlLnByb3RvYnVm'
+    'LlN0cnVjdFIEZGF0YRImCgV0aWVycxgMIAMoCzIQLmJpbGxpbmcudjEuVGllclIFdGllcnM=');
 
 @$core.Deprecated('Use tierDescriptor instead')
 const Tier$json = {
@@ -248,21 +247,21 @@ const Tier$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'component_id', '3': 2, '4': 1, '5': 9, '10': 'componentId'},
     {'1': 'sort_order', '3': 3, '4': 1, '5': 5, '10': 'sortOrder'},
-    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'lowerBound'},
-    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'upperBound'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'unitPrice'},
-    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'flatFee'},
+    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'lowerBound'},
+    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'upperBound'},
+    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
+    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'flatFee'},
   ],
 };
 
 /// Descriptor for `Tier`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List tierDescriptor = $convert.base64Decode(
     'CgRUaWVyEg4KAmlkGAEgASgJUgJpZBIhCgxjb21wb25lbnRfaWQYAiABKAlSC2NvbXBvbmVudE'
-    'lkEh0KCnNvcnRfb3JkZXIYAyABKAVSCXNvcnRPcmRlchIzCgtsb3dlcl9ib3VuZBgEIAEoCzIS'
-    'Lmdvb2dsZS50eXBlLk1vbmV5Ugpsb3dlckJvdW5kEjMKC3VwcGVyX2JvdW5kGAUgASgLMhIuZ2'
-    '9vZ2xlLnR5cGUuTW9uZXlSCnVwcGVyQm91bmQSMQoKdW5pdF9wcmljZRgGIAEoCzISLmdvb2ds'
-    'ZS50eXBlLk1vbmV5Ugl1bml0UHJpY2USLQoIZmxhdF9mZWUYByABKAsyEi5nb29nbGUudHlwZS'
-    '5Nb25leVIHZmxhdEZlZQ==');
+    'lkEh0KCnNvcnRfb3JkZXIYAyABKAVSCXNvcnRPcmRlchIxCgtsb3dlcl9ib3VuZBgEIAEoCzIQ'
+    'LmNvbW1vbi52MS5Nb25leVIKbG93ZXJCb3VuZBIxCgt1cHBlcl9ib3VuZBgFIAEoCzIQLmNvbW'
+    '1vbi52MS5Nb25leVIKdXBwZXJCb3VuZBIvCgp1bml0X3ByaWNlGAYgASgLMhAuY29tbW9uLnYx'
+    'Lk1vbmV5Ugl1bml0UHJpY2USKwoIZmxhdF9mZWUYByABKAsyEC5jb21tb24udjEuTW9uZXlSB2'
+    'ZsYXRGZWU=');
 
 @$core.Deprecated('Use subscriptionDescriptor instead')
 const Subscription$json = {
@@ -306,7 +305,7 @@ const UsageEvent$json = {
     {'1': 'unit', '3': 12, '4': 1, '5': 9, '10': 'unit'},
     {'1': 'timestamp', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'timestamp'},
     {'1': 'interval', '3': 11, '4': 1, '5': 11, '6': '.google.type.Interval', '10': 'interval'},
-    {'1': 'amount', '3': 13, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 13, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'properties', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'properties'},
     {'1': 'group_id', '3': 14, '4': 1, '5': 9, '10': 'groupId'},
   ],
@@ -319,9 +318,9 @@ final $typed_data.Uint8List usageEventDescriptor = $convert.base64Decode(
     'dGlvbhgCIAEoCVILZGVzY3JpcHRpb24SGgoIcXVhbnRpdHkYBiABKAFSCHF1YW50aXR5EhIKBH'
     'VuaXQYDCABKAlSBHVuaXQSOAoJdGltZXN0YW1wGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRp'
     'bWVzdGFtcFIJdGltZXN0YW1wEjEKCGludGVydmFsGAsgASgLMhUuZ29vZ2xlLnR5cGUuSW50ZX'
-    'J2YWxSCGludGVydmFsEioKBmFtb3VudBgNIAEoCzISLmdvb2dsZS50eXBlLk1vbmV5UgZhbW91'
-    'bnQSNwoKcHJvcGVydGllcxgIIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSCnByb3Blcn'
-    'RpZXMSGQoIZ3JvdXBfaWQYDiABKAlSB2dyb3VwSWQ=');
+    'J2YWxSCGludGVydmFsEigKBmFtb3VudBgNIAEoCzIQLmNvbW1vbi52MS5Nb25leVIGYW1vdW50'
+    'EjcKCnByb3BlcnRpZXMYCCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Ugpwcm9wZXJ0aW'
+    'VzEhkKCGdyb3VwX2lkGA4gASgJUgdncm91cElk');
 
 @$core.Deprecated('Use invoiceDescriptor instead')
 const Invoice$json = {
@@ -334,10 +333,10 @@ const Invoice$json = {
     {'1': 'invoice_number', '3': 5, '4': 1, '5': 9, '10': 'invoiceNumber'},
     {'1': 'state', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.InvoiceState', '10': 'state'},
     {'1': 'currency', '3': 7, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'subtotal_amount', '3': 8, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'subtotalAmount'},
-    {'1': 'discount_amount', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'discountAmount'},
-    {'1': 'credit_amount', '3': 10, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'creditAmount'},
-    {'1': 'total_amount', '3': 11, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'totalAmount'},
+    {'1': 'subtotal_amount', '3': 8, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'subtotalAmount'},
+    {'1': 'discount_amount', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'discountAmount'},
+    {'1': 'credit_amount', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'creditAmount'},
+    {'1': 'total_amount', '3': 11, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalAmount'},
     {'1': 'period_start', '3': 12, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodStart'},
     {'1': 'period_end', '3': 13, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodEnd'},
     {'1': 'issued_at', '3': 14, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'issuedAt'},
@@ -355,19 +354,18 @@ final $typed_data.Uint8List invoiceDescriptor = $convert.base64Decode(
     'luZ1J1bklkEh0KCnByb2ZpbGVfaWQYAyABKAlSCXByb2ZpbGVJZBInCg9zdWJzY3JpcHRpb25f'
     'aWQYBCABKAlSDnN1YnNjcmlwdGlvbklkEiUKDmludm9pY2VfbnVtYmVyGAUgASgJUg1pbnZvaW'
     'NlTnVtYmVyEi4KBXN0YXRlGAYgASgOMhguYmlsbGluZy52MS5JbnZvaWNlU3RhdGVSBXN0YXRl'
-    'EhoKCGN1cnJlbmN5GAcgASgJUghjdXJyZW5jeRI7Cg9zdWJ0b3RhbF9hbW91bnQYCCABKAsyEi'
-    '5nb29nbGUudHlwZS5Nb25leVIOc3VidG90YWxBbW91bnQSOwoPZGlzY291bnRfYW1vdW50GAkg'
-    'ASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSDmRpc2NvdW50QW1vdW50EjcKDWNyZWRpdF9hbW91bn'
-    'QYCiABKAsyEi5nb29nbGUudHlwZS5Nb25leVIMY3JlZGl0QW1vdW50EjUKDHRvdGFsX2Ftb3Vu'
-    'dBgLIAEoCzISLmdvb2dsZS50eXBlLk1vbmV5Ugt0b3RhbEFtb3VudBI9CgxwZXJpb2Rfc3Rhcn'
-    'QYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgtwZXJpb2RTdGFydBI5CgpwZXJp'
-    'b2RfZW5kGA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJcGVyaW9kRW5kEjcKCW'
-    'lzc3VlZF9hdBgOIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCGlzc3VlZEF0EjEK'
-    'BmR1ZV9hdBgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSBWR1ZUF0EjMKB3BhaW'
-    'RfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgZwYWlkQXQSIgoNbGVkZ2Vy'
-    'X3R4bl9pZBgRIAEoCVILbGVkZ2VyVHhuSWQSKwoEZGF0YRgSIAEoCzIXLmdvb2dsZS5wcm90b2'
-    'J1Zi5TdHJ1Y3RSBGRhdGESLQoFbGluZXMYEyADKAsyFy5iaWxsaW5nLnYxLkludm9pY2VMaW5l'
-    'UgVsaW5lcw==');
+    'EhoKCGN1cnJlbmN5GAcgASgJUghjdXJyZW5jeRI5Cg9zdWJ0b3RhbF9hbW91bnQYCCABKAsyEC'
+    '5jb21tb24udjEuTW9uZXlSDnN1YnRvdGFsQW1vdW50EjkKD2Rpc2NvdW50X2Ftb3VudBgJIAEo'
+    'CzIQLmNvbW1vbi52MS5Nb25leVIOZGlzY291bnRBbW91bnQSNQoNY3JlZGl0X2Ftb3VudBgKIA'
+    'EoCzIQLmNvbW1vbi52MS5Nb25leVIMY3JlZGl0QW1vdW50EjMKDHRvdGFsX2Ftb3VudBgLIAEo'
+    'CzIQLmNvbW1vbi52MS5Nb25leVILdG90YWxBbW91bnQSPQoMcGVyaW9kX3N0YXJ0GAwgASgLMh'
+    'ouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFILcGVyaW9kU3RhcnQSOQoKcGVyaW9kX2VuZBgN'
+    'IAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXBlcmlvZEVuZBI3Cglpc3N1ZWRfYX'
+    'QYDiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUghpc3N1ZWRBdBIxCgZkdWVfYXQY'
+    'DyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgVkdWVBdBIzCgdwYWlkX2F0GBAgAS'
+    'gLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIGcGFpZEF0EiIKDWxlZGdlcl90eG5faWQY'
+    'ESABKAlSC2xlZGdlclR4bklkEisKBGRhdGEYEiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydW'
+    'N0UgRkYXRhEi0KBWxpbmVzGBMgAygLMhcuYmlsbGluZy52MS5JbnZvaWNlTGluZVIFbGluZXM=');
 
 @$core.Deprecated('Use invoiceLineDescriptor instead')
 const InvoiceLine$json = {
@@ -378,11 +376,11 @@ const InvoiceLine$json = {
     {'1': 'component_id', '3': 3, '4': 1, '5': 9, '10': 'componentId'},
     {'1': 'description', '3': 4, '4': 1, '5': 9, '10': 'description'},
     {'1': 'quantity', '3': 5, '4': 1, '5': 1, '10': 'quantity'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'unitPrice'},
-    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
-    {'1': 'discount_amount', '3': 8, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'discountAmount'},
-    {'1': 'credit_amount', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'creditAmount'},
-    {'1': 'net_amount', '3': 10, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'netAmount'},
+    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
+    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {'1': 'discount_amount', '3': 8, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'discountAmount'},
+    {'1': 'credit_amount', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'creditAmount'},
+    {'1': 'net_amount', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'netAmount'},
     {'1': 'currency', '3': 11, '4': 1, '5': 9, '10': 'currency'},
     {'1': 'line_type', '3': 12, '4': 1, '5': 14, '6': '.billing.v1.InvoiceLineType', '10': 'lineType'},
     {'1': 'data', '3': 13, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
@@ -393,14 +391,14 @@ const InvoiceLine$json = {
 final $typed_data.Uint8List invoiceLineDescriptor = $convert.base64Decode(
     'CgtJbnZvaWNlTGluZRIOCgJpZBgBIAEoCVICaWQSHQoKaW52b2ljZV9pZBgCIAEoCVIJaW52b2'
     'ljZUlkEiEKDGNvbXBvbmVudF9pZBgDIAEoCVILY29tcG9uZW50SWQSIAoLZGVzY3JpcHRpb24Y'
-    'BCABKAlSC2Rlc2NyaXB0aW9uEhoKCHF1YW50aXR5GAUgASgBUghxdWFudGl0eRIxCgp1bml0X3'
-    'ByaWNlGAYgASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSCXVuaXRQcmljZRIqCgZhbW91bnQYByAB'
-    'KAsyEi5nb29nbGUudHlwZS5Nb25leVIGYW1vdW50EjsKD2Rpc2NvdW50X2Ftb3VudBgIIAEoCz'
-    'ISLmdvb2dsZS50eXBlLk1vbmV5Ug5kaXNjb3VudEFtb3VudBI3Cg1jcmVkaXRfYW1vdW50GAkg'
-    'ASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSDGNyZWRpdEFtb3VudBIxCgpuZXRfYW1vdW50GAogAS'
-    'gLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSCW5ldEFtb3VudBIaCghjdXJyZW5jeRgLIAEoCVIIY3Vy'
-    'cmVuY3kSOAoJbGluZV90eXBlGAwgASgOMhsuYmlsbGluZy52MS5JbnZvaWNlTGluZVR5cGVSCG'
-    'xpbmVUeXBlEisKBGRhdGEYDSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0UgRkYXRh');
+    'BCABKAlSC2Rlc2NyaXB0aW9uEhoKCHF1YW50aXR5GAUgASgBUghxdWFudGl0eRIvCgp1bml0X3'
+    'ByaWNlGAYgASgLMhAuY29tbW9uLnYxLk1vbmV5Ugl1bml0UHJpY2USKAoGYW1vdW50GAcgASgL'
+    'MhAuY29tbW9uLnYxLk1vbmV5UgZhbW91bnQSOQoPZGlzY291bnRfYW1vdW50GAggASgLMhAuY2'
+    '9tbW9uLnYxLk1vbmV5Ug5kaXNjb3VudEFtb3VudBI1Cg1jcmVkaXRfYW1vdW50GAkgASgLMhAu'
+    'Y29tbW9uLnYxLk1vbmV5UgxjcmVkaXRBbW91bnQSLwoKbmV0X2Ftb3VudBgKIAEoCzIQLmNvbW'
+    '1vbi52MS5Nb25leVIJbmV0QW1vdW50EhoKCGN1cnJlbmN5GAsgASgJUghjdXJyZW5jeRI4Cgls'
+    'aW5lX3R5cGUYDCABKA4yGy5iaWxsaW5nLnYxLkludm9pY2VMaW5lVHlwZVIIbGluZVR5cGUSKw'
+    'oEZGF0YRgNIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdGE=');
 
 @$core.Deprecated('Use creditGrantDescriptor instead')
 const CreditGrant$json = {
@@ -409,8 +407,8 @@ const CreditGrant$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '10': 'profileId'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'original_amount', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'originalAmount'},
-    {'1': 'remaining_amount', '3': 5, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'remainingAmount'},
+    {'1': 'original_amount', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'originalAmount'},
+    {'1': 'remaining_amount', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'remainingAmount'},
     {'1': 'currency', '3': 6, '4': 1, '5': 9, '10': 'currency'},
     {'1': 'expires_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'expiresAt'},
     {'1': 'priority', '3': 8, '4': 1, '5': 5, '10': 'priority'},
@@ -421,12 +419,12 @@ const CreditGrant$json = {
 /// Descriptor for `CreditGrant`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List creditGrantDescriptor = $convert.base64Decode(
     'CgtDcmVkaXRHcmFudBIOCgJpZBgBIAEoCVICaWQSHQoKcHJvZmlsZV9pZBgCIAEoCVIJcHJvZm'
-    'lsZUlkEhIKBG5hbWUYAyABKAlSBG5hbWUSOwoPb3JpZ2luYWxfYW1vdW50GAQgASgLMhIuZ29v'
-    'Z2xlLnR5cGUuTW9uZXlSDm9yaWdpbmFsQW1vdW50Ej0KEHJlbWFpbmluZ19hbW91bnQYBSABKA'
-    'syEi5nb29nbGUudHlwZS5Nb25leVIPcmVtYWluaW5nQW1vdW50EhoKCGN1cnJlbmN5GAYgASgJ'
-    'UghjdXJyZW5jeRI5CgpleHBpcmVzX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdG'
-    'FtcFIJZXhwaXJlc0F0EhoKCHByaW9yaXR5GAggASgFUghwcmlvcml0eRIrCgRkYXRhGAkgASgL'
-    'MhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdFIEZGF0YQ==');
+    'lsZUlkEhIKBG5hbWUYAyABKAlSBG5hbWUSOQoPb3JpZ2luYWxfYW1vdW50GAQgASgLMhAuY29t'
+    'bW9uLnYxLk1vbmV5Ug5vcmlnaW5hbEFtb3VudBI7ChByZW1haW5pbmdfYW1vdW50GAUgASgLMh'
+    'AuY29tbW9uLnYxLk1vbmV5Ug9yZW1haW5pbmdBbW91bnQSGgoIY3VycmVuY3kYBiABKAlSCGN1'
+    'cnJlbmN5EjkKCmV4cGlyZXNfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUg'
+    'lleHBpcmVzQXQSGgoIcHJpb3JpdHkYCCABKAVSCHByaW9yaXR5EisKBGRhdGEYCSABKAsyFy5n'
+    'b29nbGUucHJvdG9idWYuU3RydWN0UgRkYXRh');
 
 @$core.Deprecated('Use billingRunDescriptor instead')
 const BillingRun$json = {
@@ -637,8 +635,8 @@ const CreateComponentRequest$json = {
     {'1': 'pricing_model', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.PricingModel', '10': 'pricingModel'},
     {'1': 'aggregation_type', '3': 7, '4': 1, '5': 14, '6': '.billing.v1.AggregationType', '10': 'aggregationType'},
     {'1': 'unit_name', '3': 8, '4': 1, '5': 9, '10': 'unitName'},
-    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'freeQuantity'},
-    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'minimumCharge'},
+    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'freeQuantity'},
+    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'minimumCharge'},
     {'1': 'data', '3': 11, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
   ],
 };
@@ -651,10 +649,10 @@ final $typed_data.Uint8List createComponentRequestDescriptor = $convert.base64De
     '1lEiYKCm1ldHJpY19rZXkYBSABKAlCB7pIBHICEAFSCW1ldHJpY0tleRI9Cg1wcmljaW5nX21v'
     'ZGVsGAYgASgOMhguYmlsbGluZy52MS5QcmljaW5nTW9kZWxSDHByaWNpbmdNb2RlbBJGChBhZ2'
     'dyZWdhdGlvbl90eXBlGAcgASgOMhsuYmlsbGluZy52MS5BZ2dyZWdhdGlvblR5cGVSD2FnZ3Jl'
-    'Z2F0aW9uVHlwZRIbCgl1bml0X25hbWUYCCABKAlSCHVuaXROYW1lEjcKDWZyZWVfcXVhbnRpdH'
-    'kYCSABKAsyEi5nb29nbGUudHlwZS5Nb25leVIMZnJlZVF1YW50aXR5EjkKDm1pbmltdW1fY2hh'
-    'cmdlGAogASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSDW1pbmltdW1DaGFyZ2USKwoEZGF0YRgLIA'
-    'EoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdGE=');
+    'Z2F0aW9uVHlwZRIbCgl1bml0X25hbWUYCCABKAlSCHVuaXROYW1lEjUKDWZyZWVfcXVhbnRpdH'
+    'kYCSABKAsyEC5jb21tb24udjEuTW9uZXlSDGZyZWVRdWFudGl0eRI3Cg5taW5pbXVtX2NoYXJn'
+    'ZRgKIAEoCzIQLmNvbW1vbi52MS5Nb25leVINbWluaW11bUNoYXJnZRIrCgRkYXRhGAsgASgLMh'
+    'cuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdFIEZGF0YQ==');
 
 @$core.Deprecated('Use createComponentResponseDescriptor instead')
 const CreateComponentResponse$json = {
@@ -676,10 +674,10 @@ const CreateTierRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'component_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'componentId'},
     {'1': 'sort_order', '3': 3, '4': 1, '5': 5, '10': 'sortOrder'},
-    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'lowerBound'},
-    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'upperBound'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'unitPrice'},
-    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'flatFee'},
+    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'lowerBound'},
+    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'upperBound'},
+    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
+    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'flatFee'},
   ],
 };
 
@@ -687,11 +685,11 @@ const CreateTierRequest$json = {
 final $typed_data.Uint8List createTierRequestDescriptor = $convert.base64Decode(
     'ChFDcmVhdGVUaWVyUmVxdWVzdBIuCgJpZBgBIAEoCUIeukgb2AEBchYQAxgoMhBbMC05YS16Xy'
     '1dezMsNDB9UgJpZBIqCgxjb21wb25lbnRfaWQYAiABKAlCB7pIBHICEAFSC2NvbXBvbmVudElk'
-    'Eh0KCnNvcnRfb3JkZXIYAyABKAVSCXNvcnRPcmRlchIzCgtsb3dlcl9ib3VuZBgEIAEoCzISLm'
-    'dvb2dsZS50eXBlLk1vbmV5Ugpsb3dlckJvdW5kEjMKC3VwcGVyX2JvdW5kGAUgASgLMhIuZ29v'
-    'Z2xlLnR5cGUuTW9uZXlSCnVwcGVyQm91bmQSMQoKdW5pdF9wcmljZRgGIAEoCzISLmdvb2dsZS'
-    '50eXBlLk1vbmV5Ugl1bml0UHJpY2USLQoIZmxhdF9mZWUYByABKAsyEi5nb29nbGUudHlwZS5N'
-    'b25leVIHZmxhdEZlZQ==');
+    'Eh0KCnNvcnRfb3JkZXIYAyABKAVSCXNvcnRPcmRlchIxCgtsb3dlcl9ib3VuZBgEIAEoCzIQLm'
+    'NvbW1vbi52MS5Nb25leVIKbG93ZXJCb3VuZBIxCgt1cHBlcl9ib3VuZBgFIAEoCzIQLmNvbW1v'
+    'bi52MS5Nb25leVIKdXBwZXJCb3VuZBIvCgp1bml0X3ByaWNlGAYgASgLMhAuY29tbW9uLnYxLk'
+    '1vbmV5Ugl1bml0UHJpY2USKwoIZmxhdF9mZWUYByABKAsyEC5jb21tb24udjEuTW9uZXlSB2Zs'
+    'YXRGZWU=');
 
 @$core.Deprecated('Use createTierResponseDescriptor instead')
 const CreateTierResponse$json = {
@@ -1041,7 +1039,7 @@ const GrantCreditRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'profileId'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'name'},
-    {'1': 'amount', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '8': {}, '10': 'currency'},
     {'1': 'expires_at', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'expiresAt'},
     {'1': 'priority', '3': 7, '4': 1, '5': 5, '10': 'priority'},
@@ -1053,11 +1051,11 @@ const GrantCreditRequest$json = {
 final $typed_data.Uint8List grantCreditRequestDescriptor = $convert.base64Decode(
     'ChJHcmFudENyZWRpdFJlcXVlc3QSLgoCaWQYASABKAlCHrpIG9gBAXIWEAMYKDIQWzAtOWEtel'
     '8tXXszLDQwfVICaWQSJgoKcHJvZmlsZV9pZBgCIAEoCUIHukgEcgIQAVIJcHJvZmlsZUlkEhsK'
-    'BG5hbWUYAyABKAlCB7pIBHICEAFSBG5hbWUSKgoGYW1vdW50GAQgASgLMhIuZ29vZ2xlLnR5cG'
-    'UuTW9uZXlSBmFtb3VudBIjCghjdXJyZW5jeRgFIAEoCUIHukgEcgIQA1IIY3VycmVuY3kSOQoK'
-    'ZXhwaXJlc19hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWV4cGlyZXNBdB'
-    'IaCghwcmlvcml0eRgHIAEoBVIIcHJpb3JpdHkSKwoEZGF0YRgIIAEoCzIXLmdvb2dsZS5wcm90'
-    'b2J1Zi5TdHJ1Y3RSBGRhdGE=');
+    'BG5hbWUYAyABKAlCB7pIBHICEAFSBG5hbWUSKAoGYW1vdW50GAQgASgLMhAuY29tbW9uLnYxLk'
+    '1vbmV5UgZhbW91bnQSIwoIY3VycmVuY3kYBSABKAlCB7pIBHICEANSCGN1cnJlbmN5EjkKCmV4'
+    'cGlyZXNfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUglleHBpcmVzQXQSGg'
+    'oIcHJpb3JpdHkYByABKAVSCHByaW9yaXR5EisKBGRhdGEYCCABKAsyFy5nb29nbGUucHJvdG9i'
+    'dWYuU3RydWN0UgRkYXRh');
 
 @$core.Deprecated('Use grantCreditResponseDescriptor instead')
 const GrantCreditResponse$json = {
@@ -1090,14 +1088,14 @@ final $typed_data.Uint8List getCreditBalanceRequestDescriptor = $convert.base64D
 const GetCreditBalanceResponse$json = {
   '1': 'GetCreditBalanceResponse',
   '2': [
-    {'1': 'balance', '3': 1, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'balance'},
+    {'1': 'balance', '3': 1, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'balance'},
   ],
 };
 
 /// Descriptor for `GetCreditBalanceResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List getCreditBalanceResponseDescriptor = $convert.base64Decode(
-    'ChhHZXRDcmVkaXRCYWxhbmNlUmVzcG9uc2USLAoHYmFsYW5jZRgBIAEoCzISLmdvb2dsZS50eX'
-    'BlLk1vbmV5UgdiYWxhbmNl');
+    'ChhHZXRDcmVkaXRCYWxhbmNlUmVzcG9uc2USKgoHYmFsYW5jZRgBIAEoCzIQLmNvbW1vbi52MS'
+    '5Nb25leVIHYmFsYW5jZQ==');
 
 @$core.Deprecated('Use createDiscountRequestDescriptor instead')
 const CreateDiscountRequest$json = {
@@ -1251,7 +1249,7 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> BillingSer
   '.google.protobuf.Timestamp': $2.Timestamp$json,
   '.billing.v1.Plan': Plan$json,
   '.billing.v1.Component': Component$json,
-  '.google.type.Money': $7.Money$json,
+  '.common.v1.Money': $7.Money$json,
   '.billing.v1.Tier': Tier$json,
   '.billing.v1.GetCatalogVersionRequest': GetCatalogVersionRequest$json,
   '.billing.v1.GetCatalogVersionResponse': GetCatalogVersionResponse$json,

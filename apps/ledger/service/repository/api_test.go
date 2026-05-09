@@ -1,3 +1,17 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package repository_test
 
 import (
@@ -18,13 +32,12 @@ import (
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/frametests/definition"
 	"github.com/pitabwire/util/decimalx"
-	utilmoney "github.com/pitabwire/util/money"
+	utilmoney "github.com/pitabwire/util/moneyx"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"google.golang.org/genproto/googleapis/type/money"
 )
 
 type ConnectAPISuite struct {
@@ -163,7 +176,7 @@ func (as *ConnectAPISuite) createInitialAccounts(
 	return nil
 }
 
-func toMoney(val int) *money.Money {
+func toMoney(val int) *commonv1.Money {
 	return utilmoney.ToMoney("UGX", decimalx.NewFromInt64(int64(val)))
 }
 
@@ -171,9 +184,9 @@ func (as *ConnectAPISuite) TestTransactions() {
 	testcases := []struct {
 		name      string
 		request   *ledgerv1.Transaction
-		balance   *money.Money
-		reserve   *money.Money
-		uncleared *money.Money
+		balance   *commonv1.Money
+		reserve   *commonv1.Money
+		uncleared *commonv1.Money
 		wantErr   bool
 	}{
 		{
@@ -282,9 +295,9 @@ func (as *ConnectAPISuite) TestClearBalances() {
 	testcases := []struct {
 		name          string
 		request       *ledgerv1.Transaction
-		balance       *money.Money
-		reserve       *money.Money
-		uncleared     *money.Money
+		balance       *commonv1.Money
+		reserve       *commonv1.Money
+		uncleared     *commonv1.Money
 		clearUpdate   bool
 		wantErr       bool
 		clearBalances bool

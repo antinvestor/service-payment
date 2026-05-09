@@ -1,7 +1,7 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/money_format.dart';
 import 'payment_status_badge.dart';
 
 /// A card widget displaying a payment summary: amount, route, source to
@@ -62,7 +62,7 @@ class PaymentCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            fmtMoney(payment.amount),
+                            formatMoney(payment.amount),
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: isOutbound ? Colors.red : Colors.green,
@@ -130,7 +130,7 @@ class PaymentCard extends StatelessWidget {
                       children: [
                         if (payment.hasCost())
                           Text(
-                            'Cost: ${fmtMoney(payment.cost)}',
+                            'Cost: ${formatMoney(payment.cost)}',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

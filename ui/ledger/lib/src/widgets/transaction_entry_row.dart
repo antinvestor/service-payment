@@ -1,6 +1,5 @@
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
-
-import '../utils/money_format.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 
 /// A row widget displaying a single transaction entry with
@@ -73,14 +72,14 @@ class TransactionEntryRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${isCredit ? '+' : '-'} ${fmtMoney(entry.amount)}',
+                  '${isCredit ? '+' : '-'} ${formatMoney(entry.amount)}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isCredit ? Colors.green : Colors.red,
                   ),
                 ),
                 Text(
-                  'Bal: ${fmtMoney(entry.accBalance)}',
+                  'Bal: ${formatMoney(entry.accBalance)}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

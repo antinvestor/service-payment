@@ -1,4 +1,5 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/payment_providers.dart';
-import '../utils/money_format.dart';
 import '../widgets/payment_status_badge.dart';
 
 /// Screen for viewing full payment details with actions.
@@ -155,7 +155,7 @@ class PaymentDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      fmtMoney(payment.amount),
+                      formatMoney(payment.amount),
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: isOutbound ? Colors.red : Colors.green,
@@ -164,7 +164,7 @@ class PaymentDetailScreen extends ConsumerWidget {
                     if (payment.hasCost()) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Cost: ${fmtMoney(payment.cost)}',
+                        'Cost: ${formatMoney(payment.cost)}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

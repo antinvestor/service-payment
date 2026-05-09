@@ -1,3 +1,17 @@
+# Copyright 2023-2026 Ant Investor Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 openapi: 3.1.0
 info:
   title: Payment Service
@@ -10,6 +24,26 @@ info:
     name: Apache License
     url: https://github.com/antinvestor/apis/blob/master/LICENSE
   version: v1.0.0
+x-service-namespace: service_billing
+x-service-permissions:
+  - catalog_view
+  - catalog_manage
+  - plan_manage
+  - component_manage
+  - tier_manage
+  - subscription_view
+  - subscription_manage
+  - usage_view
+  - usage_ingest
+  - billing_run_view
+  - billing_run_manage
+  - invoice_view
+  - invoice_manage
+  - payment_record
+  - credit_view
+  - credit_manage
+  - discount_view
+  - discount_manage
 paths:
   /payment.v1.PaymentService/CreatePaymentLink:
     post:
@@ -48,6 +82,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.CreatePaymentLinkResponse'
+      x-required-permissions:
+        - payment_link_create
   /payment.v1.PaymentService/InitiatePrompt:
     post:
       tags:
@@ -85,6 +121,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.InitiatePromptResponse'
+      x-required-permissions:
+        - prompt_initiate
   /payment.v1.PaymentService/Receive:
     post:
       tags:
@@ -122,6 +160,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.ReceiveResponse'
+      x-required-permissions:
+        - payment_receive
   /payment.v1.PaymentService/Reconcile:
     post:
       tags:
@@ -159,6 +199,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.ReconcileResponse'
+      x-required-permissions:
+        - reconcile
   /payment.v1.PaymentService/Release:
     post:
       tags:
@@ -196,6 +238,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.ReleaseResponse'
+      x-required-permissions:
+        - payment_release
   /payment.v1.PaymentService/Search: {}
   /payment.v1.PaymentService/Send:
     post:
@@ -234,6 +278,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment.v1.SendResponse'
+      x-required-permissions:
+        - payment_send
   /payment.v1.PaymentService/Status:
     get:
       tags:
@@ -288,6 +334,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/common.v1.StatusResponse'
+      x-required-permissions:
+        - payment_status_view
     post:
       tags:
         - Payments
@@ -324,6 +372,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/common.v1.StatusResponse'
+      x-required-permissions:
+        - payment_status_view
   /payment.v1.PaymentService/StatusUpdate:
     post:
       tags:
@@ -361,6 +411,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/common.v1.StatusUpdateResponse'
+      x-required-permissions:
+        - payment_status_update
 components:
   schemas:
     base64:
@@ -422,6 +474,45 @@ components:
         ContactLink represents a link between a contact and a profile in the system.
          Used for associating external contacts with internal profiles across services.
          This enables unified identity management and contact resolution.
+    common.v1.Money:
+      type: object
+      properties:
+        currencyCode:
+          type: string
+          title: currency_code
+          description: The 3-letter ISO 4217 currency code (e.g. "KES", "USD", "EUR").
+        units:
+          type:
+            - integer
+            - string
+          title: units
+          format: int64
+          description: |-
+            The whole units of the amount. For example, if currency_code is "USD",
+             1 unit is one US dollar.
+        nanos:
+          type: integer
+          title: nanos
+          format: int32
+          description: |-
+            Number of nano (10^-9) units of the amount. The value must be between
+             -999,999,999 and +999,999,999 inclusive.
+
+             Sign rules:
+               - If units is positive, nanos must be positive or zero.
+               - If units is zero, nanos can be positive, zero, or negative.
+               - If units is negative, nanos must be negative or zero.
+
+             For example $-1.75 is represented as units=-1 and nanos=-750,000,000.
+      title: Money
+      additionalProperties: false
+      description: |-
+        Money represents an amount of money with its currency type.
+
+         Field numbers and types intentionally mirror google.type.Money so the
+         wire format is identical — services that previously embedded
+         google.type.Money can switch to common.v1.Money without coordinating
+         deploys with their callers.
     common.v1.PageCursor:
       type: object
       properties:
@@ -738,36 +829,6 @@ components:
          variants. Absence of any variant indicates an error.
 
          The JSON representation for `Value` is JSON value.
-    google.type.Money:
-      type: object
-      properties:
-        currencyCode:
-          type: string
-          title: currency_code
-          description: The three-letter currency code defined in ISO 4217.
-        units:
-          type:
-            - integer
-            - string
-          title: units
-          format: int64
-          description: |-
-            The whole units of the amount.
-             For example if `currencyCode` is `"USD"`, then 1 unit is one US dollar.
-        nanos:
-          type: integer
-          title: nanos
-          format: int32
-          description: |-
-            Number of nano (10^-9) units of the amount.
-             The value must be between -999,999,999 and +999,999,999 inclusive.
-             If `units` is positive, `nanos` must be positive or zero.
-             If `units` is zero, `nanos` can be positive, zero, or negative.
-             If `units` is negative, `nanos` must be negative or zero.
-             For example $-1.75 is represented as `units`=-1 and `nanos`=-750,000,000.
-      title: Money
-      additionalProperties: false
-      description: Represents an amount of money with its currency type.
     payment.v1.Account:
       type: object
       properties:
@@ -858,7 +919,7 @@ components:
         amount:
           title: amount
           description: Payment amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         dateCreated:
           type: string
           title: date_created
@@ -950,11 +1011,11 @@ components:
         amount:
           title: amount
           description: Payment amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         cost:
           title: cost
           description: Transaction cost/fee
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         state:
           title: state
           description: Processing state
@@ -1035,7 +1096,7 @@ components:
         amount:
           title: amount
           description: Payment amount (if fixed)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         currency:
           type: string
           title: currency
@@ -1081,7 +1142,7 @@ components:
         amount:
           title: amount
           description: Transaction amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         owner:
           type: string
           title: owner

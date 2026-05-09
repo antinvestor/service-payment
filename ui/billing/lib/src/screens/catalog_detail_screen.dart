@@ -1,4 +1,5 @@
 import 'package:antinvestor_api_billing/antinvestor_api_billing.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/error_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/catalog_providers.dart';
-import '../utils/money_format.dart';
 import '../widgets/pricing_model_badge.dart';
 
 /// Screen showing details for a catalog version including plans,
@@ -436,8 +436,8 @@ class _TierCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Range: ${tier.hasLowerBound() ? fmtMoney(tier.lowerBound) : '0'}'
-                    ' - ${tier.hasUpperBound() ? fmtMoney(tier.upperBound) : 'unbounded'}',
+                    'Range: ${tier.hasLowerBound() ? formatMoney(tier.lowerBound) : '0'}'
+                    ' - ${tier.hasUpperBound() ? formatMoney(tier.upperBound) : 'unbounded'}',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -445,14 +445,14 @@ class _TierCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   if (tier.hasUnitPrice())
                     Text(
-                      'Unit Price: ${fmtMoney(tier.unitPrice)}',
+                      'Unit Price: ${formatMoney(tier.unitPrice)}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   if (tier.hasFlatFee())
                     Text(
-                      'Flat Fee: ${fmtMoney(tier.flatFee)}',
+                      'Flat Fee: ${formatMoney(tier.flatFee)}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

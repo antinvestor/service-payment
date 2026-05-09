@@ -1,3 +1,17 @@
+# Copyright 2023-2026 Ant Investor Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 openapi: 3.1.0
 info:
   title: Billing Service
@@ -10,6 +24,26 @@ info:
     name: Apache License
     url: https://github.com/antinvestor/apis/blob/master/LICENSE
   version: v1.0.0
+x-service-namespace: service_billing
+x-service-permissions:
+  - catalog_view
+  - catalog_manage
+  - plan_manage
+  - component_manage
+  - tier_manage
+  - subscription_view
+  - subscription_manage
+  - usage_view
+  - usage_ingest
+  - billing_run_view
+  - billing_run_manage
+  - invoice_view
+  - invoice_manage
+  - payment_record
+  - credit_view
+  - credit_manage
+  - discount_view
+  - discount_manage
 paths:
   /billing.v1.BillingService/CancelSubscription:
     post:
@@ -48,6 +82,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CancelSubscriptionResponse'
+      x-required-permissions:
+        - subscription_manage
   /billing.v1.BillingService/CreateCatalogVersion:
     post:
       tags:
@@ -85,6 +121,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreateCatalogVersionResponse'
+      x-required-permissions:
+        - catalog_manage
   /billing.v1.BillingService/CreateComponent:
     post:
       tags:
@@ -122,6 +160,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreateComponentResponse'
+      x-required-permissions:
+        - component_manage
   /billing.v1.BillingService/CreateDiscount:
     post:
       tags:
@@ -159,6 +199,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreateDiscountResponse'
+      x-required-permissions:
+        - discount_manage
   /billing.v1.BillingService/CreatePlan:
     post:
       tags:
@@ -196,6 +238,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreatePlanResponse'
+      x-required-permissions:
+        - plan_manage
   /billing.v1.BillingService/CreateSubscription:
     post:
       tags:
@@ -233,6 +277,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreateSubscriptionResponse'
+      x-required-permissions:
+        - subscription_manage
   /billing.v1.BillingService/CreateTier:
     post:
       tags:
@@ -270,6 +316,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.CreateTierResponse'
+      x-required-permissions:
+        - tier_manage
   /billing.v1.BillingService/GetBillingRun:
     get:
       tags:
@@ -324,6 +372,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetBillingRunResponse'
+      x-required-permissions:
+        - billing_run_view
     post:
       tags:
         - Billing
@@ -360,6 +410,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetBillingRunResponse'
+      x-required-permissions:
+        - billing_run_view
   /billing.v1.BillingService/GetCatalogVersion:
     get:
       tags:
@@ -414,6 +466,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetCatalogVersionResponse'
+      x-required-permissions:
+        - catalog_view
     post:
       tags:
         - Catalog
@@ -450,6 +504,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetCatalogVersionResponse'
+      x-required-permissions:
+        - catalog_view
   /billing.v1.BillingService/GetCreditBalance:
     get:
       tags:
@@ -504,6 +560,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetCreditBalanceResponse'
+      x-required-permissions:
+        - credit_view
     post:
       tags:
         - Credits
@@ -540,6 +598,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetCreditBalanceResponse'
+      x-required-permissions:
+        - credit_view
   /billing.v1.BillingService/GetInvoice:
     get:
       tags:
@@ -594,6 +654,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetInvoiceResponse'
+      x-required-permissions:
+        - invoice_view
     post:
       tags:
         - Invoices
@@ -630,6 +692,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetInvoiceResponse'
+      x-required-permissions:
+        - invoice_view
   /billing.v1.BillingService/GetSubscription:
     get:
       tags:
@@ -684,6 +748,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetSubscriptionResponse'
+      x-required-permissions:
+        - subscription_view
     post:
       tags:
         - Subscriptions
@@ -720,6 +786,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GetSubscriptionResponse'
+      x-required-permissions:
+        - subscription_view
   /billing.v1.BillingService/GrantCredit:
     post:
       tags:
@@ -757,6 +825,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.GrantCreditResponse'
+      x-required-permissions:
+        - credit_manage
   /billing.v1.BillingService/IngestUsageEvent:
     post:
       tags:
@@ -794,6 +864,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.IngestUsageEventResponse'
+      x-required-permissions:
+        - usage_ingest
   /billing.v1.BillingService/IssueInvoice:
     post:
       tags:
@@ -831,6 +903,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.IssueInvoiceResponse'
+      x-required-permissions:
+        - invoice_manage
   /billing.v1.BillingService/ListSubscriptions:
     get:
       tags:
@@ -885,6 +959,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.ListSubscriptionsResponse'
+      x-required-permissions:
+        - subscription_view
     post:
       tags:
         - Subscriptions
@@ -921,6 +997,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.ListSubscriptionsResponse'
+      x-required-permissions:
+        - subscription_view
   /billing.v1.BillingService/PublishCatalogVersion:
     post:
       tags:
@@ -958,6 +1036,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.PublishCatalogVersionResponse'
+      x-required-permissions:
+        - catalog_manage
   /billing.v1.BillingService/RecordPayment:
     post:
       tags:
@@ -995,6 +1075,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.RecordPaymentResponse'
+      x-required-permissions:
+        - payment_record
   /billing.v1.BillingService/RunBilling:
     post:
       tags:
@@ -1032,6 +1114,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.RunBillingResponse'
+      x-required-permissions:
+        - billing_run_manage
   /billing.v1.BillingService/SearchCatalogVersions: {}
   /billing.v1.BillingService/SearchDiscounts: {}
   /billing.v1.BillingService/SearchInvoices: {}
@@ -1073,6 +1157,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/billing.v1.VoidInvoiceResponse'
+      x-required-permissions:
+        - invoice_manage
 components:
   schemas:
     base64:
@@ -1274,11 +1360,11 @@ components:
         freeQuantity:
           title: free_quantity
           description: Free tier quantity (0 if none)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         minimumCharge:
           title: minimum_charge
           description: Minimum charge amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         data:
           title: data
           description: Additional metadata
@@ -1368,10 +1454,10 @@ components:
           title: unit_name
         freeQuantity:
           title: free_quantity
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         minimumCharge:
           title: minimum_charge
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         data:
           title: data
           $ref: '#/components/schemas/google.protobuf.Struct'
@@ -1541,16 +1627,16 @@ components:
           format: int32
         lowerBound:
           title: lower_bound
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         upperBound:
           title: upper_bound
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         unitPrice:
           title: unit_price
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         flatFee:
           title: flat_fee
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
       title: CreateTierRequest
       additionalProperties: false
       description: CreateTierRequest creates a new pricing tier within a component.
@@ -1592,11 +1678,11 @@ components:
         originalAmount:
           title: original_amount
           description: Original grant amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         remainingAmount:
           title: remaining_amount
           description: Remaining balance
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         currency:
           type: string
           title: currency
@@ -1735,7 +1821,7 @@ components:
       properties:
         balance:
           title: balance
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
       title: GetCreditBalanceResponse
       additionalProperties: false
       description: GetCreditBalanceResponse returns the credit balance.
@@ -1800,7 +1886,7 @@ components:
           minLength: 1
         amount:
           title: amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         currency:
           type: string
           title: currency
@@ -1883,19 +1969,19 @@ components:
         subtotalAmount:
           title: subtotal_amount
           description: Subtotal before discounts/credits
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         discountAmount:
           title: discount_amount
           description: Total discount amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         creditAmount:
           title: credit_amount
           description: Total credit applied
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         totalAmount:
           title: total_amount
           description: Final total (subtotal - discount - credit)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         periodStart:
           title: period_start
           description: Billing period start
@@ -1960,23 +2046,23 @@ components:
         unitPrice:
           title: unit_price
           description: Price per unit
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         amount:
           title: amount
           description: Line amount
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         discountAmount:
           title: discount_amount
           description: Discount on this line
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         creditAmount:
           title: credit_amount
           description: Credit applied to this line
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         netAmount:
           title: net_amount
           description: Net amount (amount - discount - credit)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         currency:
           type: string
           title: currency
@@ -2302,19 +2388,19 @@ components:
         lowerBound:
           title: lower_bound
           description: Lower bound (inclusive)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         upperBound:
           title: upper_bound
           description: Upper bound (exclusive), empty for unbounded
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         unitPrice:
           title: unit_price
           description: Price per unit in this tier
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         flatFee:
           title: flat_fee
           description: Flat fee for this tier
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
       title: Tier
       additionalProperties: false
       description: Tier represents a pricing tier within a component.
@@ -2357,7 +2443,7 @@ components:
         amount:
           title: amount
           description: Pre-calculated cost (if set, billing run may use directly)
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         properties:
           title: properties
           description: Additional event properties
@@ -2393,6 +2479,45 @@ components:
       title: VoidInvoiceResponse
       additionalProperties: false
       description: VoidInvoiceResponse returns the voided invoice.
+    common.v1.Money:
+      type: object
+      properties:
+        currencyCode:
+          type: string
+          title: currency_code
+          description: The 3-letter ISO 4217 currency code (e.g. "KES", "USD", "EUR").
+        units:
+          type:
+            - integer
+            - string
+          title: units
+          format: int64
+          description: |-
+            The whole units of the amount. For example, if currency_code is "USD",
+             1 unit is one US dollar.
+        nanos:
+          type: integer
+          title: nanos
+          format: int32
+          description: |-
+            Number of nano (10^-9) units of the amount. The value must be between
+             -999,999,999 and +999,999,999 inclusive.
+
+             Sign rules:
+               - If units is positive, nanos must be positive or zero.
+               - If units is zero, nanos can be positive, zero, or negative.
+               - If units is negative, nanos must be negative or zero.
+
+             For example $-1.75 is represented as units=-1 and nanos=-750,000,000.
+      title: Money
+      additionalProperties: false
+      description: |-
+        Money represents an amount of money with its currency type.
+
+         Field numbers and types intentionally mirror google.type.Money so the
+         wire format is identical — services that previously embedded
+         google.type.Money can switch to common.v1.Money without coordinating
+         deploys with their callers.
     common.v1.PageCursor:
       type: object
       properties:
@@ -2716,36 +2841,6 @@ components:
          The start must be less than or equal to the end.
          When the start equals the end, the interval is empty (matches no time).
          When both start and end are unspecified, the interval matches any time.
-    google.type.Money:
-      type: object
-      properties:
-        currencyCode:
-          type: string
-          title: currency_code
-          description: The three-letter currency code defined in ISO 4217.
-        units:
-          type:
-            - integer
-            - string
-          title: units
-          format: int64
-          description: |-
-            The whole units of the amount.
-             For example if `currencyCode` is `"USD"`, then 1 unit is one US dollar.
-        nanos:
-          type: integer
-          title: nanos
-          format: int32
-          description: |-
-            Number of nano (10^-9) units of the amount.
-             The value must be between -999,999,999 and +999,999,999 inclusive.
-             If `units` is positive, `nanos` must be positive or zero.
-             If `units` is zero, `nanos` can be positive, zero, or negative.
-             If `units` is negative, `nanos` must be negative or zero.
-             For example $-1.75 is represented as `units`=-1 and `nanos`=-750,000,000.
-      title: Money
-      additionalProperties: false
-      description: Represents an amount of money with its currency type.
   securitySchemes:
     BearerAuth:
       type: http

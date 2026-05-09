@@ -1,3 +1,17 @@
+# Copyright 2023-2026 Ant Investor Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 openapi: 3.1.0
 info:
   title: Payment Service
@@ -10,17 +24,26 @@ info:
     name: Apache License
     url: https://github.com/antinvestor/apis/blob/master/LICENSE
   version: v1.0.0
-x-service-namespace: service_payment
+x-service-namespace: service_billing
 x-service-permissions:
-  - payment_send
-  - payment_receive
-  - payment_search
-  - payment_status_view
-  - payment_status_update
-  - payment_release
-  - prompt_initiate
-  - payment_link_create
-  - reconcile
+  - catalog_view
+  - catalog_manage
+  - plan_manage
+  - component_manage
+  - tier_manage
+  - subscription_view
+  - subscription_manage
+  - usage_view
+  - usage_ingest
+  - billing_run_view
+  - billing_run_manage
+  - invoice_view
+  - invoice_manage
+  - payment_record
+  - credit_view
+  - credit_manage
+  - discount_view
+  - discount_manage
 paths:
   /payment.v1.PaymentService/CreatePaymentLink:
     post:

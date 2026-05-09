@@ -31,5 +31,9 @@ coverage.html
 .tmp/
 WORK_STATE.md
 
+# Local pub dependency overrides (cross-repo path overrides for development).
+# Publishable packages must not commit path-based overrides.
+pubspec_overrides.yaml
+
 # Compiled main binary (build artifact)
 /cmd

@@ -1,3 +1,17 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package handlers
 
 import (
@@ -5,11 +19,11 @@ import (
 	"time"
 
 	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
-	utilmoney "github.com/pitabwire/util/money"
-	money "google.golang.org/genproto/googleapis/type/money"
+	utilmoney "github.com/pitabwire/util/moneyx"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,7 +54,7 @@ func jsonMapToStruct(m data.JSONMap) *structpb.Struct {
 
 // -- Money/Decimal conversions --
 
-func moneyToDecPtr(m *money.Money) *decimalx.Decimal {
+func moneyToDecPtr(m *commonv1.Money) *decimalx.Decimal {
 	if m == nil {
 		return nil
 	}
@@ -48,14 +62,14 @@ func moneyToDecPtr(m *money.Money) *decimalx.Decimal {
 	return &d
 }
 
-func decPtrToMoney(p *decimalx.Decimal, currency string) *money.Money {
+func decPtrToMoney(p *decimalx.Decimal, currency string) *commonv1.Money {
 	if p == nil {
 		return nil
 	}
 	return utilmoney.ToMoney(currency, *p)
 }
 
-func decimalToMoney(d decimalx.Decimal, currency string) *money.Money {
+func decimalToMoney(d decimalx.Decimal, currency string) *commonv1.Money {
 	return utilmoney.ToMoney(currency, d)
 }
 

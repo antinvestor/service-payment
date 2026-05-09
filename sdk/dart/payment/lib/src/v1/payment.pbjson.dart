@@ -14,8 +14,8 @@ import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
 import '../common/v1/common.pbjson.dart' as $7;
+import '../common/v1/money.pbjson.dart' as $8;
 import '../google/protobuf/struct.pbjson.dart' as $6;
-import '../google/type/money.pbjson.dart' as $8;
 
 @$core.Deprecated('Use notificationTypeDescriptor instead')
 const NotificationType$json = {
@@ -44,8 +44,8 @@ const Payment$json = {
     {'1': 'route', '3': 6, '4': 1, '5': 9, '10': 'route'},
     {'1': 'source', '3': 7, '4': 1, '5': 11, '6': '.common.v1.ContactLink', '10': 'source'},
     {'1': 'recipient', '3': 8, '4': 1, '5': 11, '6': '.common.v1.ContactLink', '10': 'recipient'},
-    {'1': 'amount', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
-    {'1': 'cost', '3': 10, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'cost'},
+    {'1': 'amount', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {'1': 'cost', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'cost'},
     {'1': 'state', '3': 11, '4': 1, '5': 14, '6': '.common.v1.STATE', '10': 'state'},
     {'1': 'status', '3': 12, '4': 1, '5': 14, '6': '.common.v1.STATUS', '10': 'status'},
     {'1': 'date_created', '3': 13, '4': 1, '5': 9, '10': 'dateCreated'},
@@ -62,13 +62,13 @@ final $typed_data.Uint8List paymentDescriptor = $convert.base64Decode(
     'GAQgASgJUgdiYXRjaElkEjYKF2V4dGVybmFsX3RyYW5zYWN0aW9uX2lkGAUgASgJUhVleHRlcm'
     '5hbFRyYW5zYWN0aW9uSWQSFAoFcm91dGUYBiABKAlSBXJvdXRlEi4KBnNvdXJjZRgHIAEoCzIW'
     'LmNvbW1vbi52MS5Db250YWN0TGlua1IGc291cmNlEjQKCXJlY2lwaWVudBgIIAEoCzIWLmNvbW'
-    '1vbi52MS5Db250YWN0TGlua1IJcmVjaXBpZW50EioKBmFtb3VudBgJIAEoCzISLmdvb2dsZS50'
-    'eXBlLk1vbmV5UgZhbW91bnQSJgoEY29zdBgKIAEoCzISLmdvb2dsZS50eXBlLk1vbmV5UgRjb3'
-    'N0EiYKBXN0YXRlGAsgASgOMhAuY29tbW9uLnYxLlNUQVRFUgVzdGF0ZRIpCgZzdGF0dXMYDCAB'
-    'KA4yES5jb21tb24udjEuU1RBVFVTUgZzdGF0dXMSIQoMZGF0ZV9jcmVhdGVkGA0gASgJUgtkYX'
-    'RlQ3JlYXRlZBIlCg5kYXRlX3Byb2Nlc3NlZBgOIAEoCVINZGF0ZVByb2Nlc3NlZBIaCghvdXRi'
-    'b3VuZBgPIAEoCFIIb3V0Ym91bmQSLQoFZXh0cmEYECABKAsyFy5nb29nbGUucHJvdG9idWYuU3'
-    'RydWN0UgVleHRyYQ==');
+    '1vbi52MS5Db250YWN0TGlua1IJcmVjaXBpZW50EigKBmFtb3VudBgJIAEoCzIQLmNvbW1vbi52'
+    'MS5Nb25leVIGYW1vdW50EiQKBGNvc3QYCiABKAsyEC5jb21tb24udjEuTW9uZXlSBGNvc3QSJg'
+    'oFc3RhdGUYCyABKA4yEC5jb21tb24udjEuU1RBVEVSBXN0YXRlEikKBnN0YXR1cxgMIAEoDjIR'
+    'LmNvbW1vbi52MS5TVEFUVVNSBnN0YXR1cxIhCgxkYXRlX2NyZWF0ZWQYDSABKAlSC2RhdGVDcm'
+    'VhdGVkEiUKDmRhdGVfcHJvY2Vzc2VkGA4gASgJUg1kYXRlUHJvY2Vzc2VkEhoKCG91dGJvdW5k'
+    'GA8gASgIUghvdXRib3VuZBItCgVleHRyYRgQIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3'
+    'RSBWV4dHJh');
 
 @$core.Deprecated('Use accountDescriptor instead')
 const Account$json = {
@@ -120,7 +120,7 @@ const PaymentLink$json = {
     {'1': 'payment_link_ref', '3': 9, '4': 1, '5': 9, '10': 'paymentLinkRef'},
     {'1': 'redirect_url', '3': 10, '4': 1, '5': 9, '10': 'redirectUrl'},
     {'1': 'amount_option', '3': 11, '4': 1, '5': 9, '10': 'amountOption'},
-    {'1': 'amount', '3': 12, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 12, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'currency', '3': 13, '4': 1, '5': 9, '10': 'currency'},
   ],
 };
@@ -134,8 +134,8 @@ final $typed_data.Uint8List paymentLinkDescriptor = $convert.base64Decode(
     'aXB0aW9uGAcgASgJUgtkZXNjcmlwdGlvbhIhCgxleHRlcm5hbF9yZWYYCCABKAlSC2V4dGVybm'
     'FsUmVmEigKEHBheW1lbnRfbGlua19yZWYYCSABKAlSDnBheW1lbnRMaW5rUmVmEiEKDHJlZGly'
     'ZWN0X3VybBgKIAEoCVILcmVkaXJlY3RVcmwSIwoNYW1vdW50X29wdGlvbhgLIAEoCVIMYW1vdW'
-    '50T3B0aW9uEioKBmFtb3VudBgMIAEoCzISLmdvb2dsZS50eXBlLk1vbmV5UgZhbW91bnQSGgoI'
-    'Y3VycmVuY3kYDSABKAlSCGN1cnJlbmN5');
+    '50T3B0aW9uEigKBmFtb3VudBgMIAEoCzIQLmNvbW1vbi52MS5Nb25leVIGYW1vdW50EhoKCGN1'
+    'cnJlbmN5GA0gASgJUghjdXJyZW5jeQ==');
 
 @$core.Deprecated('Use sendRequestDescriptor instead')
 const SendRequest$json = {
@@ -194,7 +194,7 @@ const InitiatePromptRequest$json = {
   '2': [
     {'1': 'source', '3': 1, '4': 1, '5': 11, '6': '.common.v1.ContactLink', '10': 'source'},
     {'1': 'recipient', '3': 2, '4': 1, '5': 11, '6': '.common.v1.ContactLink', '10': 'recipient'},
-    {'1': 'amount', '3': 3, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 3, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'date_created', '3': 4, '4': 1, '5': 9, '10': 'dateCreated'},
     {'1': 'device_id', '3': 5, '4': 1, '5': 9, '10': 'deviceId'},
     {'1': 'id', '3': 6, '4': 1, '5': 9, '10': 'id'},
@@ -210,13 +210,13 @@ const InitiatePromptRequest$json = {
 final $typed_data.Uint8List initiatePromptRequestDescriptor = $convert.base64Decode(
     'ChVJbml0aWF0ZVByb21wdFJlcXVlc3QSLgoGc291cmNlGAEgASgLMhYuY29tbW9uLnYxLkNvbn'
     'RhY3RMaW5rUgZzb3VyY2USNAoJcmVjaXBpZW50GAIgASgLMhYuY29tbW9uLnYxLkNvbnRhY3RM'
-    'aW5rUglyZWNpcGllbnQSKgoGYW1vdW50GAMgASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSBmFtb3'
-    'VudBIhCgxkYXRlX2NyZWF0ZWQYBCABKAlSC2RhdGVDcmVhdGVkEhsKCWRldmljZV9pZBgFIAEo'
-    'CVIIZGV2aWNlSWQSDgoCaWQYBiABKAlSAmlkEiYKBXN0YXRlGAcgASgOMhAuY29tbW9uLnYxLl'
-    'NUQVRFUgVzdGF0ZRIpCgZzdGF0dXMYCCABKA4yES5jb21tb24udjEuU1RBVFVTUgZzdGF0dXMS'
-    'FAoFcm91dGUYCSABKAlSBXJvdXRlEkAKEXJlY2lwaWVudF9hY2NvdW50GAogASgLMhMucGF5bW'
-    'VudC52MS5BY2NvdW50UhByZWNpcGllbnRBY2NvdW50Ei0KBWV4dHJhGAsgASgLMhcuZ29vZ2xl'
-    'LnByb3RvYnVmLlN0cnVjdFIFZXh0cmE=');
+    'aW5rUglyZWNpcGllbnQSKAoGYW1vdW50GAMgASgLMhAuY29tbW9uLnYxLk1vbmV5UgZhbW91bn'
+    'QSIQoMZGF0ZV9jcmVhdGVkGAQgASgJUgtkYXRlQ3JlYXRlZBIbCglkZXZpY2VfaWQYBSABKAlS'
+    'CGRldmljZUlkEg4KAmlkGAYgASgJUgJpZBImCgVzdGF0ZRgHIAEoDjIQLmNvbW1vbi52MS5TVE'
+    'FURVIFc3RhdGUSKQoGc3RhdHVzGAggASgOMhEuY29tbW9uLnYxLlNUQVRVU1IGc3RhdHVzEhQK'
+    'BXJvdXRlGAkgASgJUgVyb3V0ZRJAChFyZWNpcGllbnRfYWNjb3VudBgKIAEoCzITLnBheW1lbn'
+    'QudjEuQWNjb3VudFIQcmVjaXBpZW50QWNjb3VudBItCgVleHRyYRgLIAEoCzIXLmdvb2dsZS5w'
+    'cm90b2J1Zi5TdHJ1Y3RSBWV4dHJh');
 
 @$core.Deprecated('Use initiatePromptResponseDescriptor instead')
 const InitiatePromptResponse$json = {
@@ -265,7 +265,7 @@ const ReconcileRequest$json = {
     {'1': 'external_transaction_id', '3': 1, '4': 1, '5': 9, '10': 'externalTransactionId'},
     {'1': 'route', '3': 2, '4': 1, '5': 9, '10': 'route'},
     {'1': 'outbound', '3': 3, '4': 1, '5': 8, '10': 'outbound'},
-    {'1': 'amount', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'owner', '3': 5, '4': 1, '5': 9, '10': 'owner'},
     {'1': 'country_code', '3': 6, '4': 1, '5': 9, '10': 'countryCode'},
   ],
@@ -275,9 +275,9 @@ const ReconcileRequest$json = {
 final $typed_data.Uint8List reconcileRequestDescriptor = $convert.base64Decode(
     'ChBSZWNvbmNpbGVSZXF1ZXN0EjYKF2V4dGVybmFsX3RyYW5zYWN0aW9uX2lkGAEgASgJUhVleH'
     'Rlcm5hbFRyYW5zYWN0aW9uSWQSFAoFcm91dGUYAiABKAlSBXJvdXRlEhoKCG91dGJvdW5kGAMg'
-    'ASgIUghvdXRib3VuZBIqCgZhbW91bnQYBCABKAsyEi5nb29nbGUudHlwZS5Nb25leVIGYW1vdW'
-    '50EhQKBW93bmVyGAUgASgJUgVvd25lchIhCgxjb3VudHJ5X2NvZGUYBiABKAlSC2NvdW50cnlD'
-    'b2Rl');
+    'ASgIUghvdXRib3VuZBIoCgZhbW91bnQYBCABKAsyEC5jb21tb24udjEuTW9uZXlSBmFtb3VudB'
+    'IUCgVvd25lchgFIAEoCVIFb3duZXISIQoMY291bnRyeV9jb2RlGAYgASgJUgtjb3VudHJ5Q29k'
+    'ZQ==');
 
 @$core.Deprecated('Use reconcileResponseDescriptor instead')
 const ReconcileResponse$json = {
@@ -377,7 +377,7 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> PaymentSer
   '.google.protobuf.Struct.FieldsEntry': $6.Struct_FieldsEntry$json,
   '.google.protobuf.Value': $6.Value$json,
   '.google.protobuf.ListValue': $6.ListValue$json,
-  '.google.type.Money': $8.Money$json,
+  '.common.v1.Money': $8.Money$json,
   '.payment.v1.SendResponse': SendResponse$json,
   '.common.v1.StatusResponse': $7.StatusResponse$json,
   '.payment.v1.ReceiveRequest': ReceiveRequest$json,

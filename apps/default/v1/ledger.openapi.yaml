@@ -1,3 +1,17 @@
+# Copyright 2023-2026 Ant Investor Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 openapi: 3.1.0
 info:
   title: Ledger Service
@@ -10,6 +24,26 @@ info:
     name: Apache License
     url: https://github.com/antinvestor/apis/blob/master/LICENSE
   version: v1.0.0
+x-service-namespace: service_billing
+x-service-permissions:
+  - catalog_view
+  - catalog_manage
+  - plan_manage
+  - component_manage
+  - tier_manage
+  - subscription_view
+  - subscription_manage
+  - usage_view
+  - usage_ingest
+  - billing_run_view
+  - billing_run_manage
+  - invoice_view
+  - invoice_manage
+  - payment_record
+  - credit_view
+  - credit_manage
+  - discount_view
+  - discount_manage
 paths:
   /ledger.v1.LedgerService/CreateAccount:
     post:
@@ -48,6 +82,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.CreateAccountResponse'
+      x-required-permissions:
+        - account_manage
   /ledger.v1.LedgerService/CreateLedger:
     post:
       tags:
@@ -85,6 +121,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.CreateLedgerResponse'
+      x-required-permissions:
+        - ledger_manage
   /ledger.v1.LedgerService/CreateTransaction:
     post:
       tags:
@@ -122,6 +160,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.CreateTransactionResponse'
+      x-required-permissions:
+        - transaction_manage
   /ledger.v1.LedgerService/ReverseTransaction:
     post:
       tags:
@@ -159,6 +199,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.ReverseTransactionResponse'
+      x-required-permissions:
+        - transaction_manage
   /ledger.v1.LedgerService/SearchAccounts: {}
   /ledger.v1.LedgerService/SearchLedgers: {}
   /ledger.v1.LedgerService/SearchTransactionEntries: {}
@@ -200,6 +242,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.UpdateAccountResponse'
+      x-required-permissions:
+        - account_manage
   /ledger.v1.LedgerService/UpdateLedger:
     post:
       tags:
@@ -237,6 +281,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.UpdateLedgerResponse'
+      x-required-permissions:
+        - ledger_manage
   /ledger.v1.LedgerService/UpdateTransaction:
     post:
       tags:
@@ -274,8 +320,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ledger.v1.UpdateTransactionResponse'
+      x-required-permissions:
+        - transaction_manage
 components:
   schemas:
+    common.v1.Money:
+      type: object
+      properties:
+        currencyCode:
+          type: string
+          title: currency_code
+          description: The 3-letter ISO 4217 currency code (e.g. "KES", "USD", "EUR").
+        units:
+          type:
+            - integer
+            - string
+          title: units
+          format: int64
+          description: |-
+            The whole units of the amount. For example, if currency_code is "USD",
+             1 unit is one US dollar.
+        nanos:
+          type: integer
+          title: nanos
+          format: int32
+          description: |-
+            Number of nano (10^-9) units of the amount. The value must be between
+             -999,999,999 and +999,999,999 inclusive.
+
+             Sign rules:
+               - If units is positive, nanos must be positive or zero.
+               - If units is zero, nanos can be positive, zero, or negative.
+               - If units is negative, nanos must be negative or zero.
+
+             For example $-1.75 is represented as units=-1 and nanos=-750,000,000.
+      title: Money
+      additionalProperties: false
+      description: |-
+        Money represents an amount of money with its currency type.
+
+         Field numbers and types intentionally mirror google.type.Money so the
+         wire format is identical — services that previously embedded
+         google.type.Money can switch to common.v1.Money without coordinating
+         deploys with their callers.
     common.v1.PageCursor:
       type: object
       properties:
@@ -457,36 +544,6 @@ components:
          variants. Absence of any variant indicates an error.
 
          The JSON representation for `Value` is JSON value.
-    google.type.Money:
-      type: object
-      properties:
-        currencyCode:
-          type: string
-          title: currency_code
-          description: The three-letter currency code defined in ISO 4217.
-        units:
-          type:
-            - integer
-            - string
-          title: units
-          format: int64
-          description: |-
-            The whole units of the amount.
-             For example if `currencyCode` is `"USD"`, then 1 unit is one US dollar.
-        nanos:
-          type: integer
-          title: nanos
-          format: int32
-          description: |-
-            Number of nano (10^-9) units of the amount.
-             The value must be between -999,999,999 and +999,999,999 inclusive.
-             If `units` is positive, `nanos` must be positive or zero.
-             If `units` is zero, `nanos` can be positive, zero, or negative.
-             If `units` is negative, `nanos` must be negative or zero.
-             For example $-1.75 is represented as `units`=-1 and `nanos`=-750,000,000.
-      title: Money
-      additionalProperties: false
-      description: Represents an amount of money with its currency type.
     ledger.v1.Account:
       type: object
       properties:
@@ -504,7 +561,7 @@ components:
         balance:
           title: balance
           description: Current cleared balance
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         data:
           title: data
           description: Additional account metadata (owner, description, etc.)
@@ -512,11 +569,11 @@ components:
         unclearedBalance:
           title: uncleared_balance
           description: Balance including uncleared transactions
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         reservedBalance:
           title: reserved_balance
           description: Amount held in reservations
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
       title: Account
       additionalProperties: false
       description: |-
@@ -815,7 +872,7 @@ components:
         amount:
           title: amount
           description: Amount for this entry
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         credit:
           type: boolean
           title: credit
@@ -823,7 +880,7 @@ components:
         accBalance:
           title: acc_balance
           description: Account balance after this entry
-          $ref: '#/components/schemas/google.type.Money'
+          $ref: '#/components/schemas/common.v1.Money'
         clearedAt:
           type: string
           title: cleared_at

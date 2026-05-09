@@ -1,11 +1,11 @@
 import 'package:antinvestor_api_payment/antinvestor_api_payment.dart';
+import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:antinvestor_ui_core/widgets/admin_entity_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/payment_providers.dart';
-import '../utils/money_format.dart';
 
 /// Screen that lists payments with search functionality using DataTable.
 class PaymentSearchScreen extends ConsumerStatefulWidget {
@@ -62,7 +62,7 @@ class _PaymentSearchScreenState extends ConsumerState<PaymentSearchScreen> {
           DataCell(Text(payment.recipient.detail.isNotEmpty
               ? payment.recipient.detail
               : payment.recipient.profileName)),
-          DataCell(Text(fmtMoney(payment.amount))),
+          DataCell(Text(formatMoney(payment.amount))),
           DataCell(Text(payment.status.name)),
           DataCell(Text(payment.dateCreated.isNotEmpty
               ? _formatDate(payment.dateCreated)
@@ -82,7 +82,7 @@ class _PaymentSearchScreenState extends ConsumerState<PaymentSearchScreen> {
         payment.recipient.detail.isNotEmpty
             ? payment.recipient.detail
             : payment.recipient.profileName,
-        fmtMoney(payment.amount),
+        formatMoney(payment.amount),
         payment.status.name,
         payment.dateCreated,
       ],

@@ -14,8 +14,8 @@ import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
 import '../common/v1/common.pbjson.dart' as $8;
+import '../common/v1/money.pbjson.dart' as $7;
 import '../google/protobuf/struct.pbjson.dart' as $6;
-import '../google/type/money.pbjson.dart' as $7;
 
 @$core.Deprecated('Use ledgerTypeDescriptor instead')
 const LedgerType$json = {
@@ -72,21 +72,21 @@ const Account$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'ledger', '3': 3, '4': 1, '5': 9, '10': 'ledger'},
-    {'1': 'balance', '3': 4, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'balance'},
+    {'1': 'balance', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'balance'},
     {'1': 'data', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'uncleared_balance', '3': 6, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'unclearedBalance'},
-    {'1': 'reserved_balance', '3': 7, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'reservedBalance'},
+    {'1': 'uncleared_balance', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unclearedBalance'},
+    {'1': 'reserved_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'reservedBalance'},
   ],
 };
 
 /// Descriptor for `Account`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List accountDescriptor = $convert.base64Decode(
     'CgdBY2NvdW50EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLTlhLXpfLV17Myw0MH1SAmlkEh'
-    'YKBmxlZGdlchgDIAEoCVIGbGVkZ2VyEiwKB2JhbGFuY2UYBCABKAsyEi5nb29nbGUudHlwZS5N'
-    'b25leVIHYmFsYW5jZRIrCgRkYXRhGAUgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdFIEZG'
-    'F0YRI/ChF1bmNsZWFyZWRfYmFsYW5jZRgGIAEoCzISLmdvb2dsZS50eXBlLk1vbmV5UhB1bmNs'
-    'ZWFyZWRCYWxhbmNlEj0KEHJlc2VydmVkX2JhbGFuY2UYByABKAsyEi5nb29nbGUudHlwZS5Nb2'
-    '5leVIPcmVzZXJ2ZWRCYWxhbmNl');
+    'YKBmxlZGdlchgDIAEoCVIGbGVkZ2VyEioKB2JhbGFuY2UYBCABKAsyEC5jb21tb24udjEuTW9u'
+    'ZXlSB2JhbGFuY2USKwoEZGF0YRgFIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdG'
+    'ESPQoRdW5jbGVhcmVkX2JhbGFuY2UYBiABKAsyEC5jb21tb24udjEuTW9uZXlSEHVuY2xlYXJl'
+    'ZEJhbGFuY2USOwoQcmVzZXJ2ZWRfYmFsYW5jZRgHIAEoCzIQLmNvbW1vbi52MS5Nb25leVIPcm'
+    'VzZXJ2ZWRCYWxhbmNl');
 
 @$core.Deprecated('Use transactionEntryDescriptor instead')
 const TransactionEntry$json = {
@@ -96,9 +96,9 @@ const TransactionEntry$json = {
     {'1': 'account_id', '3': 3, '4': 1, '5': 9, '10': 'accountId'},
     {'1': 'transaction_id', '3': 4, '4': 1, '5': 9, '10': 'transactionId'},
     {'1': 'transacted_at', '3': 5, '4': 1, '5': 9, '10': 'transactedAt'},
-    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'amount'},
+    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
     {'1': 'credit', '3': 8, '4': 1, '5': 8, '10': 'credit'},
-    {'1': 'acc_balance', '3': 9, '4': 1, '5': 11, '6': '.google.type.Money', '10': 'accBalance'},
+    {'1': 'acc_balance', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'accBalance'},
     {'1': 'cleared_at', '3': 11, '4': 1, '5': 9, '10': 'clearedAt'},
   ],
 };
@@ -108,9 +108,9 @@ final $typed_data.Uint8List transactionEntryDescriptor = $convert.base64Decode(
     'ChBUcmFuc2FjdGlvbkVudHJ5EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLTlhLXpfLV17My'
     'w0MH1SAmlkEh0KCmFjY291bnRfaWQYAyABKAlSCWFjY291bnRJZBIlCg50cmFuc2FjdGlvbl9p'
     'ZBgEIAEoCVINdHJhbnNhY3Rpb25JZBIjCg10cmFuc2FjdGVkX2F0GAUgASgJUgx0cmFuc2FjdG'
-    'VkQXQSKgoGYW1vdW50GAcgASgLMhIuZ29vZ2xlLnR5cGUuTW9uZXlSBmFtb3VudBIWCgZjcmVk'
-    'aXQYCCABKAhSBmNyZWRpdBIzCgthY2NfYmFsYW5jZRgJIAEoCzISLmdvb2dsZS50eXBlLk1vbm'
-    'V5UgphY2NCYWxhbmNlEh0KCmNsZWFyZWRfYXQYCyABKAlSCWNsZWFyZWRBdA==');
+    'VkQXQSKAoGYW1vdW50GAcgASgLMhAuY29tbW9uLnYxLk1vbmV5UgZhbW91bnQSFgoGY3JlZGl0'
+    'GAggASgIUgZjcmVkaXQSMQoLYWNjX2JhbGFuY2UYCSABKAsyEC5jb21tb24udjEuTW9uZXlSCm'
+    'FjY0JhbGFuY2USHQoKY2xlYXJlZF9hdBgLIAEoCVIJY2xlYXJlZEF0');
 
 @$core.Deprecated('Use transactionDescriptor instead')
 const Transaction$json = {
@@ -453,7 +453,7 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> LedgerServ
   '.ledger.v1.UpdateLedgerResponse': UpdateLedgerResponse$json,
   '.ledger.v1.SearchAccountsResponse': SearchAccountsResponse$json,
   '.ledger.v1.Account': Account$json,
-  '.google.type.Money': $7.Money$json,
+  '.common.v1.Money': $7.Money$json,
   '.ledger.v1.CreateAccountRequest': CreateAccountRequest$json,
   '.ledger.v1.CreateAccountResponse': CreateAccountResponse$json,
   '.ledger.v1.UpdateAccountRequest': UpdateAccountRequest$json,

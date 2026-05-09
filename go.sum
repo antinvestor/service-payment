@@ -215,10 +215,12 @@ github.com/pitabwire/frame v1.94.6 h1:CJJdo6+jvL53yp5HaEhrGsaAE48BVmpBD1PRXzRmt3
 github.com/pitabwire/frame v1.94.6/go.mod h1:5tyetk1wosnb/KW+54IHKcogm1VIKmdurYW1JjcSqaA=
 github.com/pitabwire/natspubsub v0.8.2 h1:kzNas93jIsFLiHHJm24j7c0XBLsR9zkuVLqvnhE0Si8=
 github.com/pitabwire/natspubsub v0.8.2/go.mod h1:jKluv8iY22EEn2oRjqU/rURBOj+56SJmeOd5+AxknSQ=
-github.com/pitabwire/util v0.8.1-0.20260509051930-7bcc4e49f592 h1:CmYqbR8HvIdxuNOuK420sB5Z4bFAKhxZ1XvP/s0pDy4=
-github.com/pitabwire/util v0.8.1-0.20260509051930-7bcc4e49f592/go.mod h1:MzMZyWwDZMfv5eemciDfwRmrfRp0g2DOk1w+4Z5m5hQ=
+github.com/pitabwire/util v0.8.1-0.20260509193553-0acf358c18ed h1:fhAOIWJtrLli+zky62BWP/iyblq8CzjYuspC5xvFtuY=
+github.com/pitabwire/util v0.8.1-0.20260509193553-0acf358c18ed/go.mod h1:JrLiS3K4VXsLZE38LLvq1N0X2j0fs33QLz/zMXf3zc4=
 github.com/pitabwire/util/decimalx v0.7.1 h1:oXdZQC//UW0sMXhPzot3tkZqNNte4HxYECzdQmEFXN8=
 github.com/pitabwire/util/decimalx v0.7.1/go.mod h1:In+I6rW6wpts68TSeLuJnWTiipXf0L45WgDX3vN+g28=
+github.com/pitabwire/util/moneyx v0.0.0-20260509193553-0acf358c18ed h1:qyPZyP6PwQeV4rQt2ZibcF+QQZU1iW2wdA7/YT9/afQ=
+github.com/pitabwire/util/moneyx v0.0.0-20260509193553-0acf358c18ed/go.mod h1:VQzbvtAOd9+Dn3mmsyCXO08dDtCnsQgOQ5fw8gXgEu4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=

@@ -23,8 +23,9 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.2
 	github.com/pitabwire/frame v1.94.6
-	github.com/pitabwire/util v0.8.1-0.20260509051930-7bcc4e49f592
+	github.com/pitabwire/util v0.8.1-0.20260509193553-0acf358c18ed
 	github.com/pitabwire/util/decimalx v0.7.1
+	github.com/pitabwire/util/moneyx v0.0.0-20260509193553-0acf358c18ed
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/stripe/stripe-go/v82 v82.5.1

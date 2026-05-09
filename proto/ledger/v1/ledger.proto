@@ -22,15 +22,15 @@ package ledger.v1;
 // - Supports hierarchical chart of accounts with ledger types
 // - All transactions follow double-entry principles (debits = credits)
 // - Supports transaction reversals and reservations for pending transactions
-// - All monetary amounts use google.type.Money for currency safety
+// - All monetary amounts use common.v1.Money for currency safety
 // -----------------------------------------------------
 
 import "buf/validate/validate.proto";
 import "common/v1/common.proto";
+import "common/v1/money.proto";
 import "common/v1/permissions.proto";
 import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/struct.proto";
-import "google/type/money.proto";
 
 option go_package = "github.com/antinvestor/apis/go/ledger/v1;ledgerv1";
 option java_multiple_files = true;
@@ -119,10 +119,10 @@ message Account {
     (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
   ]; // Unique account reference/number
   string ledger = 3; // Ledger this account belongs to
-  google.type.Money balance = 4; // Current cleared balance
+  common.v1.Money balance = 4; // Current cleared balance
   google.protobuf.Struct data = 5; // Additional account metadata (owner, description, etc.)
-  google.type.Money uncleared_balance = 6; // Balance including uncleared transactions
-  google.type.Money reserved_balance = 7; // Amount held in reservations
+  common.v1.Money uncleared_balance = 6; // Balance including uncleared transactions
+  common.v1.Money reserved_balance = 7; // Amount held in reservations
 }
 
 // TransactionEntry represents one side of a double-entry transaction.
@@ -136,9 +136,9 @@ message TransactionEntry {
   string account_id = 3; // Account reference for this entry
   string transaction_id = 4; // Transaction reference this entry belongs to
   string transacted_at = 5; // Transaction timestamp (RFC3339)
-  google.type.Money amount = 7; // Amount for this entry
+  common.v1.Money amount = 7; // Amount for this entry
   bool credit = 8; // True if credit, false if debit
-  google.type.Money acc_balance = 9; // Account balance after this entry
+  common.v1.Money acc_balance = 9; // Account balance after this entry
   string cleared_at = 11; // When this entry was cleared (RFC3339)
 }
 

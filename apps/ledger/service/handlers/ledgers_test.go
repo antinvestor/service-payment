@@ -1,3 +1,17 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package handlers_test
 
 import (
@@ -20,7 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/genproto/googleapis/type/money"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -357,12 +370,12 @@ func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 					{
 						AccountId: "handler-asset-acc",
 						Credit:    false,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 					{
 						AccountId: "handler-income-acc",
 						Credit:    true,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 				},
 			},
@@ -430,12 +443,12 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 					{
 						AccountId: "handler-rev-asset-acc",
 						Credit:    false,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 					{
 						AccountId: "handler-rev-income-acc",
 						Credit:    true,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 				},
 			},
@@ -508,12 +521,12 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 					{
 						AccountId: "handler-upd-asset-acc",
 						Credit:    false,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 					{
 						AccountId: "handler-upd-income-acc",
 						Credit:    true,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 				},
 			},
@@ -723,12 +736,12 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 					{
 						AccountId: "stream-asset-acc",
 						Credit:    false,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 					{
 						AccountId: "stream-income-acc",
 						Credit:    true,
-						Amount:    &money.Money{CurrencyCode: "USD", Units: 100},
+						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 					},
 				},
 			},

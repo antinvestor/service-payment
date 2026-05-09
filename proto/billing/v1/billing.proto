@@ -23,17 +23,17 @@ package billing.v1;
 // - Usage events are append-only and idempotent (via event_id)
 // - Billing runs follow a state machine: PENDING -> METERING -> RATING -> DISCOUNTING -> CREDITING -> INVOICING -> COMPLETED
 // - Invoices are immutable after issuance
-// - All monetary amounts use google.type.Money for currency safety
+// - All monetary amounts use common.v1.Money for currency safety
 // -----------------------------------------------------
 
 import "buf/validate/validate.proto";
 import "common/v1/common.proto";
+import "common/v1/money.proto";
 import "common/v1/permissions.proto";
 import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/type/interval.proto";
-import "google/type/money.proto";
 
 option go_package = "github.com/antinvestor/apis/go/billing/v1;billingv1";
 option java_multiple_files = true;
@@ -201,8 +201,8 @@ message Component {
   PricingModel pricing_model = 6; // How this component is priced
   AggregationType aggregation_type = 7; // How usage events are aggregated
   string unit_name = 8; // Unit of measurement (e.g., "requests", "GB")
-  google.type.Money free_quantity = 9; // Free tier quantity (0 if none)
-  google.type.Money minimum_charge = 10; // Minimum charge amount
+  common.v1.Money free_quantity = 9; // Free tier quantity (0 if none)
+  common.v1.Money minimum_charge = 10; // Minimum charge amount
   google.protobuf.Struct data = 11; // Additional metadata
   repeated Tier tiers = 12; // Pricing tiers
 }
@@ -212,10 +212,10 @@ message Tier {
   string id = 1; // Unique tier ID
   string component_id = 2; // Parent component
   int32 sort_order = 3; // Sort order (ascending)
-  google.type.Money lower_bound = 4; // Lower bound (inclusive)
-  google.type.Money upper_bound = 5; // Upper bound (exclusive), empty for unbounded
-  google.type.Money unit_price = 6; // Price per unit in this tier
-  google.type.Money flat_fee = 7; // Flat fee for this tier
+  common.v1.Money lower_bound = 4; // Lower bound (inclusive)
+  common.v1.Money upper_bound = 5; // Upper bound (exclusive), empty for unbounded
+  common.v1.Money unit_price = 6; // Price per unit in this tier
+  common.v1.Money flat_fee = 7; // Flat fee for this tier
 }
 
 // Subscription represents a customer's subscription to a plan.
@@ -249,7 +249,7 @@ message UsageEvent {
   google.protobuf.Timestamp timestamp = 7; // When the usage occurred
   google.type.Interval interval = 11; // Time window for interval-based metering
 
-  google.type.Money amount = 13; // Pre-calculated cost (if set, billing run may use directly)
+  common.v1.Money amount = 13; // Pre-calculated cost (if set, billing run may use directly)
 
   google.protobuf.Struct properties = 8; // Additional event properties
 
@@ -265,10 +265,10 @@ message Invoice {
   string invoice_number = 5; // Unique invoice number
   InvoiceState state = 6; // Current lifecycle state
   string currency = 7; // Invoice currency (ISO 4217)
-  google.type.Money subtotal_amount = 8; // Subtotal before discounts/credits
-  google.type.Money discount_amount = 9; // Total discount amount
-  google.type.Money credit_amount = 10; // Total credit applied
-  google.type.Money total_amount = 11; // Final total (subtotal - discount - credit)
+  common.v1.Money subtotal_amount = 8; // Subtotal before discounts/credits
+  common.v1.Money discount_amount = 9; // Total discount amount
+  common.v1.Money credit_amount = 10; // Total credit applied
+  common.v1.Money total_amount = 11; // Final total (subtotal - discount - credit)
   google.protobuf.Timestamp period_start = 12; // Billing period start
   google.protobuf.Timestamp period_end = 13; // Billing period end
   google.protobuf.Timestamp issued_at = 14; // When issued to customer
@@ -286,11 +286,11 @@ message InvoiceLine {
   string component_id = 3; // Associated component
   string description = 4; // Line description
   double quantity = 5; // Usage quantity
-  google.type.Money unit_price = 6; // Price per unit
-  google.type.Money amount = 7; // Line amount
-  google.type.Money discount_amount = 8; // Discount on this line
-  google.type.Money credit_amount = 9; // Credit applied to this line
-  google.type.Money net_amount = 10; // Net amount (amount - discount - credit)
+  common.v1.Money unit_price = 6; // Price per unit
+  common.v1.Money amount = 7; // Line amount
+  common.v1.Money discount_amount = 8; // Discount on this line
+  common.v1.Money credit_amount = 9; // Credit applied to this line
+  common.v1.Money net_amount = 10; // Net amount (amount - discount - credit)
   string currency = 11; // Line currency
   InvoiceLineType line_type = 12; // Type of line item
   google.protobuf.Struct data = 13; // Additional metadata
@@ -301,8 +301,8 @@ message CreditGrant {
   string id = 1; // Unique credit grant ID
   string profile_id = 2; // Customer identifier
   string name = 3; // Grant name/description
-  google.type.Money original_amount = 4; // Original grant amount
-  google.type.Money remaining_amount = 5; // Remaining balance
+  common.v1.Money original_amount = 4; // Original grant amount
+  common.v1.Money remaining_amount = 5; // Remaining balance
   string currency = 6; // Grant currency (ISO 4217)
   google.protobuf.Timestamp expires_at = 7; // Expiration date (optional)
   int32 priority = 8; // Consumption priority (lower = consumed first)
@@ -438,8 +438,8 @@ message CreateComponentRequest {
   PricingModel pricing_model = 6;
   AggregationType aggregation_type = 7;
   string unit_name = 8;
-  google.type.Money free_quantity = 9;
-  google.type.Money minimum_charge = 10;
+  common.v1.Money free_quantity = 9;
+  common.v1.Money minimum_charge = 10;
   google.protobuf.Struct data = 11;
 }
 
@@ -460,10 +460,10 @@ message CreateTierRequest {
   ];
   string component_id = 2 [(buf.validate.field).string.min_len = 1];
   int32 sort_order = 3;
-  google.type.Money lower_bound = 4;
-  google.type.Money upper_bound = 5;
-  google.type.Money unit_price = 6;
-  google.type.Money flat_fee = 7;
+  common.v1.Money lower_bound = 4;
+  common.v1.Money upper_bound = 5;
+  common.v1.Money unit_price = 6;
+  common.v1.Money flat_fee = 7;
 }
 
 // CreateTierResponse returns the created tier.
@@ -652,7 +652,7 @@ message GrantCreditRequest {
   ];
   string profile_id = 2 [(buf.validate.field).string.min_len = 1];
   string name = 3 [(buf.validate.field).string.min_len = 1];
-  google.type.Money amount = 4;
+  common.v1.Money amount = 4;
   string currency = 5 [(buf.validate.field).string.min_len = 3];
   google.protobuf.Timestamp expires_at = 6;
   int32 priority = 7;
@@ -672,7 +672,7 @@ message GetCreditBalanceRequest {
 
 // GetCreditBalanceResponse returns the credit balance.
 message GetCreditBalanceResponse {
-  google.type.Money balance = 1;
+  common.v1.Money balance = 1;
 }
 
 // -- Discount --

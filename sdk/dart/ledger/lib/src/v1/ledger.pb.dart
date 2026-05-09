@@ -15,8 +15,8 @@ import 'dart:core' as $core;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import '../common/v1/common.pb.dart' as $8;
+import '../common/v1/money.pb.dart' as $7;
 import '../google/protobuf/struct.pb.dart' as $6;
-import '../google/type/money.pb.dart' as $7;
 import 'ledger.pbenum.dart';
 
 export 'ledger.pbenum.dart';

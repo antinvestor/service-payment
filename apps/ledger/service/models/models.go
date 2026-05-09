@@ -1,14 +1,28 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"time"
 
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
-	utilmoney "github.com/pitabwire/util/money"
-	"google.golang.org/genproto/googleapis/type/money"
+	utilmoney "github.com/pitabwire/util/moneyx"
 )
 
 // Ledger represents the hierarchy for organising ledgers with information such as type, and JSON data.
@@ -132,7 +146,7 @@ func TransactionEntryFromAPI(aEntry *ledgerv1.TransactionEntry) *TransactionEntr
 }
 
 func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
-	var amount *money.Money
+	var amount *commonv1.Money
 	if te.Amount != nil {
 		amount = utilmoney.ToMoney("", *te.Amount)
 	}

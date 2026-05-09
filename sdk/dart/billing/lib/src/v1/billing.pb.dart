@@ -15,10 +15,10 @@ import 'dart:core' as $core;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import '../common/v1/common.pb.dart' as $9;
+import '../common/v1/money.pb.dart' as $7;
 import '../google/protobuf/struct.pb.dart' as $6;
 import '../google/protobuf/timestamp.pb.dart' as $2;
 import '../google/type/interval.pb.dart' as $8;
-import '../google/type/money.pb.dart' as $7;
 import 'billing.pbenum.dart';
 
 export 'billing.pbenum.dart';

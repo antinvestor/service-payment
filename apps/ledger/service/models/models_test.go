@@ -222,8 +222,10 @@ func TestTransactionToAPI(t *testing.T) {
 		BaseModel:       data.BaseModel{ID: "txn-1"},
 		Currency:        "USD",
 		TransactionType: "NORMAL",
+		Status:          models.TransactionStatusPosted,
 		TransactedAt:    now,
 		ClearedAt:       now,
+		PostedAt:        &now,
 		Entries: []*models.TransactionEntry{
 			{
 				BaseModel:     data.BaseModel{ID: "e1"},
@@ -240,7 +242,9 @@ func TestTransactionToAPI(t *testing.T) {
 	assert.Equal(t, "USD", api.GetCurrencyCode())
 	assert.Equal(t, ledgerv1.TransactionType_NORMAL, api.GetType())
 	assert.True(t, api.GetCleared())
+	assert.Equal(t, ledgerv1.TransactionStatus_POSTED, api.GetStatus())
 	assert.NotEmpty(t, api.GetTransactedAt())
+	assert.NotEmpty(t, api.GetPostedAt())
 	assert.Len(t, api.GetEntries(), 1)
 }
 

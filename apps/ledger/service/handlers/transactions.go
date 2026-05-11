@@ -93,3 +93,37 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 
 	return connect.NewResponse(response), nil
 }
+
+// VoidTransaction transitions a draft or pending transaction to VOIDED
+// and stamps voided_at. Posted transactions cannot be voided — operators
+// must reverse so the books carry the offset and the audit trail.
+func (ledgerSrv *LedgerServer) VoidTransaction(
+	ctx context.Context,
+	req *connect.Request[ledgerv1.VoidTransactionRequest],
+) (*connect.Response[ledgerv1.VoidTransactionResponse], error) {
+	voided, err := ledgerSrv.Transaction.VoidTransaction(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, ToConnectError(err)
+	}
+	return connect.NewResponse(&ledgerv1.VoidTransactionResponse{
+		Data: voided.ToAPI(),
+	}), nil
+}
+
+// MarkTransactionFailed transitions a pending transaction to FAILED for
+// upstream rejections (e.g. payment provider declined the webhook).
+// Only PENDING source state is permitted; the rest is rejected so we
+// cannot retroactively fail something that already posted or that was
+// never submitted.
+func (ledgerSrv *LedgerServer) MarkTransactionFailed(
+	ctx context.Context,
+	req *connect.Request[ledgerv1.MarkTransactionFailedRequest],
+) (*connect.Response[ledgerv1.MarkTransactionFailedResponse], error) {
+	failed, err := ledgerSrv.Transaction.MarkTransactionFailed(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, ToConnectError(err)
+	}
+	return connect.NewResponse(&ledgerv1.MarkTransactionFailedResponse{
+		Data: failed.ToAPI(),
+	}), nil
+}

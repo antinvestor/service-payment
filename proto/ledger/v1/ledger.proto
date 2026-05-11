@@ -455,7 +455,12 @@ message ListBooksByTypeResponse {
 message GetTrialBalanceRequest {
   string currency = 1; // Optional ISO 4217 filter
   string ledger_id = 2; // Optional scope to one chart-of-accounts subtree
-  LedgerType ledger_type = 3; // Optional filter by category
+  // ledger_type is a case-sensitive string filter ("ASSET", "LIABILITY",
+  // "INCOME", "EXPENSE", "CAPITAL"). Empty means "no filter". A string is
+  // used instead of the LedgerType enum so the caller can omit the filter
+  // entirely — proto3 enums treat the zero value as both "unset" and the
+  // first enum constant (ASSET in this codebase), which is ambiguous.
+  string ledger_type = 3;
   repeated string book_ids = 4; // Optional scope; expand via ListBookDescendants for consolidation
   string as_of = 5; // Optional RFC3339 upper bound on transacted_at
 }

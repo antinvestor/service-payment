@@ -77,22 +77,35 @@ func ToConnectError(err error) error {
 	}
 }
 
+// LedgerServer is the ConnectRPC LedgerService implementation. It is a
+// thin adapter that translates Connect request envelopes into business-
+// layer calls and shapes the responses back into proto. Every domain rule
+// lives in the business layer; handlers only enforce request validation
+// and error translation.
 type LedgerServer struct {
 	Ledger      business.LedgerBusiness
 	Account     business.AccountBusiness
 	Transaction business.TransactionBusiness
+	Report      business.ReportBusiness
+	Book        business.BookBusiness
 }
 
 // NewLedgerServer creates a new LedgerServer with injected dependencies.
+// All five business interfaces are required — Report and Book power the
+// trial-balance, account-statement and book-CRUD RPCs respectively.
 func NewLedgerServer(
 	ledgerBusiness business.LedgerBusiness,
 	accountBusiness business.AccountBusiness,
 	transactionBusiness business.TransactionBusiness,
+	reportBusiness business.ReportBusiness,
+	bookBusiness business.BookBusiness,
 ) ledgerv1connect.LedgerServiceHandler {
 	return &LedgerServer{
 		Ledger:      ledgerBusiness,
 		Account:     accountBusiness,
 		Transaction: transactionBusiness,
+		Report:      reportBusiness,
+		Book:        bookBusiness,
 	}
 }
 

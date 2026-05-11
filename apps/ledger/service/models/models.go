@@ -67,9 +67,115 @@ func ToLedgerType(model string) ledgerv1.LedgerType {
 	return ledgerv1.LedgerType(ledgerType)
 }
 
+// transactionStatusByModel maps stored Status strings (lowercase, matching
+// the DB CHECK constraint) onto the generated proto enum. Symmetric helper
+// covers the reverse direction.
+var transactionStatusByModel = map[string]ledgerv1.TransactionStatus{
+	TransactionStatusPending:  ledgerv1.TransactionStatus_PENDING,
+	TransactionStatusPosted:   ledgerv1.TransactionStatus_POSTED,
+	TransactionStatusReversed: ledgerv1.TransactionStatus_REVERSED,
+	TransactionStatusVoided:   ledgerv1.TransactionStatus_VOIDED,
+	TransactionStatusFailed:   ledgerv1.TransactionStatus_FAILED,
+	TransactionStatusDraft:    ledgerv1.TransactionStatus_DRAFT,
+}
+
+var transactionStatusByProto = map[ledgerv1.TransactionStatus]string{
+	ledgerv1.TransactionStatus_PENDING:  TransactionStatusPending,
+	ledgerv1.TransactionStatus_POSTED:   TransactionStatusPosted,
+	ledgerv1.TransactionStatus_REVERSED: TransactionStatusReversed,
+	ledgerv1.TransactionStatus_VOIDED:   TransactionStatusVoided,
+	ledgerv1.TransactionStatus_FAILED:   TransactionStatusFailed,
+	ledgerv1.TransactionStatus_DRAFT:    TransactionStatusDraft,
+}
+
+// ToTransactionStatusProto returns the proto enum value for a stored
+// status string, defaulting to PENDING for unknown inputs.
+func ToTransactionStatusProto(s string) ledgerv1.TransactionStatus {
+	if v, ok := transactionStatusByModel[s]; ok {
+		return v
+	}
+	return ledgerv1.TransactionStatus_PENDING
+}
+
+// FromTransactionStatusProto converts a proto enum back to the stored
+// status string used by the model + DB CHECK constraint.
+func FromTransactionStatusProto(s ledgerv1.TransactionStatus) string {
+	if v, ok := transactionStatusByProto[s]; ok {
+		return v
+	}
+	return TransactionStatusPending
+}
+
+var accountTypeByModel = map[string]ledgerv1.AccountType{
+	AccountTypeAsset:           ledgerv1.AccountType_ACCOUNT_ASSET,
+	AccountTypeLiability:       ledgerv1.AccountType_ACCOUNT_LIABILITY,
+	AccountTypeEquity:          ledgerv1.AccountType_ACCOUNT_EQUITY,
+	AccountTypeIncome:          ledgerv1.AccountType_ACCOUNT_INCOME,
+	AccountTypeExpense:         ledgerv1.AccountType_ACCOUNT_EXPENSE,
+	AccountTypeContraAsset:     ledgerv1.AccountType_ACCOUNT_CONTRA_ASSET,
+	AccountTypeContraLiability: ledgerv1.AccountType_ACCOUNT_CONTRA_LIABILITY,
+	AccountTypeContraIncome:    ledgerv1.AccountType_ACCOUNT_CONTRA_INCOME,
+	AccountTypeContraExpense:   ledgerv1.AccountType_ACCOUNT_CONTRA_EXPENSE,
+	AccountTypeClearing:        ledgerv1.AccountType_ACCOUNT_CLEARING,
+	AccountTypeSuspense:        ledgerv1.AccountType_ACCOUNT_SUSPENSE,
+	AccountTypeMemo:            ledgerv1.AccountType_ACCOUNT_MEMO,
+}
+
+// ToAccountTypeProto returns the proto enum value for a stored account
+// type string, defaulting to ACCOUNT_ASSET for unknown inputs (matches
+// the conventional zero value).
+func ToAccountTypeProto(s string) ledgerv1.AccountType {
+	if v, ok := accountTypeByModel[s]; ok {
+		return v
+	}
+	return ledgerv1.AccountType_ACCOUNT_ASSET
+}
+
+var normalBalanceByModel = map[string]ledgerv1.NormalBalance{
+	NormalBalanceDebit:  ledgerv1.NormalBalance_DEBIT,
+	NormalBalanceCredit: ledgerv1.NormalBalance_CREDIT,
+	NormalBalanceNone:   ledgerv1.NormalBalance_NONE,
+}
+
+// ToNormalBalanceProto returns the proto enum value for a stored normal
+// balance string, defaulting to DEBIT.
+func ToNormalBalanceProto(s string) ledgerv1.NormalBalance {
+	if v, ok := normalBalanceByModel[s]; ok {
+		return v
+	}
+	return ledgerv1.NormalBalance_DEBIT
+}
+
 func (lg *Ledger) ToAPI() *ledgerv1.Ledger {
-	return &ledgerv1.Ledger{Id: lg.ID, Type: ToLedgerType(lg.Type),
-		Parent: lg.ParentID, Data: lg.Data.ToProtoStruct()}
+	bookID := ""
+	if lg.BookID != nil {
+		bookID = *lg.BookID
+	}
+	return &ledgerv1.Ledger{
+		Id:     lg.ID,
+		Type:   ToLedgerType(lg.Type),
+		Parent: lg.ParentID,
+		Data:   lg.Data.ToProtoStruct(),
+		BookId: bookID,
+	}
+}
+
+// ToAPI converts a Book domain model to the wire representation. ParentID
+// and Currency surface as empty strings when unset to match proto3
+// "no value" semantics callers expect.
+func (b *Book) ToAPI() *ledgerv1.Book {
+	parentID := ""
+	if b.ParentID != nil {
+		parentID = *b.ParentID
+	}
+	return &ledgerv1.Book{
+		Id:       b.ID,
+		Name:     b.Name,
+		Type:     b.Type,
+		ParentId: parentID,
+		Currency: b.Currency,
+		Data:     b.Data.ToProtoStruct(),
+	}
 }
 
 // Account represents the ledger account with information such as Reference, balance and JSON data.
@@ -126,10 +232,21 @@ func (acc *Account) ToAPI() *ledgerv1.Account {
 	unClearedBalanceAmt := decimalx.DerefOr(acc.UnClearedBalance, decimalx.Zero())
 	unClearedBalance := utilmoney.ToMoney(acc.Currency, unClearedBalanceAmt)
 
+	bookID := ""
+	if acc.BookID != nil {
+		bookID = *acc.BookID
+	}
 	return &ledgerv1.Account{
-		Id: acc.ID, Ledger: acc.LedgerID,
-		Balance: balance, ReservedBalance: reservedBalance, UnclearedBalance: unClearedBalance,
-		Data: acc.Data.ToProtoStruct()}
+		Id:               acc.ID,
+		Ledger:           acc.LedgerID,
+		Balance:          balance,
+		ReservedBalance:  reservedBalance,
+		UnclearedBalance: unClearedBalance,
+		Data:             acc.Data.ToProtoStruct(),
+		AccountType:      ToAccountTypeProto(acc.AccountType),
+		NormalBalance:    ToNormalBalanceProto(acc.NormalBalance),
+		BookId:           bookID,
+	}
 }
 
 // Reserved Data keys lifted into typed columns. Callers may continue to
@@ -199,22 +316,44 @@ func (tx *Transaction) ToAPI() *ledgerv1.Transaction {
 		apiEntries[index] = mEntry.ToAPI()
 	}
 
-	trx := &ledgerv1.Transaction{
-		Id:           tx.ID,
-		CurrencyCode: tx.Currency,
-		Cleared:      !tx.ClearedAt.IsZero(),
-		Data:         tx.Data.ToProtoStruct(),
-		Entries:      apiEntries,
+	bookID := ""
+	if tx.BookID != nil {
+		bookID = *tx.BookID
+	}
+	reversedID := ""
+	if tx.ReversedTransactionID != nil {
+		reversedID = *tx.ReversedTransactionID
 	}
 
-	// Convert transaction type
+	trx := &ledgerv1.Transaction{
+		Id:                    tx.ID,
+		CurrencyCode:          tx.Currency,
+		Cleared:               tx.Status == TransactionStatusPosted,
+		Data:                  tx.Data.ToProtoStruct(),
+		Entries:               apiEntries,
+		Status:                ToTransactionStatusProto(tx.Status),
+		IdempotencyKey:        tx.IdempotencyKey,
+		ExternalRef:           tx.ExternalRef,
+		Source:                tx.Source,
+		BookId:                bookID,
+		ReversedTransactionId: reversedID,
+	}
+
+	// Convert transaction type.
 	if txnType, ok := ledgerv1.TransactionType_value[tx.TransactionType]; ok {
 		trx.Type = ledgerv1.TransactionType(txnType)
 	}
 
-	// Format transacted_at timestamp
+	// Format timestamps in RFC3339 — proto carries them as strings to keep
+	// the API serializer-agnostic.
 	if !tx.TransactedAt.IsZero() {
 		trx.TransactedAt = tx.TransactedAt.Format(time.RFC3339)
+	}
+	if tx.PostedAt != nil && !tx.PostedAt.IsZero() {
+		trx.PostedAt = tx.PostedAt.Format(time.RFC3339)
+	}
+	if tx.VoidedAt != nil && !tx.VoidedAt.IsZero() {
+		trx.VoidedAt = tx.VoidedAt.Format(time.RFC3339)
 	}
 
 	return trx

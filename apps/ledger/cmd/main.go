@@ -78,11 +78,12 @@ func main() {
 	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo, accountRepo)
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
-	_ = business.NewReportBusiness(reportRepo) // wired into handlers in a follow-up after proto-push
-	_ = business.NewBookBusiness(bookRepo)     // wired into handlers in a follow-up after proto-push
+	reportBusiness := business.NewReportBusiness(reportRepo)
+	bookBusiness := business.NewBookBusiness(bookRepo)
 
 	// Create handler with injected business layer
-	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness)
+	ledgerServer := handlers.NewLedgerServer(
+		ledgerBusiness, accountBusiness, transactionBusiness, reportBusiness, bookBusiness)
 
 	// Handle database migration if requested
 	if handleDatabaseMigration(ctx, dbManager, cfg, log) {

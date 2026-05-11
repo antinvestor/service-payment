@@ -79,13 +79,21 @@ func (b *accountBusiness) CreateAccount(
 	}
 
 	zero := decimalx.Zero()
-	// Convert API request to model
+	// Convention by default: AccountType + NormalBalance derive from the
+	// parent ledger's type. Callers that need contra / clearing / suspense
+	// / memo accounts will supply explicit overrides on a future API path.
+	accountType := models.AccountTypeFromLedgerType(ledger.Type)
+	normalBalance := models.NormalBalanceForAccountType(accountType)
+
 	accountModel := &models.Account{
-		LedgerID:   ledger.GetID(),
-		LedgerType: ledger.Type,
-		Currency:   req.GetCurrency(),
-		Balance:    zero.Ptr(),
-		Data:       req.GetData().AsMap()}
+		LedgerID:      ledger.GetID(),
+		LedgerType:    ledger.Type,
+		AccountType:   accountType,
+		NormalBalance: normalBalance,
+		Currency:      req.GetCurrency(),
+		Balance:       zero.Ptr(),
+		Data:          req.GetData().AsMap(),
+	}
 
 	accountModel.GenID(ctx)
 	if req.GetId() != "" {

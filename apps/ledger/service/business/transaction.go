@@ -600,6 +600,13 @@ func (b *transactionBusiness) resolveDuplicate(
 // preProcessTransactionEntries applies DEADCLIC sign rules and stamps the
 // entry-level currency from the resolved account so it is persisted and
 // available for currency-aware integrity checks at any point post-write.
+//
+// Sign rule, generalised: store +amount when the entry's side equals the
+// account's normal balance side, -amount when it is the opposite. Memo
+// accounts (normal_balance='none') opt out of normalisation and store
+// amounts as supplied. The function falls back to LedgerType-based
+// inference for accounts that have not yet had NormalBalance populated
+// (in-memory paths constructing models directly).
 func (b *transactionBusiness) preProcessTransactionEntries(
 	transaction *models.Transaction,
 	accountsMap map[string]*models.Account,
@@ -607,17 +614,25 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 	for _, line := range transaction.Entries {
 		account := accountsMap[line.AccountID]
 
-		// Validate already asserts the account currency matches the transaction
-		// currency, so either is correct here. Use the account's currency to
-		// keep the entry tied to its posting destination.
+		// Validate already asserts entry account currency matches the
+		// transaction currency, so either is correct here. Use the account's
+		// to keep entries tied to their posting destination explicitly.
 		line.Currency = account.Currency
 
-		// Apply signage based on double-entry bookkeeping rules (DEADCLIC)
-		// Debit: Expense, Asset | Credit: Liability, Income, Capital
-		if line.Credit &&
-			(account.LedgerType == models.LedgerTypeAsset || account.LedgerType == models.LedgerTypeExpense) ||
-			!line.Credit &&
-				(account.LedgerType == models.LedgerTypeLiability || account.LedgerType == models.LedgerTypeIncome || account.LedgerType == models.LedgerTypeCapital) {
+		normalSide := account.NormalBalance
+		if normalSide == "" {
+			normalSide = models.NormalBalanceFromLedgerType(account.LedgerType)
+		}
+		if normalSide == "" || normalSide == models.NormalBalanceNone {
+			// Memo or unclassified — store as supplied, no sign flip.
+			continue
+		}
+
+		entrySide := models.NormalBalanceDebit
+		if line.Credit {
+			entrySide = models.NormalBalanceCredit
+		}
+		if entrySide != normalSide {
 			neg := decimalx.DerefOr(line.Amount, decimalx.Zero()).Neg()
 			line.Amount = &neg
 		}

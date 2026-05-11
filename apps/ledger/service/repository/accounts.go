@@ -44,6 +44,8 @@ const constAccountQuery = `SELECT
     COALESCE(bs.reserved_balance, 0) AS total_reserved_balance,
     a.ledger_id,
     a.ledger_type,
+    a.account_type,
+    a.normal_balance,
     a.created_at,
     a.modified_at,
     a.version,
@@ -56,12 +58,11 @@ LEFT JOIN LATERAL (
     SELECT
         COALESCE(SUM(CASE
             WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
-                AND t.cleared_at IS NOT NULL
-                AND t.cleared_at != '0001-01-01 00:00:00'
+                AND t.status IN ('posted', 'reversed')
             THEN e.amount ELSE 0 END), 0) AS balance,
         COALESCE(SUM(CASE
             WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
-                AND (t.cleared_at IS NULL OR t.cleared_at = '0001-01-01 00:00:00')
+                AND t.status = 'pending'
             THEN e.amount ELSE 0 END), 0) AS un_cleared_balance,
         COALESCE(SUM(CASE
             WHEN t.transaction_type = 'RESERVATION'
@@ -237,7 +238,8 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 		acc := models.Account{}
 		err = rows.Scan(
 			&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
-			&acc.LedgerID, &acc.LedgerType, &acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
+			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance,
+			&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
 			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt)
 		if err != nil {
 			return accountList, err

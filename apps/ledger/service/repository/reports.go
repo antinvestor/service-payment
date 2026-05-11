@@ -73,9 +73,17 @@ func NewReportRepository(dbPool pool.Pool) ReportRepository {
 	return &reportRepository{dbPool: dbPool}
 }
 
-// Postgres' time-zero sentinel used by the cleared_at column when a row
-// was never cleared. Treated as equivalent to NULL for posting reports.
-const postgresZeroTime = "0001-01-01 00:00:00"
+// committedStatuses returns the Transaction.Status values whose entries
+// are part of "the books" — they posted and (in the case of reversed) had
+// their offset posted too. Pending and terminal-but-uncommitted states
+// (draft, voided, failed) never contributed to balance and are excluded.
+// A function (rather than a var) keeps the slice immutable across callers.
+func committedStatuses() []string {
+	return []string{
+		models.TransactionStatusPosted,
+		models.TransactionStatusReversed,
+	}
+}
 
 func (r *reportRepository) AggregateTrialBalance(
 	ctx context.Context, params models.TrialBalanceParams,
@@ -99,8 +107,7 @@ func (r *reportRepository) AggregateTrialBalance(
 			ON transactions.id = transaction_entries.transaction_id
 			AND transactions.deleted_at IS NULL
 			AND transactions.transaction_type IN ('NORMAL', 'REVERSAL')
-			AND transactions.cleared_at IS NOT NULL
-			AND transactions.cleared_at != ?`, postgresZeroTime).
+			AND transactions.status IN ?`, committedStatuses()).
 		Group("accounts.id, accounts.ledger_id, accounts.ledger_type, accounts.currency").
 		Order("accounts.ledger_type, accounts.id")
 
@@ -142,7 +149,8 @@ func (r *reportRepository) StatementOpeningBalance(
 		Joins(`INNER JOIN transactions
 			ON transactions.id = transaction_entries.transaction_id
 			AND transactions.deleted_at IS NULL
-			AND transactions.transaction_type IN ('NORMAL', 'REVERSAL')`).
+			AND transactions.transaction_type IN ('NORMAL', 'REVERSAL')
+			AND transactions.status IN ?`, committedStatuses()).
 		Where("transaction_entries.account_id = ?", accountID).
 		Where("transactions.transacted_at < ?", *before).
 		Scan(&sum).Error
@@ -180,7 +188,8 @@ func (r *reportRepository) AccountStatementEntries(
 		Joins(`INNER JOIN transactions
 			ON transactions.id = transaction_entries.transaction_id
 			AND transactions.deleted_at IS NULL
-			AND transactions.transaction_type IN ('NORMAL', 'REVERSAL')`).
+			AND transactions.transaction_type IN ('NORMAL', 'REVERSAL')
+			AND transactions.status IN ?`, committedStatuses()).
 		Where("transaction_entries.account_id = ?", params.AccountID).
 		Order("transactions.transacted_at ASC, transaction_entries.id ASC").
 		Limit(limit).

@@ -23,6 +23,7 @@ import (
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
+	"gorm.io/gorm"
 )
 
 // Ledger represents the hierarchy for organising ledgers with information such as type, and JSON data.
@@ -48,6 +49,11 @@ func (lg *Ledger) ToAPI() *ledgerv1.Ledger {
 }
 
 // Account represents the ledger account with information such as Reference, balance and JSON data.
+//
+// AccountType and NormalBalance carry the per-account classification used
+// for balance signage and report grouping. LedgerType is retained alongside
+// for backward compatibility — both are derived from the parent ledger at
+// creation time and stay in sync.
 type Account struct {
 	data.BaseModel
 	Currency         string            `gorm:"type:varchar(10)"                     json:"currency"`
@@ -57,6 +63,24 @@ type Account struct {
 	LedgerID         string            `gorm:"type:varchar(50)"                     json:"ledger_id"`
 	Data             data.JSONMap      `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
 	LedgerType       string            `gorm:"type:varchar(50)"                     json:"ledger_type"`
+	AccountType      string            `gorm:"type:varchar(50);not null"            json:"account_type"`
+	NormalBalance    string            `gorm:"type:varchar(10);not null"            json:"normal_balance"`
+}
+
+// BeforeCreate fills in conventional defaults for AccountType and
+// NormalBalance from LedgerType, then delegates to the embedded BaseModel
+// hook which sets ID, CreatedAt and Version. Centralising the defaults on
+// the model means every caller — business layer, direct repository writes,
+// admin tools — gets a row that satisfies the NOT NULL + CHECK constraints
+// without having to know the chart-of-accounts convention.
+func (acc *Account) BeforeCreate(db *gorm.DB) error {
+	if acc.AccountType == "" {
+		acc.AccountType = AccountTypeFromLedgerType(acc.LedgerType)
+	}
+	if acc.NormalBalance == "" {
+		acc.NormalBalance = NormalBalanceForAccountType(acc.AccountType)
+	}
+	return acc.BaseModel.BeforeCreate(db)
 }
 
 func (acc *Account) ToAPI() *ledgerv1.Account {

@@ -1,60 +1,223 @@
 # antinvestor_ui_ledger
 
-Embeddable ledger management UI for Antinvestor applications. Provides screens and widgets for managing ledgers, accounts, transactions, and transaction entries with double-entry bookkeeping support.
+Embeddable Flutter screens, widgets, and Riverpod providers for the
+Antinvestor double-entry ledger service. Drops into any host app via
+`LedgerRouteModule` — registers the routes, nav items and permission
+manifest with no host glue required.
 
-## Installation
+## Backend it talks to
 
-```yaml
-dependencies:
-  antinvestor_ui_ledger: ^0.1.0
+Configured via the compile-time env variable `LEDGER_URL`:
+
+```bash
+flutter run --dart-define LEDGER_URL=https://ledger.your.cluster
 ```
 
-## Features
+Auth follows the host app's `authTokenProviderProvider` from
+`antinvestor_ui_core`.
 
-- **Ledger Management**: Hierarchical ledger list with tree view
-- **Account Management**: List and detail views with balance tracking
-- **Transaction Management**: Transaction list with entry-level detail
-- **Embeddable Widgets**: `LedgerTypeBadge`, `AccountBalanceCard`, `TransactionEntryRow`, `TransactionTypeBadge`, `LedgerTreeView`
-- **Routing**: `LedgerRouteModule` with GoRouter integration
+## Screen index
 
-## Usage
+### `/ledger/books` — Book list
+
+The platform's books (organisations, groups, members, merchants,
+agents, branches). Type dropdown switches the listing; the rest is the
+standard `AdminEntityListPage` with search + selection + CSV export
+of the listing.
+
+**Action**: "New book" opens a modal. Required: name, type. Optional:
+parent book id (for hierarchical nesting), default currency.
+
+Permissions: `book_view` to list, `book_manage` to create.
+
+### `/ledger/books/:id` — Book detail
+
+Identity, parent book reference, custom metadata. The "Reports for this
+book" card links straight to the trial balance pre-scoped to this book.
+
+### `/ledger/ledgers` — Chart of accounts
+
+The ledger hierarchy within a book. Each row shows id, type, parent
+ledger, and a 3-key data preview. Type filter narrows by Asset /
+Liability / Income / Expense / Capital.
+
+Permissions: `ledger_view`. Manage permission is `ledger_create`.
+
+### `/ledger/ledgers/:id` — Ledger detail
+
+Two tabs:
+- **Info**: identity, type badge, parent reference, metadata.
+- **Accounts**: scrollable list of accounts in this ledger with their
+  balance / uncleared / reserved tiles.
+
+### `/ledger/accounts` — Account list
+
+Free-text search + standard list table. Columns: id, ledger, balance,
+uncleared, reserved.
+
+### `/ledger/accounts/:id` — Account detail
+
+Balance card on top, transaction history below. Running balance is
+shown per entry. From here, navigate into:
+
+### `/ledger/accounts/:id/statement` — Account statement
+
+The customer-facing statement screen. Filter by date range (RFC3339),
+view opening + closing balances, per-side totals, and the chronological
+entry list with running balance per row.
+
+**Export** in the app bar: CSV / Excel / PDF. Filename pattern:
+`statement_<accountID>_<UTC stamp>.<ext>`.
+
+Permissions: `report_view`.
+
+### `/ledger/transactions` — Transaction list
+
+Most-recently-transacted first by default. Columns: id, currency, type
+badge, transacted-at, entry count, status indicator.
+
+### `/ledger/transactions/:id` — Transaction detail
+
+Entry count headline, type + currency badges, ID and timestamp.
+Below: list of `TransactionEntryRow` items, each tappable to navigate
+to its account.
+
+**Lifecycle actions** in the app bar — conditionally rendered based on
+the transaction's current status:
+
+| Action | Visible when status is | What it does |
+|---|---|---|
+| Reverse | POSTED | Posts an offsetting REVERSAL. Original auto-transitions to REVERSED. |
+| Void | DRAFT or PENDING | Marks the transaction VOIDED. No balance impact. |
+| Mark failed | PENDING | Marks the transaction FAILED (upstream rejected). No balance impact. |
+
+Each shows a confirmation dialog before firing the mutation. Snackbar
+feedback on success / failure. The transaction's view is invalidated so
+the new status surfaces immediately.
+
+Permissions: `transaction_view` to read, `transaction_manage` to act.
+
+### `/ledger/reports/trial-balance` — Trial balance
+
+Filter bar: currency, ledger type, book id, as-of date.
+
+The body has:
+
+1. **Per-currency totals card** — one row per currency, with a green
+   `BALANCED` or red `UNBALANCED` chip from the `is_balanced` flag.
+   This is the textbook integrity check: total_debits == total_credits.
+2. **Per-account lines** — DataTable of Account / Ledger / Type /
+   Currency / Debits / Credits / Net.
+
+**Export** in the app bar: CSV / Excel / PDF.
+
+Reachable from:
+- The main nav ("Trial balance").
+- A Book detail page (pre-scoped to that book via `?bookId=…`).
+
+Permissions: `report_view`.
+
+## Permissions reference
+
+| Permission | Grants |
+|---|---|
+| `ledger_view` | Read chart-of-accounts |
+| `ledger_create` | Create / update ledgers |
+| `account_view` | Read accounts and balances |
+| `account_create` | Create / update accounts |
+| `transaction_view` | Read transactions and entries |
+| `transaction_create` | Create transactions and trigger Reverse / Void / Mark-Failed |
+| `book_view` | Read books |
+| `book_manage` | Create / update books |
+| `report_view` | Run trial balance and account statement reports + exports |
+
+## Providers
+
+| Provider | Returns |
+|---|---|
+| `ledgerSearchProvider(query)` | `List<Ledger>` |
+| `accountSearchProvider(query)` | `List<Account>` |
+| `transactionSearchProvider(query)` | `List<Transaction>` |
+| `transactionEntrySearchProvider(query)` | `List<TransactionEntry>` |
+| `booksByTypeProvider(type)` | `List<Book>` |
+| `bookByIdProvider(id)` | `Book` |
+| `trialBalanceProvider(query)` | `GetTrialBalanceResponse` |
+| `accountStatementProvider(query)` | `GetAccountStatementResponse` |
+| `transactionNotifierProvider` | mutations: create / reverse / update / voidTransaction / markFailed |
+| `bookNotifierProvider` | mutations: create |
+| `ledgerNotifierProvider` | mutations: create / update |
+| `accountNotifierProvider` | mutations: create / update |
+
+Each `Notifier` exposes an `AsyncValue<void>` for loading / error state
+plus a method that returns the resulting domain object on success.
+
+## Exporting reports — what the user sees
+
+1. Open a report screen (trial balance or account statement).
+2. Apply filters; the screen re-fetches.
+3. Tap the download icon in the app bar.
+4. Pick the format: CSV / Excel / PDF.
+
+What happens by platform:
+
+- **Web**: the file downloads via an anchor.
+- **iOS / Android**: the system share sheet opens — save to Files,
+  AirDrop, send via WhatsApp, etc.
+- **Desktop**: a Save-As dialog opens.
+
+PDFs always route through the OS print preview (so AirPrint / Generic
+PDF Printer / Save as PDF are all available).
+
+## Embedding into a host app
 
 ```dart
 import 'package:antinvestor_ui_ledger/antinvestor_ui_ledger.dart';
+import 'package:antinvestor_ui_core/routing/route_module.dart';
 
-// Account balance display card
-AccountBalanceCard(account: accountObject)
+final modules = <RouteModule>[
+  LedgerRouteModule(),
+  // …other modules
+];
 
-// Ledger hierarchy tree
-LedgerTreeView(rootLedgerId: 'root')
-
-// Register routes in your host app
-final module = LedgerRouteModule();
-ShellRoute(
-  routes: [...ownRoutes, ...module.buildRoutes()],
+// Build the GoRouter with all module routes.
+final router = GoRouter(
+  routes: modules.expand((m) => m.buildRoutes()).toList(),
 );
+
+// Build the nav drawer / rail with all module nav items.
+final navItems = modules.expand((m) => m.buildNavItems()).toList();
+
+// Aggregate permissions across modules for role-driven UI.
+final manifests = modules.map((m) => m.permissionManifest).toList();
 ```
 
-## Routes
+## Local development
 
-| Path | Screen |
-|------|--------|
-| `/ledger/ledgers` | Ledger list |
-| `/ledger/ledgers/:id` | Ledger detail |
-| `/ledger/accounts` | Account list |
-| `/ledger/accounts/:id` | Account detail with balance |
-| `/ledger/transactions` | Transaction list |
-| `/ledger/transactions/:id` | Transaction detail with entries |
+```bash
+cd ui/ledger
+flutter pub get
+flutter analyze
+```
 
-## Embedding Widgets
+The `pubspec_overrides.yaml` pins `antinvestor_ui_core` and
+`antinvestor_api_ledger` to local paths so changes to the SDK are
+picked up immediately. To regenerate the Dart SDK after editing
+`proto/ledger/v1/ledger.proto`:
 
-```dart
-// Ledger type indicator
-LedgerTypeBadge(type: ledgerType)
+```bash
+make proto-generate-dart
+```
 
-// Transaction entry row with debit/credit
-TransactionEntryRow(entry: entryObject)
+To publish the proto and the Go gen:
 
-// Transaction type indicator
-TransactionTypeBadge(type: transactionType)
+```bash
+make proto-push
+```
+
+Then bump the Go module:
+
+```bash
+GOPROXY=direct go get \
+  buf.build/gen/go/antinvestor/ledger/protocolbuffers/go@latest \
+  buf.build/gen/go/antinvestor/ledger/connectrpc/go@latest
 ```

@@ -363,11 +363,13 @@ func (ts *TransactionBusinessSuite) TestReverseTransaction() {
 
 		transactionBusiness := resources.TransactionBusiness
 
-		// First create a normal transaction
+		// First create a posted normal transaction. Reversal only applies
+		// to posted transactions, so cleared=true commits it immediately.
 		createTransactionReq := &ledgerv1.CreateTransactionRequest{
 			Id:       "original-transaction",
 			Currency: "USD",
 			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
 			Entries: []*ledgerv1.TransactionEntry{
 				{
 					Id:        "entry1",

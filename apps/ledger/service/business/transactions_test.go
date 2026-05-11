@@ -16,6 +16,7 @@ package business_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -641,6 +642,442 @@ func (ts *TransactionsModelSuite) TestTransactWithBoundaryValues() {
 		// Note: Not able write test case for out of boundary value here,
 		// due to overflow error while compilation.
 		// The test case is written in `package controllers` using JSON
+	})
+}
+
+// TestIdempotencyKeyConcurrent verifies that under N parallel posts carrying
+// the same idempotency_key (but distinct Transaction.IDs and identical
+// entries), exactly one row reaches the database and every caller is
+// returned a transaction tied to that row. This is the core durability
+// guarantee that lets webhook redelivery, queue replays and at-least-once
+// transports replay safely.
+func (ts *TransactionsModelSuite) TestIdempotencyKeyConcurrent() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		const parallelism = 10
+		idemKey := "webhook:mtn:abc123"
+		timeNow := time.Now().UTC()
+
+		var (
+			wg        sync.WaitGroup
+			mu        sync.Mutex
+			returnIDs = make(map[string]struct{}, parallelism)
+			errs      []error
+		)
+		wg.Add(parallelism)
+		for i := range parallelism {
+			go func(i int) {
+				defer wg.Done()
+
+				// Distinct Transaction.ID per goroutine; the idempotency_key
+				// is the only thing tying them together.
+				txn := &models.Transaction{
+					BaseModel: data.BaseModel{
+						ID: ts.uniqueTxnID("idem_concurrent", i),
+					},
+					Currency:        "UGX",
+					TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+					IdempotencyKey:  idemKey,
+					TransactedAt:    timeNow,
+					ClearedAt:       timeNow,
+					Entries: []*models.TransactionEntry{
+						{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+						{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+					},
+				}
+
+				out, err := res.TransactionBusiness.Transact(ctx, txn)
+				mu.Lock()
+				if err != nil {
+					errs = append(errs, err)
+				} else {
+					returnIDs[out.GetID()] = struct{}{}
+				}
+				mu.Unlock()
+			}(i)
+		}
+		wg.Wait()
+
+		require.Empty(t, errs, "no goroutine should fail; idempotent replay must succeed for all")
+		require.Len(t, returnIDs, 1,
+			"all goroutines must converge on a single canonical transaction id; got %d distinct ids", len(returnIDs))
+
+		// Verify exactly one row carries the idempotency_key.
+		stored, err := res.TransactionRepository.GetByIdempotencyKey(ctx, idemKey)
+		require.NoError(t, err)
+		require.NotNil(t, stored)
+		_, ok := returnIDs[stored.GetID()]
+		require.True(t, ok, "stored transaction id must match the id returned to callers")
+	})
+}
+
+// TestIdempotencyKeyConflictDifferentEntries verifies that reusing an
+// idempotency_key with materially different entries is rejected — the
+// system must not silently return the prior posting when the caller's
+// intent has changed.
+func (ts *TransactionsModelSuite) TestIdempotencyKeyConflictDifferentEntries() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		idemKey := "webhook:mtn:conflict-test"
+		timeNow := time.Now().UTC()
+
+		first := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("idem_conflict_a", 0)},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			IdempotencyKey:  idemKey,
+			TransactedAt:    timeNow,
+			ClearedAt:       timeNow,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, first)
+		require.NoError(t, err)
+
+		// Same idempotency_key, different amount — should be rejected.
+		second := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("idem_conflict_b", 0)},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			IdempotencyKey:  idemKey,
+			TransactedAt:    timeNow,
+			ClearedAt:       timeNow,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(250).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(250).Ptr()},
+			},
+		}
+		_, err = res.TransactionBusiness.Transact(ctx, second)
+		require.Error(t, err, "reuse of idempotency_key with different entries must be rejected")
+	})
+}
+
+// TestConcurrentPostingsBalanceIntegrity verifies that N parallel posts
+// each touching the same pair of accounts produce a final balance equal
+// to the deterministic sum of their amounts. Exercises the atomic Create
+// override and the LATERAL balance derivation together: if either the
+// posting was non-atomic (orphan transactions) or the balance read missed
+// concurrently committed rows, the final assertion would fail.
+func (ts *TransactionsModelSuite) TestConcurrentPostingsBalanceIntegrity() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		const (
+			parallelism = 20
+			amountEach  = int64(100)
+		)
+		expectedDelta := decimalx.NewFromInt64(amountEach * parallelism)
+
+		initialMap, err := res.AccountRepository.ListByID(ctx, "a1")
+		require.NoError(t, err)
+		initialBalance := decimalx.DerefOr(initialMap["a1"].Balance, decimalx.Zero())
+
+		timeNow := time.Now().UTC()
+		var (
+			wg   sync.WaitGroup
+			mu   sync.Mutex
+			errs []error
+		)
+		wg.Add(parallelism)
+		for i := range parallelism {
+			go func(i int) {
+				defer wg.Done()
+				txn := &models.Transaction{
+					BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("concurrent_balance", i)},
+					Currency:        "UGX",
+					TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+					IdempotencyKey:  ts.uniqueTxnID("concurrent_balance_key", i),
+					TransactedAt:    timeNow,
+					ClearedAt:       timeNow,
+					Entries: []*models.TransactionEntry{
+						{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(amountEach).Ptr()},
+						{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(amountEach).Ptr()},
+					},
+				}
+				if _, e := res.TransactionBusiness.Transact(ctx, txn); e != nil {
+					mu.Lock()
+					errs = append(errs, e)
+					mu.Unlock()
+				}
+			}(i)
+		}
+		wg.Wait()
+		require.Empty(t, errs, "all posts should succeed under concurrent load")
+
+		finalMap, err := res.AccountRepository.ListByID(ctx, "a1")
+		require.NoError(t, err)
+		finalBalance := decimalx.DerefOr(finalMap["a1"].Balance, decimalx.Zero())
+		delta := finalBalance.Sub(initialBalance)
+		assertDecEqual(t, expectedDelta, delta,
+			"final balance must equal initial + sum of all concurrent posts")
+	})
+}
+
+// uniqueTxnID returns a compact per-run unique ID under the varchar(50)
+// constraint on transactions.id. Stable within a goroutine via the i suffix.
+func (ts *TransactionsModelSuite) uniqueTxnID(prefix string, i int) string {
+	return fmt.Sprintf("%s_%d_%d", prefix, time.Now().UnixNano()%1_000_000, i)
+}
+
+// TestStatusCreatedClearedYieldsPosted verifies the create path: ClearedAt
+// non-zero translates to status=posted with PostedAt populated, both at
+// creation time.
+func (ts *TransactionsModelSuite) TestStatusCreatedClearedYieldsPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		now := time.Now().UTC()
+		txnID := ts.uniqueTxnID("status_cleared", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		stored, err := res.TransactionRepository.GetByID(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPosted, stored.Status)
+		require.NotNil(t, stored.PostedAt)
+		assert.False(t, stored.PostedAt.IsZero())
+	})
+}
+
+// TestStatusCreatedUnclearedYieldsPending verifies that omitting ClearedAt
+// at creation parks the transaction in 'pending' with no PostedAt.
+func (ts *TransactionsModelSuite) TestStatusCreatedUnclearedYieldsPending() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("status_uncl", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			// ClearedAt intentionally left zero.
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		stored, err := res.TransactionRepository.GetByID(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPending, stored.Status)
+		assert.Nil(t, stored.PostedAt)
+	})
+}
+
+// TestReversalMarksOriginalAndCarriesLineage proves the atomic reversal
+// pathway: the new REVERSAL row carries reversed_transaction_id pointing
+// back at the original, and the original's status flips from posted to
+// reversed in the same DB transaction.
+func (ts *TransactionsModelSuite) TestReversalMarksOriginalAndCarriesLineage() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		now := time.Now().UTC()
+		origID := ts.uniqueTxnID("rev_orig", 0)
+		original := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: origID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, original)
+		require.NoError(t, err)
+
+		reversedAPI, err := res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: origID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, reversedAPI)
+
+		// Original is now reversed.
+		afterOrig, err := res.TransactionRepository.GetByID(ctx, origID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusReversed, afterOrig.Status,
+			"original transaction must transition to 'reversed' after reversal commits")
+
+		// REVERSAL row carries reversed_transaction_id back at the original.
+		reversalID := reversedAPI.GetId()
+		reversalStored, err := res.TransactionRepository.GetByID(ctx, reversalID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPosted, reversalStored.Status)
+		require.NotNil(t, reversalStored.ReversedTransactionID,
+			"reversal must carry reversed_transaction_id FK to the original")
+		assert.Equal(t, origID, *reversalStored.ReversedTransactionID)
+	})
+}
+
+// TestReversalRejectsNonPosted verifies that an uncleared (pending) or
+// already-reversed transaction cannot be reversed; the system refuses
+// rather than silently producing a meaningless offset.
+func (ts *TransactionsModelSuite) TestReversalRejectsNonPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		pendingID := ts.uniqueTxnID("rev_pend", 0)
+		pending := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: pendingID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(50).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(50).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, pending)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: pendingID,
+		})
+		require.Error(t, err, "reversing a pending transaction must be rejected")
+
+		// And the same after marking it reversed: double-reversal must fail.
+		postedID := ts.uniqueTxnID("rev_dbl", 0)
+		now := time.Now().UTC()
+		posted := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: postedID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err = res.TransactionBusiness.Transact(ctx, posted)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: postedID,
+		})
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: postedID,
+		})
+		require.Error(t, err, "second reversal on an already-reversed transaction must be rejected")
+	})
+}
+
+// TestVoidPendingTransaction proves a pending transaction can be voided
+// and the row carries the correct terminal status plus a non-zero
+// voided_at timestamp.
+func (ts *TransactionsModelSuite) TestVoidPendingTransaction() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("void_pending", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		voided, err := res.TransactionBusiness.VoidTransaction(ctx, txnID)
+		require.NoError(t, err)
+		require.NotNil(t, voided)
+		assert.Equal(t, models.TransactionStatusVoided, voided.Status)
+		require.NotNil(t, voided.VoidedAt)
+		assert.False(t, voided.VoidedAt.IsZero())
+	})
+}
+
+// TestVoidRejectsPosted proves voiding a posted transaction is rejected;
+// callers must reverse instead so the books carry an audit trail.
+func (ts *TransactionsModelSuite) TestVoidRejectsPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("void_posted", 0)
+		now := time.Now().UTC()
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.VoidTransaction(ctx, txnID)
+		require.Error(t, err, "voiding a posted transaction must be rejected")
+	})
+}
+
+// TestMarkFailedFromPendingThenRejectAgain proves a pending transaction
+// can be marked failed exactly once; subsequent attempts fail because the
+// source-state set no longer matches.
+func (ts *TransactionsModelSuite) TestMarkFailedFromPendingThenRejectAgain() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("mark_failed", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(40).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(40).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		failed, err := res.TransactionBusiness.MarkTransactionFailed(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusFailed, failed.Status)
+
+		_, err = res.TransactionBusiness.MarkTransactionFailed(ctx, txnID)
+		require.Error(t, err, "marking an already-failed transaction failed again must be rejected")
 	})
 }
 

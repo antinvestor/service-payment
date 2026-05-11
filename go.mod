@@ -8,8 +8,8 @@ require (
 	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.19.2-20260509050938-d9cba7559589.1
 	buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260509050938-d9cba7559589.1
 	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260509050709-3f270876dbf3.1
-	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260509050938-ad2e492b595a.1
-	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260509050938-ad2e492b595a.1
+	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260511161419-a9463f1bcd2f.1
+	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1
 	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.2-20260509050938-163a1062e27a.1
 	buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1
 	buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.2-20260415203305-aa11e5e50dc9.1
@@ -22,7 +22,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.2
-	github.com/pitabwire/frame v1.94.7
+	github.com/pitabwire/frame v1.95.0
 	github.com/pitabwire/util v0.9.0
 	github.com/pitabwire/util/decimalx v0.7.2
 	github.com/pitabwire/util/moneyx v0.9.0

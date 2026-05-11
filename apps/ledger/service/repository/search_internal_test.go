@@ -18,7 +18,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pitabwire/frame/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -301,42 +300,6 @@ func TestConvertRangesToSQL(t *testing.T) {
 	where, args := convertRangesToSQL(ranges)
 	assert.Len(t, where, 1)
 	assert.GreaterOrEqual(t, len(args), 2)
-}
-
-func TestBuildTenancyClause_NilClaims(t *testing.T) {
-	ctx := context.Background()
-	clause, args := buildTenancyClause(ctx, "a")
-	assert.Empty(t, clause)
-	assert.Nil(t, args)
-}
-
-func TestBuildTenancyClause_WithClaims(t *testing.T) {
-	claims := &security.AuthenticationClaims{
-		TenantID:    "tenant-1",
-		PartitionID: "partition-1",
-	}
-	ctx := claims.ClaimsToContext(context.Background())
-
-	clause, args := buildTenancyClause(ctx, "a")
-	assert.Contains(t, clause, "a.tenant_id = ?")
-	assert.Contains(t, clause, "a.partition_id = ?")
-	assert.Len(t, args, 2)
-	assert.Equal(t, "tenant-1", args[0])
-	assert.Equal(t, "partition-1", args[1])
-}
-
-func TestBuildTenancyClause_WithClaimsNoAlias(t *testing.T) {
-	claims := &security.AuthenticationClaims{
-		TenantID:    "tenant-2",
-		PartitionID: "partition-2",
-	}
-	ctx := claims.ClaimsToContext(context.Background())
-
-	clause, args := buildTenancyClause(ctx, "")
-	assert.Contains(t, clause, "tenant_id = ?")
-	assert.Contains(t, clause, "partition_id = ?")
-	assert.NotContains(t, clause, ".")
-	assert.Len(t, args, 2)
 }
 
 func TestJoinAND(t *testing.T) {

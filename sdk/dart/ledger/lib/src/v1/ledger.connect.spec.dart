@@ -115,4 +115,70 @@ abstract final class LedgerService {
     v1ledger.SearchTransactionEntriesResponse.new,
     idempotency: connect.Idempotency.noSideEffects,
   );
+
+  /// VoidTransaction transitions a draft or pending transaction to VOIDED.
+  /// Posted activity cannot be voided — reverse it instead so the books
+  /// carry the offset and the audit trail.
+  static const voidTransaction = connect.Spec(
+    '/$name/VoidTransaction',
+    connect.StreamType.unary,
+    v1ledger.VoidTransactionRequest.new,
+    v1ledger.VoidTransactionResponse.new,
+  );
+
+  /// MarkTransactionFailed transitions a pending transaction to FAILED for
+  /// upstream rejections (e.g. payment provider declined the webhook).
+  static const markTransactionFailed = connect.Spec(
+    '/$name/MarkTransactionFailed',
+    connect.StreamType.unary,
+    v1ledger.MarkTransactionFailedRequest.new,
+    v1ledger.MarkTransactionFailedResponse.new,
+  );
+
+  /// CreateBook creates a new accounting scope. Each book balances
+  /// independently; cross-book postings are rejected.
+  static const createBook = connect.Spec(
+    '/$name/CreateBook',
+    connect.StreamType.unary,
+    v1ledger.CreateBookRequest.new,
+    v1ledger.CreateBookResponse.new,
+  );
+
+  /// GetBook fetches a single book by id within the caller's tenancy.
+  static const getBook = connect.Spec(
+    '/$name/GetBook',
+    connect.StreamType.unary,
+    v1ledger.GetBookRequest.new,
+    v1ledger.GetBookResponse.new,
+    idempotency: connect.Idempotency.noSideEffects,
+  );
+
+  /// ListBooksByType returns all books of a given conventional type.
+  static const listBooksByType = connect.Spec(
+    '/$name/ListBooksByType',
+    connect.StreamType.unary,
+    v1ledger.ListBooksByTypeRequest.new,
+    v1ledger.ListBooksByTypeResponse.new,
+    idempotency: connect.Idempotency.noSideEffects,
+  );
+
+  /// GetTrialBalance returns the per-account debit/credit totals plus per-
+  /// currency grand totals with the textbook integrity check (is_balanced).
+  static const getTrialBalance = connect.Spec(
+    '/$name/GetTrialBalance',
+    connect.StreamType.unary,
+    v1ledger.GetTrialBalanceRequest.new,
+    v1ledger.GetTrialBalanceResponse.new,
+    idempotency: connect.Idempotency.noSideEffects,
+  );
+
+  /// GetAccountStatement returns a customer-facing account ledger for a
+  /// period with opening balance, running balance per entry, and totals.
+  static const getAccountStatement = connect.Spec(
+    '/$name/GetAccountStatement',
+    connect.StreamType.unary,
+    v1ledger.GetAccountStatementRequest.new,
+    v1ledger.GetAccountStatementResponse.new,
+    idempotency: connect.Idempotency.noSideEffects,
+  );
 }

@@ -74,6 +74,35 @@ class TransactionNotifier extends Notifier<AsyncValue<void>> {
       rethrow;
     }
   }
+
+  /// Void a draft or pending transaction. Posted activity cannot be
+  /// voided — reverse it instead so the books carry the audit trail.
+  Future<Transaction> voidTransaction(String id) async {
+    state = const AsyncValue.loading();
+    try {
+      final response =
+          await _client.voidTransaction(VoidTransactionRequest()..id = id);
+      state = const AsyncValue.data(null);
+      return response.data;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Mark a pending transaction failed (upstream rejection).
+  Future<Transaction> markFailed(String id) async {
+    state = const AsyncValue.loading();
+    try {
+      final response = await _client
+          .markTransactionFailed(MarkTransactionFailedRequest()..id = id);
+      state = const AsyncValue.data(null);
+      return response.data;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }
 
 final transactionNotifierProvider =

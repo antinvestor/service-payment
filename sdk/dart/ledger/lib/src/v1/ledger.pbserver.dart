@@ -33,6 +33,13 @@ abstract class LedgerServiceBase extends $pb.GeneratedService {
   $async.Future<$9.ReverseTransactionResponse> reverseTransaction($pb.ServerContext ctx, $9.ReverseTransactionRequest request);
   $async.Future<$9.UpdateTransactionResponse> updateTransaction($pb.ServerContext ctx, $9.UpdateTransactionRequest request);
   $async.Future<$9.SearchTransactionEntriesResponse> searchTransactionEntries($pb.ServerContext ctx, $8.SearchRequest request);
+  $async.Future<$9.VoidTransactionResponse> voidTransaction($pb.ServerContext ctx, $9.VoidTransactionRequest request);
+  $async.Future<$9.MarkTransactionFailedResponse> markTransactionFailed($pb.ServerContext ctx, $9.MarkTransactionFailedRequest request);
+  $async.Future<$9.CreateBookResponse> createBook($pb.ServerContext ctx, $9.CreateBookRequest request);
+  $async.Future<$9.GetBookResponse> getBook($pb.ServerContext ctx, $9.GetBookRequest request);
+  $async.Future<$9.ListBooksByTypeResponse> listBooksByType($pb.ServerContext ctx, $9.ListBooksByTypeRequest request);
+  $async.Future<$9.GetTrialBalanceResponse> getTrialBalance($pb.ServerContext ctx, $9.GetTrialBalanceRequest request);
+  $async.Future<$9.GetAccountStatementResponse> getAccountStatement($pb.ServerContext ctx, $9.GetAccountStatementRequest request);
 
   $pb.GeneratedMessage createRequest($core.String methodName) {
     switch (methodName) {
@@ -47,6 +54,13 @@ abstract class LedgerServiceBase extends $pb.GeneratedService {
       case 'ReverseTransaction': return $9.ReverseTransactionRequest();
       case 'UpdateTransaction': return $9.UpdateTransactionRequest();
       case 'SearchTransactionEntries': return $8.SearchRequest();
+      case 'VoidTransaction': return $9.VoidTransactionRequest();
+      case 'MarkTransactionFailed': return $9.MarkTransactionFailedRequest();
+      case 'CreateBook': return $9.CreateBookRequest();
+      case 'GetBook': return $9.GetBookRequest();
+      case 'ListBooksByType': return $9.ListBooksByTypeRequest();
+      case 'GetTrialBalance': return $9.GetTrialBalanceRequest();
+      case 'GetAccountStatement': return $9.GetAccountStatementRequest();
       default: throw $core.ArgumentError('Unknown method: $methodName');
     }
   }
@@ -64,6 +78,13 @@ abstract class LedgerServiceBase extends $pb.GeneratedService {
       case 'ReverseTransaction': return this.reverseTransaction(ctx, request as $9.ReverseTransactionRequest);
       case 'UpdateTransaction': return this.updateTransaction(ctx, request as $9.UpdateTransactionRequest);
       case 'SearchTransactionEntries': return this.searchTransactionEntries(ctx, request as $8.SearchRequest);
+      case 'VoidTransaction': return this.voidTransaction(ctx, request as $9.VoidTransactionRequest);
+      case 'MarkTransactionFailed': return this.markTransactionFailed(ctx, request as $9.MarkTransactionFailedRequest);
+      case 'CreateBook': return this.createBook(ctx, request as $9.CreateBookRequest);
+      case 'GetBook': return this.getBook(ctx, request as $9.GetBookRequest);
+      case 'ListBooksByType': return this.listBooksByType(ctx, request as $9.ListBooksByTypeRequest);
+      case 'GetTrialBalance': return this.getTrialBalance(ctx, request as $9.GetTrialBalanceRequest);
+      case 'GetAccountStatement': return this.getAccountStatement(ctx, request as $9.GetAccountStatementRequest);
       default: throw $core.ArgumentError('Unknown method: $methodName');
     }
   }

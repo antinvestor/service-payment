@@ -427,3 +427,48 @@ func (as *AccountBusinessSuite) TestUpdateAccount() {
 		assert.Equal(t, "Test category", updatedAccount.GetData().GetFields()["category"].GetStringValue())
 	})
 }
+
+// TestAccountTypeAndNormalBalanceAutoPopulated proves CreateAccount fills in
+// the new classification fields from the parent ledger's type without
+// requiring callers to know the chart-of-accounts convention. Assets become
+// debit-normal; income becomes credit-normal.
+func (as *AccountBusinessSuite) TestAccountTypeAndNormalBalanceAutoPopulated() {
+	as.WithTestDependencies(as.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := as.CreateService(t, depOpt)
+		as.setupFixtures(ctx, res)
+
+		_, err := res.LedgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id: "tlnorm-income", Type: ledgerv1.LedgerType_INCOME,
+		})
+		require.NoError(t, err)
+
+		assetAcc := &ledgerv1.CreateAccountRequest{
+			Id:       "tlnorm-asset-acc",
+			LedgerId: "test-ledger",
+			Currency: "UGX",
+		}
+		_, err = res.AccountBusiness.CreateAccount(ctx, assetAcc)
+		require.NoError(t, err)
+
+		incomeAcc := &ledgerv1.CreateAccountRequest{
+			Id:       "tlnorm-income-acc",
+			LedgerId: "tlnorm-income",
+			Currency: "UGX",
+		}
+		_, err = res.AccountBusiness.CreateAccount(ctx, incomeAcc)
+		require.NoError(t, err)
+
+		fetched, err := res.AccountRepository.ListByID(ctx, "tlnorm-asset-acc", "tlnorm-income-acc")
+		require.NoError(t, err)
+
+		asset := fetched["tlnorm-asset-acc"]
+		require.NotNil(t, asset)
+		assert.Equal(t, models.AccountTypeAsset, asset.AccountType)
+		assert.Equal(t, models.NormalBalanceDebit, asset.NormalBalance)
+
+		income := fetched["tlnorm-income-acc"]
+		require.NotNil(t, income)
+		assert.Equal(t, models.AccountTypeIncome, income.AccountType)
+		assert.Equal(t, models.NormalBalanceCredit, income.NormalBalance)
+	})
+}

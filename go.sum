@@ -4,10 +4,10 @@ buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260509050938-
 buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260509050938-d9cba7559589.1/go.mod h1:LBvCWKoBP+qcMvMJDcy3IDpo0Is/abhxFmobVfnGf7Q=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260509050709-3f270876dbf3.1 h1:B8kYvDw/nWj5TLW9vrl95Q5jpD3sSsM/MZa9nViUc/I=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260509050709-3f270876dbf3.1/go.mod h1:jRgXqWVsMsSV2ZDzo9s21a1fiAyyO68FibJVAGQzJoY=
-buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260509050938-ad2e492b595a.1 h1:A/6D8diF8a2F7c8Iv0mYLAeZZlc0amSNqQ4IRtSE/C4=
-buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260509050938-ad2e492b595a.1/go.mod h1:17GxhuAyLawTWMPJDmHBfZAbicpPBD2cgb5cZl2H5fw=
-buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260509050938-ad2e492b595a.1 h1:ZCeodEEoTQr6QiQD15Ixv3Y3Pm5NdXpjPIJBbO+IgHU=
-buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260509050938-ad2e492b595a.1/go.mod h1:f6HRnswwrB/pfixN3elxObPUC0rhYInyP7Z+IplLar0=
+buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260511161419-a9463f1bcd2f.1 h1:jFKz3uIzo8ZrEA7RzUj9HRsotEUDx0kLENHUma4GbNE=
+buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.19.2-20260511161419-a9463f1bcd2f.1/go.mod h1:qcd0BQudt7/ijzOoYNaDRlXi+6P9lGIjnOqL1K5pG6w=
+buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1 h1:c2wKBc4Uq4dY3O1oNRYC/BpMgn4VoWrxBSc6jAI/Bu0=
+buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1/go.mod h1:f6HRnswwrB/pfixN3elxObPUC0rhYInyP7Z+IplLar0=
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.2-20260509050938-163a1062e27a.1 h1:7A/ZwQQtkdFjWbXS5wzxMLZSS12gUCoWkKdYNyEOY4E=
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.2-20260509050938-163a1062e27a.1/go.mod h1:ec/1cl6CzfKM+o+K6otKnbwCTPEGTL36HoGVtEvAHos=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1 h1:X1XlgV37VxVcbpQLE4wGc89BRC7xn72vcLavl8p7jD8=
@@ -209,8 +209,8 @@ github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0 h1:huZxe
 github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0/go.mod h1:c2UboItfGpqIzXoXlxBRMCp3rQqO+Wx2ecsH25jcWxU=
 github.com/panjf2000/ants/v2 v2.12.0 h1:u9JhESo83i/GkZnhfTNuFMMWcNt7mnV1bGJ6FT4wXH8=
 github.com/panjf2000/ants/v2 v2.12.0/go.mod h1:tSQuaNQ6r6NRhPt+IZVUevvDyFMTs+eS4ztZc52uJTY=
-github.com/pitabwire/frame v1.94.7 h1:q9nnI79OX7YpVEdchS12VE4ZE37Rx0CVNfaoFJrA64M=
-github.com/pitabwire/frame v1.94.7/go.mod h1:VgKY5c3wGtl4ij4iIwUB3EdSXPPyV0Xj+PacmRIN38s=
+github.com/pitabwire/frame v1.95.0 h1:DfQ85WyPaRnFDSlN/IWsjJc8zBIeciiUjxNVEbqW338=
+github.com/pitabwire/frame v1.95.0/go.mod h1:VgKY5c3wGtl4ij4iIwUB3EdSXPPyV0Xj+PacmRIN38s=
 github.com/pitabwire/natspubsub v0.8.3 h1:VFc73S+qBgxKDgD1ZW6Hz/wKu/8ao/uA1JG38a7MWfc=
 github.com/pitabwire/natspubsub v0.8.3/go.mod h1:W5FT+Am26dmKAKYtMsKQfEeqEUi7O16bpl0UTFlQEA0=
 github.com/pitabwire/util v0.9.0 h1:fnlTAuWKqAjc6GalO+a7hMeo6g3fAv5yjmaP237ChP4=

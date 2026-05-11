@@ -25,7 +25,6 @@ import (
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
-	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
 )
@@ -44,6 +43,9 @@ const constAccountQuery = `SELECT
     COALESCE(bs.reserved_balance, 0) AS total_reserved_balance,
     a.ledger_id,
     a.ledger_type,
+    a.account_type,
+    a.normal_balance,
+    a.book_id,
     a.created_at,
     a.modified_at,
     a.version,
@@ -56,12 +58,11 @@ LEFT JOIN LATERAL (
     SELECT
         COALESCE(SUM(CASE
             WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
-                AND t.cleared_at IS NOT NULL
-                AND t.cleared_at != '0001-01-01 00:00:00'
+                AND t.status IN ('posted', 'reversed')
             THEN e.amount ELSE 0 END), 0) AS balance,
         COALESCE(SUM(CASE
             WHEN t.transaction_type IN ('NORMAL', 'REVERSAL')
-                AND (t.cleared_at IS NULL OR t.cleared_at = '0001-01-01 00:00:00')
+                AND t.status = 'pending'
             THEN e.amount ELSE 0 END), 0) AS un_cleared_balance,
         COALESCE(SUM(CASE
             WHEN t.transaction_type = 'RESERVATION'
@@ -76,6 +77,13 @@ type AccountRepository interface {
 	datastore.BaseRepository[*models.Account]
 	SearchAsESQ(ctx context.Context, query string) (workerpool.JobResultPipe[[]*models.Account], error)
 	ListByID(ctx context.Context, ids ...string) (map[string]*models.Account, error)
+	// ListMetaByID returns accounts hydrated with metadata (currency, ledger,
+	// ledger type, JSON data) only — without the LATERAL balance subquery
+	// used by SearchAsESQ. Use this on the posting hot path where Validate
+	// needs LedgerType/Currency but not Balance: recomputing every account's
+	// running balance on every Create wastes IO and limits posting throughput
+	// under concurrent load.
+	ListMetaByID(ctx context.Context, ids ...string) (map[string]*models.Account, error)
 	HasTransactionEntries(ctx context.Context, accountID string) (bool, error)
 	CountByLedgerID(ctx context.Context, ledgerID string) (int64, error)
 }
@@ -169,51 +177,23 @@ func (a *accountRepository) ListByID(
 	}
 }
 
-// buildTenancyClause returns a SQL WHERE fragment and args for tenant/partition
-// scoping, extracted from the authentication claims in the context.
-// When no claims are present (e.g. internal cross-tenant services), it returns
-// an empty clause so the query remains unscoped — matching frame's TenancyPartition behavior.
-func buildTenancyClause(ctx context.Context, tableAlias string) (string, []interface{}) {
-	authClaim := security.ClaimsFromContext(ctx)
-	if authClaim == nil || security.IsTenancyChecksOnClaimSkipped(ctx) {
-		return "", nil
-	}
-
-	prefix := ""
-	if tableAlias != "" {
-		prefix = tableAlias + "."
-	}
-
-	clause := fmt.Sprintf("%stenant_id = ? AND %spartition_id = ?", prefix, prefix)
-	return clause, []interface{}{authClaim.GetTenantID(), authClaim.GetPartitionID()}
-}
-
 func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Account, error) {
-	// Build WHERE clause combining tenancy scoping with the search conditions.
-	// Raw SQL bypasses GORM's automatic TenancyPartition scope, so we must
-	// inject tenant filtering explicitly.
+	// Tenancy is enforced at the DB layer by Row-Level Security on the
+	// accounts / transaction_entries / transactions tables. The Connect
+	// TenancyTxInterceptor opened a request-scoped transaction at the
+	// start of the RPC and published app.tenant_id / app.partition_id;
+	// Pool.DB(ctx, _) returns that transaction transparently here. The
+	// SQL therefore contains no tenant_id / partition_id references.
 	var whereParts []string
 	var allArgs []interface{}
 
-	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "a")
-	if tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		allArgs = append(allArgs, tenancyArgs...)
-	}
-
-	// Exclude soft-deleted accounts
 	whereParts = append(whereParts, "a.deleted_at IS NULL")
-
 	if sqlQuery.sql != "" {
 		whereParts = append(whereParts, sqlQuery.sql)
 		allArgs = append(allArgs, sqlQuery.args...)
 	}
 
-	whereClause := "1=1"
-	if len(whereParts) > 0 {
-		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
-	}
-
+	whereClause := fmt.Sprintf("(%s)", joinAND(whereParts))
 	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
 		constAccountQuery, whereClause)
 	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
@@ -222,22 +202,21 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 	if err != nil {
 		return nil, err
 	}
-
 	defer util.CloseAndLogOnError(ctx, rows, "could not close account rows")
 
 	var accountList []*models.Account
 	for rows.Next() {
 		acc := models.Account{}
-		err = rows.Scan(
+		if scanErr := rows.Scan(
 			&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
-			&acc.LedgerID, &acc.LedgerType, &acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
-			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt)
-		if err != nil {
-			return accountList, err
+			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
+			&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
+			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt,
+		); scanErr != nil {
+			return accountList, scanErr
 		}
 		accountList = append(accountList, &acc)
 	}
-
 	return accountList, nil
 }
 
@@ -283,6 +262,33 @@ func (a *accountRepository) paginateAccountSearch(
 		}
 	}
 	return nil
+}
+
+// ListMetaByID fetches account metadata (no balance) keyed by ID. Uses GORM's
+// query builder so tenancy and soft-delete scoping are applied automatically
+// via the pool's TenancyPartition scope and gorm.DeletedAt — no raw SQL,
+// no LATERAL subquery, no balance computation.
+func (a *accountRepository) ListMetaByID(
+	ctx context.Context,
+	ids ...string,
+) (map[string]*models.Account, error) {
+	if len(ids) == 0 {
+		return nil, apperrors.ErrAccountsNotFound.Extend("No Accounts were specified")
+	}
+
+	var accountList []*models.Account
+	err := a.Pool().DB(ctx, true).
+		Where("id IN ?", ids).
+		Find(&accountList).Error
+	if err != nil {
+		return nil, apperrors.ErrSystemFailure.Override(err)
+	}
+
+	accountsMap := make(map[string]*models.Account, len(accountList))
+	for _, acc := range accountList {
+		accountsMap[acc.ID] = acc
+	}
+	return accountsMap, nil
 }
 
 // HasTransactionEntries returns true if the account has any transaction entries.

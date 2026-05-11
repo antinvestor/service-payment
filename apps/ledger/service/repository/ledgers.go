@@ -54,27 +54,20 @@ const constLedgerQuery = `SELECT
 FROM ledgers l`
 
 func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Ledger, error) {
+	// Tenancy is enforced via RLS on the ledgers table. The Connect
+	// TenancyTxInterceptor opened a request-scoped transaction and
+	// published app.tenant_id / app.partition_id; Pool.DB(ctx, _)
+	// returns that bound transaction transparently here.
 	var whereParts []string
 	var allArgs []interface{}
 
-	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "l")
-	if tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		allArgs = append(allArgs, tenancyArgs...)
-	}
-
 	whereParts = append(whereParts, "l.deleted_at IS NULL")
-
 	if sqlQuery.sql != "" {
 		whereParts = append(whereParts, sqlQuery.sql)
 		allArgs = append(allArgs, sqlQuery.args...)
 	}
 
-	whereClause := "1=1"
-	if len(whereParts) > 0 {
-		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
-	}
-
+	whereClause := fmt.Sprintf("(%s)", joinAND(whereParts))
 	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
 		constLedgerQuery, whereClause)
 	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
@@ -83,22 +76,20 @@ func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQ
 	if err != nil {
 		return nil, err
 	}
-
 	defer util.CloseAndLogOnError(ctx, rows, "could not close ledger rows")
 
 	ledgerList := make([]*models.Ledger, 0)
 	for rows.Next() {
 		ledger := new(models.Ledger)
-		errR := rows.Scan(
+		if scanErr := rows.Scan(
 			&ledger.ID, &ledger.ParentID, &ledger.Type, &ledger.Data,
 			&ledger.CreatedAt, &ledger.ModifiedAt, &ledger.Version,
-			&ledger.TenantID, &ledger.PartitionID, &ledger.AccessID, &ledger.DeletedAt)
-		if errR != nil {
-			return ledgerList, errR
+			&ledger.TenantID, &ledger.PartitionID, &ledger.AccessID, &ledger.DeletedAt,
+		); scanErr != nil {
+			return ledgerList, scanErr
 		}
 		ledgerList = append(ledgerList, ledger)
 	}
-
 	return ledgerList, nil
 }
 

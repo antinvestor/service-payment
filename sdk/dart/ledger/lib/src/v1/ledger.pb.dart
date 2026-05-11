@@ -29,6 +29,7 @@ class Ledger extends $pb.GeneratedMessage {
     LedgerType? type,
     $core.String? parent,
     $6.Struct? data,
+    $core.String? bookId,
   }) {
     final $result = create();
     if (id != null) {
@@ -43,6 +44,9 @@ class Ledger extends $pb.GeneratedMessage {
     if (data != null) {
       $result.data = data;
     }
+    if (bookId != null) {
+      $result.bookId = bookId;
+    }
     return $result;
   }
   Ledger._() : super();
@@ -54,6 +58,7 @@ class Ledger extends $pb.GeneratedMessage {
     ..e<LedgerType>(2, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: LedgerType.ASSET, valueOf: LedgerType.valueOf, enumValues: LedgerType.values)
     ..aOS(3, _omitFieldNames ? '' : 'parent')
     ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
+    ..aOS(5, _omitFieldNames ? '' : 'bookId')
     ..hasRequiredFields = false
   ;
 
@@ -115,6 +120,15 @@ class Ledger extends $pb.GeneratedMessage {
   void clearData() => clearField(4);
   @$pb.TagNumber(4)
   $6.Struct ensureData() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $core.String get bookId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set bookId($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasBookId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearBookId() => clearField(5);
 }
 
 /// Account represents a specific account within a ledger.
@@ -127,6 +141,9 @@ class Account extends $pb.GeneratedMessage {
     $6.Struct? data,
     $7.Money? unclearedBalance,
     $7.Money? reservedBalance,
+    AccountType? accountType,
+    NormalBalance? normalBalance,
+    $core.String? bookId,
   }) {
     final $result = create();
     if (id != null) {
@@ -147,6 +164,15 @@ class Account extends $pb.GeneratedMessage {
     if (reservedBalance != null) {
       $result.reservedBalance = reservedBalance;
     }
+    if (accountType != null) {
+      $result.accountType = accountType;
+    }
+    if (normalBalance != null) {
+      $result.normalBalance = normalBalance;
+    }
+    if (bookId != null) {
+      $result.bookId = bookId;
+    }
     return $result;
   }
   Account._() : super();
@@ -160,6 +186,9 @@ class Account extends $pb.GeneratedMessage {
     ..aOM<$6.Struct>(5, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
     ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'unclearedBalance', subBuilder: $7.Money.create)
     ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'reservedBalance', subBuilder: $7.Money.create)
+    ..e<AccountType>(8, _omitFieldNames ? '' : 'accountType', $pb.PbFieldType.OE, defaultOrMaker: AccountType.ACCOUNT_ASSET, valueOf: AccountType.valueOf, enumValues: AccountType.values)
+    ..e<NormalBalance>(9, _omitFieldNames ? '' : 'normalBalance', $pb.PbFieldType.OE, defaultOrMaker: NormalBalance.DEBIT, valueOf: NormalBalance.valueOf, enumValues: NormalBalance.values)
+    ..aOS(10, _omitFieldNames ? '' : 'bookId')
     ..hasRequiredFields = false
   ;
 
@@ -245,6 +274,33 @@ class Account extends $pb.GeneratedMessage {
   void clearReservedBalance() => clearField(7);
   @$pb.TagNumber(7)
   $7.Money ensureReservedBalance() => $_ensure(5);
+
+  @$pb.TagNumber(8)
+  AccountType get accountType => $_getN(6);
+  @$pb.TagNumber(8)
+  set accountType(AccountType v) { setField(8, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasAccountType() => $_has(6);
+  @$pb.TagNumber(8)
+  void clearAccountType() => clearField(8);
+
+  @$pb.TagNumber(9)
+  NormalBalance get normalBalance => $_getN(7);
+  @$pb.TagNumber(9)
+  set normalBalance(NormalBalance v) { setField(9, v); }
+  @$pb.TagNumber(9)
+  $core.bool hasNormalBalance() => $_has(7);
+  @$pb.TagNumber(9)
+  void clearNormalBalance() => clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get bookId => $_getSZ(8);
+  @$pb.TagNumber(10)
+  set bookId($core.String v) { $_setString(8, v); }
+  @$pb.TagNumber(10)
+  $core.bool hasBookId() => $_has(8);
+  @$pb.TagNumber(10)
+  void clearBookId() => clearField(10);
 }
 
 /// TransactionEntry represents one side of a double-entry transaction.
@@ -412,6 +468,14 @@ class Transaction extends $pb.GeneratedMessage {
     $core.Iterable<TransactionEntry>? entries,
     $core.bool? cleared,
     TransactionType? type,
+    TransactionStatus? status,
+    $core.String? idempotencyKey,
+    $core.String? externalRef,
+    $core.String? source,
+    $core.String? bookId,
+    $core.String? postedAt,
+    $core.String? voidedAt,
+    $core.String? reversedTransactionId,
   }) {
     final $result = create();
     if (id != null) {
@@ -435,6 +499,30 @@ class Transaction extends $pb.GeneratedMessage {
     if (type != null) {
       $result.type = type;
     }
+    if (status != null) {
+      $result.status = status;
+    }
+    if (idempotencyKey != null) {
+      $result.idempotencyKey = idempotencyKey;
+    }
+    if (externalRef != null) {
+      $result.externalRef = externalRef;
+    }
+    if (source != null) {
+      $result.source = source;
+    }
+    if (bookId != null) {
+      $result.bookId = bookId;
+    }
+    if (postedAt != null) {
+      $result.postedAt = postedAt;
+    }
+    if (voidedAt != null) {
+      $result.voidedAt = voidedAt;
+    }
+    if (reversedTransactionId != null) {
+      $result.reversedTransactionId = reversedTransactionId;
+    }
     return $result;
   }
   Transaction._() : super();
@@ -449,6 +537,14 @@ class Transaction extends $pb.GeneratedMessage {
     ..pc<TransactionEntry>(5, _omitFieldNames ? '' : 'entries', $pb.PbFieldType.PM, subBuilder: TransactionEntry.create)
     ..aOB(6, _omitFieldNames ? '' : 'cleared')
     ..e<TransactionType>(7, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: TransactionType.NORMAL, valueOf: TransactionType.valueOf, enumValues: TransactionType.values)
+    ..e<TransactionStatus>(8, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: TransactionStatus.PENDING, valueOf: TransactionStatus.valueOf, enumValues: TransactionStatus.values)
+    ..aOS(9, _omitFieldNames ? '' : 'idempotencyKey')
+    ..aOS(10, _omitFieldNames ? '' : 'externalRef')
+    ..aOS(11, _omitFieldNames ? '' : 'source')
+    ..aOS(12, _omitFieldNames ? '' : 'bookId')
+    ..aOS(13, _omitFieldNames ? '' : 'postedAt')
+    ..aOS(14, _omitFieldNames ? '' : 'voidedAt')
+    ..aOS(15, _omitFieldNames ? '' : 'reversedTransactionId')
     ..hasRequiredFields = false
   ;
 
@@ -532,6 +628,617 @@ class Transaction extends $pb.GeneratedMessage {
   $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
   void clearType() => clearField(7);
+
+  @$pb.TagNumber(8)
+  TransactionStatus get status => $_getN(7);
+  @$pb.TagNumber(8)
+  set status(TransactionStatus v) { setField(8, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasStatus() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStatus() => clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get idempotencyKey => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set idempotencyKey($core.String v) { $_setString(8, v); }
+  @$pb.TagNumber(9)
+  $core.bool hasIdempotencyKey() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearIdempotencyKey() => clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get externalRef => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set externalRef($core.String v) { $_setString(9, v); }
+  @$pb.TagNumber(10)
+  $core.bool hasExternalRef() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearExternalRef() => clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get source => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set source($core.String v) { $_setString(10, v); }
+  @$pb.TagNumber(11)
+  $core.bool hasSource() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearSource() => clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get bookId => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set bookId($core.String v) { $_setString(11, v); }
+  @$pb.TagNumber(12)
+  $core.bool hasBookId() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearBookId() => clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get postedAt => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set postedAt($core.String v) { $_setString(12, v); }
+  @$pb.TagNumber(13)
+  $core.bool hasPostedAt() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearPostedAt() => clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.String get voidedAt => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set voidedAt($core.String v) { $_setString(13, v); }
+  @$pb.TagNumber(14)
+  $core.bool hasVoidedAt() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearVoidedAt() => clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.String get reversedTransactionId => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set reversedTransactionId($core.String v) { $_setString(14, v); }
+  @$pb.TagNumber(15)
+  $core.bool hasReversedTransactionId() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearReversedTransactionId() => clearField(15);
+}
+
+/// Book is an independent accounting scope — one entity's complete set of
+/// financial records. Examples by convention: "platform" (the company's own
+/// book), "group" (a savings group / chama / SACCO / branch), "customer"
+/// (an individual member), "merchant", "agent". Type is a free-form string
+/// so product domains can grow new entity classifications without a
+/// migration. ParentID supports hierarchy (organisation → groups → members)
+/// for consolidated reporting; cross-book posting remains strict regardless.
+class Book extends $pb.GeneratedMessage {
+  factory Book({
+    $core.String? id,
+    $core.String? name,
+    $core.String? type,
+    $core.String? parentId,
+    $core.String? currency,
+    $6.Struct? data,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    if (name != null) {
+      $result.name = name;
+    }
+    if (type != null) {
+      $result.type = type;
+    }
+    if (parentId != null) {
+      $result.parentId = parentId;
+    }
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  Book._() : super();
+  factory Book.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory Book.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Book', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'type')
+    ..aOS(4, _omitFieldNames ? '' : 'parentId')
+    ..aOS(5, _omitFieldNames ? '' : 'currency')
+    ..aOM<$6.Struct>(6, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  Book clone() => Book()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  Book copyWith(void Function(Book) updates) => super.copyWith((message) => updates(message as Book)) as Book;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static Book create() => Book._();
+  Book createEmptyInstance() => create();
+  static $pb.PbList<Book> createRepeated() => $pb.PbList<Book>();
+  @$core.pragma('dart2js:noInline')
+  static Book getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Book>(create);
+  static Book? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get type => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set type($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearType() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get parentId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set parentId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasParentId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearParentId() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get currency => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set currency($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasCurrency() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCurrency() => clearField(5);
+
+  @$pb.TagNumber(6)
+  $6.Struct get data => $_getN(5);
+  @$pb.TagNumber(6)
+  set data($6.Struct v) { setField(6, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasData() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearData() => clearField(6);
+  @$pb.TagNumber(6)
+  $6.Struct ensureData() => $_ensure(5);
+}
+
+/// TrialBalanceLine is one row of the trial balance — a single account's
+/// raw debit and credit totals plus the DEADCLIC-signed net balance.
+class TrialBalanceLine extends $pb.GeneratedMessage {
+  factory TrialBalanceLine({
+    $core.String? accountId,
+    $core.String? ledgerId,
+    LedgerType? ledgerType,
+    $core.String? currency,
+    $7.Money? totalDebits,
+    $7.Money? totalCredits,
+    $7.Money? netBalance,
+  }) {
+    final $result = create();
+    if (accountId != null) {
+      $result.accountId = accountId;
+    }
+    if (ledgerId != null) {
+      $result.ledgerId = ledgerId;
+    }
+    if (ledgerType != null) {
+      $result.ledgerType = ledgerType;
+    }
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (totalDebits != null) {
+      $result.totalDebits = totalDebits;
+    }
+    if (totalCredits != null) {
+      $result.totalCredits = totalCredits;
+    }
+    if (netBalance != null) {
+      $result.netBalance = netBalance;
+    }
+    return $result;
+  }
+  TrialBalanceLine._() : super();
+  factory TrialBalanceLine.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TrialBalanceLine.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrialBalanceLine', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'accountId')
+    ..aOS(2, _omitFieldNames ? '' : 'ledgerId')
+    ..e<LedgerType>(3, _omitFieldNames ? '' : 'ledgerType', $pb.PbFieldType.OE, defaultOrMaker: LedgerType.ASSET, valueOf: LedgerType.valueOf, enumValues: LedgerType.values)
+    ..aOS(4, _omitFieldNames ? '' : 'currency')
+    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'netBalance', subBuilder: $7.Money.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  TrialBalanceLine clone() => TrialBalanceLine()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  TrialBalanceLine copyWith(void Function(TrialBalanceLine) updates) => super.copyWith((message) => updates(message as TrialBalanceLine)) as TrialBalanceLine;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TrialBalanceLine create() => TrialBalanceLine._();
+  TrialBalanceLine createEmptyInstance() => create();
+  static $pb.PbList<TrialBalanceLine> createRepeated() => $pb.PbList<TrialBalanceLine>();
+  @$core.pragma('dart2js:noInline')
+  static TrialBalanceLine getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceLine>(create);
+  static TrialBalanceLine? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get accountId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set accountId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasAccountId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccountId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get ledgerId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set ledgerId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasLedgerId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLedgerId() => clearField(2);
+
+  @$pb.TagNumber(3)
+  LedgerType get ledgerType => $_getN(2);
+  @$pb.TagNumber(3)
+  set ledgerType(LedgerType v) { setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasLedgerType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLedgerType() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get currency => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set currency($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasCurrency() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCurrency() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $7.Money get totalDebits => $_getN(4);
+  @$pb.TagNumber(5)
+  set totalDebits($7.Money v) { setField(5, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTotalDebits() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTotalDebits() => clearField(5);
+  @$pb.TagNumber(5)
+  $7.Money ensureTotalDebits() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  $7.Money get totalCredits => $_getN(5);
+  @$pb.TagNumber(6)
+  set totalCredits($7.Money v) { setField(6, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasTotalCredits() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTotalCredits() => clearField(6);
+  @$pb.TagNumber(6)
+  $7.Money ensureTotalCredits() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  $7.Money get netBalance => $_getN(6);
+  @$pb.TagNumber(7)
+  set netBalance($7.Money v) { setField(7, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasNetBalance() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearNetBalance() => clearField(7);
+  @$pb.TagNumber(7)
+  $7.Money ensureNetBalance() => $_ensure(6);
+}
+
+/// TrialBalanceTotal aggregates one currency's debits and credits across
+/// every line in the report. is_balanced is the textbook integrity check.
+class TrialBalanceTotal extends $pb.GeneratedMessage {
+  factory TrialBalanceTotal({
+    $core.String? currency,
+    $7.Money? totalDebits,
+    $7.Money? totalCredits,
+    $core.bool? isBalanced,
+  }) {
+    final $result = create();
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (totalDebits != null) {
+      $result.totalDebits = totalDebits;
+    }
+    if (totalCredits != null) {
+      $result.totalCredits = totalCredits;
+    }
+    if (isBalanced != null) {
+      $result.isBalanced = isBalanced;
+    }
+    return $result;
+  }
+  TrialBalanceTotal._() : super();
+  factory TrialBalanceTotal.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TrialBalanceTotal.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrialBalanceTotal', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'currency')
+    ..aOM<$7.Money>(2, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(3, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
+    ..aOB(4, _omitFieldNames ? '' : 'isBalanced')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  TrialBalanceTotal clone() => TrialBalanceTotal()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  TrialBalanceTotal copyWith(void Function(TrialBalanceTotal) updates) => super.copyWith((message) => updates(message as TrialBalanceTotal)) as TrialBalanceTotal;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TrialBalanceTotal create() => TrialBalanceTotal._();
+  TrialBalanceTotal createEmptyInstance() => create();
+  static $pb.PbList<TrialBalanceTotal> createRepeated() => $pb.PbList<TrialBalanceTotal>();
+  @$core.pragma('dart2js:noInline')
+  static TrialBalanceTotal getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceTotal>(create);
+  static TrialBalanceTotal? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get currency => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set currency($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCurrency() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrency() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $7.Money get totalDebits => $_getN(1);
+  @$pb.TagNumber(2)
+  set totalDebits($7.Money v) { setField(2, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasTotalDebits() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTotalDebits() => clearField(2);
+  @$pb.TagNumber(2)
+  $7.Money ensureTotalDebits() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $7.Money get totalCredits => $_getN(2);
+  @$pb.TagNumber(3)
+  set totalCredits($7.Money v) { setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTotalCredits() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTotalCredits() => clearField(3);
+  @$pb.TagNumber(3)
+  $7.Money ensureTotalCredits() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $core.bool get isBalanced => $_getBF(3);
+  @$pb.TagNumber(4)
+  set isBalanced($core.bool v) { $_setBool(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasIsBalanced() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearIsBalanced() => clearField(4);
+}
+
+/// StatementEntry is one row on an account statement, hydrated with its
+/// parent transaction's metadata and the running balance after the entry.
+class StatementEntry extends $pb.GeneratedMessage {
+  factory StatementEntry({
+    $core.String? entryId,
+    $core.String? transactionId,
+    $core.String? transactedAt,
+    TransactionType? transactionType,
+    $7.Money? amount,
+    $core.bool? credit,
+    $7.Money? runningBalance,
+    $6.Struct? transactionData,
+    $core.String? clearedAt,
+  }) {
+    final $result = create();
+    if (entryId != null) {
+      $result.entryId = entryId;
+    }
+    if (transactionId != null) {
+      $result.transactionId = transactionId;
+    }
+    if (transactedAt != null) {
+      $result.transactedAt = transactedAt;
+    }
+    if (transactionType != null) {
+      $result.transactionType = transactionType;
+    }
+    if (amount != null) {
+      $result.amount = amount;
+    }
+    if (credit != null) {
+      $result.credit = credit;
+    }
+    if (runningBalance != null) {
+      $result.runningBalance = runningBalance;
+    }
+    if (transactionData != null) {
+      $result.transactionData = transactionData;
+    }
+    if (clearedAt != null) {
+      $result.clearedAt = clearedAt;
+    }
+    return $result;
+  }
+  StatementEntry._() : super();
+  factory StatementEntry.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory StatementEntry.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'StatementEntry', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'entryId')
+    ..aOS(2, _omitFieldNames ? '' : 'transactionId')
+    ..aOS(3, _omitFieldNames ? '' : 'transactedAt')
+    ..e<TransactionType>(4, _omitFieldNames ? '' : 'transactionType', $pb.PbFieldType.OE, defaultOrMaker: TransactionType.NORMAL, valueOf: TransactionType.valueOf, enumValues: TransactionType.values)
+    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aOB(6, _omitFieldNames ? '' : 'credit')
+    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'runningBalance', subBuilder: $7.Money.create)
+    ..aOM<$6.Struct>(8, _omitFieldNames ? '' : 'transactionData', subBuilder: $6.Struct.create)
+    ..aOS(9, _omitFieldNames ? '' : 'clearedAt')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  StatementEntry clone() => StatementEntry()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  StatementEntry copyWith(void Function(StatementEntry) updates) => super.copyWith((message) => updates(message as StatementEntry)) as StatementEntry;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static StatementEntry create() => StatementEntry._();
+  StatementEntry createEmptyInstance() => create();
+  static $pb.PbList<StatementEntry> createRepeated() => $pb.PbList<StatementEntry>();
+  @$core.pragma('dart2js:noInline')
+  static StatementEntry getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StatementEntry>(create);
+  static StatementEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get entryId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set entryId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasEntryId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEntryId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get transactionId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set transactionId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasTransactionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTransactionId() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get transactedAt => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set transactedAt($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTransactedAt() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTransactedAt() => clearField(3);
+
+  @$pb.TagNumber(4)
+  TransactionType get transactionType => $_getN(3);
+  @$pb.TagNumber(4)
+  set transactionType(TransactionType v) { setField(4, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasTransactionType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTransactionType() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $7.Money get amount => $_getN(4);
+  @$pb.TagNumber(5)
+  set amount($7.Money v) { setField(5, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasAmount() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAmount() => clearField(5);
+  @$pb.TagNumber(5)
+  $7.Money ensureAmount() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  $core.bool get credit => $_getBF(5);
+  @$pb.TagNumber(6)
+  set credit($core.bool v) { $_setBool(5, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasCredit() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCredit() => clearField(6);
+
+  @$pb.TagNumber(7)
+  $7.Money get runningBalance => $_getN(6);
+  @$pb.TagNumber(7)
+  set runningBalance($7.Money v) { setField(7, v); }
+  @$pb.TagNumber(7)
+  $core.bool hasRunningBalance() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRunningBalance() => clearField(7);
+  @$pb.TagNumber(7)
+  $7.Money ensureRunningBalance() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  $6.Struct get transactionData => $_getN(7);
+  @$pb.TagNumber(8)
+  set transactionData($6.Struct v) { setField(8, v); }
+  @$pb.TagNumber(8)
+  $core.bool hasTransactionData() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTransactionData() => clearField(8);
+  @$pb.TagNumber(8)
+  $6.Struct ensureTransactionData() => $_ensure(7);
+
+  @$pb.TagNumber(9)
+  $core.String get clearedAt => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set clearedAt($core.String v) { $_setString(8, v); }
+  @$pb.TagNumber(9)
+  $core.bool hasClearedAt() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearClearedAt() => clearField(9);
 }
 
 /// SearchLedgersResponse returns ledgers matching search criteria.
@@ -1672,6 +2379,979 @@ class SearchTransactionEntriesResponse extends $pb.GeneratedMessage {
   $core.List<TransactionEntry> get data => $_getList(0);
 }
 
+class CreateBookRequest extends $pb.GeneratedMessage {
+  factory CreateBookRequest({
+    $core.String? id,
+    $core.String? name,
+    $core.String? type,
+    $core.String? parentId,
+    $core.String? currency,
+    $6.Struct? data,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    if (name != null) {
+      $result.name = name;
+    }
+    if (type != null) {
+      $result.type = type;
+    }
+    if (parentId != null) {
+      $result.parentId = parentId;
+    }
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  CreateBookRequest._() : super();
+  factory CreateBookRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory CreateBookRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateBookRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'type')
+    ..aOS(4, _omitFieldNames ? '' : 'parentId')
+    ..aOS(5, _omitFieldNames ? '' : 'currency')
+    ..aOM<$6.Struct>(6, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  CreateBookRequest clone() => CreateBookRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  CreateBookRequest copyWith(void Function(CreateBookRequest) updates) => super.copyWith((message) => updates(message as CreateBookRequest)) as CreateBookRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateBookRequest create() => CreateBookRequest._();
+  CreateBookRequest createEmptyInstance() => create();
+  static $pb.PbList<CreateBookRequest> createRepeated() => $pb.PbList<CreateBookRequest>();
+  @$core.pragma('dart2js:noInline')
+  static CreateBookRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateBookRequest>(create);
+  static CreateBookRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get type => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set type($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearType() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get parentId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set parentId($core.String v) { $_setString(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasParentId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearParentId() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get currency => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set currency($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasCurrency() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCurrency() => clearField(5);
+
+  @$pb.TagNumber(6)
+  $6.Struct get data => $_getN(5);
+  @$pb.TagNumber(6)
+  set data($6.Struct v) { setField(6, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasData() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearData() => clearField(6);
+  @$pb.TagNumber(6)
+  $6.Struct ensureData() => $_ensure(5);
+}
+
+class CreateBookResponse extends $pb.GeneratedMessage {
+  factory CreateBookResponse({
+    Book? data,
+  }) {
+    final $result = create();
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  CreateBookResponse._() : super();
+  factory CreateBookResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory CreateBookResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateBookResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOM<Book>(1, _omitFieldNames ? '' : 'data', subBuilder: Book.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  CreateBookResponse clone() => CreateBookResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  CreateBookResponse copyWith(void Function(CreateBookResponse) updates) => super.copyWith((message) => updates(message as CreateBookResponse)) as CreateBookResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateBookResponse create() => CreateBookResponse._();
+  CreateBookResponse createEmptyInstance() => create();
+  static $pb.PbList<CreateBookResponse> createRepeated() => $pb.PbList<CreateBookResponse>();
+  @$core.pragma('dart2js:noInline')
+  static CreateBookResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateBookResponse>(create);
+  static CreateBookResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Book get data => $_getN(0);
+  @$pb.TagNumber(1)
+  set data(Book v) { setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearData() => clearField(1);
+  @$pb.TagNumber(1)
+  Book ensureData() => $_ensure(0);
+}
+
+class GetBookRequest extends $pb.GeneratedMessage {
+  factory GetBookRequest({
+    $core.String? id,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    return $result;
+  }
+  GetBookRequest._() : super();
+  factory GetBookRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetBookRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetBookRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetBookRequest clone() => GetBookRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetBookRequest copyWith(void Function(GetBookRequest) updates) => super.copyWith((message) => updates(message as GetBookRequest)) as GetBookRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetBookRequest create() => GetBookRequest._();
+  GetBookRequest createEmptyInstance() => create();
+  static $pb.PbList<GetBookRequest> createRepeated() => $pb.PbList<GetBookRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetBookRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookRequest>(create);
+  static GetBookRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => clearField(1);
+}
+
+class GetBookResponse extends $pb.GeneratedMessage {
+  factory GetBookResponse({
+    Book? data,
+  }) {
+    final $result = create();
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  GetBookResponse._() : super();
+  factory GetBookResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetBookResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetBookResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOM<Book>(1, _omitFieldNames ? '' : 'data', subBuilder: Book.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetBookResponse clone() => GetBookResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetBookResponse copyWith(void Function(GetBookResponse) updates) => super.copyWith((message) => updates(message as GetBookResponse)) as GetBookResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetBookResponse create() => GetBookResponse._();
+  GetBookResponse createEmptyInstance() => create();
+  static $pb.PbList<GetBookResponse> createRepeated() => $pb.PbList<GetBookResponse>();
+  @$core.pragma('dart2js:noInline')
+  static GetBookResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookResponse>(create);
+  static GetBookResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Book get data => $_getN(0);
+  @$pb.TagNumber(1)
+  set data(Book v) { setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearData() => clearField(1);
+  @$pb.TagNumber(1)
+  Book ensureData() => $_ensure(0);
+}
+
+class ListBooksByTypeRequest extends $pb.GeneratedMessage {
+  factory ListBooksByTypeRequest({
+    $core.String? type,
+  }) {
+    final $result = create();
+    if (type != null) {
+      $result.type = type;
+    }
+    return $result;
+  }
+  ListBooksByTypeRequest._() : super();
+  factory ListBooksByTypeRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ListBooksByTypeRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ListBooksByTypeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'type')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ListBooksByTypeRequest clone() => ListBooksByTypeRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ListBooksByTypeRequest copyWith(void Function(ListBooksByTypeRequest) updates) => super.copyWith((message) => updates(message as ListBooksByTypeRequest)) as ListBooksByTypeRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListBooksByTypeRequest create() => ListBooksByTypeRequest._();
+  ListBooksByTypeRequest createEmptyInstance() => create();
+  static $pb.PbList<ListBooksByTypeRequest> createRepeated() => $pb.PbList<ListBooksByTypeRequest>();
+  @$core.pragma('dart2js:noInline')
+  static ListBooksByTypeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeRequest>(create);
+  static ListBooksByTypeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get type => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set type($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearType() => clearField(1);
+}
+
+class ListBooksByTypeResponse extends $pb.GeneratedMessage {
+  factory ListBooksByTypeResponse({
+    $core.Iterable<Book>? data,
+  }) {
+    final $result = create();
+    if (data != null) {
+      $result.data.addAll(data);
+    }
+    return $result;
+  }
+  ListBooksByTypeResponse._() : super();
+  factory ListBooksByTypeResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory ListBooksByTypeResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ListBooksByTypeResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..pc<Book>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: Book.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  ListBooksByTypeResponse clone() => ListBooksByTypeResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  ListBooksByTypeResponse copyWith(void Function(ListBooksByTypeResponse) updates) => super.copyWith((message) => updates(message as ListBooksByTypeResponse)) as ListBooksByTypeResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ListBooksByTypeResponse create() => ListBooksByTypeResponse._();
+  ListBooksByTypeResponse createEmptyInstance() => create();
+  static $pb.PbList<ListBooksByTypeResponse> createRepeated() => $pb.PbList<ListBooksByTypeResponse>();
+  @$core.pragma('dart2js:noInline')
+  static ListBooksByTypeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeResponse>(create);
+  static ListBooksByTypeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<Book> get data => $_getList(0);
+}
+
+class GetTrialBalanceRequest extends $pb.GeneratedMessage {
+  factory GetTrialBalanceRequest({
+    $core.String? currency,
+    $core.String? ledgerId,
+    $core.String? ledgerType,
+    $core.Iterable<$core.String>? bookIds,
+    $core.String? asOf,
+  }) {
+    final $result = create();
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (ledgerId != null) {
+      $result.ledgerId = ledgerId;
+    }
+    if (ledgerType != null) {
+      $result.ledgerType = ledgerType;
+    }
+    if (bookIds != null) {
+      $result.bookIds.addAll(bookIds);
+    }
+    if (asOf != null) {
+      $result.asOf = asOf;
+    }
+    return $result;
+  }
+  GetTrialBalanceRequest._() : super();
+  factory GetTrialBalanceRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetTrialBalanceRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetTrialBalanceRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'currency')
+    ..aOS(2, _omitFieldNames ? '' : 'ledgerId')
+    ..aOS(3, _omitFieldNames ? '' : 'ledgerType')
+    ..pPS(4, _omitFieldNames ? '' : 'bookIds')
+    ..aOS(5, _omitFieldNames ? '' : 'asOf')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetTrialBalanceRequest clone() => GetTrialBalanceRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetTrialBalanceRequest copyWith(void Function(GetTrialBalanceRequest) updates) => super.copyWith((message) => updates(message as GetTrialBalanceRequest)) as GetTrialBalanceRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetTrialBalanceRequest create() => GetTrialBalanceRequest._();
+  GetTrialBalanceRequest createEmptyInstance() => create();
+  static $pb.PbList<GetTrialBalanceRequest> createRepeated() => $pb.PbList<GetTrialBalanceRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetTrialBalanceRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceRequest>(create);
+  static GetTrialBalanceRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get currency => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set currency($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCurrency() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrency() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get ledgerId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set ledgerId($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasLedgerId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLedgerId() => clearField(2);
+
+  /// ledger_type is a case-sensitive string filter ("ASSET", "LIABILITY",
+  /// "INCOME", "EXPENSE", "CAPITAL"). Empty means "no filter". A string is
+  /// used instead of the LedgerType enum so the caller can omit the filter
+  /// entirely — proto3 enums treat the zero value as both "unset" and the
+  /// first enum constant (ASSET in this codebase), which is ambiguous.
+  @$pb.TagNumber(3)
+  $core.String get ledgerType => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set ledgerType($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasLedgerType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLedgerType() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.List<$core.String> get bookIds => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $core.String get asOf => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set asOf($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasAsOf() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAsOf() => clearField(5);
+}
+
+class GetTrialBalanceResponse extends $pb.GeneratedMessage {
+  factory GetTrialBalanceResponse({
+    $core.Iterable<TrialBalanceLine>? lines,
+    $core.Iterable<TrialBalanceTotal>? totals,
+  }) {
+    final $result = create();
+    if (lines != null) {
+      $result.lines.addAll(lines);
+    }
+    if (totals != null) {
+      $result.totals.addAll(totals);
+    }
+    return $result;
+  }
+  GetTrialBalanceResponse._() : super();
+  factory GetTrialBalanceResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetTrialBalanceResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetTrialBalanceResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..pc<TrialBalanceLine>(1, _omitFieldNames ? '' : 'lines', $pb.PbFieldType.PM, subBuilder: TrialBalanceLine.create)
+    ..pc<TrialBalanceTotal>(2, _omitFieldNames ? '' : 'totals', $pb.PbFieldType.PM, subBuilder: TrialBalanceTotal.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetTrialBalanceResponse clone() => GetTrialBalanceResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetTrialBalanceResponse copyWith(void Function(GetTrialBalanceResponse) updates) => super.copyWith((message) => updates(message as GetTrialBalanceResponse)) as GetTrialBalanceResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetTrialBalanceResponse create() => GetTrialBalanceResponse._();
+  GetTrialBalanceResponse createEmptyInstance() => create();
+  static $pb.PbList<GetTrialBalanceResponse> createRepeated() => $pb.PbList<GetTrialBalanceResponse>();
+  @$core.pragma('dart2js:noInline')
+  static GetTrialBalanceResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceResponse>(create);
+  static GetTrialBalanceResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<TrialBalanceLine> get lines => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.List<TrialBalanceTotal> get totals => $_getList(1);
+}
+
+class GetAccountStatementRequest extends $pb.GeneratedMessage {
+  factory GetAccountStatementRequest({
+    $core.String? accountId,
+    $core.String? from,
+    $core.String? to,
+    $core.int? limit,
+    $core.int? offset,
+  }) {
+    final $result = create();
+    if (accountId != null) {
+      $result.accountId = accountId;
+    }
+    if (from != null) {
+      $result.from = from;
+    }
+    if (to != null) {
+      $result.to = to;
+    }
+    if (limit != null) {
+      $result.limit = limit;
+    }
+    if (offset != null) {
+      $result.offset = offset;
+    }
+    return $result;
+  }
+  GetAccountStatementRequest._() : super();
+  factory GetAccountStatementRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetAccountStatementRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetAccountStatementRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'accountId')
+    ..aOS(2, _omitFieldNames ? '' : 'from')
+    ..aOS(3, _omitFieldNames ? '' : 'to')
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
+    ..a<$core.int>(5, _omitFieldNames ? '' : 'offset', $pb.PbFieldType.O3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetAccountStatementRequest clone() => GetAccountStatementRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetAccountStatementRequest copyWith(void Function(GetAccountStatementRequest) updates) => super.copyWith((message) => updates(message as GetAccountStatementRequest)) as GetAccountStatementRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetAccountStatementRequest create() => GetAccountStatementRequest._();
+  GetAccountStatementRequest createEmptyInstance() => create();
+  static $pb.PbList<GetAccountStatementRequest> createRepeated() => $pb.PbList<GetAccountStatementRequest>();
+  @$core.pragma('dart2js:noInline')
+  static GetAccountStatementRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetAccountStatementRequest>(create);
+  static GetAccountStatementRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get accountId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set accountId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasAccountId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccountId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get from => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set from($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasFrom() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFrom() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get to => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set to($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasTo() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTo() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get limit => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set limit($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasLimit() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLimit() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get offset => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set offset($core.int v) { $_setSignedInt32(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasOffset() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearOffset() => clearField(5);
+}
+
+class GetAccountStatementResponse extends $pb.GeneratedMessage {
+  factory GetAccountStatementResponse({
+    $core.String? accountId,
+    $core.String? currency,
+    $7.Money? openingBalance,
+    $7.Money? closingBalance,
+    $7.Money? totalDebits,
+    $7.Money? totalCredits,
+    $core.Iterable<StatementEntry>? entries,
+  }) {
+    final $result = create();
+    if (accountId != null) {
+      $result.accountId = accountId;
+    }
+    if (currency != null) {
+      $result.currency = currency;
+    }
+    if (openingBalance != null) {
+      $result.openingBalance = openingBalance;
+    }
+    if (closingBalance != null) {
+      $result.closingBalance = closingBalance;
+    }
+    if (totalDebits != null) {
+      $result.totalDebits = totalDebits;
+    }
+    if (totalCredits != null) {
+      $result.totalCredits = totalCredits;
+    }
+    if (entries != null) {
+      $result.entries.addAll(entries);
+    }
+    return $result;
+  }
+  GetAccountStatementResponse._() : super();
+  factory GetAccountStatementResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GetAccountStatementResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetAccountStatementResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'accountId')
+    ..aOS(2, _omitFieldNames ? '' : 'currency')
+    ..aOM<$7.Money>(3, _omitFieldNames ? '' : 'openingBalance', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(4, _omitFieldNames ? '' : 'closingBalance', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
+    ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
+    ..pc<StatementEntry>(7, _omitFieldNames ? '' : 'entries', $pb.PbFieldType.PM, subBuilder: StatementEntry.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GetAccountStatementResponse clone() => GetAccountStatementResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GetAccountStatementResponse copyWith(void Function(GetAccountStatementResponse) updates) => super.copyWith((message) => updates(message as GetAccountStatementResponse)) as GetAccountStatementResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetAccountStatementResponse create() => GetAccountStatementResponse._();
+  GetAccountStatementResponse createEmptyInstance() => create();
+  static $pb.PbList<GetAccountStatementResponse> createRepeated() => $pb.PbList<GetAccountStatementResponse>();
+  @$core.pragma('dart2js:noInline')
+  static GetAccountStatementResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetAccountStatementResponse>(create);
+  static GetAccountStatementResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get accountId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set accountId($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasAccountId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccountId() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get currency => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set currency($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasCurrency() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCurrency() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $7.Money get openingBalance => $_getN(2);
+  @$pb.TagNumber(3)
+  set openingBalance($7.Money v) { setField(3, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasOpeningBalance() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOpeningBalance() => clearField(3);
+  @$pb.TagNumber(3)
+  $7.Money ensureOpeningBalance() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $7.Money get closingBalance => $_getN(3);
+  @$pb.TagNumber(4)
+  set closingBalance($7.Money v) { setField(4, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasClosingBalance() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearClosingBalance() => clearField(4);
+  @$pb.TagNumber(4)
+  $7.Money ensureClosingBalance() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $7.Money get totalDebits => $_getN(4);
+  @$pb.TagNumber(5)
+  set totalDebits($7.Money v) { setField(5, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTotalDebits() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTotalDebits() => clearField(5);
+  @$pb.TagNumber(5)
+  $7.Money ensureTotalDebits() => $_ensure(4);
+
+  @$pb.TagNumber(6)
+  $7.Money get totalCredits => $_getN(5);
+  @$pb.TagNumber(6)
+  set totalCredits($7.Money v) { setField(6, v); }
+  @$pb.TagNumber(6)
+  $core.bool hasTotalCredits() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTotalCredits() => clearField(6);
+  @$pb.TagNumber(6)
+  $7.Money ensureTotalCredits() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  $core.List<StatementEntry> get entries => $_getList(6);
+}
+
+class VoidTransactionRequest extends $pb.GeneratedMessage {
+  factory VoidTransactionRequest({
+    $core.String? id,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    return $result;
+  }
+  VoidTransactionRequest._() : super();
+  factory VoidTransactionRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory VoidTransactionRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VoidTransactionRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  VoidTransactionRequest clone() => VoidTransactionRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  VoidTransactionRequest copyWith(void Function(VoidTransactionRequest) updates) => super.copyWith((message) => updates(message as VoidTransactionRequest)) as VoidTransactionRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static VoidTransactionRequest create() => VoidTransactionRequest._();
+  VoidTransactionRequest createEmptyInstance() => create();
+  static $pb.PbList<VoidTransactionRequest> createRepeated() => $pb.PbList<VoidTransactionRequest>();
+  @$core.pragma('dart2js:noInline')
+  static VoidTransactionRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoidTransactionRequest>(create);
+  static VoidTransactionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => clearField(1);
+}
+
+class VoidTransactionResponse extends $pb.GeneratedMessage {
+  factory VoidTransactionResponse({
+    Transaction? data,
+  }) {
+    final $result = create();
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  VoidTransactionResponse._() : super();
+  factory VoidTransactionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory VoidTransactionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VoidTransactionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  VoidTransactionResponse clone() => VoidTransactionResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  VoidTransactionResponse copyWith(void Function(VoidTransactionResponse) updates) => super.copyWith((message) => updates(message as VoidTransactionResponse)) as VoidTransactionResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static VoidTransactionResponse create() => VoidTransactionResponse._();
+  VoidTransactionResponse createEmptyInstance() => create();
+  static $pb.PbList<VoidTransactionResponse> createRepeated() => $pb.PbList<VoidTransactionResponse>();
+  @$core.pragma('dart2js:noInline')
+  static VoidTransactionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoidTransactionResponse>(create);
+  static VoidTransactionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Transaction get data => $_getN(0);
+  @$pb.TagNumber(1)
+  set data(Transaction v) { setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearData() => clearField(1);
+  @$pb.TagNumber(1)
+  Transaction ensureData() => $_ensure(0);
+}
+
+class MarkTransactionFailedRequest extends $pb.GeneratedMessage {
+  factory MarkTransactionFailedRequest({
+    $core.String? id,
+  }) {
+    final $result = create();
+    if (id != null) {
+      $result.id = id;
+    }
+    return $result;
+  }
+  MarkTransactionFailedRequest._() : super();
+  factory MarkTransactionFailedRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MarkTransactionFailedRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MarkTransactionFailedRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MarkTransactionFailedRequest clone() => MarkTransactionFailedRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MarkTransactionFailedRequest copyWith(void Function(MarkTransactionFailedRequest) updates) => super.copyWith((message) => updates(message as MarkTransactionFailedRequest)) as MarkTransactionFailedRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkTransactionFailedRequest create() => MarkTransactionFailedRequest._();
+  MarkTransactionFailedRequest createEmptyInstance() => create();
+  static $pb.PbList<MarkTransactionFailedRequest> createRepeated() => $pb.PbList<MarkTransactionFailedRequest>();
+  @$core.pragma('dart2js:noInline')
+  static MarkTransactionFailedRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedRequest>(create);
+  static MarkTransactionFailedRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String v) { $_setString(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => clearField(1);
+}
+
+class MarkTransactionFailedResponse extends $pb.GeneratedMessage {
+  factory MarkTransactionFailedResponse({
+    Transaction? data,
+  }) {
+    final $result = create();
+    if (data != null) {
+      $result.data = data;
+    }
+    return $result;
+  }
+  MarkTransactionFailedResponse._() : super();
+  factory MarkTransactionFailedResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory MarkTransactionFailedResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MarkTransactionFailedResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  MarkTransactionFailedResponse clone() => MarkTransactionFailedResponse()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  MarkTransactionFailedResponse copyWith(void Function(MarkTransactionFailedResponse) updates) => super.copyWith((message) => updates(message as MarkTransactionFailedResponse)) as MarkTransactionFailedResponse;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkTransactionFailedResponse create() => MarkTransactionFailedResponse._();
+  MarkTransactionFailedResponse createEmptyInstance() => create();
+  static $pb.PbList<MarkTransactionFailedResponse> createRepeated() => $pb.PbList<MarkTransactionFailedResponse>();
+  @$core.pragma('dart2js:noInline')
+  static MarkTransactionFailedResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedResponse>(create);
+  static MarkTransactionFailedResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Transaction get data => $_getN(0);
+  @$pb.TagNumber(1)
+  set data(Transaction v) { setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasData() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearData() => clearField(1);
+  @$pb.TagNumber(1)
+  Transaction ensureData() => $_ensure(0);
+}
+
 class LedgerServiceApi {
   $pb.RpcClient _client;
   LedgerServiceApi(this._client);
@@ -1708,6 +3388,27 @@ class LedgerServiceApi {
   ;
   $async.Future<SearchTransactionEntriesResponse> searchTransactionEntries($pb.ClientContext? ctx, $8.SearchRequest request) =>
     _client.invoke<SearchTransactionEntriesResponse>(ctx, 'LedgerService', 'SearchTransactionEntries', request, SearchTransactionEntriesResponse())
+  ;
+  $async.Future<VoidTransactionResponse> voidTransaction($pb.ClientContext? ctx, VoidTransactionRequest request) =>
+    _client.invoke<VoidTransactionResponse>(ctx, 'LedgerService', 'VoidTransaction', request, VoidTransactionResponse())
+  ;
+  $async.Future<MarkTransactionFailedResponse> markTransactionFailed($pb.ClientContext? ctx, MarkTransactionFailedRequest request) =>
+    _client.invoke<MarkTransactionFailedResponse>(ctx, 'LedgerService', 'MarkTransactionFailed', request, MarkTransactionFailedResponse())
+  ;
+  $async.Future<CreateBookResponse> createBook($pb.ClientContext? ctx, CreateBookRequest request) =>
+    _client.invoke<CreateBookResponse>(ctx, 'LedgerService', 'CreateBook', request, CreateBookResponse())
+  ;
+  $async.Future<GetBookResponse> getBook($pb.ClientContext? ctx, GetBookRequest request) =>
+    _client.invoke<GetBookResponse>(ctx, 'LedgerService', 'GetBook', request, GetBookResponse())
+  ;
+  $async.Future<ListBooksByTypeResponse> listBooksByType($pb.ClientContext? ctx, ListBooksByTypeRequest request) =>
+    _client.invoke<ListBooksByTypeResponse>(ctx, 'LedgerService', 'ListBooksByType', request, ListBooksByTypeResponse())
+  ;
+  $async.Future<GetTrialBalanceResponse> getTrialBalance($pb.ClientContext? ctx, GetTrialBalanceRequest request) =>
+    _client.invoke<GetTrialBalanceResponse>(ctx, 'LedgerService', 'GetTrialBalance', request, GetTrialBalanceResponse())
+  ;
+  $async.Future<GetAccountStatementResponse> getAccountStatement($pb.ClientContext? ctx, GetAccountStatementRequest request) =>
+    _client.invoke<GetAccountStatementResponse>(ctx, 'LedgerService', 'GetAccountStatement', request, GetAccountStatementResponse())
   ;
 }
 

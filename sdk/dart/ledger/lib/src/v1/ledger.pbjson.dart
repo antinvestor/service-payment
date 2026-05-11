@@ -49,6 +49,66 @@ final $typed_data.Uint8List transactionTypeDescriptor = $convert.base64Decode(
     'Cg9UcmFuc2FjdGlvblR5cGUSCgoGTk9STUFMEAASDAoIUkVWRVJTQUwQARIPCgtSRVNFUlZBVE'
     'lPThAC');
 
+@$core.Deprecated('Use transactionStatusDescriptor instead')
+const TransactionStatus$json = {
+  '1': 'TransactionStatus',
+  '2': [
+    {'1': 'PENDING', '2': 0},
+    {'1': 'POSTED', '2': 1},
+    {'1': 'REVERSED', '2': 2},
+    {'1': 'VOIDED', '2': 3},
+    {'1': 'FAILED', '2': 4},
+    {'1': 'DRAFT', '2': 5},
+  ],
+};
+
+/// Descriptor for `TransactionStatus`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List transactionStatusDescriptor = $convert.base64Decode(
+    'ChFUcmFuc2FjdGlvblN0YXR1cxILCgdQRU5ESU5HEAASCgoGUE9TVEVEEAESDAoIUkVWRVJTRU'
+    'QQAhIKCgZWT0lERUQQAxIKCgZGQUlMRUQQBBIJCgVEUkFGVBAF');
+
+@$core.Deprecated('Use accountTypeDescriptor instead')
+const AccountType$json = {
+  '1': 'AccountType',
+  '2': [
+    {'1': 'ACCOUNT_ASSET', '2': 0},
+    {'1': 'ACCOUNT_LIABILITY', '2': 1},
+    {'1': 'ACCOUNT_EQUITY', '2': 2},
+    {'1': 'ACCOUNT_INCOME', '2': 3},
+    {'1': 'ACCOUNT_EXPENSE', '2': 4},
+    {'1': 'ACCOUNT_CONTRA_ASSET', '2': 5},
+    {'1': 'ACCOUNT_CONTRA_LIABILITY', '2': 6},
+    {'1': 'ACCOUNT_CONTRA_INCOME', '2': 7},
+    {'1': 'ACCOUNT_CONTRA_EXPENSE', '2': 8},
+    {'1': 'ACCOUNT_CLEARING', '2': 9},
+    {'1': 'ACCOUNT_SUSPENSE', '2': 10},
+    {'1': 'ACCOUNT_MEMO', '2': 11},
+  ],
+};
+
+/// Descriptor for `AccountType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List accountTypeDescriptor = $convert.base64Decode(
+    'CgtBY2NvdW50VHlwZRIRCg1BQ0NPVU5UX0FTU0VUEAASFQoRQUNDT1VOVF9MSUFCSUxJVFkQAR'
+    'ISCg5BQ0NPVU5UX0VRVUlUWRACEhIKDkFDQ09VTlRfSU5DT01FEAMSEwoPQUNDT1VOVF9FWFBF'
+    'TlNFEAQSGAoUQUNDT1VOVF9DT05UUkFfQVNTRVQQBRIcChhBQ0NPVU5UX0NPTlRSQV9MSUFCSU'
+    'xJVFkQBhIZChVBQ0NPVU5UX0NPTlRSQV9JTkNPTUUQBxIaChZBQ0NPVU5UX0NPTlRSQV9FWFBF'
+    'TlNFEAgSFAoQQUNDT1VOVF9DTEVBUklORxAJEhQKEEFDQ09VTlRfU1VTUEVOU0UQChIQCgxBQ0'
+    'NPVU5UX01FTU8QCw==');
+
+@$core.Deprecated('Use normalBalanceDescriptor instead')
+const NormalBalance$json = {
+  '1': 'NormalBalance',
+  '2': [
+    {'1': 'DEBIT', '2': 0},
+    {'1': 'CREDIT', '2': 1},
+    {'1': 'NONE', '2': 2},
+  ],
+};
+
+/// Descriptor for `NormalBalance`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List normalBalanceDescriptor = $convert.base64Decode(
+    'Cg1Ob3JtYWxCYWxhbmNlEgkKBURFQklUEAASCgoGQ1JFRElUEAESCAoETk9ORRAC');
+
 @$core.Deprecated('Use ledgerDescriptor instead')
 const Ledger$json = {
   '1': 'Ledger',
@@ -57,6 +117,7 @@ const Ledger$json = {
     {'1': 'type', '3': 2, '4': 1, '5': 14, '6': '.ledger.v1.LedgerType', '10': 'type'},
     {'1': 'parent', '3': 3, '4': 1, '5': 9, '10': 'parent'},
     {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {'1': 'book_id', '3': 5, '4': 1, '5': 9, '10': 'bookId'},
   ],
 };
 
@@ -64,7 +125,8 @@ const Ledger$json = {
 final $typed_data.Uint8List ledgerDescriptor = $convert.base64Decode(
     'CgZMZWRnZXISKwoCaWQYASABKAlCG7pIGHIWEAMYKDIQWzAtOWEtel8tXXszLDQwfVICaWQSKQ'
     'oEdHlwZRgCIAEoDjIVLmxlZGdlci52MS5MZWRnZXJUeXBlUgR0eXBlEhYKBnBhcmVudBgDIAEo'
-    'CVIGcGFyZW50EisKBGRhdGEYBCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0UgRkYXRh');
+    'CVIGcGFyZW50EisKBGRhdGEYBCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0UgRkYXRhEh'
+    'cKB2Jvb2tfaWQYBSABKAlSBmJvb2tJZA==');
 
 @$core.Deprecated('Use accountDescriptor instead')
 const Account$json = {
@@ -76,6 +138,9 @@ const Account$json = {
     {'1': 'data', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
     {'1': 'uncleared_balance', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unclearedBalance'},
     {'1': 'reserved_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'reservedBalance'},
+    {'1': 'account_type', '3': 8, '4': 1, '5': 14, '6': '.ledger.v1.AccountType', '10': 'accountType'},
+    {'1': 'normal_balance', '3': 9, '4': 1, '5': 14, '6': '.ledger.v1.NormalBalance', '10': 'normalBalance'},
+    {'1': 'book_id', '3': 10, '4': 1, '5': 9, '10': 'bookId'},
   ],
 };
 
@@ -85,8 +150,9 @@ final $typed_data.Uint8List accountDescriptor = $convert.base64Decode(
     'YKBmxlZGdlchgDIAEoCVIGbGVkZ2VyEioKB2JhbGFuY2UYBCABKAsyEC5jb21tb24udjEuTW9u'
     'ZXlSB2JhbGFuY2USKwoEZGF0YRgFIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdG'
     'ESPQoRdW5jbGVhcmVkX2JhbGFuY2UYBiABKAsyEC5jb21tb24udjEuTW9uZXlSEHVuY2xlYXJl'
-    'ZEJhbGFuY2USOwoQcmVzZXJ2ZWRfYmFsYW5jZRgHIAEoCzIQLmNvbW1vbi52MS5Nb25leVIPcm'
-    'VzZXJ2ZWRCYWxhbmNl');
+    'VzZXJ2ZWRCYWxhbmNlEjkKDGFjY291bnRfdHlwZRgIIAEoDjIWLmxlZGdlci52MS5BY2NvdW50'
+    'VHlwZVILYWNjb3VudFR5cGUSPwoObm9ybWFsX2JhbGFuY2UYCSABKA4yGC5sZWRnZXIudjEuTm'
+    '9ybWFsQmFsYW5jZVINbm9ybWFsQmFsYW5jZRIXCgdib29rX2lkGAogASgJUgZib29rSWQ=');
 
 @$core.Deprecated('Use transactionEntryDescriptor instead')
 const TransactionEntry$json = {
@@ -123,6 +189,14 @@ const Transaction$json = {
     {'1': 'entries', '3': 5, '4': 3, '5': 11, '6': '.ledger.v1.TransactionEntry', '10': 'entries'},
     {'1': 'cleared', '3': 6, '4': 1, '5': 8, '10': 'cleared'},
     {'1': 'type', '3': 7, '4': 1, '5': 14, '6': '.ledger.v1.TransactionType', '10': 'type'},
+    {'1': 'status', '3': 8, '4': 1, '5': 14, '6': '.ledger.v1.TransactionStatus', '10': 'status'},
+    {'1': 'idempotency_key', '3': 9, '4': 1, '5': 9, '10': 'idempotencyKey'},
+    {'1': 'external_ref', '3': 10, '4': 1, '5': 9, '10': 'externalRef'},
+    {'1': 'source', '3': 11, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'book_id', '3': 12, '4': 1, '5': 9, '10': 'bookId'},
+    {'1': 'posted_at', '3': 13, '4': 1, '5': 9, '10': 'postedAt'},
+    {'1': 'voided_at', '3': 14, '4': 1, '5': 9, '10': 'voidedAt'},
+    {'1': 'reversed_transaction_id', '3': 15, '4': 1, '5': 9, '10': 'reversedTransactionId'},
   ],
 };
 
@@ -132,8 +206,100 @@ final $typed_data.Uint8List transactionDescriptor = $convert.base64Decode(
     'VycmVuY3lDb2RlEiMKDXRyYW5zYWN0ZWRfYXQYAyABKAlSDHRyYW5zYWN0ZWRBdBIrCgRkYXRh'
     'GAQgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdFIEZGF0YRI1CgdlbnRyaWVzGAUgAygLMh'
     'subGVkZ2VyLnYxLlRyYW5zYWN0aW9uRW50cnlSB2VudHJpZXMSGAoHY2xlYXJlZBgGIAEoCFIH'
-    'Y2xlYXJlZBIuCgR0eXBlGAcgASgOMhoubGVkZ2VyLnYxLlRyYW5zYWN0aW9uVHlwZVIEdHlwZQ'
-    '==');
+    'Y2xlYXJlZBIuCgR0eXBlGAcgASgOMhoubGVkZ2VyLnYxLlRyYW5zYWN0aW9uVHlwZVIEdHlwZR'
+    'I0CgZzdGF0dXMYCCABKA4yHC5sZWRnZXIudjEuVHJhbnNhY3Rpb25TdGF0dXNSBnN0YXR1cxIn'
+    'Cg9pZGVtcG90ZW5jeV9rZXkYCSABKAlSDmlkZW1wb3RlbmN5S2V5EiEKDGV4dGVybmFsX3JlZh'
+    'gKIAEoCVILZXh0ZXJuYWxSZWYSFgoGc291cmNlGAsgASgJUgZzb3VyY2USFwoHYm9va19pZBgM'
+    'IAEoCVIGYm9va0lkEhsKCXBvc3RlZF9hdBgNIAEoCVIIcG9zdGVkQXQSGwoJdm9pZGVkX2F0GA'
+    '4gASgJUgh2b2lkZWRBdBI2ChdyZXZlcnNlZF90cmFuc2FjdGlvbl9pZBgPIAEoCVIVcmV2ZXJz'
+    'ZWRUcmFuc2FjdGlvbklk');
+
+@$core.Deprecated('Use bookDescriptor instead')
+const Book$json = {
+  '1': 'Book',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'type', '3': 3, '4': 1, '5': 9, '10': 'type'},
+    {'1': 'parent_id', '3': 4, '4': 1, '5': 9, '10': 'parentId'},
+    {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `Book`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List bookDescriptor = $convert.base64Decode(
+    'CgRCb29rEg4KAmlkGAEgASgJUgJpZBISCgRuYW1lGAIgASgJUgRuYW1lEhIKBHR5cGUYAyABKA'
+    'lSBHR5cGUSGwoJcGFyZW50X2lkGAQgASgJUghwYXJlbnRJZBIaCghjdXJyZW5jeRgFIAEoCVII'
+    'Y3VycmVuY3kSKwoEZGF0YRgGIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdGE=');
+
+@$core.Deprecated('Use trialBalanceLineDescriptor instead')
+const TrialBalanceLine$json = {
+  '1': 'TrialBalanceLine',
+  '2': [
+    {'1': 'account_id', '3': 1, '4': 1, '5': 9, '10': 'accountId'},
+    {'1': 'ledger_id', '3': 2, '4': 1, '5': 9, '10': 'ledgerId'},
+    {'1': 'ledger_type', '3': 3, '4': 1, '5': 14, '6': '.ledger.v1.LedgerType', '10': 'ledgerType'},
+    {'1': 'currency', '3': 4, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'total_debits', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
+    {'1': 'total_credits', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
+    {'1': 'net_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'netBalance'},
+  ],
+};
+
+/// Descriptor for `TrialBalanceLine`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List trialBalanceLineDescriptor = $convert.base64Decode(
+    'ChBUcmlhbEJhbGFuY2VMaW5lEh0KCmFjY291bnRfaWQYASABKAlSCWFjY291bnRJZBIbCglsZW'
+    'RnZXJfaWQYAiABKAlSCGxlZGdlcklkEjYKC2xlZGdlcl90eXBlGAMgASgOMhUubGVkZ2VyLnYx'
+    'LkxlZGdlclR5cGVSCmxlZGdlclR5cGUSGgoIY3VycmVuY3kYBCABKAlSCGN1cnJlbmN5EjMKDH'
+    'RvdGFsX2RlYml0cxgFIAEoCzIQLmNvbW1vbi52MS5Nb25leVILdG90YWxEZWJpdHMSNQoNdG90'
+    'YWxfY3JlZGl0cxgGIAEoCzIQLmNvbW1vbi52MS5Nb25leVIMdG90YWxDcmVkaXRzEjEKC25ldF'
+    '9iYWxhbmNlGAcgASgLMhAuY29tbW9uLnYxLk1vbmV5UgpuZXRCYWxhbmNl');
+
+@$core.Deprecated('Use trialBalanceTotalDescriptor instead')
+const TrialBalanceTotal$json = {
+  '1': 'TrialBalanceTotal',
+  '2': [
+    {'1': 'currency', '3': 1, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'total_debits', '3': 2, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
+    {'1': 'total_credits', '3': 3, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
+    {'1': 'is_balanced', '3': 4, '4': 1, '5': 8, '10': 'isBalanced'},
+  ],
+};
+
+/// Descriptor for `TrialBalanceTotal`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List trialBalanceTotalDescriptor = $convert.base64Decode(
+    'ChFUcmlhbEJhbGFuY2VUb3RhbBIaCghjdXJyZW5jeRgBIAEoCVIIY3VycmVuY3kSMwoMdG90YW'
+    'xfZGViaXRzGAIgASgLMhAuY29tbW9uLnYxLk1vbmV5Ugt0b3RhbERlYml0cxI1Cg10b3RhbF9j'
+    'cmVkaXRzGAMgASgLMhAuY29tbW9uLnYxLk1vbmV5Ugx0b3RhbENyZWRpdHMSHwoLaXNfYmFsYW'
+    '5jZWQYBCABKAhSCmlzQmFsYW5jZWQ=');
+
+@$core.Deprecated('Use statementEntryDescriptor instead')
+const StatementEntry$json = {
+  '1': 'StatementEntry',
+  '2': [
+    {'1': 'entry_id', '3': 1, '4': 1, '5': 9, '10': 'entryId'},
+    {'1': 'transaction_id', '3': 2, '4': 1, '5': 9, '10': 'transactionId'},
+    {'1': 'transacted_at', '3': 3, '4': 1, '5': 9, '10': 'transactedAt'},
+    {'1': 'transaction_type', '3': 4, '4': 1, '5': 14, '6': '.ledger.v1.TransactionType', '10': 'transactionType'},
+    {'1': 'amount', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {'1': 'credit', '3': 6, '4': 1, '5': 8, '10': 'credit'},
+    {'1': 'running_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'runningBalance'},
+    {'1': 'transaction_data', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'transactionData'},
+    {'1': 'cleared_at', '3': 9, '4': 1, '5': 9, '10': 'clearedAt'},
+  ],
+};
+
+/// Descriptor for `StatementEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List statementEntryDescriptor = $convert.base64Decode(
+    'Cg5TdGF0ZW1lbnRFbnRyeRIZCghlbnRyeV9pZBgBIAEoCVIHZW50cnlJZBIlCg50cmFuc2FjdG'
+    'lvbl9pZBgCIAEoCVINdHJhbnNhY3Rpb25JZBIjCg10cmFuc2FjdGVkX2F0GAMgASgJUgx0cmFu'
+    'c2FjdGVkQXQSRQoQdHJhbnNhY3Rpb25fdHlwZRgEIAEoDjIaLmxlZGdlci52MS5UcmFuc2FjdG'
+    'lvblR5cGVSD3RyYW5zYWN0aW9uVHlwZRIoCgZhbW91bnQYBSABKAsyEC5jb21tb24udjEuTW9u'
+    'ZXlSBmFtb3VudBIWCgZjcmVkaXQYBiABKAhSBmNyZWRpdBI5Cg9ydW5uaW5nX2JhbGFuY2UYBy'
+    'ABKAsyEC5jb21tb24udjEuTW9uZXlSDnJ1bm5pbmdCYWxhbmNlEkIKEHRyYW5zYWN0aW9uX2Rh'
+    'dGEYCCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Ug90cmFuc2FjdGlvbkRhdGESHQoKY2'
+    'xlYXJlZF9hdBgJIAEoCVIJY2xlYXJlZEF0');
 
 @$core.Deprecated('Use searchLedgersResponseDescriptor instead')
 const SearchLedgersResponse$json = {
@@ -395,6 +561,213 @@ final $typed_data.Uint8List searchTransactionEntriesResponseDescriptor = $conver
     'CiBTZWFyY2hUcmFuc2FjdGlvbkVudHJpZXNSZXNwb25zZRIvCgRkYXRhGAEgAygLMhsubGVkZ2'
     'VyLnYxLlRyYW5zYWN0aW9uRW50cnlSBGRhdGE=');
 
+@$core.Deprecated('Use createBookRequestDescriptor instead')
+const CreateBookRequest$json = {
+  '1': 'CreateBookRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'type', '3': 3, '4': 1, '5': 9, '10': 'type'},
+    {'1': 'parent_id', '3': 4, '4': 1, '5': 9, '10': 'parentId'},
+    {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `CreateBookRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createBookRequestDescriptor = $convert.base64Decode(
+    'ChFDcmVhdGVCb29rUmVxdWVzdBIuCgJpZBgBIAEoCUIeukgb2AEBchYQAxgoMhBbMC05YS16Xy'
+    '1dezMsNDB9UgJpZBISCgRuYW1lGAIgASgJUgRuYW1lEhIKBHR5cGUYAyABKAlSBHR5cGUSGwoJ'
+    'cGFyZW50X2lkGAQgASgJUghwYXJlbnRJZBIaCghjdXJyZW5jeRgFIAEoCVIIY3VycmVuY3kSKw'
+    'oEZGF0YRgGIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdGE=');
+
+@$core.Deprecated('Use createBookResponseDescriptor instead')
+const CreateBookResponse$json = {
+  '1': 'CreateBookResponse',
+  '2': [
+    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `CreateBookResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createBookResponseDescriptor = $convert.base64Decode(
+    'ChJDcmVhdGVCb29rUmVzcG9uc2USIwoEZGF0YRgBIAEoCzIPLmxlZGdlci52MS5Cb29rUgRkYX'
+    'Rh');
+
+@$core.Deprecated('Use getBookRequestDescriptor instead')
+const GetBookRequest$json = {
+  '1': 'GetBookRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `GetBookRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getBookRequestDescriptor = $convert.base64Decode(
+    'Cg5HZXRCb29rUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+
+@$core.Deprecated('Use getBookResponseDescriptor instead')
+const GetBookResponse$json = {
+  '1': 'GetBookResponse',
+  '2': [
+    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `GetBookResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getBookResponseDescriptor = $convert.base64Decode(
+    'Cg9HZXRCb29rUmVzcG9uc2USIwoEZGF0YRgBIAEoCzIPLmxlZGdlci52MS5Cb29rUgRkYXRh');
+
+@$core.Deprecated('Use listBooksByTypeRequestDescriptor instead')
+const ListBooksByTypeRequest$json = {
+  '1': 'ListBooksByTypeRequest',
+  '2': [
+    {'1': 'type', '3': 1, '4': 1, '5': 9, '10': 'type'},
+  ],
+};
+
+/// Descriptor for `ListBooksByTypeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listBooksByTypeRequestDescriptor = $convert.base64Decode(
+    'ChZMaXN0Qm9va3NCeVR5cGVSZXF1ZXN0EhIKBHR5cGUYASABKAlSBHR5cGU=');
+
+@$core.Deprecated('Use listBooksByTypeResponseDescriptor instead')
+const ListBooksByTypeResponse$json = {
+  '1': 'ListBooksByTypeResponse',
+  '2': [
+    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `ListBooksByTypeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listBooksByTypeResponseDescriptor = $convert.base64Decode(
+    'ChdMaXN0Qm9va3NCeVR5cGVSZXNwb25zZRIjCgRkYXRhGAEgAygLMg8ubGVkZ2VyLnYxLkJvb2'
+    'tSBGRhdGE=');
+
+@$core.Deprecated('Use getTrialBalanceRequestDescriptor instead')
+const GetTrialBalanceRequest$json = {
+  '1': 'GetTrialBalanceRequest',
+  '2': [
+    {'1': 'currency', '3': 1, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'ledger_id', '3': 2, '4': 1, '5': 9, '10': 'ledgerId'},
+    {'1': 'ledger_type', '3': 3, '4': 1, '5': 9, '10': 'ledgerType'},
+    {'1': 'book_ids', '3': 4, '4': 3, '5': 9, '10': 'bookIds'},
+    {'1': 'as_of', '3': 5, '4': 1, '5': 9, '10': 'asOf'},
+  ],
+};
+
+/// Descriptor for `GetTrialBalanceRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getTrialBalanceRequestDescriptor = $convert.base64Decode(
+    'ChZHZXRUcmlhbEJhbGFuY2VSZXF1ZXN0EhoKCGN1cnJlbmN5GAEgASgJUghjdXJyZW5jeRIbCg'
+    'lsZWRnZXJfaWQYAiABKAlSCGxlZGdlcklkEh8KC2xlZGdlcl90eXBlGAMgASgJUgpsZWRnZXJU'
+    'eXBlEhkKCGJvb2tfaWRzGAQgAygJUgdib29rSWRzEhMKBWFzX29mGAUgASgJUgRhc09m');
+
+@$core.Deprecated('Use getTrialBalanceResponseDescriptor instead')
+const GetTrialBalanceResponse$json = {
+  '1': 'GetTrialBalanceResponse',
+  '2': [
+    {'1': 'lines', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.TrialBalanceLine', '10': 'lines'},
+    {'1': 'totals', '3': 2, '4': 3, '5': 11, '6': '.ledger.v1.TrialBalanceTotal', '10': 'totals'},
+  ],
+};
+
+/// Descriptor for `GetTrialBalanceResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getTrialBalanceResponseDescriptor = $convert.base64Decode(
+    'ChdHZXRUcmlhbEJhbGFuY2VSZXNwb25zZRIxCgVsaW5lcxgBIAMoCzIbLmxlZGdlci52MS5Ucm'
+    'lhbEJhbGFuY2VMaW5lUgVsaW5lcxI0CgZ0b3RhbHMYAiADKAsyHC5sZWRnZXIudjEuVHJpYWxC'
+    'YWxhbmNlVG90YWxSBnRvdGFscw==');
+
+@$core.Deprecated('Use getAccountStatementRequestDescriptor instead')
+const GetAccountStatementRequest$json = {
+  '1': 'GetAccountStatementRequest',
+  '2': [
+    {'1': 'account_id', '3': 1, '4': 1, '5': 9, '10': 'accountId'},
+    {'1': 'from', '3': 2, '4': 1, '5': 9, '10': 'from'},
+    {'1': 'to', '3': 3, '4': 1, '5': 9, '10': 'to'},
+    {'1': 'limit', '3': 4, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'offset', '3': 5, '4': 1, '5': 5, '10': 'offset'},
+  ],
+};
+
+/// Descriptor for `GetAccountStatementRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getAccountStatementRequestDescriptor = $convert.base64Decode(
+    'ChpHZXRBY2NvdW50U3RhdGVtZW50UmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJUglhY2NvdW'
+    '50SWQSEgoEZnJvbRgCIAEoCVIEZnJvbRIOCgJ0bxgDIAEoCVICdG8SFAoFbGltaXQYBCABKAVS'
+    'BWxpbWl0EhYKBm9mZnNldBgFIAEoBVIGb2Zmc2V0');
+
+@$core.Deprecated('Use getAccountStatementResponseDescriptor instead')
+const GetAccountStatementResponse$json = {
+  '1': 'GetAccountStatementResponse',
+  '2': [
+    {'1': 'account_id', '3': 1, '4': 1, '5': 9, '10': 'accountId'},
+    {'1': 'currency', '3': 2, '4': 1, '5': 9, '10': 'currency'},
+    {'1': 'opening_balance', '3': 3, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'openingBalance'},
+    {'1': 'closing_balance', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'closingBalance'},
+    {'1': 'total_debits', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
+    {'1': 'total_credits', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
+    {'1': 'entries', '3': 7, '4': 3, '5': 11, '6': '.ledger.v1.StatementEntry', '10': 'entries'},
+  ],
+};
+
+/// Descriptor for `GetAccountStatementResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getAccountStatementResponseDescriptor = $convert.base64Decode(
+    'ChtHZXRBY2NvdW50U3RhdGVtZW50UmVzcG9uc2USHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3'
+    'VudElkEhoKCGN1cnJlbmN5GAIgASgJUghjdXJyZW5jeRI5Cg9vcGVuaW5nX2JhbGFuY2UYAyAB'
+    'KAsyEC5jb21tb24udjEuTW9uZXlSDm9wZW5pbmdCYWxhbmNlEjkKD2Nsb3NpbmdfYmFsYW5jZR'
+    'gEIAEoCzIQLmNvbW1vbi52MS5Nb25leVIOY2xvc2luZ0JhbGFuY2USMwoMdG90YWxfZGViaXRz'
+    'GAUgASgLMhAuY29tbW9uLnYxLk1vbmV5Ugt0b3RhbERlYml0cxI1Cg10b3RhbF9jcmVkaXRzGA'
+    'YgASgLMhAuY29tbW9uLnYxLk1vbmV5Ugx0b3RhbENyZWRpdHMSMwoHZW50cmllcxgHIAMoCzIZ'
+    'LmxlZGdlci52MS5TdGF0ZW1lbnRFbnRyeVIHZW50cmllcw==');
+
+@$core.Deprecated('Use voidTransactionRequestDescriptor instead')
+const VoidTransactionRequest$json = {
+  '1': 'VoidTransactionRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `VoidTransactionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List voidTransactionRequestDescriptor = $convert.base64Decode(
+    'ChZWb2lkVHJhbnNhY3Rpb25SZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
+
+@$core.Deprecated('Use voidTransactionResponseDescriptor instead')
+const VoidTransactionResponse$json = {
+  '1': 'VoidTransactionResponse',
+  '2': [
+    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `VoidTransactionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List voidTransactionResponseDescriptor = $convert.base64Decode(
+    'ChdWb2lkVHJhbnNhY3Rpb25SZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLnYxLlRyYW'
+    '5zYWN0aW9uUgRkYXRh');
+
+@$core.Deprecated('Use markTransactionFailedRequestDescriptor instead')
+const MarkTransactionFailedRequest$json = {
+  '1': 'MarkTransactionFailedRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `MarkTransactionFailedRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List markTransactionFailedRequestDescriptor = $convert.base64Decode(
+    'ChxNYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
+
+@$core.Deprecated('Use markTransactionFailedResponseDescriptor instead')
+const MarkTransactionFailedResponse$json = {
+  '1': 'MarkTransactionFailedResponse',
+  '2': [
+    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+  ],
+};
+
+/// Descriptor for `MarkTransactionFailedResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List markTransactionFailedResponseDescriptor = $convert.base64Decode(
+    'Ch1NYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLn'
+    'YxLlRyYW5zYWN0aW9uUgRkYXRh');
+
 const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
   '1': 'LedgerService',
   '2': [
@@ -433,6 +806,33 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
+    {'1': 'VoidTransaction', '2': '.ledger.v1.VoidTransactionRequest', '3': '.ledger.v1.VoidTransactionResponse', '4': {}},
+    {'1': 'MarkTransactionFailed', '2': '.ledger.v1.MarkTransactionFailedRequest', '3': '.ledger.v1.MarkTransactionFailedResponse', '4': {}},
+    {'1': 'CreateBook', '2': '.ledger.v1.CreateBookRequest', '3': '.ledger.v1.CreateBookResponse', '4': {}},
+    {
+      '1': 'GetBook',
+      '2': '.ledger.v1.GetBookRequest',
+      '3': '.ledger.v1.GetBookResponse',
+      '4': {'34': 1},
+    },
+    {
+      '1': 'ListBooksByType',
+      '2': '.ledger.v1.ListBooksByTypeRequest',
+      '3': '.ledger.v1.ListBooksByTypeResponse',
+      '4': {'34': 1},
+    },
+    {
+      '1': 'GetTrialBalance',
+      '2': '.ledger.v1.GetTrialBalanceRequest',
+      '3': '.ledger.v1.GetTrialBalanceResponse',
+      '4': {'34': 1},
+    },
+    {
+      '1': 'GetAccountStatement',
+      '2': '.ledger.v1.GetAccountStatementRequest',
+      '3': '.ledger.v1.GetAccountStatementResponse',
+      '4': {'34': 1},
+    },
   ],
   '3': {},
 };
@@ -468,6 +868,24 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> LedgerServ
   '.ledger.v1.UpdateTransactionRequest': UpdateTransactionRequest$json,
   '.ledger.v1.UpdateTransactionResponse': UpdateTransactionResponse$json,
   '.ledger.v1.SearchTransactionEntriesResponse': SearchTransactionEntriesResponse$json,
+  '.ledger.v1.VoidTransactionRequest': VoidTransactionRequest$json,
+  '.ledger.v1.VoidTransactionResponse': VoidTransactionResponse$json,
+  '.ledger.v1.MarkTransactionFailedRequest': MarkTransactionFailedRequest$json,
+  '.ledger.v1.MarkTransactionFailedResponse': MarkTransactionFailedResponse$json,
+  '.ledger.v1.CreateBookRequest': CreateBookRequest$json,
+  '.ledger.v1.CreateBookResponse': CreateBookResponse$json,
+  '.ledger.v1.Book': Book$json,
+  '.ledger.v1.GetBookRequest': GetBookRequest$json,
+  '.ledger.v1.GetBookResponse': GetBookResponse$json,
+  '.ledger.v1.ListBooksByTypeRequest': ListBooksByTypeRequest$json,
+  '.ledger.v1.ListBooksByTypeResponse': ListBooksByTypeResponse$json,
+  '.ledger.v1.GetTrialBalanceRequest': GetTrialBalanceRequest$json,
+  '.ledger.v1.GetTrialBalanceResponse': GetTrialBalanceResponse$json,
+  '.ledger.v1.TrialBalanceLine': TrialBalanceLine$json,
+  '.ledger.v1.TrialBalanceTotal': TrialBalanceTotal$json,
+  '.ledger.v1.GetAccountStatementRequest': GetAccountStatementRequest$json,
+  '.ledger.v1.GetAccountStatementResponse': GetAccountStatementResponse$json,
+  '.ledger.v1.StatementEntry': StatementEntry$json,
 };
 
 /// Descriptor for `LedgerService`. Decode as a `google.protobuf.ServiceDescriptorProto`.
@@ -537,16 +955,63 @@ final $typed_data.Uint8List ledgerServiceDescriptor = $convert.base64Decode(
     'dGlvbiBlbnRyaWVzLiBVc2VmdWwgZm9yIGdlbmVyYXRpbmcgYWNjb3VudCBzdGF0ZW1lbnRzLC'
     'ByZWNvbmNpbGlhdGlvbiwgYW5kIGRldGFpbGVkIHRyYW5zYWN0aW9uIGFuYWx5c2lzLiBTdXBw'
     'b3J0cyBmaWx0ZXJpbmcgYnkgYWNjb3VudCwgZGF0ZSByYW5nZSwgYW5kIGNsZWFyZWQgc3RhdH'
-    'VzLioYc2VhcmNoVHJhbnNhY3Rpb25FbnRyaWVzgrUYEgoQdHJhbnNhY3Rpb25fdmlldzABGsgE'
-    'grUYwwQKDnNlcnZpY2VfbGVkZ2VyEgtsZWRnZXJfdmlldxINbGVkZ2VyX21hbmFnZRIMYWNjb3'
-    'VudF92aWV3Eg5hY2NvdW50X21hbmFnZRIQdHJhbnNhY3Rpb25fdmlldxISdHJhbnNhY3Rpb25f'
-    'bWFuYWdlGmIIARILbGVkZ2VyX3ZpZXcSDWxlZGdlcl9tYW5hZ2USDGFjY291bnRfdmlldxIOYW'
-    'Njb3VudF9tYW5hZ2USEHRyYW5zYWN0aW9uX3ZpZXcSEnRyYW5zYWN0aW9uX21hbmFnZRpiCAIS'
-    'C2xlZGdlcl92aWV3Eg1sZWRnZXJfbWFuYWdlEgxhY2NvdW50X3ZpZXcSDmFjY291bnRfbWFuYW'
-    'dlEhB0cmFuc2FjdGlvbl92aWV3EhJ0cmFuc2FjdGlvbl9tYW5hZ2UaQwgDEgtsZWRnZXJfdmll'
-    'dxIMYWNjb3VudF92aWV3EhB0cmFuc2FjdGlvbl92aWV3EhJ0cmFuc2FjdGlvbl9tYW5hZ2UaLw'
-    'gEEgtsZWRnZXJfdmlldxIMYWNjb3VudF92aWV3EhB0cmFuc2FjdGlvbl92aWV3Gi8IBRILbGVk'
-    'Z2VyX3ZpZXcSDGFjY291bnRfdmlldxIQdHJhbnNhY3Rpb25fdmlldxpiCAYSC2xlZGdlcl92aW'
-    'V3Eg1sZWRnZXJfbWFuYWdlEgxhY2NvdW50X3ZpZXcSDmFjY291bnRfbWFuYWdlEhB0cmFuc2Fj'
-    'dGlvbl92aWV3EhJ0cmFuc2FjdGlvbl9tYW5hZ2U=');
+    'VzLioYc2VhcmNoVHJhbnNhY3Rpb25FbnRyaWVzgrUYEgoQdHJhbnNhY3Rpb25fdmlldzABEvIC'
+    'Cg9Wb2lkVHJhbnNhY3Rpb24SIS5sZWRnZXIudjEuVm9pZFRyYW5zYWN0aW9uUmVxdWVzdBoiLm'
+    'xlZGdlci52MS5Wb2lkVHJhbnNhY3Rpb25SZXNwb25zZSKXArpH+wEKDFRyYW5zYWN0aW9ucxIh'
+    'Vm9pZCBhIG5vdC15ZXQtcG9zdGVkIHRyYW5zYWN0aW9uGrYBVHJhbnNpdGlvbnMgYSBkcmFmdC'
+    'BvciBwZW5kaW5nIHRyYW5zYWN0aW9uIHRvIFZPSURFRCBhbmQgc3RhbXBzIHZvaWRlZF9hdC4g'
+    'UG9zdGVkIHRyYW5zYWN0aW9ucyBjYW5ub3QgYmUgdm9pZGVkOyB1c2UgUmV2ZXJzZVRyYW5zYW'
+    'N0aW9uIHNvIHRoZSBib29rcyBjYXJyeSB0aGUgb2Zmc2V0IGFuZCBhdWRpdCB0cmFpbC4qD3Zv'
+    'aWRUcmFuc2FjdGlvboK1GBQKEnRyYW5zYWN0aW9uX21hbmFnZRKOAwoVTWFya1RyYW5zYWN0aW'
+    '9uRmFpbGVkEicubGVkZ2VyLnYxLk1hcmtUcmFuc2FjdGlvbkZhaWxlZFJlcXVlc3QaKC5sZWRn'
+    'ZXIudjEuTWFya1RyYW5zYWN0aW9uRmFpbGVkUmVzcG9uc2UioQK6R4UCCgxUcmFuc2FjdGlvbn'
+    'MSIU1hcmsgYSBwZW5kaW5nIHRyYW5zYWN0aW9uIGZhaWxlZBq6AVRyYW5zaXRpb25zIGEgcGVu'
+    'ZGluZyB0cmFuc2FjdGlvbiB0byBGQUlMRUQuIFVzZSB3aGVuIHRoZSB1cHN0cmVhbSBwYXltZW'
+    '50IHByb3ZpZGVyIHJlamVjdHMgdGhlIHBvc3RpbmcuIFBvc3RlZCwgdm9pZGVkLCByZXZlcnNl'
+    'ZCBhbmQgYWxyZWFkeS1mYWlsZWQgdHJhbnNhY3Rpb25zIGNhbm5vdCBiZSBtYXJrZWQgZmFpbG'
+    'VkLioVbWFya1RyYW5zYWN0aW9uRmFpbGVkgrUYFAoSdHJhbnNhY3Rpb25fbWFuYWdlEocDCgpD'
+    'cmVhdGVCb29rEhwubGVkZ2VyLnYxLkNyZWF0ZUJvb2tSZXF1ZXN0Gh0ubGVkZ2VyLnYxLkNyZW'
+    'F0ZUJvb2tSZXNwb25zZSK7ArpHpgIKBUJvb2tzEhFDcmVhdGUgYSBuZXcgYm9vaxr9AUNyZWF0'
+    'ZXMgYSBuZXcgYWNjb3VudGluZyBzY29wZS4gQm9va3MgcmVwcmVzZW50IGluZGVwZW5kZW50IG'
+    'FjY291bnRpbmcgZW50aXRpZXMgKHBsYXRmb3JtIGJvb2ssIGdyb3VwIGJvb2ssIG1lcmNoYW50'
+    'IGJvb2ssIGV0Yy4pLiBPcHRpb25hbCBwYXJlbnRfaWQgc3VwcG9ydHMgaGllcmFyY2h5IGZvci'
+    'Bjb25zb2xpZGF0ZWQgcmVwb3J0aW5nOyBjcm9zcy1ib29rIHBvc3RpbmdzIGFyZSByZWplY3Rl'
+    'ZCByZWdhcmRsZXNzIG9mIGhpZXJhcmNoeS4qCmNyZWF0ZUJvb2uCtRgNCgtib29rX21hbmFnZR'
+    'K8AQoHR2V0Qm9vaxIZLmxlZGdlci52MS5HZXRCb29rUmVxdWVzdBoaLmxlZGdlci52MS5HZXRC'
+    'b29rUmVzcG9uc2UiepACAbpHZQoFQm9va3MSEEdldCBhIGJvb2sgYnkgaWQaQVJldHJpZXZlcy'
+    'B0aGUgYm9vayB3aXRoIHRoZSBnaXZlbiBpZCB3aXRoaW4gdGhlIGNhbGxlcidzIHRlbmFuY3ku'
+    'KgdnZXRCb29rgrUYCwoJYm9va192aWV3EqICCg9MaXN0Qm9va3NCeVR5cGUSIS5sZWRnZXIudj'
+    'EuTGlzdEJvb2tzQnlUeXBlUmVxdWVzdBoiLmxlZGdlci52MS5MaXN0Qm9va3NCeVR5cGVSZXNw'
+    'b25zZSLHAZACAbpHsQEKBUJvb2tzEhJMaXN0IGJvb2tzIGJ5IHR5cGUaggFSZXR1cm5zIGFsbC'
+    'BhY3RpdmUgYm9va3Mgb2YgdGhlIHN1cHBsaWVkIGNvbnZlbnRpb25hbCB0eXBlIChlLmcuIGFs'
+    'bCBncm91cCBib29rcywgYWxsIG1lcmNoYW50IGJvb2tzKSB3aXRoaW4gdGhlIGNhbGxlcidzIH'
+    'RlbmFuY3kuKg9saXN0Qm9va3NCeVR5cGWCtRgLCglib29rX3ZpZXcS9wIKD0dldFRyaWFsQmFs'
+    'YW5jZRIhLmxlZGdlci52MS5HZXRUcmlhbEJhbGFuY2VSZXF1ZXN0GiIubGVkZ2VyLnYxLkdldF'
+    'RyaWFsQmFsYW5jZVJlc3BvbnNlIpwCkAIBukeEAgoHUmVwb3J0cxIRR2V0IHRyaWFsIGJhbGFu'
+    'Y2Ua1AFDb21wdXRlcyB0aGUgdHJpYWwgYmFsYW5jZSBhY3Jvc3MgY2xlYXJlZCBOT1JNQUwgYW'
+    '5kIFJFVkVSU0FMIHRyYW5zYWN0aW9ucy4gT3B0aW9uYWwgZmlsdGVycyBzY29wZSB0byBjdXJy'
+    'ZW5jeSwgbGVkZ2VyLCBsZWRnZXIgdHlwZSwgYm9vayBzZXQgKGV4cGFuZCB2aWEgTGlzdEJvb2'
+    'tEZXNjZW5kYW50cyBmb3IgY29uc29saWRhdGlvbiksIGFuZCBhbiBhcy1vZiBkYXRlLioPZ2V0'
+    'VHJpYWxCYWxhbmNlgrUYDQoLcmVwb3J0X3ZpZXcS1gIKE0dldEFjY291bnRTdGF0ZW1lbnQSJS'
+    '5sZWRnZXIudjEuR2V0QWNjb3VudFN0YXRlbWVudFJlcXVlc3QaJi5sZWRnZXIudjEuR2V0QWNj'
+    'b3VudFN0YXRlbWVudFJlc3BvbnNlIu8BkAIBukfXAQoHUmVwb3J0cxIYR2V0IGFuIGFjY291bn'
+    'Qgc3RhdGVtZW50GpwBUmV0dXJucyB0aGUgYWNjb3VudCdzIGVudHJpZXMgaW4gY2hyb25vbG9n'
+    'aWNhbCBvcmRlciB3aXRoIHJ1bm5pbmcgYmFsYW5jZSBwZXIgZW50cnksIG9wZW5pbmcgYW5kIG'
+    'Nsb3NpbmcgYmFsYW5jZXMsIGFuZCB0aGUgcGVyaW9kJ3MgcmF3IGRlYml0L2NyZWRpdCB0b3Rh'
+    'bHMuKhNnZXRBY2NvdW50U3RhdGVtZW50grUYDQoLcmVwb3J0X3ZpZXcapwaCtRiiBgoOc2Vydm'
+    'ljZV9sZWRnZXISC2xlZGdlcl92aWV3Eg1sZWRnZXJfbWFuYWdlEgxhY2NvdW50X3ZpZXcSDmFj'
+    'Y291bnRfbWFuYWdlEhB0cmFuc2FjdGlvbl92aWV3EhJ0cmFuc2FjdGlvbl9tYW5hZ2USCWJvb2'
+    'tfdmlldxILYm9va19tYW5hZ2USC3JlcG9ydF92aWV3GocBCAESC2xlZGdlcl92aWV3Eg1sZWRn'
+    'ZXJfbWFuYWdlEgxhY2NvdW50X3ZpZXcSDmFjY291bnRfbWFuYWdlEhB0cmFuc2FjdGlvbl92aW'
+    'V3EhJ0cmFuc2FjdGlvbl9tYW5hZ2USCWJvb2tfdmlldxILYm9va19tYW5hZ2USC3JlcG9ydF92'
+    'aWV3GocBCAISC2xlZGdlcl92aWV3Eg1sZWRnZXJfbWFuYWdlEgxhY2NvdW50X3ZpZXcSDmFjY2'
+    '91bnRfbWFuYWdlEhB0cmFuc2FjdGlvbl92aWV3EhJ0cmFuc2FjdGlvbl9tYW5hZ2USCWJvb2tf'
+    'dmlldxILYm9va19tYW5hZ2USC3JlcG9ydF92aWV3GlsIAxILbGVkZ2VyX3ZpZXcSDGFjY291bn'
+    'RfdmlldxIQdHJhbnNhY3Rpb25fdmlldxISdHJhbnNhY3Rpb25fbWFuYWdlEglib29rX3ZpZXcS'
+    'C3JlcG9ydF92aWV3GkcIBBILbGVkZ2VyX3ZpZXcSDGFjY291bnRfdmlldxIQdHJhbnNhY3Rpb2'
+    '5fdmlldxIJYm9va192aWV3EgtyZXBvcnRfdmlldxpHCAUSC2xlZGdlcl92aWV3EgxhY2NvdW50'
+    'X3ZpZXcSEHRyYW5zYWN0aW9uX3ZpZXcSCWJvb2tfdmlldxILcmVwb3J0X3ZpZXcahwEIBhILbG'
+    'VkZ2VyX3ZpZXcSDWxlZGdlcl9tYW5hZ2USDGFjY291bnRfdmlldxIOYWNjb3VudF9tYW5hZ2US'
+    'EHRyYW5zYWN0aW9uX3ZpZXcSEnRyYW5zYWN0aW9uX21hbmFnZRIJYm9va192aWV3Egtib29rX2'
+    '1hbmFnZRILcmVwb3J0X3ZpZXc=');
 

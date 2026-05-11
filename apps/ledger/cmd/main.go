@@ -33,6 +33,7 @@ import (
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
@@ -72,13 +73,18 @@ func main() {
 	ledgerRepo := repository.NewLedgerRepository(ctx, dbPool, workMan)
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
 	transactionRepo := repository.NewTransactionRepository(ctx, dbPool, workMan, accountRepo)
+	reportRepo := repository.NewReportRepository(dbPool)
+	bookRepo := repository.NewBookRepository(ctx, dbPool, workMan)
 
 	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo, accountRepo)
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
+	reportBusiness := business.NewReportBusiness(reportRepo)
+	bookBusiness := business.NewBookBusiness(bookRepo)
 
 	// Create handler with injected business layer
-	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness)
+	ledgerServer := handlers.NewLedgerServer(
+		ledgerBusiness, accountBusiness, transactionBusiness, reportBusiness, bookBusiness)
 
 	// Handle database migration if requested
 	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
@@ -86,7 +92,7 @@ func main() {
 	}
 
 	// Setup Connect server with injected dependencies
-	connectHandler := setupConnectServer(ctx, service.SecurityManager(), ledgerServer)
+	connectHandler := setupConnectServer(ctx, service.SecurityManager(), dbPool, ledgerServer)
 
 	// Setup HTTP handlers and register permissions with Keto
 	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
@@ -124,6 +130,7 @@ func handleDatabaseMigration(
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
+	dbPool pool.Pool,
 	implementation ledgerv1connect.LedgerServiceHandler,
 ) http.Handler {
 	auth := securityMan.GetAuthorizer(ctx)
@@ -138,8 +145,17 @@ func setupConnectServer(
 	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
 
+	// Layer 3: TenancyTxInterceptor opens a request-scoped transaction
+	// after auth has populated the claims, publishes app.tenant_id +
+	// app.partition_id from the claims via set_config, and binds the
+	// transaction to the request context. Repository code then calls
+	// pool.DB(ctx, _) and gets the bound tx transparently; tenancy is
+	// enforced by Row-Level Security at the database layer.
+	tenancyTxInterceptor := connectInterceptors.NewTenancyTxInterceptor(dbPool)
+
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
-		ctx, securityMan.GetAuthenticator(ctx), tenancyAccessInterceptor, functionAccessInterceptor)
+		ctx, securityMan.GetAuthenticator(ctx),
+		tenancyAccessInterceptor, functionAccessInterceptor, tenancyTxInterceptor)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}

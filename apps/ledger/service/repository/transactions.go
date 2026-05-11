@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
@@ -47,6 +48,22 @@ type TransactionRepository interface {
 	CreateReversal(
 		ctx context.Context, reversal *models.Transaction, originalID string,
 	) error
+	// TransitionStatus performs an atomic compare-and-set on a transaction's
+	// status, optionally stamping a timestamp column at the same time (e.g.
+	// posted_at for pending→posted, voided_at for pending→voided). The
+	// fromStatuses slice is the set of source states the move is allowed
+	// from; the update only fires when the row is currently in one of
+	// them. RowsAffected != 1 surfaces as ErrTransactionTypeNotReversible
+	// so the caller can distinguish "no valid source state" from a system
+	// failure.
+	TransitionStatus(
+		ctx context.Context,
+		transactionID string,
+		fromStatuses []string,
+		toStatus string,
+		timestampColumn string,
+		timestampValue *time.Time,
+	) error
 }
 
 // transactionRepository is the interface to all transaction operations.
@@ -68,6 +85,50 @@ func NewTransactionRepository(
 		),
 		accountRepo: accountRepo,
 	}
+}
+
+// TransitionStatus is the generic CAS update behind every non-reversal
+// state move (pending→posted, pending→voided, pending→failed, etc.).
+// UpdateColumn is used deliberately to bypass frame's BaseSave/BeforeSave
+// hook chain — that hook mints a fresh xid on the empty model receiver
+// which GORM then appends to the WHERE as `AND id = '<new xid>'`,
+// blocking every legitimate update. Tenancy + soft-delete continue to
+// flow in via the pool's auto-applied TenancyPartition scope and
+// gorm.DeletedAt; we never pass tenant_id / partition_id explicitly.
+func (t *transactionRepository) TransitionStatus(
+	ctx context.Context,
+	transactionID string,
+	fromStatuses []string,
+	toStatus string,
+	timestampColumn string,
+	timestampValue *time.Time,
+) error {
+	if transactionID == "" {
+		return apperrors.ErrUnspecifiedID
+	}
+	if len(fromStatuses) == 0 || toStatus == "" {
+		return errors.New("transition requires both a fromStatuses set and a toStatus")
+	}
+
+	const statusColumn = "status"
+	updates := map[string]interface{}{statusColumn: toStatus}
+	if timestampColumn != "" && timestampValue != nil {
+		updates[timestampColumn] = *timestampValue
+	}
+
+	result := t.Pool().DB(ctx, false).Model(&models.Transaction{}).
+		Where("id = ?", transactionID).
+		Where("status IN ?", fromStatuses).
+		UpdateColumns(updates)
+	if result.Error != nil {
+		return apperrors.ErrSystemFailure.Override(result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return apperrors.ErrTransactionTypeNotReversible.Extend(
+			fmt.Sprintf("transaction %s is not in an allowed source state for transition to %s",
+				transactionID, toStatus))
+	}
+	return nil
 }
 
 // GetByIdempotencyKey returns the transaction (with its entries preloaded)

@@ -51,6 +51,15 @@ type TransactionBusiness interface {
 		ctx context.Context, transaction2 *models.Transaction) (bool, error)
 	Transact(
 		ctx context.Context, transaction *models.Transaction) (*models.Transaction, error)
+	// VoidTransaction marks a not-yet-posted transaction as voided. Only
+	// draft and pending transactions are voidable — posted activity must
+	// be reversed instead so the books carry the audit trail.
+	VoidTransaction(ctx context.Context, id string) (*models.Transaction, error)
+	// MarkTransactionFailed transitions a pending transaction to failed.
+	// Used by webhook handlers when the upstream provider rejects a
+	// posting; the row stays in the journal for audit but no longer
+	// contributes to any balance.
+	MarkTransactionFailed(ctx context.Context, id string) (*models.Transaction, error)
 }
 
 // transactionBusiness implements the TransactionBusiness interface.
@@ -283,6 +292,51 @@ func (b *transactionBusiness) ReverseTransaction(
 	}
 
 	return reversedTxn.ToAPI(), nil
+}
+
+// VoidTransaction transitions a draft or pending transaction to 'voided'
+// and stamps voided_at. Once a transaction posts, voiding is no longer
+// permitted — reverse instead so the books carry the offset and the
+// audit trail.
+func (b *transactionBusiness) VoidTransaction(
+	ctx context.Context, id string,
+) (*models.Transaction, error) {
+	if id == "" {
+		return nil, ErrTransactionIDRequired
+	}
+	now := time.Now()
+	err := b.transactionRepo.TransitionStatus(
+		ctx, id,
+		[]string{models.TransactionStatusDraft, models.TransactionStatusPending},
+		models.TransactionStatusVoided,
+		"voided_at", &now,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return b.transactionRepo.GetByID(ctx, id)
+}
+
+// MarkTransactionFailed transitions a pending transaction to 'failed' —
+// e.g. the upstream payment provider rejected the request. Draft and
+// terminal states are not affected so callers cannot retroactively
+// fail something that already posted or that was never submitted.
+func (b *transactionBusiness) MarkTransactionFailed(
+	ctx context.Context, id string,
+) (*models.Transaction, error) {
+	if id == "" {
+		return nil, ErrTransactionIDRequired
+	}
+	err := b.transactionRepo.TransitionStatus(
+		ctx, id,
+		[]string{models.TransactionStatusPending},
+		models.TransactionStatusFailed,
+		"", nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return b.transactionRepo.GetByID(ctx, id)
 }
 
 // transactAsReversal mirrors Transact for the reversal path but routes the

@@ -991,6 +991,96 @@ func (ts *TransactionsModelSuite) TestReversalRejectsNonPosted() {
 	})
 }
 
+// TestVoidPendingTransaction proves a pending transaction can be voided
+// and the row carries the correct terminal status plus a non-zero
+// voided_at timestamp.
+func (ts *TransactionsModelSuite) TestVoidPendingTransaction() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("void_pending", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		voided, err := res.TransactionBusiness.VoidTransaction(ctx, txnID)
+		require.NoError(t, err)
+		require.NotNil(t, voided)
+		assert.Equal(t, models.TransactionStatusVoided, voided.Status)
+		require.NotNil(t, voided.VoidedAt)
+		assert.False(t, voided.VoidedAt.IsZero())
+	})
+}
+
+// TestVoidRejectsPosted proves voiding a posted transaction is rejected;
+// callers must reverse instead so the books carry an audit trail.
+func (ts *TransactionsModelSuite) TestVoidRejectsPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("void_posted", 0)
+		now := time.Now().UTC()
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.VoidTransaction(ctx, txnID)
+		require.Error(t, err, "voiding a posted transaction must be rejected")
+	})
+}
+
+// TestMarkFailedFromPendingThenRejectAgain proves a pending transaction
+// can be marked failed exactly once; subsequent attempts fail because the
+// source-state set no longer matches.
+func (ts *TransactionsModelSuite) TestMarkFailedFromPendingThenRejectAgain() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("mark_failed", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(40).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(40).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		failed, err := res.TransactionBusiness.MarkTransactionFailed(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusFailed, failed.Status)
+
+		_, err = res.TransactionBusiness.MarkTransactionFailed(ctx, txnID)
+		require.Error(t, err, "marking an already-failed transaction failed again must be rejected")
+	})
+}
+
 func TestTransactionsModelSuite(t *testing.T) {
 	suite.Run(t, new(TransactionsModelSuite))
 }

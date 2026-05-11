@@ -23,19 +23,23 @@ import (
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/util/decimalx"
+	"gorm.io/gorm"
 )
 
-// ReportRepository exposes aggregate read operations that derive accounting
-// reports from existing entries. It deliberately does not embed
-// BaseRepository: there is no domain entity called "report" — only queries
-// shaped against accounts, transactions and transaction_entries.
+// ReportRepository exposes aggregate read operations that derive
+// accounting reports from existing entries. It deliberately does not
+// embed BaseRepository: there is no domain entity called "report" —
+// only queries shaped against accounts, transactions and
+// transaction_entries.
 //
-// The aggregate queries below use Raw SQL with explicit table aliases
-// because frame's auto-applied TenancyPartition scope adds an unprefixed
-// `tenant_id` predicate that becomes ambiguous when more than one
-// JOINed table carries the column. Tenancy is therefore stitched in
-// explicitly via buildTenancyClause(ctx, "a") — same pattern as the
-// LATERAL balance query in accounts.go.
+// Tenancy enforcement: every report query runs through frame's
+// Pool.WithTenancy helper, which publishes app.tenant_id /
+// app.partition_id session variables from the auth claims inside a
+// transaction. Row-Level Security policies on each tenancy-scoped
+// table read those variables via current_setting() and filter rows
+// automatically. The SQL below therefore contains no tenant_id /
+// partition_id references — application code stays unaware of
+// tenancy entirely; frame and Postgres handle it between them.
 type ReportRepository interface {
 	AggregateTrialBalance(
 		ctx context.Context, params models.TrialBalanceParams,
@@ -54,9 +58,7 @@ type reportRepository struct {
 	dbPool pool.Pool
 }
 
-// NewReportRepository constructs the report repository wired to the supplied
-// pool. The pool is held directly (not via a BaseRepository wrapper) because
-// the report queries do not map cleanly to a single entity's lifecycle.
+// NewReportRepository constructs the report repository.
 func NewReportRepository(dbPool pool.Pool) ReportRepository {
 	return &reportRepository{dbPool: dbPool}
 }
@@ -72,11 +74,6 @@ func (r *reportRepository) AggregateTrialBalance(
 	whereParts = append(whereParts, "t.deleted_at IS NULL")
 	whereParts = append(whereParts, "t.status IN ('posted','reversed')")
 	whereParts = append(whereParts, "e.deleted_at IS NULL")
-
-	if tenancySQL, tenancyArgs := buildTenancyClause(ctx, "a"); tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		args = append(args, tenancyArgs...)
-	}
 
 	if params.Currency != "" {
 		whereParts = append(whereParts, "a.currency = ?")
@@ -116,7 +113,9 @@ GROUP BY a.id, a.ledger_id, a.ledger_type, a.currency
 ORDER BY a.ledger_type, a.id`
 
 	var rows []*models.TrialBalanceLine
-	if err := r.dbPool.DB(ctx, true).Raw(sqlText, args...).Scan(&rows).Error; err != nil {
+	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
+		return tx.Raw(sqlText, args...).Scan(&rows).Error
+	}); err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 	return rows, nil
@@ -132,31 +131,21 @@ func (r *reportRepository) StatementOpeningBalance(
 		return decimalx.Zero(), nil
 	}
 
-	var whereParts []string
-	var args []interface{}
-
-	whereParts = append(whereParts, "e.account_id = ?")
-	args = append(args, accountID)
-	whereParts = append(whereParts, "t.transacted_at < ?")
-	args = append(args, *before)
-	whereParts = append(whereParts, "t.transaction_type IN ('NORMAL','REVERSAL')")
-	whereParts = append(whereParts, "t.deleted_at IS NULL")
-	whereParts = append(whereParts, "t.status IN ('posted','reversed')")
-	whereParts = append(whereParts, "e.deleted_at IS NULL")
-
-	if tenancySQL, tenancyArgs := buildTenancyClause(ctx, "e"); tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		args = append(args, tenancyArgs...)
-	}
-
 	sqlText := `
 SELECT COALESCE(SUM(e.amount), 0) AS sum
 FROM transaction_entries e
 INNER JOIN transactions t ON t.id = e.transaction_id
-WHERE ` + strings.Join(whereParts, " AND ")
+WHERE e.account_id = ?
+  AND t.transacted_at < ?
+  AND t.transaction_type IN ('NORMAL','REVERSAL')
+  AND t.deleted_at IS NULL
+  AND t.status IN ('posted','reversed')
+  AND e.deleted_at IS NULL`
 
 	var sum decimalx.Decimal
-	if err := r.dbPool.DB(ctx, true).Raw(sqlText, args...).Scan(&sum).Error; err != nil {
+	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
+		return tx.Raw(sqlText, accountID, *before).Scan(&sum).Error
+	}); err != nil {
 		return decimalx.Zero(), apperrors.ErrSystemFailure.Override(err)
 	}
 	return sum, nil
@@ -183,11 +172,6 @@ func (r *reportRepository) AccountStatementEntries(
 	whereParts = append(whereParts, "t.deleted_at IS NULL")
 	whereParts = append(whereParts, "t.status IN ('posted','reversed')")
 	whereParts = append(whereParts, "e.deleted_at IS NULL")
-
-	if tenancySQL, tenancyArgs := buildTenancyClause(ctx, "e"); tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		args = append(args, tenancyArgs...)
-	}
 
 	if params.From != nil {
 		whereParts = append(whereParts, "t.transacted_at >= ?")
@@ -218,7 +202,9 @@ ORDER BY t.transacted_at ASC, e.id ASC
 LIMIT ? OFFSET ?`
 
 	var rows []*models.StatementEntryRow
-	if err := r.dbPool.DB(ctx, true).Raw(sqlText, args...).Scan(&rows).Error; err != nil {
+	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
+		return tx.Raw(sqlText, args...).Scan(&rows).Error
+	}); err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 	return rows, nil

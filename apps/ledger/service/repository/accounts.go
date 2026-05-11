@@ -25,9 +25,9 @@ import (
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
-	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
+	"gorm.io/gorm"
 )
 
 // constAccountQuery uses a LATERAL subquery to compute balances scoped to
@@ -178,76 +178,51 @@ func (a *accountRepository) ListByID(
 	}
 }
 
-// buildTenancyClause returns a SQL WHERE fragment and args for tenant/partition
-// scoping, extracted from the authentication claims in the context.
-// When no claims are present (e.g. internal cross-tenant services), it returns
-// an empty clause so the query remains unscoped — matching frame's TenancyPartition behavior.
-func buildTenancyClause(ctx context.Context, tableAlias string) (string, []interface{}) {
-	authClaim := security.ClaimsFromContext(ctx)
-	if authClaim == nil || security.IsTenancyChecksOnClaimSkipped(ctx) {
-		return "", nil
-	}
-
-	prefix := ""
-	if tableAlias != "" {
-		prefix = tableAlias + "."
-	}
-
-	clause := fmt.Sprintf("%stenant_id = ? AND %spartition_id = ?", prefix, prefix)
-	return clause, []interface{}{authClaim.GetTenantID(), authClaim.GetPartitionID()}
-}
-
 func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Account, error) {
-	// Build WHERE clause combining tenancy scoping with the search conditions.
-	// Raw SQL bypasses GORM's automatic TenancyPartition scope, so we must
-	// inject tenant filtering explicitly.
+	// Tenancy is enforced at the DB layer by Row-Level Security on the
+	// accounts / transaction_entries / transactions tables — frame's
+	// Pool.WithTenancy sets app.tenant_id / app.partition_id session
+	// variables that the policies consult via current_setting(). The
+	// SQL below therefore contains no tenant_id / partition_id refs.
 	var whereParts []string
 	var allArgs []interface{}
 
-	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "a")
-	if tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		allArgs = append(allArgs, tenancyArgs...)
-	}
-
-	// Exclude soft-deleted accounts
 	whereParts = append(whereParts, "a.deleted_at IS NULL")
-
 	if sqlQuery.sql != "" {
 		whereParts = append(whereParts, sqlQuery.sql)
 		allArgs = append(allArgs, sqlQuery.args...)
 	}
 
-	whereClause := "1=1"
-	if len(whereParts) > 0 {
-		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
-	}
-
+	whereClause := fmt.Sprintf("(%s)", joinAND(whereParts))
 	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
 		constAccountQuery, whereClause)
 	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
 
-	rows, err := a.Pool().DB(ctx, true).Raw(fullSQL, allArgs...).Rows()
+	var accountList []*models.Account
+	err := a.Pool().WithTenancy(ctx, true, func(tx *gorm.DB) error {
+		rows, err := tx.Raw(fullSQL, allArgs...).Rows()
+		if err != nil {
+			return err
+		}
+		defer util.CloseAndLogOnError(ctx, rows, "could not close account rows")
+
+		for rows.Next() {
+			acc := models.Account{}
+			if err := rows.Scan(
+				&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
+				&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
+				&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
+				&acc.PartitionID, &acc.AccessID, &acc.DeletedAt,
+			); err != nil {
+				return err
+			}
+			accountList = append(accountList, &acc)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	defer util.CloseAndLogOnError(ctx, rows, "could not close account rows")
-
-	var accountList []*models.Account
-	for rows.Next() {
-		acc := models.Account{}
-		err = rows.Scan(
-			&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
-			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
-			&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
-			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt)
-		if err != nil {
-			return accountList, err
-		}
-		accountList = append(accountList, &acc)
-	}
-
 	return accountList, nil
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
+	"gorm.io/gorm"
 )
 
 type LedgerRepository interface {
@@ -54,51 +55,47 @@ const constLedgerQuery = `SELECT
 FROM ledgers l`
 
 func (l *ledgerRepository) searchLedgers(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Ledger, error) {
+	// Tenancy is enforced via RLS on the ledgers table; frame's
+	// Pool.WithTenancy publishes the session variables and the SQL
+	// stays free of tenant_id / partition_id references.
 	var whereParts []string
 	var allArgs []interface{}
 
-	tenancySQL, tenancyArgs := buildTenancyClause(ctx, "l")
-	if tenancySQL != "" {
-		whereParts = append(whereParts, tenancySQL)
-		allArgs = append(allArgs, tenancyArgs...)
-	}
-
 	whereParts = append(whereParts, "l.deleted_at IS NULL")
-
 	if sqlQuery.sql != "" {
 		whereParts = append(whereParts, sqlQuery.sql)
 		allArgs = append(allArgs, sqlQuery.args...)
 	}
 
-	whereClause := "1=1"
-	if len(whereParts) > 0 {
-		whereClause = fmt.Sprintf("(%s)", joinAND(whereParts))
-	}
-
+	whereClause := fmt.Sprintf("(%s)", joinAND(whereParts))
 	fullSQL := fmt.Sprintf(`%s WHERE %s ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
 		constLedgerQuery, whereClause)
 	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
 
-	rows, err := l.Pool().DB(ctx, true).Raw(fullSQL, allArgs...).Rows()
+	ledgerList := make([]*models.Ledger, 0)
+	err := l.Pool().WithTenancy(ctx, true, func(tx *gorm.DB) error {
+		rows, err := tx.Raw(fullSQL, allArgs...).Rows()
+		if err != nil {
+			return err
+		}
+		defer util.CloseAndLogOnError(ctx, rows, "could not close ledger rows")
+
+		for rows.Next() {
+			ledger := new(models.Ledger)
+			if err := rows.Scan(
+				&ledger.ID, &ledger.ParentID, &ledger.Type, &ledger.Data,
+				&ledger.CreatedAt, &ledger.ModifiedAt, &ledger.Version,
+				&ledger.TenantID, &ledger.PartitionID, &ledger.AccessID, &ledger.DeletedAt,
+			); err != nil {
+				return err
+			}
+			ledgerList = append(ledgerList, ledger)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	defer util.CloseAndLogOnError(ctx, rows, "could not close ledger rows")
-
-	ledgerList := make([]*models.Ledger, 0)
-	for rows.Next() {
-		ledger := new(models.Ledger)
-		errR := rows.Scan(
-			&ledger.ID, &ledger.ParentID, &ledger.Type, &ledger.Data,
-			&ledger.CreatedAt, &ledger.ModifiedAt, &ledger.Version,
-			&ledger.TenantID, &ledger.PartitionID, &ledger.AccessID, &ledger.DeletedAt)
-		if errR != nil {
-			return ledgerList, errR
-		}
-		ledgerList = append(ledgerList, ledger)
-	}
-
 	return ledgerList, nil
 }
 

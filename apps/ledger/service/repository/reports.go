@@ -23,7 +23,6 @@ import (
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/util/decimalx"
-	"gorm.io/gorm"
 )
 
 // ReportRepository exposes aggregate read operations that derive
@@ -113,9 +112,7 @@ GROUP BY a.id, a.ledger_id, a.ledger_type, a.currency
 ORDER BY a.ledger_type, a.id`
 
 	var rows []*models.TrialBalanceLine
-	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
-		return tx.Raw(sqlText, args...).Scan(&rows).Error
-	}); err != nil {
+	if err := r.dbPool.DB(ctx, true).Raw(sqlText, args...).Scan(&rows).Error; err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 	return rows, nil
@@ -143,9 +140,7 @@ WHERE e.account_id = ?
   AND e.deleted_at IS NULL`
 
 	var sum decimalx.Decimal
-	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
-		return tx.Raw(sqlText, accountID, *before).Scan(&sum).Error
-	}); err != nil {
+	if err := r.dbPool.DB(ctx, true).Raw(sqlText, accountID, *before).Scan(&sum).Error; err != nil {
 		return decimalx.Zero(), apperrors.ErrSystemFailure.Override(err)
 	}
 	return sum, nil
@@ -202,9 +197,7 @@ ORDER BY t.transacted_at ASC, e.id ASC
 LIMIT ? OFFSET ?`
 
 	var rows []*models.StatementEntryRow
-	if err := r.dbPool.WithTenancy(ctx, true, func(tx *gorm.DB) error {
-		return tx.Raw(sqlText, args...).Scan(&rows).Error
-	}); err != nil {
+	if err := r.dbPool.DB(ctx, true).Raw(sqlText, args...).Scan(&rows).Error; err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
 	return rows, nil

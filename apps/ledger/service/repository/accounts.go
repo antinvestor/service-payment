@@ -27,7 +27,6 @@ import (
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
-	"gorm.io/gorm"
 )
 
 // constAccountQuery uses a LATERAL subquery to compute balances scoped to
@@ -180,10 +179,11 @@ func (a *accountRepository) ListByID(
 
 func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *SearchSQLQuery) ([]*models.Account, error) {
 	// Tenancy is enforced at the DB layer by Row-Level Security on the
-	// accounts / transaction_entries / transactions tables — frame's
-	// Pool.WithTenancy sets app.tenant_id / app.partition_id session
-	// variables that the policies consult via current_setting(). The
-	// SQL below therefore contains no tenant_id / partition_id refs.
+	// accounts / transaction_entries / transactions tables. The Connect
+	// TenancyTxInterceptor opened a request-scoped transaction at the
+	// start of the RPC and published app.tenant_id / app.partition_id;
+	// Pool.DB(ctx, _) returns that transaction transparently here. The
+	// SQL therefore contains no tenant_id / partition_id references.
 	var whereParts []string
 	var allArgs []interface{}
 
@@ -198,30 +198,24 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 		constAccountQuery, whereClause)
 	allArgs = append(allArgs, sqlQuery.batchSize, sqlQuery.offset)
 
-	var accountList []*models.Account
-	err := a.Pool().WithTenancy(ctx, true, func(tx *gorm.DB) error {
-		rows, err := tx.Raw(fullSQL, allArgs...).Rows()
-		if err != nil {
-			return err
-		}
-		defer util.CloseAndLogOnError(ctx, rows, "could not close account rows")
-
-		for rows.Next() {
-			acc := models.Account{}
-			if err := rows.Scan(
-				&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
-				&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
-				&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
-				&acc.PartitionID, &acc.AccessID, &acc.DeletedAt,
-			); err != nil {
-				return err
-			}
-			accountList = append(accountList, &acc)
-		}
-		return nil
-	})
+	rows, err := a.Pool().DB(ctx, true).Raw(fullSQL, allArgs...).Rows()
 	if err != nil {
 		return nil, err
+	}
+	defer util.CloseAndLogOnError(ctx, rows, "could not close account rows")
+
+	var accountList []*models.Account
+	for rows.Next() {
+		acc := models.Account{}
+		if scanErr := rows.Scan(
+			&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
+			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
+			&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
+			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt,
+		); scanErr != nil {
+			return accountList, scanErr
+		}
+		accountList = append(accountList, &acc)
 	}
 	return accountList, nil
 }

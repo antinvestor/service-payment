@@ -16,6 +16,7 @@ package business_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -642,6 +643,187 @@ func (ts *TransactionsModelSuite) TestTransactWithBoundaryValues() {
 		// due to overflow error while compilation.
 		// The test case is written in `package controllers` using JSON
 	})
+}
+
+// TestIdempotencyKeyConcurrent verifies that under N parallel posts carrying
+// the same idempotency_key (but distinct Transaction.IDs and identical
+// entries), exactly one row reaches the database and every caller is
+// returned a transaction tied to that row. This is the core durability
+// guarantee that lets webhook redelivery, queue replays and at-least-once
+// transports replay safely.
+func (ts *TransactionsModelSuite) TestIdempotencyKeyConcurrent() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		const parallelism = 10
+		idemKey := "webhook:mtn:abc123"
+		timeNow := time.Now().UTC()
+
+		var (
+			wg        sync.WaitGroup
+			mu        sync.Mutex
+			returnIDs = make(map[string]struct{}, parallelism)
+			errs      []error
+		)
+		wg.Add(parallelism)
+		for i := range parallelism {
+			go func(i int) {
+				defer wg.Done()
+
+				// Distinct Transaction.ID per goroutine; the idempotency_key
+				// is the only thing tying them together.
+				txn := &models.Transaction{
+					BaseModel: data.BaseModel{
+						ID: ts.uniqueTxnID("idem_concurrent", i),
+					},
+					Currency:        "UGX",
+					TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+					IdempotencyKey:  idemKey,
+					TransactedAt:    timeNow,
+					ClearedAt:       timeNow,
+					Entries: []*models.TransactionEntry{
+						{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+						{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+					},
+				}
+
+				out, err := res.TransactionBusiness.Transact(ctx, txn)
+				mu.Lock()
+				if err != nil {
+					errs = append(errs, err)
+				} else {
+					returnIDs[out.GetID()] = struct{}{}
+				}
+				mu.Unlock()
+			}(i)
+		}
+		wg.Wait()
+
+		require.Empty(t, errs, "no goroutine should fail; idempotent replay must succeed for all")
+		require.Len(t, returnIDs, 1,
+			"all goroutines must converge on a single canonical transaction id; got %d distinct ids", len(returnIDs))
+
+		// Verify exactly one row carries the idempotency_key.
+		stored, err := res.TransactionRepository.GetByIdempotencyKey(ctx, idemKey)
+		require.NoError(t, err)
+		require.NotNil(t, stored)
+		_, ok := returnIDs[stored.GetID()]
+		require.True(t, ok, "stored transaction id must match the id returned to callers")
+	})
+}
+
+// TestIdempotencyKeyConflictDifferentEntries verifies that reusing an
+// idempotency_key with materially different entries is rejected — the
+// system must not silently return the prior posting when the caller's
+// intent has changed.
+func (ts *TransactionsModelSuite) TestIdempotencyKeyConflictDifferentEntries() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		idemKey := "webhook:mtn:conflict-test"
+		timeNow := time.Now().UTC()
+
+		first := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("idem_conflict_a", 0)},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			IdempotencyKey:  idemKey,
+			TransactedAt:    timeNow,
+			ClearedAt:       timeNow,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, first)
+		require.NoError(t, err)
+
+		// Same idempotency_key, different amount — should be rejected.
+		second := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("idem_conflict_b", 0)},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			IdempotencyKey:  idemKey,
+			TransactedAt:    timeNow,
+			ClearedAt:       timeNow,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(250).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(250).Ptr()},
+			},
+		}
+		_, err = res.TransactionBusiness.Transact(ctx, second)
+		require.Error(t, err, "reuse of idempotency_key with different entries must be rejected")
+	})
+}
+
+// TestConcurrentPostingsBalanceIntegrity verifies that N parallel posts
+// each touching the same pair of accounts produce a final balance equal
+// to the deterministic sum of their amounts. Exercises the atomic Create
+// override and the LATERAL balance derivation together: if either the
+// posting was non-atomic (orphan transactions) or the balance read missed
+// concurrently committed rows, the final assertion would fail.
+func (ts *TransactionsModelSuite) TestConcurrentPostingsBalanceIntegrity() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		const (
+			parallelism = 20
+			amountEach  = int64(100)
+		)
+		expectedDelta := decimalx.NewFromInt64(amountEach * parallelism)
+
+		initialMap, err := res.AccountRepository.ListByID(ctx, "a1")
+		require.NoError(t, err)
+		initialBalance := decimalx.DerefOr(initialMap["a1"].Balance, decimalx.Zero())
+
+		timeNow := time.Now().UTC()
+		var (
+			wg   sync.WaitGroup
+			mu   sync.Mutex
+			errs []error
+		)
+		wg.Add(parallelism)
+		for i := range parallelism {
+			go func(i int) {
+				defer wg.Done()
+				txn := &models.Transaction{
+					BaseModel:       data.BaseModel{ID: ts.uniqueTxnID("concurrent_balance", i)},
+					Currency:        "UGX",
+					TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+					IdempotencyKey:  ts.uniqueTxnID("concurrent_balance_key", i),
+					TransactedAt:    timeNow,
+					ClearedAt:       timeNow,
+					Entries: []*models.TransactionEntry{
+						{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(amountEach).Ptr()},
+						{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(amountEach).Ptr()},
+					},
+				}
+				if _, e := res.TransactionBusiness.Transact(ctx, txn); e != nil {
+					mu.Lock()
+					errs = append(errs, e)
+					mu.Unlock()
+				}
+			}(i)
+		}
+		wg.Wait()
+		require.Empty(t, errs, "all posts should succeed under concurrent load")
+
+		finalMap, err := res.AccountRepository.ListByID(ctx, "a1")
+		require.NoError(t, err)
+		finalBalance := decimalx.DerefOr(finalMap["a1"].Balance, decimalx.Zero())
+		delta := finalBalance.Sub(initialBalance)
+		assertDecEqual(t, expectedDelta, delta,
+			"final balance must equal initial + sum of all concurrent posts")
+	})
+}
+
+// uniqueTxnID returns a compact per-run unique ID under the varchar(50)
+// constraint on transactions.id. Stable within a goroutine via the i suffix.
+func (ts *TransactionsModelSuite) uniqueTxnID(prefix string, i int) string {
+	return fmt.Sprintf("%s_%d_%d", prefix, time.Now().UnixNano()%1_000_000, i)
 }
 
 func TestTransactionsModelSuite(t *testing.T) {

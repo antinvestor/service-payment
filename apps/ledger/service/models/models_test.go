@@ -492,3 +492,83 @@ func TestIsTrueDrCr_Empty(t *testing.T) {
 	txn := &models.Transaction{}
 	assert.False(t, txn.IsTrueDrCr())
 }
+
+// --- Multi-currency IsZeroSum / IsTrueDrCr ---
+
+func TestIsZeroSum_MultiCurrencyBalanced(t *testing.T) {
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Currency: "USD", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Currency: "USD", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Currency: "UGX", Credit: false, Amount: decimalx.NewFromInt64(50000).Ptr()},
+			{Currency: "UGX", Credit: true, Amount: decimalx.NewFromInt64(50000).Ptr()},
+		},
+	}
+	assert.True(t, txn.IsZeroSum())
+}
+
+func TestIsZeroSum_MultiCurrencyUnbalancedInOneCurrency(t *testing.T) {
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Currency: "USD", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Currency: "USD", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Currency: "UGX", Credit: false, Amount: decimalx.NewFromInt64(50000).Ptr()},
+			{Currency: "UGX", Credit: true, Amount: decimalx.NewFromInt64(40000).Ptr()},
+		},
+	}
+	assert.False(t, txn.IsZeroSum())
+}
+
+func TestIsZeroSum_CrossCurrencyDoesNotMask(t *testing.T) {
+	// Pre-fix: summing across currencies would yield zero and falsely pass.
+	// USD debit 100 + UGX credit 100 sum to 0 numerically but are not balanced.
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Currency: "USD", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Currency: "UGX", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+		},
+	}
+	assert.False(t, txn.IsZeroSum())
+}
+
+func TestIsZeroSum_EntryCurrencyFallsBackToTransaction(t *testing.T) {
+	// Legacy entries without a currency value should fall back to tx.Currency.
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+			{Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+		},
+	}
+	assert.True(t, txn.IsZeroSum())
+}
+
+func TestIsTrueDrCr_MultiCurrencyBothSidedPerCurrency(t *testing.T) {
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Currency: "USD", Credit: false},
+			{Currency: "USD", Credit: true},
+			{Currency: "UGX", Credit: false},
+			{Currency: "UGX", Credit: true},
+		},
+	}
+	assert.True(t, txn.IsTrueDrCr())
+}
+
+func TestIsTrueDrCr_MultiCurrencyOneSidedSecondCurrency(t *testing.T) {
+	// UGX has only credits — must fail even though USD is balanced.
+	txn := &models.Transaction{
+		Currency: "USD",
+		Entries: []*models.TransactionEntry{
+			{Currency: "USD", Credit: false},
+			{Currency: "USD", Credit: true},
+			{Currency: "UGX", Credit: true},
+			{Currency: "UGX", Credit: true},
+		},
+	}
+	assert.False(t, txn.IsTrueDrCr())
+}

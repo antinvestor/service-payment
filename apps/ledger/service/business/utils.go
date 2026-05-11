@@ -15,6 +15,8 @@
 package business
 
 import (
+	"sort"
+
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/pitabwire/util/decimalx"
 )
@@ -63,6 +65,66 @@ func containsSameElements(l1 []*models.TransactionEntry, l2 []*models.Transactio
 		amount2 := decimalx.DerefOr(entry2.Amount, decimalx.Zero()).Abs()
 		if !amount1.Equal(amount2) {
 			return false
+		}
+	}
+	return true
+}
+
+// entriesEquivalent compares two entry lists by content (account, side,
+// currency, |amount|) ignoring entry IDs. Used for idempotency_key dedup
+// where two retries of the same logical request carry distinct
+// Transaction.IDs — and therefore distinct deterministic entry IDs — but
+// represent identical postings.
+//
+// Amounts are compared numerically via decimalx.Equal because the same
+// decimal value can have multiple string representations (e.g. "100" vs
+// "100.000000000" round-tripped through numeric(29,9)). Grouping by
+// (account, side, currency) and sorting amounts within each group yields
+// stable O(N log N) comparison.
+func entriesEquivalent(l1, l2 []*models.TransactionEntry) bool {
+	if len(l1) != len(l2) {
+		return false
+	}
+
+	type groupKey struct {
+		AccountID string
+		Side      string
+		Currency  string
+	}
+	keyOf := func(e *models.TransactionEntry) groupKey {
+		side := "D"
+		if e.Credit {
+			side = "C"
+		}
+		return groupKey{AccountID: e.AccountID, Side: side, Currency: e.Currency}
+	}
+
+	group := func(list []*models.TransactionEntry) map[groupKey][]decimalx.Decimal {
+		out := make(map[groupKey][]decimalx.Decimal, len(list))
+		for _, e := range list {
+			amt := decimalx.DerefOr(e.Amount, decimalx.Zero()).Abs()
+			out[keyOf(e)] = append(out[keyOf(e)], amt)
+		}
+		for _, amts := range out {
+			sort.Slice(amts, func(i, j int) bool { return amts[i].LessThan(amts[j]) })
+		}
+		return out
+	}
+
+	g1 := group(l1)
+	g2 := group(l2)
+	if len(g1) != len(g2) {
+		return false
+	}
+	for k, amts1 := range g1 {
+		amts2, ok := g2[k]
+		if !ok || len(amts1) != len(amts2) {
+			return false
+		}
+		for i := range amts1 {
+			if !amts1[i].Equal(amts2[i]) {
+				return false
+			}
 		}
 	}
 	return true

@@ -359,8 +359,10 @@ func (b *transactionBusiness) Validate(
 		accountIDs = append(accountIDs, accountID)
 	}
 
-	// Retrieve accounts from database
-	accountsMap, errAcc := b.accountRepo.ListByID(ctx, accountIDs...)
+	// Posting only needs account metadata (LedgerType, Currency). Calling the
+	// balance-aware ListByID here would run a LATERAL subquery per account on
+	// every Create and dominates posting latency under concurrent load.
+	accountsMap, errAcc := b.accountRepo.ListMetaByID(ctx, accountIDs...)
 	if errAcc != nil {
 		return nil, errAcc
 	}
@@ -477,39 +479,59 @@ func (b *transactionBusiness) Transact(
 	if err == nil {
 		return transaction, nil
 	}
-
-	// Not a duplicate — genuine creation failure.
 	if !data.ErrorIsDuplicateKey(err) {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
+	return b.resolveDuplicate(ctx, transaction)
+}
 
-	// A concurrent writer inserted this transaction ID between our
-	// existence check and the insert. Fetch it and compare entries:
-	// identical entries means idempotent retry, different means conflict.
+// resolveDuplicate is invoked when the optimistic Create hits a unique
+// constraint violation. The conflict could be on the primary key
+// (same Transaction.ID re-submitted) or on the idempotency_key
+// partial unique index (different Transaction.ID, same client-supplied
+// dedup token). Try the idempotency_key path first since it carries the
+// explicit caller intent, then fall back to PK-based reconciliation.
+func (b *transactionBusiness) resolveDuplicate(
+	ctx context.Context, transaction *models.Transaction,
+) (*models.Transaction, error) {
+	if transaction.IdempotencyKey != "" {
+		existing, lerr := b.transactionRepo.GetByIdempotencyKey(ctx, transaction.IdempotencyKey)
+		if lerr == nil && existing != nil {
+			// Entry IDs differ across retries (derived from distinct
+			// Transaction.IDs), so dedup uses content multiset equivalence.
+			if !entriesEquivalent(existing.Entries, transaction.Entries) {
+				return nil, apperrors.ErrTransactionIsConflicting.Extend(
+					"idempotency_key reused with different entries")
+			}
+			return existing, nil
+		}
+		// Lookup failed or no match — fall through to PK-based resolution.
+	}
+
 	storedTxn, verifyErr := b.transactionRepo.GetByID(ctx, transaction.GetID())
 	if verifyErr != nil {
 		return nil, apperrors.ErrSystemFailure.Override(verifyErr)
 	}
-
 	if !containsSameElements(storedTxn.Entries, transaction.Entries) {
 		return nil, apperrors.ErrTransactionIsConflicting
 	}
-
 	return storedTxn, nil
 }
 
-// preProcessTransactionEntries processes transaction entries with balance and signage logic.
+// preProcessTransactionEntries applies DEADCLIC sign rules and stamps the
+// entry-level currency from the resolved account so it is persisted and
+// available for currency-aware integrity checks at any point post-write.
 func (b *transactionBusiness) preProcessTransactionEntries(
 	transaction *models.Transaction,
 	accountsMap map[string]*models.Account,
 ) {
-	// Process all transaction entries atomically
 	for _, line := range transaction.Entries {
 		account := accountsMap[line.AccountID]
 
-		// Set the account balance snapshot at transaction time
-		bal := decimalx.DerefOr(account.Balance, decimalx.Zero())
-		line.Balance = &bal
+		// Validate already asserts the account currency matches the transaction
+		// currency, so either is correct here. Use the account's currency to
+		// keep the entry tied to its posting destination.
+		line.Currency = account.Currency
 
 		// Apply signage based on double-entry bookkeeping rules (DEADCLIC)
 		// Debit: Expense, Asset | Credit: Liability, Income, Capital
@@ -524,6 +546,7 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 }
 
 // processClearanceUpdate handles the clearance time update for a transaction.
+// Posted entries are immutable: only the parent ClearedAt is updated.
 func (b *transactionBusiness) processClearanceUpdate(
 	ctx context.Context,
 	req *ledgerv1.UpdateTransactionRequest,
@@ -538,16 +561,10 @@ func (b *transactionBusiness) processClearanceUpdate(
 		return parseErr
 	}
 
-	accountsMap, validationErr := b.Validate(ctx, existingTransaction)
-	if validationErr != nil {
+	if _, validationErr := b.Validate(ctx, existingTransaction); validationErr != nil {
 		return validationErr
 	}
 
-	for _, line := range existingTransaction.Entries {
-		account := accountsMap[line.AccountID]
-		bal := decimalx.DerefOr(account.Balance, decimalx.Zero())
-		line.Balance = &bal
-	}
 	existingTransaction.ClearedAt = clearanceTime
 	return nil
 }

@@ -17,6 +17,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
@@ -25,6 +26,8 @@ import (
 	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type TransactionRepository interface {
@@ -33,6 +36,10 @@ type TransactionRepository interface {
 	) (workerpool.JobResultPipe[[]*models.Transaction], error)
 	SearchEntries(ctx context.Context, query string,
 	) (workerpool.JobResultPipe[[]*models.TransactionEntry], error)
+	// GetByIdempotencyKey looks up a transaction by its idempotency key.
+	// Returns gorm.ErrRecordNotFound when no row matches so callers can
+	// distinguish "no prior posting" from a system failure.
+	GetByIdempotencyKey(ctx context.Context, key string) (*models.Transaction, error)
 }
 
 // transactionRepository is the interface to all transaction operations.
@@ -56,12 +63,59 @@ func NewTransactionRepository(
 	}
 }
 
+// GetByIdempotencyKey returns the transaction (with its entries preloaded)
+// whose idempotency_key column matches the provided value. Uses the partial
+// UNIQUE index so the lookup is O(1) on the indexed column.
+func (t *transactionRepository) GetByIdempotencyKey(
+	ctx context.Context, key string,
+) (*models.Transaction, error) {
+	if key == "" {
+		return nil, apperrors.ErrUnspecifiedID
+	}
+	var txn models.Transaction
+	err := t.Pool().DB(ctx, true).
+		Preload(clause.Associations).
+		Where("idempotency_key = ?", key).
+		First(&txn).Error
+	if err != nil {
+		return nil, err
+	}
+	return &txn, nil
+}
+
+// Create overrides BaseRepository.Create to guarantee that the transaction
+// header and all its entries are inserted atomically.
+//
+// The frame pool is configured with SkipDefaultTransaction=true, so a plain
+// gorm.Create that walks the association tree would issue the parent INSERT
+// and each child INSERT as independent statements. A process crash, network
+// blip or query cancellation between those statements leaves an orphan
+// transactions row with zero entries — invisible to the invalid_transactions
+// view (SUM over empty set is 0) and permanently blocking idempotent retry
+// because containsSameElements would reject the legitimate replay.
+//
+// Wrapping in an explicit transaction commits both the header and the entries
+// or neither.
+func (t *transactionRepository) Create(ctx context.Context, txn *models.Transaction) error {
+	if txn.GetVersion() > 0 {
+		return errors.New("entity version is more than 0, consider using Update instead of Create")
+	}
+	return t.Pool().DB(ctx, false).Transaction(func(tx *gorm.DB) error {
+		return tx.Create(txn).Error
+	})
+}
+
 func (t *transactionRepository) searchTransactions(
 	ctx context.Context,
 	sqlQuery *SearchSQLQuery,
 ) ([]*models.Transaction, error) {
 	var transactionList []*models.Transaction
 
+	// Tenancy filtering is applied automatically by frame's pool, which wraps
+	// every .DB(ctx,_) result with scopes.TenancyPartition. GORM's query builder
+	// (.Where + .Find) honours that scope, so we do not inject tenant_id/
+	// partition_id manually here — see repository/accounts.go for the raw-SQL
+	// exception where the scope cannot reach.
 	result := t.Pool().DB(ctx, true).Where(sqlQuery.sql, sqlQuery.args...).Offset(sqlQuery.offset).
 		Limit(sqlQuery.batchSize).Find(&transactionList)
 	err1 := result.Error
@@ -212,6 +266,8 @@ func (t *transactionRepository) SearchEntries(
 				}
 
 				var transactionEntriesList []*models.TransactionEntry
+				// Tenancy filtering applied automatically by frame's pool scope —
+				// see searchTransactions for the rationale.
 				result := t.Pool().DB(ctx, true).Offset(sqlQuery.offset).Limit(sqlQuery.batchSize).
 					Where(sqlQuery.sql, sqlQuery.args...).Find(&transactionEntriesList)
 

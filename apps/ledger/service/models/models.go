@@ -75,6 +75,16 @@ func (acc *Account) ToAPI() *ledgerv1.Account {
 		Data: acc.Data.ToProtoStruct()}
 }
 
+// Reserved Data keys lifted into typed columns. Callers may continue to
+// supply these via Transaction.Data to avoid a proto change; the values are
+// extracted into indexed columns during TransactionFromAPI and remain in the
+// JSONB blob for backwards compatibility.
+const (
+	dataKeyIdempotencyKey = "idempotency_key"
+	dataKeyExternalRef    = "external_ref"
+	dataKeySource         = "source"
+)
+
 func TransactionFromAPI(ctx context.Context, aTxn *ledgerv1.Transaction) *Transaction {
 	dataMap := &data.JSONMap{}
 	transaction := &Transaction{
@@ -82,6 +92,10 @@ func TransactionFromAPI(ctx context.Context, aTxn *ledgerv1.Transaction) *Transa
 		TransactionType: aTxn.GetType().String(),
 		Data:            dataMap.FromProtoStruct(aTxn.GetData()),
 	}
+
+	transaction.IdempotencyKey = stringFromJSON(transaction.Data, dataKeyIdempotencyKey)
+	transaction.ExternalRef = stringFromJSON(transaction.Data, dataKeyExternalRef)
+	transaction.Source = stringFromJSON(transaction.Data, dataKeySource)
 
 	transaction.GenID(ctx)
 	transaction.ID = aTxn.GetId()
@@ -140,6 +154,7 @@ func TransactionEntryFromAPI(aEntry *ledgerv1.TransactionEntry) *TransactionEntr
 	amt := utilmoney.FromMoney(aEntry.GetAmount())
 	return &TransactionEntry{
 		AccountID: aEntry.GetAccountId(),
+		Currency:  aEntry.GetAmount().GetCurrencyCode(),
 		Amount:    &amt,
 		Credit:    aEntry.GetCredit(),
 	}
@@ -148,7 +163,7 @@ func TransactionEntryFromAPI(aEntry *ledgerv1.TransactionEntry) *TransactionEntr
 func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
 	var amount *commonv1.Money
 	if te.Amount != nil {
-		amount = utilmoney.ToMoney("", *te.Amount)
+		amount = utilmoney.ToMoney(te.Currency, *te.Amount)
 	}
 
 	return &ledgerv1.TransactionEntry{
@@ -161,10 +176,19 @@ func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
 }
 
 // Transaction represents a transaction in a ledger.
+//
+// IdempotencyKey, ExternalRef, and Source are persisted as indexed columns so
+// retries from webhooks, queue replays, and at-least-once delivery paths
+// resolve to a single posting. IdempotencyKey enforces uniqueness at the DB
+// layer (partial UNIQUE INDEX where the value is non-empty); ExternalRef and
+// Source are non-unique search keys for reconciliation.
 type Transaction struct {
 	data.BaseModel
 	Currency        string              `gorm:"type:varchar(10);not null"            json:"currency"`
 	TransactionType string              `gorm:"type:varchar(50)"                     json:"transaction_type"`
+	IdempotencyKey  string              `gorm:"type:varchar(120)"                    json:"idempotency_key"`
+	ExternalRef     string              `gorm:"type:varchar(120)"                    json:"external_ref"`
+	Source          string              `gorm:"type:varchar(50)"                     json:"source"`
 	Data            data.JSONMap        `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
 	ClearedAt       time.Time           `gorm:"type:timestamp"                       json:"cleared_at"`
 	TransactedAt    time.Time           `gorm:"type:timestamp"                       json:"transacted_at"`
@@ -176,10 +200,9 @@ type TransactionEntry struct {
 	data.BaseModel
 	AccountID     string            `gorm:"type:varchar(50);not null;index" json:"account_id"`
 	TransactionID string            `gorm:"type:varchar(50);not null;index" json:"transaction_id"`
-	Currency      string            `gorm:"-"                               json:"currency"`
+	Currency      string            `gorm:"type:varchar(10);not null;index" json:"currency"`
 	Amount        *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"amount"`
 	Credit        bool              `                                       json:"credit"`
-	Balance       *decimalx.Decimal `gorm:"type:numeric(29,9)"              json:"balance"`
 	ClearedAt     time.Time         `gorm:"-"                               json:"cleared_at"`
 	TransactedAt  time.Time         `gorm:"-"                               json:"transacted_at"`
 }
@@ -190,30 +213,82 @@ func (te *TransactionEntry) Equal(ot TransactionEntry) bool {
 		te.Amount.Equal(*ot.Amount)
 }
 
-// IsZeroSum validates the Amount list of a transaction.
-func (tx *Transaction) IsZeroSum() bool {
-	sum := decimalx.Zero()
-	for _, entry := range tx.Entries {
-		if entry.Credit {
-			sum = sum.Add(*entry.Amount)
-		} else {
-			sum = sum.Sub(*entry.Amount)
-		}
+// stringFromJSON safely extracts a string value from a JSONMap. Returns ""
+// when the key is missing or the value is not a string.
+func stringFromJSON(m data.JSONMap, key string) string {
+	v, ok := m[key]
+	if !ok {
+		return ""
 	}
-	return sum.IsZero()
+	s, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return s
 }
 
-// IsTrueDrCr validates that there is at least one debit and at least one credit entry.
-func (tx *Transaction) IsTrueDrCr() bool {
-	crEntries := 0
-	drEntries := 0
+// entryCurrency returns the currency to attribute an entry to for per-currency
+// balance checks. Falls back to the parent transaction currency when the entry
+// itself carries none (e.g. legacy rows or in-flight constructions before the
+// entry currency is set).
+func (tx *Transaction) entryCurrency(entry *TransactionEntry) string {
+	if entry != nil && entry.Currency != "" {
+		return entry.Currency
+	}
+	return tx.Currency
+}
 
+// IsZeroSum validates that entries net to zero independently within each
+// currency. A multi-currency transaction must balance per-currency: USD
+// debits = USD credits, UGX debits = UGX credits, etc. Summing across
+// currencies would mask a genuinely unbalanced transaction.
+func (tx *Transaction) IsZeroSum() bool {
+	sums := map[string]decimalx.Decimal{}
 	for _, entry := range tx.Entries {
+		currency := tx.entryCurrency(entry)
+		amount := decimalx.DerefOr(entry.Amount, decimalx.Zero())
+		sum := sums[currency]
 		if entry.Credit {
-			crEntries++
+			sum = sum.Add(amount)
 		} else {
-			drEntries++
+			sum = sum.Sub(amount)
+		}
+		sums[currency] = sum
+	}
+	for _, sum := range sums {
+		if !sum.IsZero() {
+			return false
 		}
 	}
-	return drEntries >= 1 && crEntries >= 1
+	return true
+}
+
+// IsTrueDrCr validates that each currency present in the entries has at
+// least one debit and at least one credit. A single-side currency group
+// cannot be a valid double-entry posting even if the overall sum is zero.
+func (tx *Transaction) IsTrueDrCr() bool {
+	type sides struct{ debits, credits int }
+	perCurrency := map[string]*sides{}
+	for _, entry := range tx.Entries {
+		currency := tx.entryCurrency(entry)
+		s, ok := perCurrency[currency]
+		if !ok {
+			s = &sides{}
+			perCurrency[currency] = s
+		}
+		if entry.Credit {
+			s.credits++
+		} else {
+			s.debits++
+		}
+	}
+	if len(perCurrency) == 0 {
+		return false
+	}
+	for _, s := range perCurrency {
+		if s.debits < 1 || s.credits < 1 {
+			return false
+		}
+	}
+	return true
 }

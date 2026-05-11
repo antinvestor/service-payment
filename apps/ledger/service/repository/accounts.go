@@ -76,6 +76,13 @@ type AccountRepository interface {
 	datastore.BaseRepository[*models.Account]
 	SearchAsESQ(ctx context.Context, query string) (workerpool.JobResultPipe[[]*models.Account], error)
 	ListByID(ctx context.Context, ids ...string) (map[string]*models.Account, error)
+	// ListMetaByID returns accounts hydrated with metadata (currency, ledger,
+	// ledger type, JSON data) only — without the LATERAL balance subquery
+	// used by SearchAsESQ. Use this on the posting hot path where Validate
+	// needs LedgerType/Currency but not Balance: recomputing every account's
+	// running balance on every Create wastes IO and limits posting throughput
+	// under concurrent load.
+	ListMetaByID(ctx context.Context, ids ...string) (map[string]*models.Account, error)
 	HasTransactionEntries(ctx context.Context, accountID string) (bool, error)
 	CountByLedgerID(ctx context.Context, ledgerID string) (int64, error)
 }
@@ -283,6 +290,33 @@ func (a *accountRepository) paginateAccountSearch(
 		}
 	}
 	return nil
+}
+
+// ListMetaByID fetches account metadata (no balance) keyed by ID. Uses GORM's
+// query builder so tenancy and soft-delete scoping are applied automatically
+// via the pool's TenancyPartition scope and gorm.DeletedAt — no raw SQL,
+// no LATERAL subquery, no balance computation.
+func (a *accountRepository) ListMetaByID(
+	ctx context.Context,
+	ids ...string,
+) (map[string]*models.Account, error) {
+	if len(ids) == 0 {
+		return nil, apperrors.ErrAccountsNotFound.Extend("No Accounts were specified")
+	}
+
+	var accountList []*models.Account
+	err := a.Pool().DB(ctx, true).
+		Where("id IN ?", ids).
+		Find(&accountList).Error
+	if err != nil {
+		return nil, apperrors.ErrSystemFailure.Override(err)
+	}
+
+	accountsMap := make(map[string]*models.Account, len(accountList))
+	for _, acc := range accountList {
+		accountsMap[acc.ID] = acc
+	}
+	return accountsMap, nil
 }
 
 // HasTransactionEntries returns true if the account has any transaction entries.

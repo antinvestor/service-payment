@@ -26,9 +26,33 @@ import (
 	"gorm.io/gorm"
 )
 
+// Book represents an independent accounting scope: one entity's complete
+// set of financial records. Each book has its own chart of accounts, its
+// own trial balance and its own balance sheet — entries posted in one book
+// must never cross into another. Type follows the Stawi-style convention
+// (platform/group/customer/merchant/agent/branch) but is an open string so
+// product domains can grow new entity classifications without a migration.
+//
+// ParentID supports hierarchy: an organization holds many group books
+// (one per chama / SACCO / branch), each group holds many individual
+// member books. Hierarchy is a read-side concern — consolidated reports
+// roll a parent's descendants into one trial balance — while POSTING
+// stays strictly per-book. Settlements that cross book boundaries are
+// modeled as two separate transactions linked by external_ref, not as
+// cross-book entries.
+type Book struct {
+	data.BaseModel
+	ParentID *string      `gorm:"type:varchar(50)"                     json:"parent_id"`
+	Name     string       `gorm:"type:varchar(100);not null"           json:"name"`
+	Type     string       `gorm:"type:varchar(50);not null"            json:"type"`
+	Currency string       `gorm:"type:varchar(10)"                     json:"currency"`
+	Data     data.JSONMap `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
+}
+
 // Ledger represents the hierarchy for organising ledgers with information such as type, and JSON data.
 type Ledger struct {
 	data.BaseModel
+	BookID   *string      `gorm:"type:varchar(50)"                     json:"book_id"`
 	Type     string       `gorm:"type:varchar(50)"                     json:"type"`
 	ParentID string       `gorm:"type:varchar(50)"                     json:"parent_id"`
 	Data     data.JSONMap `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
@@ -53,9 +77,12 @@ func (lg *Ledger) ToAPI() *ledgerv1.Ledger {
 // AccountType and NormalBalance carry the per-account classification used
 // for balance signage and report grouping. LedgerType is retained alongside
 // for backward compatibility — both are derived from the parent ledger at
-// creation time and stay in sync.
+// creation time and stay in sync. BookID is denormalised from the parent
+// Ledger so cross-book validation in posting can be done in a single
+// account lookup without a second JOIN to the ledger table.
 type Account struct {
 	data.BaseModel
+	BookID           *string           `gorm:"type:varchar(50)"                     json:"book_id"`
 	Currency         string            `gorm:"type:varchar(10)"                     json:"currency"`
 	Balance          *decimalx.Decimal `gorm:"-"                                    json:"balance"`
 	UnClearedBalance *decimalx.Decimal `gorm:"-"                                    json:"un_cleared_balance"`
@@ -67,12 +94,18 @@ type Account struct {
 	NormalBalance    string            `gorm:"type:varchar(10);not null"            json:"normal_balance"`
 }
 
-// BeforeCreate fills in conventional defaults for AccountType and
-// NormalBalance from LedgerType, then delegates to the embedded BaseModel
+// BeforeCreate fills in conventional defaults for AccountType,
+// NormalBalance and BookID, then delegates to the embedded BaseModel
 // hook which sets ID, CreatedAt and Version. Centralising the defaults on
 // the model means every caller — business layer, direct repository writes,
 // admin tools — gets a row that satisfies the NOT NULL + CHECK constraints
 // without having to know the chart-of-accounts convention.
+//
+// BookID is denormalised from the parent Ledger at creation time so the
+// hot posting path can validate cross-book consistency from one account
+// lookup. The business layer is expected to pre-populate BookID before
+// calling Create; if the parent Ledger has a BookID and the account does
+// not, callers should propagate it explicitly.
 func (acc *Account) BeforeCreate(db *gorm.DB) error {
 	if acc.AccountType == "" {
 		acc.AccountType = AccountTypeFromLedgerType(acc.LedgerType)
@@ -100,13 +133,15 @@ func (acc *Account) ToAPI() *ledgerv1.Account {
 }
 
 // Reserved Data keys lifted into typed columns. Callers may continue to
-// supply these via Transaction.Data to avoid a proto change; the values are
-// extracted into indexed columns during TransactionFromAPI and remain in the
-// JSONB blob for backwards compatibility.
+// supply these via Transaction.Data (or Ledger.Data for BookID) to avoid
+// a proto change; the values are extracted into indexed columns during
+// TransactionFromAPI / CreateLedger and remain in the JSONB blob for
+// backwards compatibility.
 const (
-	dataKeyIdempotencyKey = "idempotency_key"
-	dataKeyExternalRef    = "external_ref"
-	dataKeySource         = "source"
+	DataKeyIdempotencyKey = "idempotency_key"
+	DataKeyExternalRef    = "external_ref"
+	DataKeySource         = "source"
+	DataKeyBookID         = "book_id"
 )
 
 func TransactionFromAPI(ctx context.Context, aTxn *ledgerv1.Transaction) *Transaction {
@@ -117,9 +152,12 @@ func TransactionFromAPI(ctx context.Context, aTxn *ledgerv1.Transaction) *Transa
 		Data:            dataMap.FromProtoStruct(aTxn.GetData()),
 	}
 
-	transaction.IdempotencyKey = stringFromJSON(transaction.Data, dataKeyIdempotencyKey)
-	transaction.ExternalRef = stringFromJSON(transaction.Data, dataKeyExternalRef)
-	transaction.Source = stringFromJSON(transaction.Data, dataKeySource)
+	transaction.IdempotencyKey = StringFromJSON(transaction.Data, DataKeyIdempotencyKey)
+	transaction.ExternalRef = StringFromJSON(transaction.Data, DataKeyExternalRef)
+	transaction.Source = StringFromJSON(transaction.Data, DataKeySource)
+	if bookID := StringFromJSON(transaction.Data, DataKeyBookID); bookID != "" {
+		transaction.BookID = &bookID
+	}
 
 	transaction.GenID(ctx)
 	transaction.ID = aTxn.GetId()
@@ -222,6 +260,7 @@ func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
 // compatibility — both move together when a transaction is posted.
 type Transaction struct {
 	data.BaseModel
+	BookID                *string             `gorm:"type:varchar(50)"                     json:"book_id"`
 	Currency              string              `gorm:"type:varchar(10);not null"            json:"currency"`
 	TransactionType       string              `gorm:"type:varchar(50)"                     json:"transaction_type"`
 	Status                string              `gorm:"type:varchar(20);not null"            json:"status"`
@@ -255,9 +294,9 @@ func (te *TransactionEntry) Equal(ot TransactionEntry) bool {
 		te.Amount.Equal(*ot.Amount)
 }
 
-// stringFromJSON safely extracts a string value from a JSONMap. Returns ""
+// StringFromJSON safely extracts a string value from a JSONMap. Returns ""
 // when the key is missing or the value is not a string.
-func stringFromJSON(m data.JSONMap, key string) string {
+func StringFromJSON(m data.JSONMap, key string) string {
 	v, ok := m[key]
 	if !ok {
 		return ""

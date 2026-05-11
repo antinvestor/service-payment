@@ -25,6 +25,6 @@ func Migrate(ctx context.Context, dbManager datastore.Manager, migrationPath str
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultMigrationPoolName)
 
 	return dbManager.Migrate(ctx, dbPool, migrationPath,
-		&models.Ledger{}, &models.Account{}, &models.Transaction{},
+		&models.Book{}, &models.Ledger{}, &models.Account{}, &models.Transaction{},
 		&models.TransactionEntry{})
 }

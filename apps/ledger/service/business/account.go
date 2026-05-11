@@ -90,6 +90,7 @@ func (b *accountBusiness) CreateAccount(
 		LedgerType:    ledger.Type,
 		AccountType:   accountType,
 		NormalBalance: normalBalance,
+		BookID:        ledger.BookID,
 		Currency:      req.GetCurrency(),
 		Balance:       zero.Ptr(),
 		Data:          req.GetData().AsMap(),

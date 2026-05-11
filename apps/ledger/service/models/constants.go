@@ -22,6 +22,17 @@ const (
 	LedgerTypeCapital   = "CAPITAL"
 )
 
+// Book classifies who the accounting scope belongs to. Conventional values
+// — open-ended because the platform model may grow new entity types.
+const (
+	BookTypePlatform = "platform"
+	BookTypeGroup    = "group"
+	BookTypeCustomer = "customer"
+	BookTypeMerchant = "merchant"
+	BookTypeAgent    = "agent"
+	BookTypeBranch   = "branch"
+)
+
 // Per-account classification, more granular than LedgerType so contra,
 // clearing, suspense and memo accounts can sit under their natural parent
 // ledgers without overloading the parent's type. Values map 1:1 to the

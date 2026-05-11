@@ -120,6 +120,9 @@ func (r *reportRepository) AggregateTrialBalance(
 	if params.LedgerType != "" {
 		db = db.Where("accounts.ledger_type = ?", params.LedgerType)
 	}
+	if len(params.BookIDs) > 0 {
+		db = db.Where("accounts.book_id IN ?", params.BookIDs)
+	}
 	if params.AsOf != nil {
 		db = db.Where("transactions.transacted_at <= ?", *params.AsOf)
 	}

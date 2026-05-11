@@ -66,12 +66,20 @@ func (b *ledgerBusiness) CreateLedger(
 		return nil, ErrLedgerReferenceRequired
 	}
 
-	// Convert API request to model
+	// Convert API request to model.
 	dataMap := &data.JSONMap{}
 	ledgerModel := &models.Ledger{
 		Type:     models.FromLedgerType(req.GetType()),
 		ParentID: req.GetParentId(),
-		Data:     dataMap.FromProtoStruct(req.GetData())}
+		Data:     dataMap.FromProtoStruct(req.GetData()),
+	}
+
+	// BookID rides through Data until the proto carries it as a typed
+	// field; this mirrors how idempotency_key and external_ref were
+	// introduced ahead of the proto push.
+	if bookID := models.StringFromJSON(ledgerModel.Data, models.DataKeyBookID); bookID != "" {
+		ledgerModel.BookID = &bookID
+	}
 
 	ledgerModel.GenID(ctx)
 	if req.GetId() != "" {

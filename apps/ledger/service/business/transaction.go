@@ -392,23 +392,9 @@ func (b *transactionBusiness) Validate(
 	ctx context.Context,
 	txn *models.Transaction,
 ) (map[string]*models.Account, error) {
-	if ledgerv1.TransactionType_NORMAL.String() == txn.TransactionType ||
-		ledgerv1.TransactionType_REVERSAL.String() == txn.TransactionType {
-		// Skip if the transaction is invalid
-		// by validating the amount values
-		if !txn.IsZeroSum() {
-			return nil, apperrors.ErrTransactionHasNonZeroSum
-		}
-
-		if !txn.IsTrueDrCr() {
-			return nil, apperrors.ErrTransactionHasInvalidDrCrEntry
-		}
-	} else if ledgerv1.TransactionType_RESERVATION.String() == txn.TransactionType {
-		if len(txn.Entries) != 1 {
-			return nil, apperrors.ErrTransactionHasInvalidDrCrEntry
-		}
+	if err := validateTransactionShape(txn); err != nil {
+		return nil, err
 	}
-
 	if len(txn.Entries) == 0 {
 		return nil, apperrors.ErrTransactionEntriesNotFound
 	}
@@ -423,12 +409,17 @@ func (b *transactionBusiness) Validate(
 		accountIDs = append(accountIDs, accountID)
 	}
 
-	// Posting only needs account metadata (LedgerType, Currency). Calling the
-	// balance-aware ListByID here would run a LATERAL subquery per account on
-	// every Create and dominates posting latency under concurrent load.
+	// Posting only needs account metadata (LedgerType, Currency, BookID).
+	// Calling the balance-aware ListByID here would run a LATERAL subquery
+	// per account on every Create and dominates posting latency under
+	// concurrent load.
 	accountsMap, errAcc := b.accountRepo.ListMetaByID(ctx, accountIDs...)
 	if errAcc != nil {
 		return nil, errAcc
+	}
+
+	if err := validateBookScope(txn, accountsMap); err != nil {
+		return nil, err
 	}
 
 	for _, entry := range txn.Entries {
@@ -595,6 +586,54 @@ func (b *transactionBusiness) resolveDuplicate(
 		return nil, apperrors.ErrTransactionIsConflicting
 	}
 	return storedTxn, nil
+}
+
+// validateTransactionShape applies the type-specific structural rules:
+// NORMAL and REVERSAL must zero-sum per currency and contain at least one
+// debit and one credit per currency. RESERVATION carries exactly one entry.
+// All other types are accepted without shape-level checks.
+func validateTransactionShape(txn *models.Transaction) error {
+	switch txn.TransactionType {
+	case ledgerv1.TransactionType_NORMAL.String(),
+		ledgerv1.TransactionType_REVERSAL.String():
+		if !txn.IsZeroSum() {
+			return apperrors.ErrTransactionHasNonZeroSum
+		}
+		if !txn.IsTrueDrCr() {
+			return apperrors.ErrTransactionHasInvalidDrCrEntry
+		}
+	case ledgerv1.TransactionType_RESERVATION.String():
+		if len(txn.Entries) != 1 {
+			return apperrors.ErrTransactionHasInvalidDrCrEntry
+		}
+	}
+	return nil
+}
+
+// validateBookScope enforces cross-book integrity: when a transaction is
+// scoped to a book, every entry's account must belong to that same book.
+// Settlements that cross book boundaries must be modeled as two separate
+// transactions linked by external_ref — never as a single entry list
+// spanning books. Backward compatibility: if the transaction does not
+// carry a BookID, the check is skipped entirely.
+func validateBookScope(
+	txn *models.Transaction, accountsMap map[string]*models.Account,
+) error {
+	if txn.BookID == nil || *txn.BookID == "" {
+		return nil
+	}
+	for _, entry := range txn.Entries {
+		acc := accountsMap[entry.AccountID]
+		if acc == nil {
+			continue
+		}
+		if acc.BookID == nil || *acc.BookID != *txn.BookID {
+			return apperrors.ErrAccountNotFound.Extend(
+				fmt.Sprintf("account %s does not belong to book %s",
+					entry.AccountID, *txn.BookID))
+		}
+	}
+	return nil
 }
 
 // preProcessTransactionEntries applies DEADCLIC sign rules and stamps the

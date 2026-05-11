@@ -46,6 +46,7 @@ const constAccountQuery = `SELECT
     a.ledger_type,
     a.account_type,
     a.normal_balance,
+    a.book_id,
     a.created_at,
     a.modified_at,
     a.version,
@@ -238,7 +239,7 @@ func (a *accountRepository) searchAccounts(ctx context.Context, sqlQuery *Search
 		acc := models.Account{}
 		err = rows.Scan(
 			&acc.ID, &acc.Currency, &acc.Data, &acc.Balance, &acc.UnClearedBalance, &acc.ReservedBalance,
-			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance,
+			&acc.LedgerID, &acc.LedgerType, &acc.AccountType, &acc.NormalBalance, &acc.BookID,
 			&acc.CreatedAt, &acc.ModifiedAt, &acc.Version, &acc.TenantID,
 			&acc.PartitionID, &acc.AccessID, &acc.DeletedAt)
 		if err != nil {

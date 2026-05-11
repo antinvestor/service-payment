@@ -27,6 +27,12 @@ type TrialBalanceParams struct {
 	Currency   string
 	LedgerID   string
 	LedgerType string
+	// BookIDs scopes the aggregation to a set of books. Empty slice means
+	// "no book filter" (every book in the caller's tenancy). When the
+	// caller wants a consolidated report across an organization and all
+	// its groups + members, the report business pre-expands the root id
+	// into all descendants and supplies them here.
+	BookIDs []string
 	// AsOf restricts the aggregation to transactions transacted at or before
 	// this instant. Nil means "no upper bound" — include everything posted.
 	AsOf *time.Time

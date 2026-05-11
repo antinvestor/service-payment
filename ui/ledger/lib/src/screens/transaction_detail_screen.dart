@@ -111,6 +111,7 @@ class TransactionDetailScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          _LifecycleActions(transaction: transaction),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
@@ -355,5 +356,117 @@ class _EntriesList extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// Lifecycle action buttons (Reverse / Void / Mark failed) shown in the
+/// transaction app bar. Each action is enabled only when the current
+/// status permits the transition; the backend enforces the same rules
+/// with atomic CAS updates, so a stale UI cannot move a row through an
+/// illegal transition even under concurrency.
+class _LifecycleActions extends ConsumerWidget {
+  const _LifecycleActions({required this.transaction});
+
+  final Transaction transaction;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = transaction.status;
+    final canReverse = status == TransactionStatus.POSTED;
+    final canVoid = status == TransactionStatus.PENDING ||
+        status == TransactionStatus.DRAFT;
+    final canMarkFailed = status == TransactionStatus.PENDING;
+
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (canReverse)
+        IconButton(
+          tooltip: 'Reverse this posting',
+          icon: const Icon(Icons.undo),
+          onPressed: () => _runWithConfirm(
+            context, ref,
+            title: 'Reverse transaction?',
+            body:
+                'Creates an offsetting REVERSAL transaction. The original moves to status REVERSED but remains in the journal.',
+            confirmLabel: 'Reverse',
+            action: () => ref
+                .read(transactionNotifierProvider.notifier)
+                .reverse(ReverseTransactionRequest()..id = transaction.id),
+          ),
+        ),
+      if (canVoid)
+        IconButton(
+          tooltip: 'Void this transaction',
+          icon: const Icon(Icons.cancel_outlined),
+          onPressed: () => _runWithConfirm(
+            context, ref,
+            title: 'Void transaction?',
+            body:
+                'Moves the transaction to status VOIDED. Only draft and pending transactions can be voided; posted activity must be reversed instead.',
+            confirmLabel: 'Void',
+            action: () => ref
+                .read(transactionNotifierProvider.notifier)
+                .voidTransaction(transaction.id),
+          ),
+        ),
+      if (canMarkFailed)
+        IconButton(
+          tooltip: 'Mark as failed',
+          icon: const Icon(Icons.report_gmailerrorred),
+          onPressed: () => _runWithConfirm(
+            context, ref,
+            title: 'Mark transaction failed?',
+            body:
+                'Use when an upstream provider rejected the posting. The row stays in the journal for audit but no longer contributes to any balance.',
+            confirmLabel: 'Mark failed',
+            action: () => ref
+                .read(transactionNotifierProvider.notifier)
+                .markFailed(transaction.id),
+          ),
+        ),
+    ]);
+  }
+
+  Future<void> _runWithConfirm(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required String body,
+    required String confirmLabel,
+    required Future<Transaction> Function() action,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await action();
+      if (context.mounted) {
+        ref.invalidate(transactionSearchProvider(transaction.id));
+        ref.invalidate(transactionEntrySearchProvider(transaction.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$confirmLabel succeeded')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$confirmLabel failed: $e')),
+        );
+      }
+    }
   }
 }

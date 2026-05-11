@@ -1,3 +1,17 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import 'package:antinvestor_ui_core/navigation/nav_items.dart';
 import 'package:antinvestor_ui_core/permissions/permission_manifest.dart';
 import 'package:antinvestor_ui_core/routing/route_module.dart';
@@ -6,20 +20,28 @@ import 'package:go_router/go_router.dart';
 
 import '../screens/account_detail_screen.dart';
 import '../screens/account_list_screen.dart';
+import '../screens/account_statement_screen.dart';
+import '../screens/book_detail_screen.dart';
+import '../screens/book_list_screen.dart';
 import '../screens/ledger_detail_screen.dart';
 import '../screens/ledger_list_screen.dart';
 import '../screens/transaction_detail_screen.dart';
 import '../screens/transaction_list_screen.dart';
+import '../screens/trial_balance_screen.dart';
 
 /// Route module for ledger management.
 ///
 /// Registers the following routes:
-/// - `/ledger/ledgers` - ledger list
+/// - `/ledger/books` - book list (filter by type)
+/// - `/ledger/books/:id` - book details + per-book reports
+/// - `/ledger/ledgers` - ledger (chart-of-accounts) list
 /// - `/ledger/ledgers/:id` - ledger details
 /// - `/ledger/accounts` - account list
 /// - `/ledger/accounts/:id` - account details
+/// - `/ledger/accounts/:id/statement` - account statement (period + export)
 /// - `/ledger/transactions` - transaction list
-/// - `/ledger/transactions/:id` - transaction details
+/// - `/ledger/transactions/:id` - transaction details with lifecycle actions
+/// - `/ledger/reports/trial-balance` - trial balance report (filters + export)
 class LedgerRouteModule extends RouteModule {
   @override
   String get moduleId => 'ledger';
@@ -27,6 +49,19 @@ class LedgerRouteModule extends RouteModule {
   @override
   List<RouteBase> buildRoutes() {
     return [
+      GoRoute(
+        path: '/ledger/books',
+        builder: (context, state) => const BookListScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return BookDetailScreen(bookId: id);
+            },
+          ),
+        ],
+      ),
       GoRoute(
         path: '/ledger/ledgers',
         builder: (context, state) => const LedgerListScreen(),
@@ -50,6 +85,15 @@ class LedgerRouteModule extends RouteModule {
               final id = state.pathParameters['id'] ?? '';
               return AccountDetailScreen(accountId: id);
             },
+            routes: [
+              GoRoute(
+                path: 'statement',
+                builder: (context, state) {
+                  final id = state.pathParameters['id'] ?? '';
+                  return AccountStatementScreen(accountId: id);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -66,6 +110,13 @@ class LedgerRouteModule extends RouteModule {
           ),
         ],
       ),
+      GoRoute(
+        path: '/ledger/reports/trial-balance',
+        builder: (context, state) {
+          final bookId = state.uri.queryParameters['bookId'] ?? '';
+          return TrialBalanceScreen(initialBookId: bookId);
+        },
+      ),
     ];
   }
 
@@ -77,12 +128,19 @@ class LedgerRouteModule extends RouteModule {
         label: 'Ledger',
         icon: Icons.account_tree_outlined,
         activeIcon: Icons.account_tree,
-        route: '/ledger/ledgers',
+        route: '/ledger/books',
         requiredPermissions: {'ledger_view'},
         children: [
           NavItem(
+            id: 'ledger-books',
+            label: 'Books',
+            icon: Icons.menu_book,
+            route: '/ledger/books',
+            requiredPermissions: {'book_view'},
+          ),
+          NavItem(
             id: 'ledger-ledgers',
-            label: 'Ledgers',
+            label: 'Chart of accounts',
             icon: Icons.account_tree,
             route: '/ledger/ledgers',
             requiredPermissions: {'ledger_view'},
@@ -101,6 +159,13 @@ class LedgerRouteModule extends RouteModule {
             route: '/ledger/transactions',
             requiredPermissions: {'transaction_view'},
           ),
+          NavItem(
+            id: 'ledger-trial-balance',
+            label: 'Trial balance',
+            icon: Icons.balance,
+            route: '/ledger/reports/trial-balance',
+            requiredPermissions: {'report_view'},
+          ),
         ],
       ),
     ];
@@ -108,12 +173,16 @@ class LedgerRouteModule extends RouteModule {
 
   @override
   Map<String, Set<String>> get routePermissions => {
+        '/ledger/books': {'book_view'},
+        '/ledger/books/': {'book_view'},
         '/ledger/ledgers': {'ledger_view'},
         '/ledger/ledgers/': {'ledger_view'},
         '/ledger/accounts': {'account_view'},
         '/ledger/accounts/': {'account_view'},
+        '/ledger/accounts//statement': {'report_view'},
         '/ledger/transactions': {'transaction_view'},
         '/ledger/transactions/': {'transaction_view'},
+        '/ledger/reports/trial-balance': {'report_view'},
       };
 
   @override
@@ -149,6 +218,21 @@ class LedgerRouteModule extends RouteModule {
             key: 'transaction_create',
             label: 'Create Transactions',
             scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'book_view',
+            label: 'View Books',
+            scope: PermissionScope.feature,
+          ),
+          PermissionEntry(
+            key: 'book_manage',
+            label: 'Manage Books',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'report_view',
+            label: 'View Reports',
+            scope: PermissionScope.feature,
           ),
         ],
       );

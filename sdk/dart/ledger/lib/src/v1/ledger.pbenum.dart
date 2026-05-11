@@ -56,5 +56,98 @@ class TransactionType extends $pb.ProtobufEnum {
   const TransactionType._($core.int v, $core.String n) : super(v, n);
 }
 
+/// TransactionStatus drives the transaction lifecycle.
+///   PENDING  — submitted, awaiting settlement; contributes to un_cleared_balance
+///   POSTED   — confirmed/settled; contributes to balance; immutable except for
+///              the auto-transition to REVERSED when a REVERSAL is posted
+///   REVERSED — was posted, then offset by a REVERSAL whose entries cancel
+///              this one's balance impact
+///   VOIDED   — was draft or pending, then cancelled administratively
+///   FAILED   — posting rejected by upstream system; no balance impact
+///   DRAFT    — created but not submitted; no balance impact
+/// buf:lint:ignore ENUM_VALUE_PREFIX
+class TransactionStatus extends $pb.ProtobufEnum {
+  static const TransactionStatus PENDING = TransactionStatus._(0, _omitEnumNames ? '' : 'PENDING');
+  static const TransactionStatus POSTED = TransactionStatus._(1, _omitEnumNames ? '' : 'POSTED');
+  static const TransactionStatus REVERSED = TransactionStatus._(2, _omitEnumNames ? '' : 'REVERSED');
+  static const TransactionStatus VOIDED = TransactionStatus._(3, _omitEnumNames ? '' : 'VOIDED');
+  static const TransactionStatus FAILED = TransactionStatus._(4, _omitEnumNames ? '' : 'FAILED');
+  static const TransactionStatus DRAFT = TransactionStatus._(5, _omitEnumNames ? '' : 'DRAFT');
+
+  static const $core.List<TransactionStatus> values = <TransactionStatus> [
+    PENDING,
+    POSTED,
+    REVERSED,
+    VOIDED,
+    FAILED,
+    DRAFT,
+  ];
+
+  static final $core.Map<$core.int, TransactionStatus> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static TransactionStatus? valueOf($core.int value) => _byValue[value];
+
+  const TransactionStatus._($core.int v, $core.String n) : super(v, n);
+}
+
+/// AccountType is the per-account classification, finer-grained than
+/// LedgerType so contra, clearing, suspense and memo accounts can live
+/// under their natural parent ledgers without overloading the type.
+/// buf:lint:ignore ENUM_VALUE_PREFIX
+class AccountType extends $pb.ProtobufEnum {
+  static const AccountType ACCOUNT_ASSET = AccountType._(0, _omitEnumNames ? '' : 'ACCOUNT_ASSET');
+  static const AccountType ACCOUNT_LIABILITY = AccountType._(1, _omitEnumNames ? '' : 'ACCOUNT_LIABILITY');
+  static const AccountType ACCOUNT_EQUITY = AccountType._(2, _omitEnumNames ? '' : 'ACCOUNT_EQUITY');
+  static const AccountType ACCOUNT_INCOME = AccountType._(3, _omitEnumNames ? '' : 'ACCOUNT_INCOME');
+  static const AccountType ACCOUNT_EXPENSE = AccountType._(4, _omitEnumNames ? '' : 'ACCOUNT_EXPENSE');
+  static const AccountType ACCOUNT_CONTRA_ASSET = AccountType._(5, _omitEnumNames ? '' : 'ACCOUNT_CONTRA_ASSET');
+  static const AccountType ACCOUNT_CONTRA_LIABILITY = AccountType._(6, _omitEnumNames ? '' : 'ACCOUNT_CONTRA_LIABILITY');
+  static const AccountType ACCOUNT_CONTRA_INCOME = AccountType._(7, _omitEnumNames ? '' : 'ACCOUNT_CONTRA_INCOME');
+  static const AccountType ACCOUNT_CONTRA_EXPENSE = AccountType._(8, _omitEnumNames ? '' : 'ACCOUNT_CONTRA_EXPENSE');
+  static const AccountType ACCOUNT_CLEARING = AccountType._(9, _omitEnumNames ? '' : 'ACCOUNT_CLEARING');
+  static const AccountType ACCOUNT_SUSPENSE = AccountType._(10, _omitEnumNames ? '' : 'ACCOUNT_SUSPENSE');
+  static const AccountType ACCOUNT_MEMO = AccountType._(11, _omitEnumNames ? '' : 'ACCOUNT_MEMO');
+
+  static const $core.List<AccountType> values = <AccountType> [
+    ACCOUNT_ASSET,
+    ACCOUNT_LIABILITY,
+    ACCOUNT_EQUITY,
+    ACCOUNT_INCOME,
+    ACCOUNT_EXPENSE,
+    ACCOUNT_CONTRA_ASSET,
+    ACCOUNT_CONTRA_LIABILITY,
+    ACCOUNT_CONTRA_INCOME,
+    ACCOUNT_CONTRA_EXPENSE,
+    ACCOUNT_CLEARING,
+    ACCOUNT_SUSPENSE,
+    ACCOUNT_MEMO,
+  ];
+
+  static final $core.Map<$core.int, AccountType> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static AccountType? valueOf($core.int value) => _byValue[value];
+
+  const AccountType._($core.int v, $core.String n) : super(v, n);
+}
+
+/// NormalBalance is the side an account's balance accumulates on. DEADCLIC
+/// stores +amount when an entry's side equals the normal balance, -amount
+/// when it is the opposite. NONE opts a memo account out of normalisation.
+/// buf:lint:ignore ENUM_VALUE_PREFIX
+class NormalBalance extends $pb.ProtobufEnum {
+  static const NormalBalance DEBIT = NormalBalance._(0, _omitEnumNames ? '' : 'DEBIT');
+  static const NormalBalance CREDIT = NormalBalance._(1, _omitEnumNames ? '' : 'CREDIT');
+  static const NormalBalance NONE = NormalBalance._(2, _omitEnumNames ? '' : 'NONE');
+
+  static const $core.List<NormalBalance> values = <NormalBalance> [
+    DEBIT,
+    CREDIT,
+    NONE,
+  ];
+
+  static final $core.Map<$core.int, NormalBalance> _byValue = $pb.ProtobufEnum.initByValue(values);
+  static NormalBalance? valueOf($core.int value) => _byValue[value];
+
+  const NormalBalance._($core.int v, $core.String n) : super(v, n);
+}
+
 
 const _omitEnumNames = $core.bool.fromEnvironment('protobuf.omit_enum_names');

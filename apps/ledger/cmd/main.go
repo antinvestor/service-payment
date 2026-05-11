@@ -72,10 +72,12 @@ func main() {
 	ledgerRepo := repository.NewLedgerRepository(ctx, dbPool, workMan)
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
 	transactionRepo := repository.NewTransactionRepository(ctx, dbPool, workMan, accountRepo)
+	reportRepo := repository.NewReportRepository(dbPool)
 
 	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo, accountRepo)
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
+	_ = business.NewReportBusiness(reportRepo) // wired into handlers in a follow-up after proto-push
 
 	// Create handler with injected business layer
 	ledgerServer := handlers.NewLedgerServer(ledgerBusiness, accountBusiness, transactionBusiness)

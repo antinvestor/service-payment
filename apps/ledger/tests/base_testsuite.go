@@ -47,9 +47,11 @@ type ServiceResources struct {
 	LedgerRepository      repository.LedgerRepository
 	AccountRepository     repository.AccountRepository
 	TransactionRepository repository.TransactionRepository
+	ReportRepository      repository.ReportRepository
 	LedgerBusiness        business.LedgerBusiness
 	AccountBusiness       business.AccountBusiness
 	TransactionBusiness   business.TransactionBusiness
+	ReportBusiness        business.ReportBusiness
 }
 
 type BaseTestSuite struct {
@@ -147,17 +149,21 @@ func (bs *BaseTestSuite) CreateService(
 	ledgerRepo := repository.NewLedgerRepository(ctx, dbPool, workMan)
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
 	transactionRepo := repository.NewTransactionRepository(ctx, dbPool, workMan, accountRepo)
+	reportRepo := repository.NewReportRepository(dbPool)
 	ledgerBusiness := business.NewLedgerBusiness(workMan, ledgerRepo, accountRepo)
 	accountBusiness := business.NewAccountBusiness(workMan, ledgerRepo, accountRepo)
 	transactionBusiness := business.NewTransactionBusiness(workMan, accountRepo, transactionRepo)
+	reportBusiness := business.NewReportBusiness(reportRepo)
 
 	resources := &ServiceResources{
 		LedgerRepository:      ledgerRepo,
 		AccountRepository:     accountRepo,
 		TransactionRepository: transactionRepo,
+		ReportRepository:      reportRepo,
 		LedgerBusiness:        ledgerBusiness,
 		AccountBusiness:       accountBusiness,
 		TransactionBusiness:   transactionBusiness,
+		ReportBusiness:        reportBusiness,
 	}
 
 	err = repository.Migrate(ctx, dbManager, "../../migrations/0001")

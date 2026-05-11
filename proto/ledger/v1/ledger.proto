@@ -93,6 +93,57 @@ enum TransactionType {
   RESERVATION = 2; // Temporary hold/reservation (e.g., pending payment authorization)
 }
 
+// TransactionStatus drives the transaction lifecycle.
+//   PENDING  — submitted, awaiting settlement; contributes to un_cleared_balance
+//   POSTED   — confirmed/settled; contributes to balance; immutable except for
+//              the auto-transition to REVERSED when a REVERSAL is posted
+//   REVERSED — was posted, then offset by a REVERSAL whose entries cancel
+//              this one's balance impact
+//   VOIDED   — was draft or pending, then cancelled administratively
+//   FAILED   — posting rejected by upstream system; no balance impact
+//   DRAFT    — created but not submitted; no balance impact
+// buf:lint:ignore ENUM_VALUE_PREFIX
+enum TransactionStatus {
+  // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
+  PENDING = 0; // Awaiting settlement
+  POSTED = 1; // Confirmed and contributes to balance
+  REVERSED = 2; // Posted then offset by a REVERSAL
+  VOIDED = 3; // Cancelled before posting
+  FAILED = 4; // Rejected by upstream system
+  DRAFT = 5; // Not yet submitted
+}
+
+// AccountType is the per-account classification, finer-grained than
+// LedgerType so contra, clearing, suspense and memo accounts can live
+// under their natural parent ledgers without overloading the type.
+// buf:lint:ignore ENUM_VALUE_PREFIX
+enum AccountType {
+  // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
+  ACCOUNT_ASSET = 0;
+  ACCOUNT_LIABILITY = 1;
+  ACCOUNT_EQUITY = 2;
+  ACCOUNT_INCOME = 3;
+  ACCOUNT_EXPENSE = 4;
+  ACCOUNT_CONTRA_ASSET = 5;
+  ACCOUNT_CONTRA_LIABILITY = 6;
+  ACCOUNT_CONTRA_INCOME = 7;
+  ACCOUNT_CONTRA_EXPENSE = 8;
+  ACCOUNT_CLEARING = 9;
+  ACCOUNT_SUSPENSE = 10;
+  ACCOUNT_MEMO = 11;
+}
+
+// NormalBalance is the side an account's balance accumulates on. DEADCLIC
+// stores +amount when an entry's side equals the normal balance, -amount
+// when it is the opposite. NONE opts a memo account out of normalisation.
+// buf:lint:ignore ENUM_VALUE_PREFIX
+enum NormalBalance {
+  // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
+  DEBIT = 0;
+  CREDIT = 1;
+  NONE = 2;
+}
+
 // -----------------------------------------------------
 // Core Data Types
 // -----------------------------------------------------
@@ -108,6 +159,7 @@ message Ledger {
   LedgerType type = 2; // Accounting category type
   string parent = 3; // Parent ledger reference for hierarchical structure
   google.protobuf.Struct data = 4; // Additional ledger metadata (name, description, etc.)
+  string book_id = 5; // Optional Book this ledger belongs to; empty for legacy/global rows
 }
 
 // Account represents a specific account within a ledger.
@@ -123,6 +175,9 @@ message Account {
   google.protobuf.Struct data = 5; // Additional account metadata (owner, description, etc.)
   common.v1.Money uncleared_balance = 6; // Balance including uncleared transactions
   common.v1.Money reserved_balance = 7; // Amount held in reservations
+  AccountType account_type = 8; // Per-account classification (assets/liabilities/contra/clearing/...)
+  NormalBalance normal_balance = 9; // Side on which the balance accumulates
+  string book_id = 10; // Book this account belongs to; empty for legacy/global rows
 }
 
 // TransactionEntry represents one side of a double-entry transaction.
@@ -151,8 +206,67 @@ message Transaction {
   string transacted_at = 3; // Transaction timestamp (RFC3339)
   google.protobuf.Struct data = 4; // Additional transaction metadata (description, source, etc.)
   repeated TransactionEntry entries = 5; // Transaction entries (must be balanced)
-  bool cleared = 6; // Whether transaction has been cleared/posted
+  bool cleared = 6; // Deprecated: use status. Kept for backward compatibility; true iff status == POSTED.
   TransactionType type = 7; // Transaction type (normal, reversal, reservation)
+  TransactionStatus status = 8; // Lifecycle state (pending / posted / reversed / voided / failed / draft)
+  string idempotency_key = 9; // Caller-supplied dedup token; partial UNIQUE at the DB layer
+  string external_ref = 10; // Provider/external system reference (mobile money txn id, etc.)
+  string source = 11; // Origin of the posting (e.g. "mtn", "manual_admin")
+  string book_id = 12; // Book this transaction belongs to; empty for legacy/global rows
+  string posted_at = 13; // When status moved to POSTED (RFC3339); empty when not yet posted
+  string voided_at = 14; // When status moved to VOIDED (RFC3339); empty otherwise
+  string reversed_transaction_id = 15; // Set on REVERSAL rows pointing back at the original
+}
+
+// Book is an independent accounting scope — one entity's complete set of
+// financial records. Examples by convention: "platform" (the company's own
+// book), "group" (a savings group / chama / SACCO / branch), "customer"
+// (an individual member), "merchant", "agent". Type is a free-form string
+// so product domains can grow new entity classifications without a
+// migration. ParentID supports hierarchy (organisation → groups → members)
+// for consolidated reporting; cross-book posting remains strict regardless.
+message Book {
+  string id = 1; // Unique book reference/ID
+  string name = 2; // Display name (e.g. "Village Group A", "Member Jane Doe")
+  string type = 3; // Conventional type ("platform"/"group"/"customer"/"merchant"/"agent"/"branch")
+  string parent_id = 4; // Optional parent book for hierarchical scope
+  string currency = 5; // Default currency for this book (ISO 4217)
+  google.protobuf.Struct data = 6; // Additional metadata
+}
+
+// TrialBalanceLine is one row of the trial balance — a single account's
+// raw debit and credit totals plus the DEADCLIC-signed net balance.
+message TrialBalanceLine {
+  string account_id = 1;
+  string ledger_id = 2;
+  LedgerType ledger_type = 3;
+  string currency = 4;
+  common.v1.Money total_debits = 5;
+  common.v1.Money total_credits = 6;
+  common.v1.Money net_balance = 7;
+}
+
+// TrialBalanceTotal aggregates one currency's debits and credits across
+// every line in the report. is_balanced is the textbook integrity check.
+message TrialBalanceTotal {
+  string currency = 1;
+  common.v1.Money total_debits = 2;
+  common.v1.Money total_credits = 3;
+  bool is_balanced = 4;
+}
+
+// StatementEntry is one row on an account statement, hydrated with its
+// parent transaction's metadata and the running balance after the entry.
+message StatementEntry {
+  string entry_id = 1;
+  string transaction_id = 2;
+  string transacted_at = 3; // RFC3339
+  TransactionType transaction_type = 4;
+  common.v1.Money amount = 5;
+  bool credit = 6;
+  common.v1.Money running_balance = 7;
+  google.protobuf.Struct transaction_data = 8;
+  string cleared_at = 9; // RFC3339
 }
 
 // -----------------------------------------------------
@@ -297,6 +411,99 @@ message SearchTransactionEntriesResponse {
 }
 
 // -----------------------------------------------------
+// Book request/response messages
+// -----------------------------------------------------
+
+message CreateBookRequest {
+  string id = 1 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 40,
+    (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
+  ]; // Optional unique reference; generated when omitted
+  string name = 2; // Display name
+  string type = 3; // Conventional type ("platform"/"group"/"customer"/...)
+  string parent_id = 4; // Optional parent book for hierarchical scope
+  string currency = 5; // Default currency for this book (ISO 4217)
+  google.protobuf.Struct data = 6; // Additional metadata
+}
+
+message CreateBookResponse {
+  Book data = 1;
+}
+
+message GetBookRequest {
+  string id = 1;
+}
+
+message GetBookResponse {
+  Book data = 1;
+}
+
+message ListBooksByTypeRequest {
+  string type = 1; // Conventional book type
+}
+
+message ListBooksByTypeResponse {
+  repeated Book data = 1;
+}
+
+// -----------------------------------------------------
+// Report request/response messages
+// -----------------------------------------------------
+
+message GetTrialBalanceRequest {
+  string currency = 1; // Optional ISO 4217 filter
+  string ledger_id = 2; // Optional scope to one chart-of-accounts subtree
+  LedgerType ledger_type = 3; // Optional filter by category
+  repeated string book_ids = 4; // Optional scope; expand via ListBookDescendants for consolidation
+  string as_of = 5; // Optional RFC3339 upper bound on transacted_at
+}
+
+message GetTrialBalanceResponse {
+  repeated TrialBalanceLine lines = 1;
+  repeated TrialBalanceTotal totals = 2;
+}
+
+message GetAccountStatementRequest {
+  string account_id = 1;
+  string from = 2; // Optional RFC3339 lower bound (inclusive) on transacted_at
+  string to = 3; // Optional RFC3339 upper bound (inclusive) on transacted_at
+  int32 limit = 4; // Page size (default 100, max 1000)
+  int32 offset = 5; // Page offset
+}
+
+message GetAccountStatementResponse {
+  string account_id = 1;
+  string currency = 2;
+  common.v1.Money opening_balance = 3;
+  common.v1.Money closing_balance = 4;
+  common.v1.Money total_debits = 5;
+  common.v1.Money total_credits = 6;
+  repeated StatementEntry entries = 7;
+}
+
+// -----------------------------------------------------
+// Lifecycle transition request/response messages
+// -----------------------------------------------------
+
+message VoidTransactionRequest {
+  string id = 1;
+}
+
+message VoidTransactionResponse {
+  Transaction data = 1;
+}
+
+message MarkTransactionFailedRequest {
+  string id = 1;
+}
+
+message MarkTransactionFailedResponse {
+  Transaction data = 1;
+}
+
+// -----------------------------------------------------
 // Ledger Service
 // -----------------------------------------------------
 
@@ -311,7 +518,10 @@ service LedgerService {
       "account_view",
       "account_manage",
       "transaction_view",
-      "transaction_manage"
+      "transaction_manage",
+      "book_view",
+      "book_manage",
+      "report_view"
     ]
     role_bindings: [
       {
@@ -322,7 +532,10 @@ service LedgerService {
           "account_view",
           "account_manage",
           "transaction_view",
-          "transaction_manage"
+          "transaction_manage",
+          "book_view",
+          "book_manage",
+          "report_view"
         ]
       },
       {
@@ -333,7 +546,10 @@ service LedgerService {
           "account_view",
           "account_manage",
           "transaction_view",
-          "transaction_manage"
+          "transaction_manage",
+          "book_view",
+          "book_manage",
+          "report_view"
         ]
       },
       {
@@ -342,7 +558,9 @@ service LedgerService {
           "ledger_view",
           "account_view",
           "transaction_view",
-          "transaction_manage"
+          "transaction_manage",
+          "book_view",
+          "report_view"
         ]
       },
       {
@@ -350,7 +568,9 @@ service LedgerService {
         permissions: [
           "ledger_view",
           "account_view",
-          "transaction_view"
+          "transaction_view",
+          "book_view",
+          "report_view"
         ]
       },
       {
@@ -358,7 +578,9 @@ service LedgerService {
         permissions: [
           "ledger_view",
           "account_view",
-          "transaction_view"
+          "transaction_view",
+          "book_view",
+          "report_view"
         ]
       },
       {
@@ -369,7 +591,10 @@ service LedgerService {
           "account_view",
           "account_manage",
           "transaction_view",
-          "transaction_manage"
+          "transaction_manage",
+          "book_view",
+          "book_manage",
+          "report_view"
         ]
       }
     ]
@@ -530,6 +755,107 @@ service LedgerService {
       summary: "Search transaction entries"
       description: "Searches for individual transaction entries. Useful for generating account statements, reconciliation, and detailed transaction analysis. Supports filtering by account, date range, and cleared status."
       tags: "Transactions"
+    };
+  }
+
+  // VoidTransaction transitions a draft or pending transaction to VOIDED.
+  // Posted activity cannot be voided — reverse it instead so the books
+  // carry the offset and the audit trail.
+  rpc VoidTransaction(VoidTransactionRequest) returns (VoidTransactionResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["transaction_manage"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "voidTransaction"
+      summary: "Void a not-yet-posted transaction"
+      description: "Transitions a draft or pending transaction to VOIDED and stamps voided_at. Posted transactions cannot be voided; use ReverseTransaction so the books carry the offset and audit trail."
+      tags: "Transactions"
+    };
+  }
+
+  // MarkTransactionFailed transitions a pending transaction to FAILED for
+  // upstream rejections (e.g. payment provider declined the webhook).
+  rpc MarkTransactionFailed(MarkTransactionFailedRequest) returns (MarkTransactionFailedResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["transaction_manage"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "markTransactionFailed"
+      summary: "Mark a pending transaction failed"
+      description: "Transitions a pending transaction to FAILED. Use when the upstream payment provider rejects the posting. Posted, voided, reversed and already-failed transactions cannot be marked failed."
+      tags: "Transactions"
+    };
+  }
+
+  // CreateBook creates a new accounting scope. Each book balances
+  // independently; cross-book postings are rejected.
+  rpc CreateBook(CreateBookRequest) returns (CreateBookResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["book_manage"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "createBook"
+      summary: "Create a new book"
+      description: "Creates a new accounting scope. Books represent independent accounting entities (platform book, group book, merchant book, etc.). Optional parent_id supports hierarchy for consolidated reporting; cross-book postings are rejected regardless of hierarchy."
+      tags: "Books"
+    };
+  }
+
+  // GetBook fetches a single book by id within the caller's tenancy.
+  rpc GetBook(GetBookRequest) returns (GetBookResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["book_view"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "getBook"
+      summary: "Get a book by id"
+      description: "Retrieves the book with the given id within the caller's tenancy."
+      tags: "Books"
+    };
+  }
+
+  // ListBooksByType returns all books of a given conventional type.
+  rpc ListBooksByType(ListBooksByTypeRequest) returns (ListBooksByTypeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["book_view"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "listBooksByType"
+      summary: "List books by type"
+      description: "Returns all active books of the supplied conventional type (e.g. all group books, all merchant books) within the caller's tenancy."
+      tags: "Books"
+    };
+  }
+
+  // GetTrialBalance returns the per-account debit/credit totals plus per-
+  // currency grand totals with the textbook integrity check (is_balanced).
+  rpc GetTrialBalance(GetTrialBalanceRequest) returns (GetTrialBalanceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["report_view"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "getTrialBalance"
+      summary: "Get trial balance"
+      description: "Computes the trial balance across cleared NORMAL and REVERSAL transactions. Optional filters scope to currency, ledger, ledger type, book set (expand via ListBookDescendants for consolidation), and an as-of date."
+      tags: "Reports"
+    };
+  }
+
+  // GetAccountStatement returns a customer-facing account ledger for a
+  // period with opening balance, running balance per entry, and totals.
+  rpc GetAccountStatement(GetAccountStatementRequest) returns (GetAccountStatementResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["report_view"]
+    };
+    option (gnostic.openapi.v3.operation) = {
+      operation_id: "getAccountStatement"
+      summary: "Get an account statement"
+      description: "Returns the account's entries in chronological order with running balance per entry, opening and closing balances, and the period's raw debit/credit totals."
+      tags: "Reports"
     };
   }
 }

@@ -22,7 +22,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.2
-	github.com/pitabwire/frame v1.94.6
+	github.com/pitabwire/frame v1.95.0
 	github.com/pitabwire/util v0.8.1-0.20260509193553-0acf358c18ed
 	github.com/pitabwire/util/decimalx v0.7.1
 	github.com/pitabwire/util/moneyx v0.0.0-20260509193553-0acf358c18ed
@@ -164,5 +164,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
-
-replace github.com/pitabwire/frame => /home/j/code/pitabwire/frame

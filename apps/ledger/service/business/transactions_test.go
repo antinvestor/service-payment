@@ -826,6 +826,171 @@ func (ts *TransactionsModelSuite) uniqueTxnID(prefix string, i int) string {
 	return fmt.Sprintf("%s_%d_%d", prefix, time.Now().UnixNano()%1_000_000, i)
 }
 
+// TestStatusCreatedClearedYieldsPosted verifies the create path: ClearedAt
+// non-zero translates to status=posted with PostedAt populated, both at
+// creation time.
+func (ts *TransactionsModelSuite) TestStatusCreatedClearedYieldsPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		now := time.Now().UTC()
+		txnID := ts.uniqueTxnID("status_cleared", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		stored, err := res.TransactionRepository.GetByID(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPosted, stored.Status)
+		require.NotNil(t, stored.PostedAt)
+		assert.False(t, stored.PostedAt.IsZero())
+	})
+}
+
+// TestStatusCreatedUnclearedYieldsPending verifies that omitting ClearedAt
+// at creation parks the transaction in 'pending' with no PostedAt.
+func (ts *TransactionsModelSuite) TestStatusCreatedUnclearedYieldsPending() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		txnID := ts.uniqueTxnID("status_uncl", 0)
+		txn := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: txnID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			// ClearedAt intentionally left zero.
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, txn)
+		require.NoError(t, err)
+
+		stored, err := res.TransactionRepository.GetByID(ctx, txnID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPending, stored.Status)
+		assert.Nil(t, stored.PostedAt)
+	})
+}
+
+// TestReversalMarksOriginalAndCarriesLineage proves the atomic reversal
+// pathway: the new REVERSAL row carries reversed_transaction_id pointing
+// back at the original, and the original's status flips from posted to
+// reversed in the same DB transaction.
+func (ts *TransactionsModelSuite) TestReversalMarksOriginalAndCarriesLineage() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		now := time.Now().UTC()
+		origID := ts.uniqueTxnID("rev_orig", 0)
+		original := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: origID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(100).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(100).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, original)
+		require.NoError(t, err)
+
+		reversedAPI, err := res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: origID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, reversedAPI)
+
+		// Original is now reversed.
+		afterOrig, err := res.TransactionRepository.GetByID(ctx, origID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusReversed, afterOrig.Status,
+			"original transaction must transition to 'reversed' after reversal commits")
+
+		// REVERSAL row carries reversed_transaction_id back at the original.
+		reversalID := reversedAPI.GetId()
+		reversalStored, err := res.TransactionRepository.GetByID(ctx, reversalID)
+		require.NoError(t, err)
+		assert.Equal(t, models.TransactionStatusPosted, reversalStored.Status)
+		require.NotNil(t, reversalStored.ReversedTransactionID,
+			"reversal must carry reversed_transaction_id FK to the original")
+		assert.Equal(t, origID, *reversalStored.ReversedTransactionID)
+	})
+}
+
+// TestReversalRejectsNonPosted verifies that an uncleared (pending) or
+// already-reversed transaction cannot be reversed; the system refuses
+// rather than silently producing a meaningless offset.
+func (ts *TransactionsModelSuite) TestReversalRejectsNonPosted() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := ts.CreateService(t, depOpt)
+		ts.setupFixtures(ctx, res)
+
+		pendingID := ts.uniqueTxnID("rev_pend", 0)
+		pending := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: pendingID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    time.Now().UTC(),
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(50).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(50).Ptr()},
+			},
+		}
+		_, err := res.TransactionBusiness.Transact(ctx, pending)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: pendingID,
+		})
+		require.Error(t, err, "reversing a pending transaction must be rejected")
+
+		// And the same after marking it reversed: double-reversal must fail.
+		postedID := ts.uniqueTxnID("rev_dbl", 0)
+		now := time.Now().UTC()
+		posted := &models.Transaction{
+			BaseModel:       data.BaseModel{ID: postedID},
+			Currency:        "UGX",
+			TransactionType: ledgerv1.TransactionType_NORMAL.String(),
+			TransactedAt:    now,
+			ClearedAt:       now,
+			Entries: []*models.TransactionEntry{
+				{AccountID: "a1", Credit: false, Amount: decimalx.NewFromInt64(75).Ptr()},
+				{AccountID: "a2", Credit: true, Amount: decimalx.NewFromInt64(75).Ptr()},
+			},
+		}
+		_, err = res.TransactionBusiness.Transact(ctx, posted)
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: postedID,
+		})
+		require.NoError(t, err)
+
+		_, err = res.TransactionBusiness.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{
+			Id: postedID,
+		})
+		require.Error(t, err, "second reversal on an already-reversed transaction must be rejected")
+	})
+}
+
 func TestTransactionsModelSuite(t *testing.T) {
 	suite.Run(t, new(TransactionsModelSuite))
 }

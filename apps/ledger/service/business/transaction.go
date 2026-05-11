@@ -195,7 +195,10 @@ func (b *transactionBusiness) UpdateTransaction(
 		}
 	}
 
-	if existingTransaction.ClearedAt.IsZero() {
+	// Only pending transactions can be advanced to posted. Already-posted
+	// rows are immutable in that regard; terminal statuses (reversed/voided/
+	// failed) cannot be reopened.
+	if existingTransaction.Status == models.TransactionStatusPending {
 		err = b.processClearanceUpdate(ctx, req, existingTransaction)
 		if err != nil {
 			return nil, err
@@ -212,17 +215,18 @@ func (b *transactionBusiness) UpdateTransaction(
 	return existingTransaction.ToAPI(), nil
 }
 
-// ReverseTransaction reverses a transaction by creating offsetting entries.
+// ReverseTransaction posts a REVERSAL transaction whose entries cancel the
+// original's balance impact, and atomically marks the original as 'reversed'.
+// Only posted NORMAL transactions can be reversed; the atomic guard in
+// transactionRepo.CreateReversal prevents double-reversal under concurrency.
 func (b *transactionBusiness) ReverseTransaction(
 	ctx context.Context,
 	req *ledgerv1.ReverseTransactionRequest,
 ) (*ledgerv1.Transaction, error) {
-	// Business logic validation
 	if req.GetId() == "" {
 		return nil, ErrTransactionIDRequired
 	}
 
-	// Get the original transaction to reverse
 	originalTxn, err := b.transactionRepo.GetByID(ctx, req.GetId())
 	if err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
@@ -233,27 +237,37 @@ func (b *transactionBusiness) ReverseTransaction(
 			fmt.Sprintf("transaction (type=%s) is not reversible", originalTxn.TransactionType),
 		)
 	}
+	if originalTxn.Status != models.TransactionStatusPosted {
+		return nil, apperrors.ErrTransactionTypeNotReversible.Extend(
+			fmt.Sprintf("transaction (status=%s) is not reversible; only posted transactions can be reversed",
+				originalTxn.Status),
+		)
+	}
 
-	// Create a new reversal transaction instead of modifying the original
+	now := time.Now()
+	originalID := originalTxn.ID
 	reversalTxn := &models.Transaction{
-		Currency:        originalTxn.Currency,
-		TransactionType: ledgerv1.TransactionType_REVERSAL.String(),
-		TransactedAt:    time.Now(),
-		Data:            originalTxn.Data,
+		Currency:              originalTxn.Currency,
+		TransactionType:       ledgerv1.TransactionType_REVERSAL.String(),
+		Status:                models.TransactionStatusPosted,
+		ReversedTransactionID: &originalID,
+		TransactedAt:          now,
+		ClearedAt:             now,
+		PostedAt:              &now,
+		Data:                  originalTxn.Data,
 	}
 	reversalTxn.GenID(ctx)
 	reversalTxn.ID = fmt.Sprintf("%s_REVERSAL", originalTxn.ID)
 
-	// Create reversed entries by flipping the Credit flag while keeping the
+	// Build reversal entries by flipping the Credit flag while keeping the
 	// original stored amount. preProcessTransactionEntries applies DEADCLIC
 	// sign rules based on the Credit flag and account type. Since the credit
-	// flag is flipped, preProcess will negate the amount (which was positive
-	// in the original), producing the negative offsetting entry needed to
-	// zero out the original balance impact.
+	// flag is flipped, preProcess negates the amount, producing the
+	// offsetting entry that zeroes out the original's balance impact.
 	//
-	// Important: do NOT also negate the amount here — that would cause
-	// double-negation (once explicit, once by preProcess), restoring the
-	// original positive value and making the reversal ineffective.
+	// Do NOT also negate the amount here — that would double-negate (once
+	// explicit, once via preProcess), restoring the original positive value
+	// and making the reversal ineffective.
 	for _, entry := range originalTxn.Entries {
 		reversalTxn.Entries = append(reversalTxn.Entries, &models.TransactionEntry{
 			BaseModel: data.BaseModel{ID: fmt.Sprintf("%s_REVERSAL", entry.ID)},
@@ -263,13 +277,63 @@ func (b *transactionBusiness) ReverseTransaction(
 		})
 	}
 
-	reversedTxn, err := b.Transact(ctx, reversalTxn)
+	reversedTxn, err := b.transactAsReversal(ctx, reversalTxn, originalTxn.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert to API type
 	return reversedTxn.ToAPI(), nil
+}
+
+// transactAsReversal mirrors Transact for the reversal path but routes the
+// final write through CreateReversal so the original is flipped to 'reversed'
+// in the same DB transaction.
+func (b *transactionBusiness) transactAsReversal(
+	ctx context.Context, transaction *models.Transaction, originalID string,
+) (*models.Transaction, error) {
+	if transaction.TransactedAt.IsZero() {
+		transaction.TransactedAt = time.Now()
+	}
+
+	accountsMap, aerr := b.Validate(ctx, transaction)
+	if aerr != nil {
+		var appErr apperrors.ApplicationError
+		if errors.As(aerr, &appErr) {
+			return nil, appErr
+		}
+		return nil, apperrors.ErrSystemFailure.Override(aerr)
+	}
+
+	b.preProcessTransactionEntries(transaction, accountsMap)
+
+	sort.Slice(transaction.Entries, func(i, j int) bool {
+		ei, ej := transaction.Entries[i], transaction.Entries[j]
+		if ei.AccountID != ej.AccountID {
+			return ei.AccountID < ej.AccountID
+		}
+		if ei.Credit != ej.Credit {
+			return !ei.Credit
+		}
+		absI := decimalx.DerefOr(ei.Amount, decimalx.Zero()).Abs()
+		absJ := decimalx.DerefOr(ej.Amount, decimalx.Zero()).Abs()
+		return absI.LessThan(absJ)
+	})
+
+	for i, entry := range transaction.Entries {
+		if entry.ID == "" {
+			entry.ID = fmt.Sprintf("%s_%s_%d", transaction.GetID(), entry.AccountID, i)
+		}
+		entry.TransactionID = transaction.GetID()
+	}
+
+	err := b.transactionRepo.CreateReversal(ctx, transaction, originalID)
+	if err == nil {
+		return transaction, nil
+	}
+	if !data.ErrorIsDuplicateKey(err) {
+		return nil, apperrors.ErrSystemFailure.Override(err)
+	}
+	return b.resolveDuplicate(ctx, transaction)
 }
 
 // DeleteTransaction is not supported — transactions are immutable audit records.
@@ -436,6 +500,21 @@ func (b *transactionBusiness) Transact(
 		transaction.TransactedAt = time.Now()
 	}
 
+	// Default Status from any legacy ClearedAt the caller set directly (the
+	// model-layer conversion handles the proto path, but the repository/test
+	// surface constructs Transaction values directly). Pending if uncleared.
+	if transaction.Status == "" {
+		if !transaction.ClearedAt.IsZero() {
+			transaction.Status = models.TransactionStatusPosted
+			if transaction.PostedAt == nil {
+				posted := transaction.ClearedAt
+				transaction.PostedAt = &posted
+			}
+		} else {
+			transaction.Status = models.TransactionStatusPending
+		}
+	}
+
 	// Pre-validate accounts before any database operations to fail fast
 	accountsMap, aerr := b.Validate(ctx, transaction)
 	if aerr != nil {
@@ -545,8 +624,9 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 	}
 }
 
-// processClearanceUpdate handles the clearance time update for a transaction.
-// Posted entries are immutable: only the parent ClearedAt is updated.
+// processClearanceUpdate drives the pending → posted transition: sets
+// ClearedAt + PostedAt and flips Status. Posted entries themselves are
+// immutable; only the parent transaction's status timestamps move.
 func (b *transactionBusiness) processClearanceUpdate(
 	ctx context.Context,
 	req *ledgerv1.UpdateTransactionRequest,
@@ -566,5 +646,7 @@ func (b *transactionBusiness) processClearanceUpdate(
 	}
 
 	existingTransaction.ClearedAt = clearanceTime
+	existingTransaction.Status = models.TransactionStatusPosted
+	existingTransaction.PostedAt = &clearanceTime
 	return nil
 }

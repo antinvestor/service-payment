@@ -433,12 +433,14 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 		})
 		require.NoError(t, err)
 
-		// Create transaction
+		// Create transaction. Reversal is only valid on posted transactions,
+		// so cleared=true posts it immediately.
 		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
 			Msg: &ledgerv1.CreateTransactionRequest{
 				Id:       "handler-rev-txn",
 				Currency: "USD",
 				Type:     ledgerv1.TransactionType_NORMAL,
+				Cleared:  true,
 				Entries: []*ledgerv1.TransactionEntry{
 					{
 						AccountId: "handler-rev-asset-acc",

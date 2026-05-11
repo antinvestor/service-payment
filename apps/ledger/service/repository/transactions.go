@@ -40,6 +40,13 @@ type TransactionRepository interface {
 	// Returns gorm.ErrRecordNotFound when no row matches so callers can
 	// distinguish "no prior posting" from a system failure.
 	GetByIdempotencyKey(ctx context.Context, key string) (*models.Transaction, error)
+	// CreateReversal inserts a REVERSAL transaction and marks its original
+	// as 'reversed' atomically — either both rows commit, or neither. A
+	// CAS-style WHERE status='posted' guard ensures the original cannot be
+	// reversed twice or reversed when not in a postable state.
+	CreateReversal(
+		ctx context.Context, reversal *models.Transaction, originalID string,
+	) error
 }
 
 // transactionRepository is the interface to all transaction operations.
@@ -83,6 +90,43 @@ func (t *transactionRepository) GetByIdempotencyKey(
 	return &txn, nil
 }
 
+// CreateReversal atomically inserts a REVERSAL transaction and flips the
+// original's status from 'posted' to 'reversed'. The status guard in the
+// UPDATE acts as compare-and-set: if a concurrent reversal already won,
+// RowsAffected is zero and the inner tx rolls back, surfacing the conflict
+// without producing a half-applied state.
+func (t *transactionRepository) CreateReversal(
+	ctx context.Context, reversal *models.Transaction, originalID string,
+) error {
+	if reversal.GetVersion() > 0 {
+		return errors.New("entity version is more than 0, consider using Update instead of Create")
+	}
+	return t.Pool().DB(ctx, false).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(reversal).Error; err != nil {
+			return err
+		}
+		// Atomic CAS via GORM. UpdateColumn deliberately skips BeforeSave/
+		// BeforeUpdate hooks — frame's BaseModel.BeforeSave chains into
+		// BeforeCreate.GenID, which would mint a fresh xid on the empty
+		// receiver and have GORM append it as `AND "id" = '<new xid>'` to
+		// the WHERE, blocking every legitimate update. Tenancy + soft-
+		// delete predicates still flow in via the pool's auto-applied
+		// TenancyPartition scope and gorm.DeletedAt.
+		result := tx.Model(&models.Transaction{}).
+			Where("id = ?", originalID).
+			Where("status = ?", models.TransactionStatusPosted).
+			UpdateColumn("status", models.TransactionStatusReversed)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return apperrors.ErrTransactionTypeNotReversible.Extend(
+				"original transaction is no longer in posted state")
+		}
+		return nil
+	})
+}
+
 // Create overrides BaseRepository.Create to guarantee that the transaction
 // header and all its entries are inserted atomically.
 //
@@ -99,6 +143,17 @@ func (t *transactionRepository) GetByIdempotencyKey(
 func (t *transactionRepository) Create(ctx context.Context, txn *models.Transaction) error {
 	if txn.GetVersion() > 0 {
 		return errors.New("entity version is more than 0, consider using Update instead of Create")
+	}
+	// Defense in depth: the Status NOT NULL + CHECK constraint at the DB
+	// layer would reject an empty value. Business.Transact already sets
+	// Status, but direct repository callers (admin tools, tests, scripts)
+	// should not have to know the state machine to insert a sensible row.
+	if txn.Status == "" {
+		if !txn.ClearedAt.IsZero() {
+			txn.Status = models.TransactionStatusPosted
+		} else {
+			txn.Status = models.TransactionStatusPending
+		}
 	}
 	return t.Pool().DB(ctx, false).Transaction(func(tx *gorm.DB) error {
 		return tx.Create(txn).Error

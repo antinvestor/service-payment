@@ -107,9 +107,17 @@ func TransactionFromAPI(ctx context.Context, aTxn *ledgerv1.Transaction) *Transa
 		}
 	}
 
-	// Set cleared_at if transaction is cleared
+	// Map the legacy `cleared` boolean onto the explicit Status + PostedAt
+	// lifecycle. Callers that already use cleared=true expect immediate
+	// settlement (posted, contributing to balance); cleared=false expects
+	// the row to sit in pending until a clearance update transitions it.
+	now := time.Now()
 	if aTxn.GetCleared() {
-		transaction.ClearedAt = time.Now()
+		transaction.Status = TransactionStatusPosted
+		transaction.ClearedAt = now
+		transaction.PostedAt = &now
+	} else {
+		transaction.Status = TransactionStatusPending
 	}
 
 	// Convert entries
@@ -182,17 +190,27 @@ func (te *TransactionEntry) ToAPI() *ledgerv1.TransactionEntry {
 // resolve to a single posting. IdempotencyKey enforces uniqueness at the DB
 // layer (partial UNIQUE INDEX where the value is non-empty); ExternalRef and
 // Source are non-unique search keys for reconciliation.
+//
+// Status drives the lifecycle. PostedAt is set when status transitions to
+// 'posted'; VoidedAt when it transitions to 'voided'. ReversedTransactionID
+// points back at the original NORMAL transaction this row offsets (set only
+// on REVERSAL rows). ClearedAt is retained alongside Status for backward
+// compatibility — both move together when a transaction is posted.
 type Transaction struct {
 	data.BaseModel
-	Currency        string              `gorm:"type:varchar(10);not null"            json:"currency"`
-	TransactionType string              `gorm:"type:varchar(50)"                     json:"transaction_type"`
-	IdempotencyKey  string              `gorm:"type:varchar(120)"                    json:"idempotency_key"`
-	ExternalRef     string              `gorm:"type:varchar(120)"                    json:"external_ref"`
-	Source          string              `gorm:"type:varchar(50)"                     json:"source"`
-	Data            data.JSONMap        `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
-	ClearedAt       time.Time           `gorm:"type:timestamp"                       json:"cleared_at"`
-	TransactedAt    time.Time           `gorm:"type:timestamp"                       json:"transacted_at"`
-	Entries         []*TransactionEntry `gorm:"foreignKey:TransactionID"             json:"entries"`
+	Currency              string              `gorm:"type:varchar(10);not null"            json:"currency"`
+	TransactionType       string              `gorm:"type:varchar(50)"                     json:"transaction_type"`
+	Status                string              `gorm:"type:varchar(20);not null"            json:"status"`
+	IdempotencyKey        string              `gorm:"type:varchar(120)"                    json:"idempotency_key"`
+	ExternalRef           string              `gorm:"type:varchar(120)"                    json:"external_ref"`
+	Source                string              `gorm:"type:varchar(50)"                     json:"source"`
+	ReversedTransactionID *string             `gorm:"type:varchar(50)"                     json:"reversed_transaction_id"`
+	Data                  data.JSONMap        `gorm:"type:jsonb;index:,gin:jsonb_path_ops" json:"data"`
+	ClearedAt             time.Time           `gorm:"type:timestamp"                       json:"cleared_at"`
+	PostedAt              *time.Time          `gorm:"type:timestamp"                       json:"posted_at"`
+	VoidedAt              *time.Time          `gorm:"type:timestamp"                       json:"voided_at"`
+	TransactedAt          time.Time           `gorm:"type:timestamp"                       json:"transacted_at"`
+	Entries               []*TransactionEntry `gorm:"foreignKey:TransactionID"             json:"entries"`
 }
 
 // TransactionEntry represents a transaction line in a ledger.

@@ -21,3 +21,26 @@ const (
 	LedgerTypeIncome    = "INCOME"
 	LedgerTypeCapital   = "CAPITAL"
 )
+
+// Transaction lifecycle statuses. Values map 1:1 to the
+// transactions_status_check CHECK constraint in the database.
+//
+//	draft    → created but not submitted; mutable; no balance impact
+//	pending  → submitted, awaiting settlement; contributes to
+//	           un_cleared_balance; can transition to posted | failed | voided
+//	posted   → confirmed/settled; contributes to balance; immutable except
+//	           for the auto-transition to reversed when a REVERSAL is posted
+//	reversed → was posted, then offset by a REVERSAL transaction whose
+//	           entries cancel this one's balance impact; immutable
+//	voided   → was draft or pending, then cancelled administratively;
+//	           no balance impact; terminal
+//	failed   → posting attempt rejected by external system; no balance
+//	           impact; terminal
+const (
+	TransactionStatusDraft    = "draft"
+	TransactionStatusPending  = "pending"
+	TransactionStatusPosted   = "posted"
+	TransactionStatusReversed = "reversed"
+	TransactionStatusVoided   = "voided"
+	TransactionStatusFailed   = "failed"
+)

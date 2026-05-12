@@ -12,10 +12,10 @@ buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.2-20260509050938-163a10
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.19.2-20260509050938-163a1062e27a.1/go.mod h1:ec/1cl6CzfKM+o+K6otKnbwCTPEGTL36HoGVtEvAHos=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1 h1:X1XlgV37VxVcbpQLE4wGc89BRC7xn72vcLavl8p7jD8=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1/go.mod h1:rf9ucOd7/BQtxE4s6GVdyzk+0ZBD0uzyWi5Tx3NDHyw=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.2-20260415203305-aa11e5e50dc9.1 h1:8qV+ZKI1OBqB5HMgVCpcvmVmiO/48kyk8Ay/4drvTG0=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.2-20260415203305-aa11e5e50dc9.1/go.mod h1:t+NP8G6iAwK4LotO95MOz6fYRiaPfHHmqqT2NselO8o=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260415203305-aa11e5e50dc9.1 h1:5ui+Dxy7lGx+LX4mxkyIDDkESv9Txxs7mhk8/9SfJts=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260415203305-aa11e5e50dc9.1/go.mod h1:JSw/qCbVQut6Wq/fPHHSkPrBqr3eyRz27OfYDwHGmYg=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.2-20260511135702-c54f3e4a0a91.1 h1:n6qBjvG5NX96YFweSTnElVuJSfVx0ZHQeiab7VquuWw=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.19.2-20260511135702-c54f3e4a0a91.1/go.mod h1:UIoCD2YpMTnZqvzDV1SwP8fwUk+RkVtGsAxi/0hlqog=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260511135702-c54f3e4a0a91.1 h1:wCWalJ4WuuVZtmN2CfCbrRP2Ww1BkpMhtLcPRSnzuF8=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260511135702-c54f3e4a0a91.1/go.mod h1:Fst3GhuP6DjMU6ZkauzaPFx8m/rLvwo2fUpuhk5tb5w=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.2-20260511135702-ef4900faa6be.1 h1:paN87afSVGJ3XmbKe5dOfg5Wna/stI6YnJDuJ7FcZrA=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.19.2-20260511135702-ef4900faa6be.1/go.mod h1:FB52x44vvIGWEpp4A0v/mEaRvB6JaA5wAGf5fI0Lo5M=
 buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260511135702-ef4900faa6be.1 h1:oPbdLghteqVLacW6VCbiLf41xzrpmlCBTxxmjYk/3zk=

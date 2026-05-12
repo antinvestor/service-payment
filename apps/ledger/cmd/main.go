@@ -145,17 +145,14 @@ func setupConnectServer(
 	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(sd).Namespace)
 	functionAccessInterceptor := connectInterceptors.NewFunctionAccessInterceptor(functionChecker, procMap)
 
-	// Layer 3: TenancyTxInterceptor opens a request-scoped transaction
-	// after auth has populated the claims, publishes app.tenant_id +
-	// app.partition_id from the claims via set_config, and binds the
-	// transaction to the request context. Repository code then calls
-	// pool.DB(ctx, _) and gets the bound tx transparently; tenancy is
-	// enforced by Row-Level Security at the database layer.
-	tenancyTxInterceptor := connectInterceptors.NewTenancyTxInterceptor(dbPool)
+	// Layer 3: TenancyTxInterceptor is now automatically included in DefaultList.
+	// It opens a request-scoped transaction after auth has populated the claims,
+	// publishes app.tenant_id + app.partition_id from the claims via set_config,
+	// and binds the transaction to the request context.
 
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
 		ctx, securityMan.GetAuthenticator(ctx),
-		tenancyAccessInterceptor, functionAccessInterceptor, tenancyTxInterceptor)
+		tenancyAccessInterceptor, functionAccessInterceptor)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}

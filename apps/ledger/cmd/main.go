@@ -33,7 +33,6 @@ import (
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/datastore/pool"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
@@ -92,7 +91,7 @@ func main() {
 	}
 
 	// Setup Connect server with injected dependencies
-	connectHandler := setupConnectServer(ctx, service.SecurityManager(), dbPool, ledgerServer)
+	connectHandler := setupConnectServer(ctx, service.SecurityManager(), ledgerServer)
 
 	// Setup HTTP handlers and register permissions with Keto
 	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
@@ -130,7 +129,6 @@ func handleDatabaseMigration(
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
-	dbPool pool.Pool,
 	implementation ledgerv1connect.LedgerServiceHandler,
 ) http.Handler {
 	auth := securityMan.GetAuthorizer(ctx)

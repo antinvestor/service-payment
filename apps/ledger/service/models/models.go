@@ -70,6 +70,8 @@ func ToLedgerType(model string) ledgerv1.LedgerType {
 // transactionStatusByModel maps stored Status strings (lowercase, matching
 // the DB CHECK constraint) onto the generated proto enum. Symmetric helper
 // covers the reverse direction.
+//
+//nolint:gochecknoglobals // immutable proto enum lookup
 var transactionStatusByModel = map[string]ledgerv1.TransactionStatus{
 	TransactionStatusPending:  ledgerv1.TransactionStatus_PENDING,
 	TransactionStatusPosted:   ledgerv1.TransactionStatus_POSTED,
@@ -79,6 +81,7 @@ var transactionStatusByModel = map[string]ledgerv1.TransactionStatus{
 	TransactionStatusDraft:    ledgerv1.TransactionStatus_DRAFT,
 }
 
+//nolint:gochecknoglobals // immutable proto enum lookup
 var transactionStatusByProto = map[ledgerv1.TransactionStatus]string{
 	ledgerv1.TransactionStatus_PENDING:  TransactionStatusPending,
 	ledgerv1.TransactionStatus_POSTED:   TransactionStatusPosted,
@@ -106,6 +109,7 @@ func FromTransactionStatusProto(s ledgerv1.TransactionStatus) string {
 	return TransactionStatusPending
 }
 
+//nolint:gochecknoglobals // immutable proto enum lookup
 var accountTypeByModel = map[string]ledgerv1.AccountType{
 	AccountTypeAsset:           ledgerv1.AccountType_ACCOUNT_ASSET,
 	AccountTypeLiability:       ledgerv1.AccountType_ACCOUNT_LIABILITY,
@@ -131,6 +135,7 @@ func ToAccountTypeProto(s string) ledgerv1.AccountType {
 	return ledgerv1.AccountType_ACCOUNT_ASSET
 }
 
+//nolint:gochecknoglobals // immutable proto enum lookup
 var normalBalanceByModel = map[string]ledgerv1.NormalBalance{
 	NormalBalanceDebit:  ledgerv1.NormalBalance_DEBIT,
 	NormalBalanceCredit: ledgerv1.NormalBalance_CREDIT,

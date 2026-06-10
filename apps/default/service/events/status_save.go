@@ -18,20 +18,30 @@ import (
 	"context"
 	"errors"
 
+	"github.com/antinvestor/service-payments/apps/default/service/metrics"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/util"
 )
 
+const entityTypePayment = "payment"
+
 type StatusSave struct {
-	statusRepo repository.StatusRepository
+	statusRepo     repository.StatusRepository
+	paymentRepo    repository.PaymentRepository
+	paymentMetrics *metrics.PaymentMetrics
 }
 
 // NewStatusSave creates a new StatusSave event handler with the required dependencies.
-func NewStatusSave(statusRepo repository.StatusRepository) *StatusSave {
+func NewStatusSave(
+	statusRepo repository.StatusRepository,
+	paymentRepo repository.PaymentRepository,
+) *StatusSave {
 	return &StatusSave{
-		statusRepo: statusRepo,
+		statusRepo:     statusRepo,
+		paymentRepo:    paymentRepo,
+		paymentMetrics: metrics.NewPaymentMetrics(),
 	}
 }
 
@@ -78,5 +88,26 @@ func (e *StatusSave) Execute(ctx context.Context, payload any) error {
 	}
 	logger.Debug("successfully saved record to db")
 
+	e.recordPaymentMetrics(ctx, status)
+
 	return nil
+}
+
+// recordPaymentMetrics emits business metrics for payments reaching a
+// terminal status. All payment status transitions funnel through this event
+// handler, so terminal outcomes from every path are captured here.
+func (e *StatusSave) recordPaymentMetrics(ctx context.Context, status *models.Status) {
+	if status.EntityType != entityTypePayment || !metrics.IsTerminalStatus(status.Status) {
+		return
+	}
+
+	p, err := e.paymentRepo.GetByID(ctx, status.EntityID)
+	if err != nil {
+		util.Log(ctx).WithError(err).
+			WithField("entity_id", status.EntityID).
+			Warn("could not load payment for terminal status metrics")
+		return
+	}
+
+	e.paymentMetrics.RecordTerminal(ctx, p, status)
 }

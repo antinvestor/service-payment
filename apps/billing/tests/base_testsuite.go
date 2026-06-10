@@ -25,6 +25,7 @@ import (
 	// Ledger integration.
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerRepo "github.com/antinvestor/service-payments/apps/ledger/service/repository"
+	"github.com/antinvestor/service-payments/internal/rlsadmin"
 
 	// Register PostgreSQL driver for database connections.
 	_ "github.com/lib/pq"
@@ -34,6 +35,8 @@ import (
 	"github.com/pitabwire/frame/frametests"
 	"github.com/pitabwire/frame/frametests/definition"
 	"github.com/pitabwire/frame/frametests/deps/testpostgres"
+	"github.com/pitabwire/frame/frametests/rlstest"
+	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/require"
 )
@@ -111,12 +114,20 @@ func (bs *BaseTestSuite) CreateService(
 	cfg.DatabasePrimaryURL = []string{testDS.String()}
 	cfg.DatabaseReplicaURL = []string{testDS.String()}
 
+	// Drop application queries to an unprivileged role so Postgres RLS
+	// is actually enforced (the testcontainer user is a superuser which
+	// bypasses FORCE ROW LEVEL SECURITY).
+	require.NoError(t, rlstest.CreateRole(ctx, testDS.String()))
+	rlsProv := rlstest.New()
+
 	frameOpts = append(
 		[]frame.Option{
 			frame.WithName("billing tests"), frame.WithConfig(&cfg),
+			frame.WithTenancyProvider(rlsProv),
 			frame.WithDatastore(), frametests.WithNoopDriver()}, frameOpts...)
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frameOpts...)
+	t.Cleanup(func() { svc.Stop(ctx) })
 
 	dbManager := svc.DatastoreManager()
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
@@ -181,6 +192,10 @@ func (bs *BaseTestSuite) CreateService(
 	err = repository.Migrate(ctx, dbManager, "../../billing/migrations/0001")
 	require.NoError(t, err)
 
+	require.NoError(t, rlstest.GrantAll(ctx, testDS.String()))
+	require.NoError(t, rlsadmin.GrantOwnership(ctx, testDS.String()))
+	rlsProv.Enable()
+
 	err = svc.Run(ctx, "")
 	require.NoError(t, err)
 
@@ -204,4 +219,18 @@ func (bs *BaseTestSuite) WithTestDependencies(
 	}
 
 	frametests.WithTestDependencies(t, options, testFn)
+}
+
+// WithAuthClaims creates a context with authentication claims for the given tenant, partition, and profile.
+func (bs *BaseTestSuite) WithAuthClaims(ctx context.Context, tenantID, partitionID, profileID string) context.Context {
+	claims := &security.AuthenticationClaims{
+		TenantID:    tenantID,
+		PartitionID: partitionID,
+		AccessID:    util.IDString(),
+		ContactID:   profileID,
+		SessionID:   util.IDString(),
+		DeviceID:    "test-device",
+	}
+	claims.Subject = profileID
+	return claims.ClaimsToContext(ctx)
 }

@@ -30,6 +30,7 @@ import (
 	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
+	"github.com/antinvestor/service-payments/apps/default/service/metrics"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/data"
@@ -73,6 +74,7 @@ func NewPaymentBusiness(
 		promptRepo:           promptRepo,
 		paymentLinkRepo:      paymentLinkRepo,
 		workMan:              workMan,
+		paymentMetrics:       metrics.NewPaymentMetrics(),
 	}, nil
 }
 
@@ -91,6 +93,7 @@ type paymentBusiness struct {
 	promptRepo           repository.PromptRepository
 	paymentLinkRepo      repository.PaymentLinkRepository
 	workMan              workerpool.Manager
+	paymentMetrics       *metrics.PaymentMetrics
 }
 
 func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
@@ -180,6 +183,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 		util.Log(ctx).WithError(err).Warn("could not save status")
 		return nil, err
 	}
+
+	pb.paymentMetrics.RecordInitiated(ctx, p)
 
 	return status.ToAPI(), nil
 }
@@ -271,6 +276,8 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 		util.Log(ctx).WithError(err).Warn("could not emit status event")
 		return nil, err
 	}
+
+	pb.paymentMetrics.RecordInitiated(ctx, p)
 
 	return status.ToAPI(), nil
 }

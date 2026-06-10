@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "antinvestor_ui_ledger",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": [
         "antinvestor_api_common",
         "antinvestor_api_ledger",
@@ -42,7 +42,7 @@
     },
     {
       "name": "antinvestor_ui_core",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "dependencies": [
         "antinvestor_api_common",
         "connectivity_plus",
@@ -421,7 +421,7 @@
     },
     {
       "name": "meta",
-      "version": "1.17.0",
+      "version": "1.18.0",
       "dependencies": []
     },
     {
@@ -753,7 +753,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.10",
+      "version": "0.7.11",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -1192,7 +1192,7 @@
     },
     {
       "name": "test",
-      "version": "1.30.0",
+      "version": "1.31.0",
       "dependencies": [
         "analyzer",
         "async",
@@ -1354,7 +1354,7 @@
     },
     {
       "name": "test_core",
-      "version": "0.6.16",
+      "version": "0.6.17",
       "dependencies": [
         "analyzer",
         "args",

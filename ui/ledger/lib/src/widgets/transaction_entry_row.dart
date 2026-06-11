@@ -5,11 +5,7 @@ import 'package:flutter/material.dart';
 /// A row widget displaying a single transaction entry with
 /// debit/credit indicator, amount, and running account balance.
 class TransactionEntryRow extends StatelessWidget {
-  const TransactionEntryRow({
-    super.key,
-    required this.entry,
-    this.onTap,
-  });
+  const TransactionEntryRow({super.key, required this.entry, this.onTap});
 
   final TransactionEntry entry;
   final VoidCallback? onTap;

@@ -18,28 +18,15 @@ Auth follows the host app's `authTokenProviderProvider` from
 
 ## Screen index
 
-### `/ledger/books` — Book list
-
-The platform's books (organisations, groups, members, merchants,
-agents, branches). Type dropdown switches the listing; the rest is the
-standard `AdminEntityListPage` with search + selection + CSV export
-of the listing.
-
-**Action**: "New book" opens a modal. Required: name, type. Optional:
-parent book id (for hierarchical nesting), default currency.
-
-Permissions: `book_view` to list, `book_manage` to create.
-
-### `/ledger/books/:id` — Book detail
-
-Identity, parent book reference, custom metadata. The "Reports for this
-book" card links straight to the trial balance pre-scoped to this book.
-
 ### `/ledger/ledgers` — Chart of accounts
 
-The ledger hierarchy within a book. Each row shows id, type, parent
-ledger, and a 3-key data preview. Type filter narrows by Asset /
-Liability / Income / Expense / Capital.
+The ledger hierarchy. Each row shows id, type, parent ledger, and a
+3-key data preview. Type filter narrows by Asset / Liability / Income /
+Expense / Capital.
+
+**Action**: "New ledger" opens a modal. Required: name, type. Optional:
+parent ledger id (for hierarchical nesting), default currency — name and
+currency are carried in the ledger's free-form `data` struct.
 
 Permissions: `ledger_view`. Manage permission is `ledger_create`.
 
@@ -74,7 +61,7 @@ Permissions: `report_view`.
 ### `/ledger/transactions` — Transaction list
 
 Most-recently-transacted first by default. Columns: id, currency, type
-badge, transacted-at, entry count, status indicator.
+badge, transacted-at, entry count, cleared indicator.
 
 ### `/ledger/transactions/:id` — Transaction detail
 
@@ -82,24 +69,21 @@ Entry count headline, type + currency badges, ID and timestamp.
 Below: list of `TransactionEntryRow` items, each tappable to navigate
 to its account.
 
-**Lifecycle actions** in the app bar — conditionally rendered based on
-the transaction's current status:
+**Lifecycle actions** in the app bar:
 
-| Action | Visible when status is | What it does |
+| Action | Visible when | What it does |
 |---|---|---|
-| Reverse | POSTED | Posts an offsetting REVERSAL. Original auto-transitions to REVERSED. |
-| Void | DRAFT or PENDING | Marks the transaction VOIDED. No balance impact. |
-| Mark failed | PENDING | Marks the transaction FAILED (upstream rejected). No balance impact. |
+| Reverse | type is not REVERSAL | Posts an offsetting REVERSAL transaction. |
 
-Each shows a confirmation dialog before firing the mutation. Snackbar
-feedback on success / failure. The transaction's view is invalidated so
-the new status surfaces immediately.
+A confirmation dialog precedes the mutation. Snackbar feedback on
+success / failure. The transaction's view is invalidated so the result
+surfaces immediately.
 
 Permissions: `transaction_view` to read, `transaction_manage` to act.
 
 ### `/ledger/reports/trial-balance` — Trial balance
 
-Filter bar: currency, ledger type, book id, as-of date.
+Filter bar: currency, ledger type, ledger id.
 
 The body has:
 
@@ -113,7 +97,7 @@ The body has:
 
 Reachable from:
 - The main nav ("Trial balance").
-- A Book detail page (pre-scoped to that book via `?bookId=…`).
+- Pre-scoped to one ledger via `?ledgerId=…`.
 
 Permissions: `report_view`.
 
@@ -126,9 +110,7 @@ Permissions: `report_view`.
 | `account_view` | Read accounts and balances |
 | `account_create` | Create / update accounts |
 | `transaction_view` | Read transactions and entries |
-| `transaction_create` | Create transactions and trigger Reverse / Void / Mark-Failed |
-| `book_view` | Read books |
-| `book_manage` | Create / update books |
+| `transaction_create` | Create transactions and trigger Reverse |
 | `report_view` | Run trial balance and account statement reports + exports |
 
 ## Providers
@@ -139,12 +121,9 @@ Permissions: `report_view`.
 | `accountSearchProvider(query)` | `List<Account>` |
 | `transactionSearchProvider(query)` | `List<Transaction>` |
 | `transactionEntrySearchProvider(query)` | `List<TransactionEntry>` |
-| `booksByTypeProvider(type)` | `List<Book>` |
-| `bookByIdProvider(id)` | `Book` |
-| `trialBalanceProvider(query)` | `GetTrialBalanceResponse` |
-| `accountStatementProvider(query)` | `GetAccountStatementResponse` |
-| `transactionNotifierProvider` | mutations: create / reverse / update / voidTransaction / markFailed |
-| `bookNotifierProvider` | mutations: create |
+| `trialBalanceProvider(query)` | `TrialBalanceReport` (derived client-side) |
+| `accountStatementProvider(query)` | `AccountStatementReport` (derived client-side) |
+| `transactionNotifierProvider` | mutations: create / reverse / update |
 | `ledgerNotifierProvider` | mutations: create / update |
 | `accountNotifierProvider` | mutations: create / update |
 
@@ -199,9 +178,9 @@ flutter pub get
 flutter analyze
 ```
 
-The `pubspec_overrides.yaml` pins `antinvestor_ui_core` and
-`antinvestor_api_ledger` to local paths so changes to the SDK are
-picked up immediately. To regenerate the Dart SDK after editing
+All dependencies resolve from pub.dev (`antinvestor_api_ledger`
+^1.53.0, `antinvestor_api_common` ^1.53.1, `antinvestor_ui_core`
+^0.5.0). To regenerate the Dart SDK after editing
 `proto/ledger/v1/ledger.proto`:
 
 ```bash

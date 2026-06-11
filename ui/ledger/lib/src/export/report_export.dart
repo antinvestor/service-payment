@@ -15,7 +15,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
 import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
@@ -23,6 +22,8 @@ import 'package:file_saver/file_saver.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
+import '../models/report_models.dart';
 
 /// Export formats supported for the trial balance report.
 enum TrialBalanceExportFormat { csv, excel, pdf }
@@ -41,7 +42,7 @@ class ReportExport {
   ///
   /// Filename pattern: `trial_balance_<UTCdateTime>.<ext>`.
   static Future<void> trialBalance(
-    GetTrialBalanceResponse report,
+    TrialBalanceReport report,
     TrialBalanceExportFormat format,
   ) async {
     final stamp = _stamp();
@@ -72,7 +73,7 @@ class ReportExport {
 
   /// Export the account-statement report in the requested format.
   static Future<void> accountStatement(
-    GetAccountStatementResponse report,
+    AccountStatementReport report,
     StatementExportFormat format,
   ) async {
     final stamp = _stamp();
@@ -103,7 +104,7 @@ class ReportExport {
 
   // ---------- CSV ----------
 
-  static String _trialBalanceCsv(GetTrialBalanceResponse report) {
+  static String _trialBalanceCsv(TrialBalanceReport report) {
     final rows = <List<dynamic>>[
       [
         'Account',
@@ -114,40 +115,36 @@ class ReportExport {
         'TotalCredits',
         'NetBalance',
       ],
-      ...report.lines.map((l) => [
-            l.accountId,
-            l.ledgerId,
-            l.ledgerType.name,
-            l.currency,
-            formatMoney(l.totalDebits),
-            formatMoney(l.totalCredits),
-            formatMoney(l.netBalance),
-          ]),
+      ...report.lines.map(
+        (l) => [
+          l.accountId,
+          l.ledgerId,
+          l.ledgerType?.name ?? '',
+          l.currency,
+          formatMoney(l.debit),
+          formatMoney(l.credit),
+          formatMoney(l.netBalance),
+        ],
+      ),
       [],
       ['Per-currency totals', '', '', '', '', '', ''],
-      [
-        'Currency',
-        'TotalDebits',
-        'TotalCredits',
-        'IsBalanced',
-        '',
-        '',
-        '',
-      ],
-      ...report.totals.map((t) => [
-            t.currency,
-            formatMoney(t.totalDebits),
-            formatMoney(t.totalCredits),
-            t.isBalanced ? 'BALANCED' : 'UNBALANCED',
-            '',
-            '',
-            '',
-          ]),
+      ['Currency', 'TotalDebits', 'TotalCredits', 'IsBalanced', '', '', ''],
+      ...report.totals.map(
+        (t) => [
+          t.currency,
+          formatMoney(t.totalDebits),
+          formatMoney(t.totalCredits),
+          t.isBalanced ? 'BALANCED' : 'UNBALANCED',
+          '',
+          '',
+          '',
+        ],
+      ),
     ];
     return const CsvEncoder().convert(rows);
   }
 
-  static String _statementCsv(GetAccountStatementResponse report) {
+  static String _statementCsv(AccountStatementReport report) {
     final rows = <List<dynamic>>[
       ['Statement for account', report.accountId, '', '', ''],
       ['Currency', report.currency, '', '', ''],
@@ -156,22 +153,23 @@ class ReportExport {
       ['Period debits', formatMoney(report.totalDebits), '', '', ''],
       ['Period credits', formatMoney(report.totalCredits), '', '', ''],
       [],
-      ['Transacted', 'Transaction', 'Type', 'DR/CR', 'Amount', 'Running'],
-      ...report.entries.map((e) => [
-            e.transactedAt,
-            e.transactionId,
-            e.transactionType.name,
-            e.credit ? 'CR' : 'DR',
-            formatMoney(e.amount),
-            formatMoney(e.runningBalance),
-          ]),
+      ['Transacted', 'Transaction', 'DR/CR', 'Amount', 'Running'],
+      ...report.entries.map(
+        (e) => [
+          e.transactedAt,
+          e.transactionId,
+          e.credit ? 'CR' : 'DR',
+          formatMoney(e.amount),
+          formatMoney(e.runningBalance),
+        ],
+      ),
     ];
     return const CsvEncoder().convert(rows);
   }
 
   // ---------- Excel ----------
 
-  static List<int> _trialBalanceExcel(GetTrialBalanceResponse report) {
+  static List<int> _trialBalanceExcel(TrialBalanceReport report) {
     final excel = Excel.createExcel();
     final sheet = excel['Trial Balance'];
     excel.delete('Sheet1');
@@ -189,17 +187,21 @@ class ReportExport {
       _appendRow(sheet, [
         l.accountId,
         l.ledgerId,
-        l.ledgerType.name,
+        l.ledgerType?.name ?? '',
         l.currency,
-        formatMoney(l.totalDebits),
-        formatMoney(l.totalCredits),
+        formatMoney(l.debit),
+        formatMoney(l.credit),
         formatMoney(l.netBalance),
       ]);
     }
     _appendRow(sheet, []);
     _appendRow(sheet, ['Per-currency totals'], bold: true);
-    _appendRow(sheet, ['Currency', 'TotalDebits', 'TotalCredits', 'IsBalanced'],
-        bold: true);
+    _appendRow(sheet, [
+      'Currency',
+      'TotalDebits',
+      'TotalCredits',
+      'IsBalanced',
+    ], bold: true);
     for (final t in report.totals) {
       _appendRow(sheet, [
         t.currency,
@@ -216,7 +218,7 @@ class ReportExport {
     return bytes;
   }
 
-  static List<int> _statementExcel(GetAccountStatementResponse report) {
+  static List<int> _statementExcel(AccountStatementReport report) {
     final excel = Excel.createExcel();
     final sheet = excel['Statement'];
     excel.delete('Sheet1');
@@ -229,13 +231,17 @@ class ReportExport {
     _appendRow(sheet, ['Period credits', formatMoney(report.totalCredits)]);
     _appendRow(sheet, []);
 
-    _appendRow(sheet, ['Transacted', 'Transaction', 'Type', 'DR/CR', 'Amount', 'Running'],
-        bold: true);
+    _appendRow(sheet, [
+      'Transacted',
+      'Transaction',
+      'DR/CR',
+      'Amount',
+      'Running',
+    ], bold: true);
     for (final e in report.entries) {
       _appendRow(sheet, [
         e.transactedAt,
         e.transactionId,
-        e.transactionType.name,
         e.credit ? 'CR' : 'DR',
         formatMoney(e.amount),
         formatMoney(e.runningBalance),
@@ -249,29 +255,34 @@ class ReportExport {
     return bytes;
   }
 
-  static void _appendRow(Sheet sheet, List<dynamic> values, {bool bold = false}) {
-    final cells = values
-        .map<CellValue?>((v) {
-          if (v == null) return null;
-          if (v is num) return DoubleCellValue(v.toDouble());
-          return TextCellValue(v.toString());
-        })
-        .toList();
+  static void _appendRow(
+    Sheet sheet,
+    List<dynamic> values, {
+    bool bold = false,
+  }) {
+    final cells = values.map<CellValue?>((v) {
+      if (v == null) return null;
+      if (v is num) return DoubleCellValue(v.toDouble());
+      return TextCellValue(v.toString());
+    }).toList();
     sheet.appendRow(cells);
     if (bold) {
       final rowIndex = sheet.maxRows - 1;
       for (var col = 0; col < cells.length; col++) {
         sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex))
-            .cellStyle = CellStyle(bold: true);
+            .cell(
+              CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex),
+            )
+            .cellStyle = CellStyle(
+          bold: true,
+        );
       }
     }
   }
 
   // ---------- PDF ----------
 
-  static Future<Uint8List> _trialBalancePdf(
-      GetTrialBalanceResponse report) async {
+  static Future<Uint8List> _trialBalancePdf(TrialBalanceReport report) async {
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
@@ -279,9 +290,10 @@ class ReportExport {
         build: (ctx) => [
           pw.Header(level: 0, child: pw.Text('Trial Balance')),
           pw.Paragraph(
-              text:
-                  'Per-account debit / credit totals plus per-currency integrity check. '
-                  'Generated at ${DateTime.now().toUtc().toIso8601String()}.'),
+            text:
+                'Per-account debit / credit totals plus per-currency integrity check. '
+                'Generated at ${DateTime.now().toUtc().toIso8601String()}.',
+          ),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             headers: const [
@@ -291,18 +303,20 @@ class ReportExport {
               'Currency',
               'Debits',
               'Credits',
-              'Net'
+              'Net',
             ],
             data: report.lines
-                .map((l) => [
-                      l.accountId,
-                      l.ledgerId,
-                      l.ledgerType.name,
-                      l.currency,
-                      formatMoney(l.totalDebits),
-                      formatMoney(l.totalCredits),
-                      formatMoney(l.netBalance),
-                    ])
+                .map(
+                  (l) => [
+                    l.accountId,
+                    l.ledgerId,
+                    l.ledgerType?.name ?? '',
+                    l.currency,
+                    formatMoney(l.debit),
+                    formatMoney(l.credit),
+                    formatMoney(l.netBalance),
+                  ],
+                )
                 .toList(),
           ),
           pw.SizedBox(height: 16),
@@ -313,15 +327,17 @@ class ReportExport {
               'Currency',
               'TotalDebits',
               'TotalCredits',
-              'IsBalanced'
+              'IsBalanced',
             ],
             data: report.totals
-                .map((t) => [
-                      t.currency,
-                      formatMoney(t.totalDebits),
-                      formatMoney(t.totalCredits),
-                      t.isBalanced ? 'BALANCED' : 'UNBALANCED',
-                    ])
+                .map(
+                  (t) => [
+                    t.currency,
+                    formatMoney(t.totalDebits),
+                    formatMoney(t.totalCredits),
+                    t.isBalanced ? 'BALANCED' : 'UNBALANCED',
+                  ],
+                )
                 .toList(),
           ),
         ],
@@ -330,42 +346,43 @@ class ReportExport {
     return doc.save();
   }
 
-  static Future<Uint8List> _statementPdf(
-      GetAccountStatementResponse report) async {
+  static Future<Uint8List> _statementPdf(AccountStatementReport report) async {
     final doc = pw.Document();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         build: (ctx) => [
           pw.Header(
-              level: 0,
-              child: pw.Text('Account Statement — ${report.accountId}')),
+            level: 0,
+            child: pw.Text('Account Statement — ${report.accountId}'),
+          ),
           pw.Paragraph(
-              text:
-                  'Currency: ${report.currency} • '
-                  'Opening ${formatMoney(report.openingBalance)} • '
-                  'Closing ${formatMoney(report.closingBalance)} • '
-                  'Debits ${formatMoney(report.totalDebits)} • '
-                  'Credits ${formatMoney(report.totalCredits)}.'),
+            text:
+                'Currency: ${report.currency} • '
+                'Opening ${formatMoney(report.openingBalance)} • '
+                'Closing ${formatMoney(report.closingBalance)} • '
+                'Debits ${formatMoney(report.totalDebits)} • '
+                'Credits ${formatMoney(report.totalCredits)}.',
+          ),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             headers: const [
               'Transacted',
               'Transaction',
-              'Type',
               'DR/CR',
               'Amount',
-              'Running'
+              'Running',
             ],
             data: report.entries
-                .map((e) => [
-                      e.transactedAt,
-                      e.transactionId,
-                      e.transactionType.name,
-                      e.credit ? 'CR' : 'DR',
-                      formatMoney(e.amount),
-                      formatMoney(e.runningBalance),
-                    ])
+                .map(
+                  (e) => [
+                    e.transactedAt,
+                    e.transactionId,
+                    e.credit ? 'CR' : 'DR',
+                    formatMoney(e.amount),
+                    formatMoney(e.runningBalance),
+                  ],
+                )
                 .toList(),
           ),
         ],

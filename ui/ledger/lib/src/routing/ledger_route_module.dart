@@ -21,8 +21,6 @@ import 'package:go_router/go_router.dart';
 import '../screens/account_detail_screen.dart';
 import '../screens/account_list_screen.dart';
 import '../screens/account_statement_screen.dart';
-import '../screens/book_detail_screen.dart';
-import '../screens/book_list_screen.dart';
 import '../screens/ledger_detail_screen.dart';
 import '../screens/ledger_list_screen.dart';
 import '../screens/transaction_detail_screen.dart';
@@ -32,8 +30,6 @@ import '../screens/trial_balance_screen.dart';
 /// Route module for ledger management.
 ///
 /// Registers the following routes:
-/// - `/ledger/books` - book list (filter by type)
-/// - `/ledger/books/:id` - book details + per-book reports
 /// - `/ledger/ledgers` - ledger (chart-of-accounts) list
 /// - `/ledger/ledgers/:id` - ledger details
 /// - `/ledger/accounts` - account list
@@ -49,19 +45,6 @@ class LedgerRouteModule extends RouteModule {
   @override
   List<RouteBase> buildRoutes() {
     return [
-      GoRoute(
-        path: '/ledger/books',
-        builder: (context, state) => const BookListScreen(),
-        routes: [
-          GoRoute(
-            path: ':id',
-            builder: (context, state) {
-              final id = state.pathParameters['id'] ?? '';
-              return BookDetailScreen(bookId: id);
-            },
-          ),
-        ],
-      ),
       GoRoute(
         path: '/ledger/ledgers',
         builder: (context, state) => const LedgerListScreen(),
@@ -113,8 +96,8 @@ class LedgerRouteModule extends RouteModule {
       GoRoute(
         path: '/ledger/reports/trial-balance',
         builder: (context, state) {
-          final bookId = state.uri.queryParameters['bookId'] ?? '';
-          return TrialBalanceScreen(initialBookId: bookId);
+          final ledgerId = state.uri.queryParameters['ledgerId'] ?? '';
+          return TrialBalanceScreen(initialLedgerId: ledgerId);
         },
       ),
     ];
@@ -128,16 +111,9 @@ class LedgerRouteModule extends RouteModule {
         label: 'Ledger',
         icon: Icons.account_tree_outlined,
         activeIcon: Icons.account_tree,
-        route: '/ledger/books',
+        route: '/ledger/ledgers',
         requiredPermissions: {'ledger_view'},
         children: [
-          NavItem(
-            id: 'ledger-books',
-            label: 'Books',
-            icon: Icons.menu_book,
-            route: '/ledger/books',
-            requiredPermissions: {'book_view'},
-          ),
           NavItem(
             id: 'ledger-ledgers',
             label: 'Chart of accounts',
@@ -173,67 +149,55 @@ class LedgerRouteModule extends RouteModule {
 
   @override
   Map<String, Set<String>> get routePermissions => {
-        '/ledger/books': {'book_view'},
-        '/ledger/books/': {'book_view'},
-        '/ledger/ledgers': {'ledger_view'},
-        '/ledger/ledgers/': {'ledger_view'},
-        '/ledger/accounts': {'account_view'},
-        '/ledger/accounts/': {'account_view'},
-        '/ledger/accounts//statement': {'report_view'},
-        '/ledger/transactions': {'transaction_view'},
-        '/ledger/transactions/': {'transaction_view'},
-        '/ledger/reports/trial-balance': {'report_view'},
-      };
+    '/ledger/ledgers': {'ledger_view'},
+    '/ledger/ledgers/': {'ledger_view'},
+    '/ledger/accounts': {'account_view'},
+    '/ledger/accounts/': {'account_view'},
+    '/ledger/accounts//statement': {'report_view'},
+    '/ledger/transactions': {'transaction_view'},
+    '/ledger/transactions/': {'transaction_view'},
+    '/ledger/reports/trial-balance': {'report_view'},
+  };
 
   @override
   PermissionManifest get permissionManifest => const PermissionManifest(
-        namespace: 'service_ledger',
-        permissions: [
-          PermissionEntry(
-            key: 'ledger_view',
-            label: 'View Ledgers',
-            scope: PermissionScope.service,
-          ),
-          PermissionEntry(
-            key: 'ledger_create',
-            label: 'Create Ledgers',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'account_view',
-            label: 'View Accounts',
-            scope: PermissionScope.feature,
-          ),
-          PermissionEntry(
-            key: 'account_create',
-            label: 'Create Accounts',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'transaction_view',
-            label: 'View Transactions',
-            scope: PermissionScope.feature,
-          ),
-          PermissionEntry(
-            key: 'transaction_create',
-            label: 'Create Transactions',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'book_view',
-            label: 'View Books',
-            scope: PermissionScope.feature,
-          ),
-          PermissionEntry(
-            key: 'book_manage',
-            label: 'Manage Books',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'report_view',
-            label: 'View Reports',
-            scope: PermissionScope.feature,
-          ),
-        ],
-      );
+    namespace: 'service_ledger',
+    permissions: [
+      PermissionEntry(
+        key: 'ledger_view',
+        label: 'View Ledgers',
+        scope: PermissionScope.service,
+      ),
+      PermissionEntry(
+        key: 'ledger_create',
+        label: 'Create Ledgers',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'account_view',
+        label: 'View Accounts',
+        scope: PermissionScope.feature,
+      ),
+      PermissionEntry(
+        key: 'account_create',
+        label: 'Create Accounts',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'transaction_view',
+        label: 'View Transactions',
+        scope: PermissionScope.feature,
+      ),
+      PermissionEntry(
+        key: 'transaction_create',
+        label: 'Create Transactions',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'report_view',
+        label: 'View Reports',
+        scope: PermissionScope.feature,
+      ),
+    ],
+  );
 }

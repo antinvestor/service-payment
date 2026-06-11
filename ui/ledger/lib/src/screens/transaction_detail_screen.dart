@@ -12,18 +12,16 @@ import '../widgets/transaction_type_badge.dart';
 /// Screen showing details for a single transaction including type badge,
 /// currency, timestamp, and entry list.
 class TransactionDetailScreen extends ConsumerWidget {
-  const TransactionDetailScreen({
-    super.key,
-    required this.transactionId,
-  });
+  const TransactionDetailScreen({super.key, required this.transactionId});
 
   final String transactionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final asyncTransactions =
-        ref.watch(transactionSearchProvider(transactionId));
+    final asyncTransactions = ref.watch(
+      transactionSearchProvider(transactionId),
+    );
 
     return asyncTransactions.when(
       loading: () => Scaffold(
@@ -36,14 +34,17 @@ class TransactionDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
               FilledButton.tonal(
-                onPressed: () => ref
-                    .invalidate(transactionSearchProvider(transactionId)),
+                onPressed: () =>
+                    ref.invalidate(transactionSearchProvider(transactionId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -51,8 +52,7 @@ class TransactionDetailScreen extends ConsumerWidget {
         ),
       ),
       data: (transactions) {
-        final transaction =
-            transactions.isNotEmpty ? transactions.first : null;
+        final transaction = transactions.isNotEmpty ? transactions.first : null;
         if (transaction == null) {
           return Scaffold(
             appBar: _buildAppBar(context, theme, 'Transaction'),
@@ -117,8 +117,7 @@ class TransactionDetailScreen extends ConsumerWidget {
             tooltip: 'Refresh',
             onPressed: () {
               ref.invalidate(transactionSearchProvider(transactionId));
-              ref.invalidate(
-                  transactionEntrySearchProvider(transactionId));
+              ref.invalidate(transactionEntrySearchProvider(transactionId));
             },
           ),
         ],
@@ -178,8 +177,13 @@ class TransactionDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
 
                     // Metadata rows
-                    _metadataRow(theme, 'ID', transaction.id,
-                        copyable: true, context: context),
+                    _metadataRow(
+                      theme,
+                      'ID',
+                      transaction.id,
+                      copyable: true,
+                      context: context,
+                    ),
                     if (transaction.transactedAt.isNotEmpty)
                       _metadataRow(
                         theme,
@@ -219,9 +223,7 @@ class TransactionDetailScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // Entries list
-          Expanded(
-            child: _EntriesList(transactionId: transaction.id),
-          ),
+          Expanded(child: _EntriesList(transactionId: transaction.id)),
         ],
       ),
     );
@@ -309,8 +311,9 @@ class _EntriesList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final asyncEntries =
-        ref.watch(transactionEntrySearchProvider(transactionId));
+    final asyncEntries = ref.watch(
+      transactionEntrySearchProvider(transactionId),
+    );
 
     return asyncEntries.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -323,8 +326,8 @@ class _EntriesList extends ConsumerWidget {
             Text(friendlyError(error)),
             const SizedBox(height: 16),
             FilledButton.tonal(
-              onPressed: () => ref
-                  .invalidate(transactionEntrySearchProvider(transactionId)),
+              onPressed: () =>
+                  ref.invalidate(transactionEntrySearchProvider(transactionId)),
               child: const Text('Retry'),
             ),
           ],
@@ -348,9 +351,8 @@ class _EntriesList extends ConsumerWidget {
           itemBuilder: (context, index) {
             return TransactionEntryRow(
               entry: entries[index],
-              onTap: () => context.go(
-                '/ledger/accounts/${entries[index].accountId}',
-              ),
+              onTap: () =>
+                  context.go('/ledger/accounts/${entries[index].accountId}'),
             );
           },
         );
@@ -359,11 +361,11 @@ class _EntriesList extends ConsumerWidget {
   }
 }
 
-/// Lifecycle action buttons (Reverse / Void / Mark failed) shown in the
-/// transaction app bar. Each action is enabled only when the current
-/// status permits the transition; the backend enforces the same rules
-/// with atomic CAS updates, so a stale UI cannot move a row through an
-/// illegal transition even under concurrency.
+/// Lifecycle action buttons shown in the transaction app bar. The 1.53
+/// API exposes a single lifecycle transition — reverse — so the action is
+/// offered for any posting that is not itself a reversal. The backend
+/// enforces the legality of the transition atomically, so a stale UI
+/// cannot move a row through an illegal transition even under concurrency.
 class _LifecycleActions extends ConsumerWidget {
   const _LifecycleActions({required this.transaction});
 
@@ -371,59 +373,29 @@ class _LifecycleActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = transaction.status;
-    final canReverse = status == TransactionStatus.POSTED;
-    final canVoid = status == TransactionStatus.PENDING ||
-        status == TransactionStatus.DRAFT;
-    final canMarkFailed = status == TransactionStatus.PENDING;
+    final canReverse = transaction.type != TransactionType.REVERSAL;
 
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      if (canReverse)
-        IconButton(
-          tooltip: 'Reverse this posting',
-          icon: const Icon(Icons.undo),
-          onPressed: () => _runWithConfirm(
-            context, ref,
-            title: 'Reverse transaction?',
-            body:
-                'Creates an offsetting REVERSAL transaction. The original moves to status REVERSED but remains in the journal.',
-            confirmLabel: 'Reverse',
-            action: () => ref
-                .read(transactionNotifierProvider.notifier)
-                .reverse(ReverseTransactionRequest()..id = transaction.id),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (canReverse)
+          IconButton(
+            tooltip: 'Reverse this posting',
+            icon: const Icon(Icons.undo),
+            onPressed: () => _runWithConfirm(
+              context,
+              ref,
+              title: 'Reverse transaction?',
+              body:
+                  'Creates an offsetting REVERSAL transaction. The original remains in the journal.',
+              confirmLabel: 'Reverse',
+              action: () => ref
+                  .read(transactionNotifierProvider.notifier)
+                  .reverse(ReverseTransactionRequest()..id = transaction.id),
+            ),
           ),
-        ),
-      if (canVoid)
-        IconButton(
-          tooltip: 'Void this transaction',
-          icon: const Icon(Icons.cancel_outlined),
-          onPressed: () => _runWithConfirm(
-            context, ref,
-            title: 'Void transaction?',
-            body:
-                'Moves the transaction to status VOIDED. Only draft and pending transactions can be voided; posted activity must be reversed instead.',
-            confirmLabel: 'Void',
-            action: () => ref
-                .read(transactionNotifierProvider.notifier)
-                .voidTransaction(transaction.id),
-          ),
-        ),
-      if (canMarkFailed)
-        IconButton(
-          tooltip: 'Mark as failed',
-          icon: const Icon(Icons.report_gmailerrorred),
-          onPressed: () => _runWithConfirm(
-            context, ref,
-            title: 'Mark transaction failed?',
-            body:
-                'Use when an upstream provider rejected the posting. The row stays in the journal for audit but no longer contributes to any balance.',
-            confirmLabel: 'Mark failed',
-            action: () => ref
-                .read(transactionNotifierProvider.notifier)
-                .markFailed(transaction.id),
-          ),
-        ),
-    ]);
+      ],
+    );
   }
 
   Future<void> _runWithConfirm(
@@ -457,15 +429,15 @@ class _LifecycleActions extends ConsumerWidget {
       if (context.mounted) {
         ref.invalidate(transactionSearchProvider(transaction.id));
         ref.invalidate(transactionEntrySearchProvider(transaction.id));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$confirmLabel succeeded')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$confirmLabel succeeded')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$confirmLabel failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$confirmLabel failed: $e')));
       }
     }
   }

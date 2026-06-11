@@ -21,19 +21,19 @@
     },
     {
       "name": "antinvestor_api_common",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_common-1.52.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_common-1.53.1",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
     {
       "name": "antinvestor_api_ledger",
-      "rootUri": "../../../sdk/dart/ledger",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_ledger-1.53.0",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
     {
       "name": "antinvestor_ui_core",
-      "rootUri": "../../../../common/ui_core",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_ui_core-0.5.0",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },

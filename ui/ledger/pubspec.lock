@@ -29,23 +29,25 @@ packages:
     dependency: "direct main"
     description:
       name: antinvestor_api_common
-      sha256: "06210c68804e2720fec6bb497b6cbf43d8f712994deb00c257eec770cd2b12cc"
+      sha256: "5ecd3fe882b22b667bd2e97fcbc0c757553ca5622d41821a63d0fd17ebf9cca9"
       url: "https://pub.dev"
     source: hosted
-    version: "1.52.0"
+    version: "1.53.1"
   antinvestor_api_ledger:
     dependency: "direct main"
     description:
-      path: "../../sdk/dart/ledger"
-      relative: true
-    source: path
+      name: antinvestor_api_ledger
+      sha256: "5723a6e003f9b11dcf7368519d2f77dc888a9758b158246d833afc2b117eb6e3"
+      url: "https://pub.dev"
+    source: hosted
     version: "1.53.0"
   antinvestor_ui_core:
     dependency: "direct main"
     description:
-      path: "../../../common/ui_core"
-      relative: true
-    source: path
+      name: antinvestor_ui_core
+      sha256: "613afa136b9a8eb612537a5a3d78e8482f588cf7f855dd34b79478184598e775"
+      url: "https://pub.dev"
+    source: hosted
     version: "0.5.0"
   archive:
     dependency: transitive

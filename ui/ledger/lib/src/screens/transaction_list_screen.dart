@@ -16,14 +16,14 @@ class TransactionListScreen extends ConsumerStatefulWidget {
       _TransactionListScreenState();
 }
 
-class _TransactionListScreenState
-    extends ConsumerState<TransactionListScreen> {
+class _TransactionListScreenState extends ConsumerState<TransactionListScreen> {
   String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    final asyncTransactions =
-        ref.watch(transactionSearchProvider(_searchQuery));
+    final asyncTransactions = ref.watch(
+      transactionSearchProvider(_searchQuery),
+    );
 
     return asyncTransactions.when(
       loading: () => _buildTable(items: const []),
@@ -56,19 +56,22 @@ class _TransactionListScreenState
           DataCell(Text(_truncate(txn.id, 16))),
           DataCell(Text(txn.currencyCode)),
           DataCell(TransactionTypeBadge(type: txn.type)),
-          DataCell(Text(txn.transactedAt.isNotEmpty
-              ? _formatDate(txn.transactedAt)
-              : '')),
+          DataCell(
+            Text(
+              txn.transactedAt.isNotEmpty ? _formatDate(txn.transactedAt) : '',
+            ),
+          ),
           DataCell(Text('${txn.entries.length}')),
-          DataCell(Icon(
-            txn.cleared ? Icons.check_circle : Icons.cancel,
-            size: 18,
-            color: txn.cleared ? Colors.green : Colors.grey,
-          )),
+          DataCell(
+            Icon(
+              txn.cleared ? Icons.check_circle : Icons.cancel,
+              size: 18,
+              color: txn.cleared ? Colors.green : Colors.grey,
+            ),
+          ),
         ],
       ),
-      onRowNavigate: (txn) =>
-          context.go('/ledger/transactions/${txn.id}'),
+      onRowNavigate: (txn) => context.go('/ledger/transactions/${txn.id}'),
       exportRow: (txn) => [
         txn.id,
         txn.currencyCode,
@@ -78,8 +81,7 @@ class _TransactionListScreenState
         txn.cleared ? 'Yes' : 'No',
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount transactions as $format');
+        debugPrint('AUDIT: Exported $rowCount transactions as $format');
       },
     );
   }

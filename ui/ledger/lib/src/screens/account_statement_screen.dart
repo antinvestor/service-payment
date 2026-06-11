@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
 import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../export/report_export.dart';
+import '../models/report_models.dart';
 import '../providers/report_providers.dart';
 
 /// Account statement screen.
@@ -49,10 +49,10 @@ class _AccountStatementScreenState
   }
 
   AccountStatementQuery get _query => AccountStatementQuery(
-        accountId: widget.accountId,
-        from: _fromCtl.text.trim(),
-        to: _toCtl.text.trim(),
-      );
+    accountId: widget.accountId,
+    from: _fromCtl.text.trim(),
+    to: _toCtl.text.trim(),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +70,7 @@ class _AccountStatementScreenState
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.invalidate(accountStatementProvider(_query)),
+            onPressed: () => ref.invalidate(accountStatementProvider(_query)),
           ),
         ],
       ),
@@ -84,11 +83,13 @@ class _AccountStatementScreenState
           ),
           Expanded(
             child: asyncReport.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                  child: Text('Error: $e',
-                      style: TextStyle(color: theme.colorScheme.error))),
+                child: Text(
+                  'Error: $e',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
               data: (report) => _Body(report: report),
             ),
           ),
@@ -153,7 +154,7 @@ class _FilterBar extends StatelessWidget {
 
 class _Body extends StatelessWidget {
   const _Body({required this.report});
-  final GetAccountStatementResponse report;
+  final AccountStatementReport report;
 
   @override
   Widget build(BuildContext context) {
@@ -168,14 +169,26 @@ class _Body extends StatelessWidget {
               spacing: 24,
               runSpacing: 12,
               children: [
-                _summary(theme, 'Opening balance',
-                    formatMoney(report.openingBalance)),
-                _summary(theme, 'Closing balance',
-                    formatMoney(report.closingBalance)),
-                _summary(theme, 'Period debits',
-                    formatMoney(report.totalDebits)),
-                _summary(theme, 'Period credits',
-                    formatMoney(report.totalCredits)),
+                _summary(
+                  theme,
+                  'Opening balance',
+                  formatMoney(report.openingBalance),
+                ),
+                _summary(
+                  theme,
+                  'Closing balance',
+                  formatMoney(report.closingBalance),
+                ),
+                _summary(
+                  theme,
+                  'Period debits',
+                  formatMoney(report.totalDebits),
+                ),
+                _summary(
+                  theme,
+                  'Period credits',
+                  formatMoney(report.totalCredits),
+                ),
               ],
             ),
           ),
@@ -191,21 +204,21 @@ class _Body extends StatelessWidget {
                 columns: const [
                   DataColumn(label: Text('Transacted')),
                   DataColumn(label: Text('Transaction')),
-                  DataColumn(label: Text('Type')),
                   DataColumn(label: Text('DR/CR')),
                   DataColumn(label: Text('Amount'), numeric: true),
                   DataColumn(label: Text('Running'), numeric: true),
                 ],
                 rows: report.entries
                     .map(
-                      (e) => DataRow(cells: [
-                        DataCell(Text(e.transactedAt)),
-                        DataCell(Text(e.transactionId)),
-                        DataCell(Text(e.transactionType.name)),
-                        DataCell(Text(e.credit ? 'CR' : 'DR')),
-                        DataCell(Text(formatMoney(e.amount))),
-                        DataCell(Text(formatMoney(e.runningBalance))),
-                      ]),
+                      (e) => DataRow(
+                        cells: [
+                          DataCell(Text(e.transactedAt)),
+                          DataCell(Text(e.transactionId)),
+                          DataCell(Text(e.credit ? 'CR' : 'DR')),
+                          DataCell(Text(formatMoney(e.amount))),
+                          DataCell(Text(formatMoney(e.runningBalance))),
+                        ],
+                      ),
                     )
                     .toList(),
               ),
@@ -220,9 +233,12 @@ class _Body extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.outline)),
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(value, style: theme.textTheme.titleMedium),
       ],
@@ -232,7 +248,7 @@ class _Body extends StatelessWidget {
 
 class _ExportMenu extends StatelessWidget {
   const _ExportMenu({required this.report});
-  final GetAccountStatementResponse report;
+  final AccountStatementReport report;
 
   @override
   Widget build(BuildContext context) {
@@ -244,9 +260,9 @@ class _ExportMenu extends StatelessWidget {
           await ReportExport.accountStatement(report, format);
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Export failed: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
           }
         }
       },

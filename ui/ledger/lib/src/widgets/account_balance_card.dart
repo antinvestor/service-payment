@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 
 /// A card widget displaying account balances: balance, uncleared, and reserved.
 class AccountBalanceCard extends StatelessWidget {
-  const AccountBalanceCard({
-    super.key,
-    required this.account,
-    this.onTap,
-  });
+  const AccountBalanceCard({super.key, required this.account, this.onTap});
 
   final Account account;
   final VoidCallback? onTap;

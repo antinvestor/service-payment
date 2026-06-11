@@ -1,7 +1,4 @@
-// ignore_for_file: implementation_imports
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
-import 'package:antinvestor_api_ledger/src/common/v1/common.pb.dart'
-    as ledger_common;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,34 +7,33 @@ import 'ledger_transport_provider.dart';
 /// Search transactions by query string.
 final transactionSearchProvider =
     FutureProvider.family<List<Transaction>, String>((ref, query) async {
-  final client = ref.watch(ledgerServiceClientProvider);
-  final request = ledger_common.SearchRequest()..query = query;
-  final stream = client.searchTransactions(request);
-  return collectStream<SearchTransactionsResponse, Transaction>(
-    stream,
-    extract: (r) => r.data,
-  );
-});
+      final client = ref.watch(ledgerServiceClientProvider);
+      final request = SearchRequest()..query = query;
+      final stream = client.searchTransactions(request);
+      return collectStream<SearchTransactionsResponse, Transaction>(
+        stream,
+        extract: (r) => r.data,
+      );
+    });
 
 /// Search transaction entries by query string.
 final transactionEntrySearchProvider =
     FutureProvider.family<List<TransactionEntry>, String>((ref, query) async {
-  final client = ref.watch(ledgerServiceClientProvider);
-  final request = ledger_common.SearchRequest()..query = query;
-  final stream = client.searchTransactionEntries(request);
-  return collectStream<SearchTransactionEntriesResponse, TransactionEntry>(
-    stream,
-    extract: (r) => r.data,
-  );
-});
+      final client = ref.watch(ledgerServiceClientProvider);
+      final request = SearchRequest()..query = query;
+      final stream = client.searchTransactionEntries(request);
+      return collectStream<SearchTransactionEntriesResponse, TransactionEntry>(
+        stream,
+        extract: (r) => r.data,
+      );
+    });
 
 /// Notifier for transaction mutations (create, reverse, update).
 class TransactionNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  LedgerServiceClient get _client =>
-      ref.read(ledgerServiceClientProvider);
+  LedgerServiceClient get _client => ref.read(ledgerServiceClientProvider);
 
   Future<Transaction> create(CreateTransactionRequest request) async {
     state = const AsyncValue.loading();
@@ -74,37 +70,9 @@ class TransactionNotifier extends Notifier<AsyncValue<void>> {
       rethrow;
     }
   }
-
-  /// Void a draft or pending transaction. Posted activity cannot be
-  /// voided — reverse it instead so the books carry the audit trail.
-  Future<Transaction> voidTransaction(String id) async {
-    state = const AsyncValue.loading();
-    try {
-      final response =
-          await _client.voidTransaction(VoidTransactionRequest()..id = id);
-      state = const AsyncValue.data(null);
-      return response.data;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
-  /// Mark a pending transaction failed (upstream rejection).
-  Future<Transaction> markFailed(String id) async {
-    state = const AsyncValue.loading();
-    try {
-      final response = await _client
-          .markTransactionFailed(MarkTransactionFailedRequest()..id = id);
-      state = const AsyncValue.data(null);
-      return response.data;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
 }
 
 final transactionNotifierProvider =
     NotifierProvider<TransactionNotifier, AsyncValue<void>>(
-        TransactionNotifier.new);
+      TransactionNotifier.new,
+    );

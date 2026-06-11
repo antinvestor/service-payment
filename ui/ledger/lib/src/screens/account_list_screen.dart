@@ -56,8 +56,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
           DataCell(Text(formatMoney(account.reservedBalance))),
         ],
       ),
-      onRowNavigate: (account) =>
-          context.go('/ledger/accounts/${account.id}'),
+      onRowNavigate: (account) => context.go('/ledger/accounts/${account.id}'),
       exportRow: (account) => [
         account.id,
         account.ledger,

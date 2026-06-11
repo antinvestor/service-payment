@@ -1,6 +1,6 @@
 # Service-specific configuration
 SERVICE_NAME := payment
-APP_DIRS     := apps/default apps/billing apps/ledger apps/integrations/airtel apps/integrations/jenga-api apps/integrations/mpesa apps/integrations/mtn apps/integrations/polar apps/integrations/stripe
+APP_DIRS     := apps/default apps/billing apps/ledger apps/integrations/airtel apps/integrations/jenga-api apps/integrations/mpesa apps/integrations/mtn apps/integrations/pawapay apps/integrations/polar apps/integrations/stripe
 
 # Bootstrap: download shared Makefile.common if missing
 ifeq (,$(wildcard .tmp/Makefile.common))

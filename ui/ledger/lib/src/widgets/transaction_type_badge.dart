@@ -10,18 +10,18 @@ class TransactionTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StatusBadge.fromEnum(
-      value: type,
-      mapper: _transactionTypeInfo,
-    );
+    return StatusBadge.fromEnum(value: type, mapper: _transactionTypeInfo);
   }
 
   static (String, Color, IconData?) _transactionTypeInfo(TransactionType type) {
     return switch (type) {
       TransactionType.NORMAL => ('Normal', Colors.blue, Icons.receipt_long),
       TransactionType.REVERSAL => ('Reversal', Colors.orange, Icons.undo),
-      TransactionType.RESERVATION =>
-        ('Reservation', Colors.purple, Icons.lock_clock),
+      TransactionType.RESERVATION => (
+        'Reservation',
+        Colors.purple,
+        Icons.lock_clock,
+      ),
       _ => ('Unknown', Colors.grey, null),
     };
   }

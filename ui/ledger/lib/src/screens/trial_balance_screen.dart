@@ -12,55 +12,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
 import 'package:antinvestor_ui_core/widgets/money_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../export/report_export.dart';
+import '../models/report_models.dart';
 import '../providers/report_providers.dart';
 
 /// Trial balance report screen.
 ///
-/// Surfaces the per-account debit / credit totals plus per-currency grand
-/// totals with the textbook integrity check (debits == credits). Filters
-/// for currency, ledger-type, book scope and as-of date narrow the view.
+/// Surfaces the per-account debit / credit presentation of current balances
+/// plus per-currency grand totals with the textbook integrity check
+/// (debits == credits). Filters for currency, ledger and ledger-type narrow
+/// the view.
 ///
 /// Export buttons in the app bar produce CSV / Excel / PDF downloads of
 /// the currently displayed report — same data the operator sees.
 class TrialBalanceScreen extends ConsumerStatefulWidget {
-  const TrialBalanceScreen({super.key, this.initialBookId = ''});
+  const TrialBalanceScreen({super.key, this.initialLedgerId = ''});
 
-  /// Book to scope to when the screen is reached from a Book detail page.
-  /// Empty means "no book filter" — typically used by platform-level
-  /// operators who want the full picture across all books.
-  final String initialBookId;
+  /// Ledger to scope to when the screen is reached from a ledger detail
+  /// page. Empty means "no ledger filter" — typically used by
+  /// platform-level operators who want the full picture.
+  final String initialLedgerId;
 
   @override
   ConsumerState<TrialBalanceScreen> createState() => _TrialBalanceScreenState();
 }
 
-const _kLedgerTypes = <String>['', 'ASSET', 'LIABILITY', 'INCOME', 'EXPENSE', 'CAPITAL'];
+const _kLedgerTypes = <String>[
+  '',
+  'ASSET',
+  'LIABILITY',
+  'INCOME',
+  'EXPENSE',
+  'CAPITAL',
+];
 
 class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
   final _currencyCtl = TextEditingController();
-  final _asOfCtl = TextEditingController();
   String _ledgerType = '';
-  late String _bookId = widget.initialBookId;
+  late String _ledgerId = widget.initialLedgerId;
 
   @override
   void dispose() {
     _currencyCtl.dispose();
-    _asOfCtl.dispose();
     super.dispose();
   }
 
   TrialBalanceQuery get _query => TrialBalanceQuery(
-        currency: _currencyCtl.text.trim().toUpperCase(),
-        ledgerType: _ledgerType,
-        bookIds: _bookId.isEmpty ? const [] : [_bookId],
-        asOf: _asOfCtl.text.trim(),
-      );
+    currency: _currencyCtl.text.trim().toUpperCase(),
+    ledgerType: _ledgerType,
+    ledgerId: _ledgerId,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -86,17 +91,21 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
         children: [
           _FilterBar(
             currencyCtl: _currencyCtl,
-            asOfCtl: _asOfCtl,
             ledgerType: _ledgerType,
-            bookId: _bookId,
+            ledgerId: _ledgerId,
             onLedgerTypeChanged: (v) => setState(() => _ledgerType = v),
-            onBookIdChanged: (v) => setState(() => _bookId = v),
+            onLedgerIdChanged: (v) => setState(() => _ledgerId = v),
             onApply: () => setState(() {}),
           ),
           Expanded(
             child: asyncReport.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: theme.colorScheme.error))),
+              error: (e, _) => Center(
+                child: Text(
+                  'Error: $e',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
               data: (report) => _TrialBalanceBody(report: report),
             ),
           ),
@@ -109,20 +118,18 @@ class _TrialBalanceScreenState extends ConsumerState<TrialBalanceScreen> {
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.currencyCtl,
-    required this.asOfCtl,
     required this.ledgerType,
-    required this.bookId,
+    required this.ledgerId,
     required this.onLedgerTypeChanged,
-    required this.onBookIdChanged,
+    required this.onLedgerIdChanged,
     required this.onApply,
   });
 
   final TextEditingController currencyCtl;
-  final TextEditingController asOfCtl;
   final String ledgerType;
-  final String bookId;
+  final String ledgerId;
   final ValueChanged<String> onLedgerTypeChanged;
-  final ValueChanged<String> onBookIdChanged;
+  final ValueChanged<String> onLedgerIdChanged;
   final VoidCallback onApply;
 
   @override
@@ -153,10 +160,12 @@ class _FilterBar extends StatelessWidget {
                 initialValue: ledgerType,
                 decoration: const InputDecoration(labelText: 'Ledger type'),
                 items: _kLedgerTypes
-                    .map((t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(t.isEmpty ? 'All types' : t),
-                        ))
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t.isEmpty ? 'All types' : t),
+                      ),
+                    )
                     .toList(),
                 onChanged: (v) => onLedgerTypeChanged(v ?? ''),
               ),
@@ -164,22 +173,12 @@ class _FilterBar extends StatelessWidget {
             SizedBox(
               width: 240,
               child: TextField(
-                controller: TextEditingController(text: bookId),
+                controller: TextEditingController(text: ledgerId),
                 decoration: const InputDecoration(
-                  labelText: 'Book id (optional)',
-                  hintText: 'Scope to one book',
+                  labelText: 'Ledger id (optional)',
+                  hintText: 'Scope to one ledger',
                 ),
-                onSubmitted: onBookIdChanged,
-              ),
-            ),
-            SizedBox(
-              width: 220,
-              child: TextField(
-                controller: asOfCtl,
-                decoration: const InputDecoration(
-                  labelText: 'As-of (RFC3339)',
-                  hintText: '2026-12-31T23:59:59Z',
-                ),
+                onSubmitted: onLedgerIdChanged,
               ),
             ),
             FilledButton.icon(
@@ -196,7 +195,7 @@ class _FilterBar extends StatelessWidget {
 
 class _TrialBalanceBody extends StatelessWidget {
   const _TrialBalanceBody({required this.report});
-  final GetTrialBalanceResponse report;
+  final TrialBalanceReport report;
 
   @override
   Widget build(BuildContext context) {
@@ -224,15 +223,17 @@ class _TrialBalanceBody extends StatelessWidget {
                 ],
                 rows: report.lines
                     .map(
-                      (l) => DataRow(cells: [
-                        DataCell(Text(l.accountId)),
-                        DataCell(Text(l.ledgerId)),
-                        DataCell(Text(l.ledgerType.name)),
-                        DataCell(Text(l.currency)),
-                        DataCell(Text(formatMoney(l.totalDebits))),
-                        DataCell(Text(formatMoney(l.totalCredits))),
-                        DataCell(Text(formatMoney(l.netBalance))),
-                      ]),
+                      (l) => DataRow(
+                        cells: [
+                          DataCell(Text(l.accountId)),
+                          DataCell(Text(l.ledgerId)),
+                          DataCell(Text(l.ledgerType?.name ?? '')),
+                          DataCell(Text(l.currency)),
+                          DataCell(Text(formatMoney(l.debit))),
+                          DataCell(Text(formatMoney(l.credit))),
+                          DataCell(Text(formatMoney(l.netBalance))),
+                        ],
+                      ),
                     )
                     .toList(),
               ),
@@ -246,7 +247,7 @@ class _TrialBalanceBody extends StatelessWidget {
 
 class _TotalsCard extends StatelessWidget {
   const _TotalsCard({required this.report});
-  final GetTrialBalanceResponse report;
+  final TrialBalanceReport report;
 
   @override
   Widget build(BuildContext context) {
@@ -268,48 +269,50 @@ class _TotalsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Per-currency totals',
-                style: theme.textTheme.titleMedium),
+            Text('Per-currency totals', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
-            ...report.totals.map((t) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
+            ...report.totals.map(
+              (t) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: t.isBalanced
+                            ? Colors.green.withValues(alpha: 0.15)
+                            : Colors.red.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        t.isBalanced ? 'BALANCED' : 'UNBALANCED',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
                           color: t.isBalanced
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : Colors.red.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          t.isBalanced ? 'BALANCED' : 'UNBALANCED',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: t.isBalanced
-                                ? Colors.green.shade800
-                                : Colors.red.shade800,
-                          ),
+                              ? Colors.green.shade800
+                              : Colors.red.shade800,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Text(t.currency,
-                          style: theme.textTheme.titleSmall),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Wrap(
-                          spacing: 16,
-                          children: [
-                            Text('Debits ${formatMoney(t.totalDebits)}'),
-                            Text('Credits ${formatMoney(t.totalCredits)}'),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(t.currency, style: theme.textTheme.titleSmall),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 16,
+                        children: [
+                          Text('Debits ${formatMoney(t.totalDebits)}'),
+                          Text('Credits ${formatMoney(t.totalCredits)}'),
+                        ],
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -319,7 +322,7 @@ class _TotalsCard extends StatelessWidget {
 
 class _ExportMenu extends StatelessWidget {
   const _ExportMenu({required this.report});
-  final GetTrialBalanceResponse report;
+  final TrialBalanceReport report;
 
   @override
   Widget build(BuildContext context) {
@@ -331,9 +334,9 @@ class _ExportMenu extends StatelessWidget {
           await ReportExport.trialBalance(report, format);
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Export failed: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
           }
         }
       },

@@ -5,11 +5,7 @@ import 'ledger_type_badge.dart';
 
 /// A hierarchical tree view of ledgers showing parent-child relationships.
 class LedgerTreeView extends StatelessWidget {
-  const LedgerTreeView({
-    super.key,
-    required this.ledgers,
-    this.onLedgerTap,
-  });
+  const LedgerTreeView({super.key, required this.ledgers, this.onLedgerTap});
 
   final List<Ledger> ledgers;
   final ValueChanged<Ledger>? onLedgerTap;
@@ -166,12 +162,14 @@ class _LedgerTreeNodeState extends State<_LedgerTreeNode> {
 
         // Children
         if (hasChildren && _expanded)
-          ...children.map((child) => _LedgerTreeNode(
-                ledger: child,
-                childMap: widget.childMap,
-                depth: widget.depth + 1,
-                onTap: widget.onTap,
-              )),
+          ...children.map(
+            (child) => _LedgerTreeNode(
+              ledger: child,
+              childMap: widget.childMap,
+              depth: widget.depth + 1,
+              onTap: widget.onTap,
+            ),
+          ),
 
         // Divider
         if (widget.depth == 0)

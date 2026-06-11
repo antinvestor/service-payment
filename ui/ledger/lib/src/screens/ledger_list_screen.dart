@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/ledger_providers.dart';
 import '../widgets/ledger_type_badge.dart';
+import 'ledger_form_screen.dart';
 
 /// Screen that lists ledgers with search and LedgerType filter using DataTable.
 class LedgerListScreen extends ConsumerStatefulWidget {
@@ -43,7 +44,15 @@ class _LedgerListScreenState extends ConsumerState<LedgerListScreen> {
       onSearch: (query) {
         setState(() => _searchQuery = query.trim());
       },
-      actions: [_buildTypeFilter()],
+      actions: [
+        _buildTypeFilter(),
+        const SizedBox(width: 12),
+        FilledButton.icon(
+          onPressed: _openCreateLedger,
+          icon: const Icon(Icons.add),
+          label: const Text('New ledger'),
+        ),
+      ],
       columns: const [
         DataColumn(label: Text('ID')),
         DataColumn(label: Text('Type')),
@@ -61,8 +70,7 @@ class _LedgerListScreenState extends ConsumerState<LedgerListScreen> {
           DataCell(Text(_dataPreview(ledger))),
         ],
       ),
-      onRowNavigate: (ledger) =>
-          context.go('/ledger/ledgers/${ledger.id}'),
+      onRowNavigate: (ledger) => context.go('/ledger/ledgers/${ledger.id}'),
       exportRow: (ledger) => [
         ledger.id,
         ledgerTypeLabel(ledger.type),
@@ -86,16 +94,28 @@ class _LedgerListScreenState extends ConsumerState<LedgerListScreen> {
           value: null,
           child: Text('All Types'),
         ),
-        ...LedgerType.values
-            .map((type) => DropdownMenuItem<LedgerType?>(
-                  value: type,
-                  child: Text(ledgerTypeLabel(type)),
-                )),
+        ...LedgerType.values.map(
+          (type) => DropdownMenuItem<LedgerType?>(
+            value: type,
+            child: Text(ledgerTypeLabel(type)),
+          ),
+        ),
       ],
       onChanged: (value) {
         setState(() => _typeFilter = value);
       },
     );
+  }
+
+  void _openCreateLedger() async {
+    final created = await showDialog<Ledger?>(
+      context: context,
+      builder: (_) =>
+          LedgerFormScreen(initialType: _typeFilter ?? LedgerType.ASSET),
+    );
+    if (created != null && mounted) {
+      ref.invalidate(ledgerSearchProvider(_searchQuery));
+    }
   }
 
   String _truncate(String value, int maxLength) {

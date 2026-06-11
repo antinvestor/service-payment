@@ -13,9 +13,11 @@
 // limitations under the License.
 
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
+import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/report_models.dart';
 import 'ledger_transport_provider.dart';
 
 /// Parameter bundle for the trial balance provider so Riverpod's family
@@ -26,27 +28,17 @@ class TrialBalanceQuery {
     this.currency = '',
     this.ledgerId = '',
     this.ledgerType = '',
-    this.bookIds = const <String>[],
-    this.asOf = '',
   });
 
   /// ISO 4217 currency code. Empty = no filter.
   final String currency;
 
-  /// Optional ledger id to scope the report to one chart-of-accounts subtree.
+  /// Optional ledger id to scope the report to one ledger's accounts.
   final String ledgerId;
 
   /// Optional case-sensitive ledger-type filter ("ASSET" / "LIABILITY" /
   /// "INCOME" / "EXPENSE" / "CAPITAL"). Empty = no filter.
   final String ledgerType;
-
-  /// Optional list of book ids to scope to. For a consolidated report
-  /// across an organisation's groups + members, expand the root via
-  /// the descendants helper (added with hierarchy support).
-  final List<String> bookIds;
-
-  /// Optional RFC3339 upper bound on transacted_at. Empty = no bound.
-  final String asOf;
 
   @override
   bool operator ==(Object other) {
@@ -54,34 +46,40 @@ class TrialBalanceQuery {
     return other is TrialBalanceQuery &&
         other.currency == currency &&
         other.ledgerId == ledgerId &&
-        other.ledgerType == ledgerType &&
-        other.asOf == asOf &&
-        listEquals(other.bookIds, bookIds);
+        other.ledgerType == ledgerType;
   }
 
   @override
-  int get hashCode => Object.hash(
-        currency,
-        ledgerId,
-        ledgerType,
-        asOf,
-        Object.hashAll(bookIds),
-      );
+  int get hashCode => Object.hash(currency, ledgerId, ledgerType);
 }
 
-/// Trial balance — per-account debit/credit totals plus per-currency
-/// integrity totals.
-final trialBalanceProvider = FutureProvider.family<GetTrialBalanceResponse,
-    TrialBalanceQuery>((ref, query) async {
-  final client = ref.watch(ledgerServiceClientProvider);
-  final request = GetTrialBalanceRequest()
-    ..currency = query.currency
-    ..ledgerId = query.ledgerId
-    ..ledgerType = query.ledgerType
-    ..bookIds.addAll(query.bookIds)
-    ..asOf = query.asOf;
-  return client.getTrialBalance(request);
-});
+/// Trial balance — per-account debit/credit presentation of current
+/// balances plus per-currency integrity totals.
+///
+/// Derived client-side from `SearchAccounts` + `SearchLedgers` since
+/// api_ledger 1.53 removed the dedicated `GetTrialBalance` RPC.
+final trialBalanceProvider =
+    FutureProvider.family<TrialBalanceReport, TrialBalanceQuery>((
+      ref,
+      query,
+    ) async {
+      final client = ref.watch(ledgerServiceClientProvider);
+      final accounts = await collectStream<SearchAccountsResponse, Account>(
+        client.searchAccounts(SearchRequest()..query = ''),
+        extract: (r) => r.data,
+      );
+      final ledgers = await collectStream<SearchLedgersResponse, Ledger>(
+        client.searchLedgers(SearchRequest()..query = ''),
+        extract: (r) => r.data,
+      );
+      return buildTrialBalance(
+        accounts: accounts,
+        ledgers: ledgers,
+        currency: query.currency,
+        ledgerId: query.ledgerId,
+        ledgerType: query.ledgerType,
+      );
+    });
 
 /// Parameter bundle for the account-statement provider.
 @immutable
@@ -90,8 +88,6 @@ class AccountStatementQuery {
     required this.accountId,
     this.from = '',
     this.to = '',
-    this.limit = 100,
-    this.offset = 0,
   });
 
   /// Required account id.
@@ -103,37 +99,45 @@ class AccountStatementQuery {
   /// Optional RFC3339 upper bound (inclusive). Empty = no bound.
   final String to;
 
-  /// Page size (server caps at 1000, defaults to 100 when <=0).
-  final int limit;
-
-  /// Page offset.
-  final int offset;
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is AccountStatementQuery &&
         other.accountId == accountId &&
         other.from == from &&
-        other.to == to &&
-        other.limit == limit &&
-        other.offset == offset;
+        other.to == to;
   }
 
   @override
-  int get hashCode => Object.hash(accountId, from, to, limit, offset);
+  int get hashCode => Object.hash(accountId, from, to);
 }
 
 /// Account statement — chronological entries with running balance,
 /// opening + closing balances and the period's totals.
-final accountStatementProvider = FutureProvider.family<
-    GetAccountStatementResponse, AccountStatementQuery>((ref, query) async {
-  final client = ref.watch(ledgerServiceClientProvider);
-  final request = GetAccountStatementRequest()
-    ..accountId = query.accountId
-    ..from = query.from
-    ..to = query.to
-    ..limit = query.limit
-    ..offset = query.offset;
-  return client.getAccountStatement(request);
-});
+///
+/// Derived client-side from `SearchTransactionEntries` (each entry carries
+/// its post-entry running balance) since api_ledger 1.53 removed the
+/// dedicated `GetAccountStatement` RPC.
+final accountStatementProvider =
+    FutureProvider.family<AccountStatementReport, AccountStatementQuery>((
+      ref,
+      query,
+    ) async {
+      final client = ref.watch(ledgerServiceClientProvider);
+      final entries =
+          await collectStream<
+            SearchTransactionEntriesResponse,
+            TransactionEntry
+          >(
+            client.searchTransactionEntries(
+              SearchRequest()..query = query.accountId,
+            ),
+            extract: (r) => r.data,
+          );
+      return buildAccountStatement(
+        accountId: query.accountId,
+        entries: entries,
+        from: query.from,
+        to: query.to,
+      );
+    });

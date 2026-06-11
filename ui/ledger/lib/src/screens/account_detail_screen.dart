@@ -12,10 +12,7 @@ import '../widgets/transaction_entry_row.dart';
 /// Screen showing details for a single account with balance card and
 /// transaction history.
 class AccountDetailScreen extends ConsumerWidget {
-  const AccountDetailScreen({
-    super.key,
-    required this.accountId,
-  });
+  const AccountDetailScreen({super.key, required this.accountId});
 
   final String accountId;
 
@@ -35,8 +32,11 @@ class AccountDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
@@ -97,9 +97,8 @@ class AccountDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop()
-              ? context.pop()
-              : context.go('/ledger/accounts'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/ledger/accounts'),
         ),
         title: Text(
           'Account ${_truncate(account.id, 16)}',
@@ -134,8 +133,7 @@ class AccountDetailScreen extends ConsumerWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: InkWell(
-                  onTap: () =>
-                      context.go('/ledger/ledgers/${account.ledger}'),
+                  onTap: () => context.go('/ledger/ledgers/${account.ledger}'),
                   borderRadius: BorderRadius.circular(4),
                   child: Text(
                     'View Ledger: ${account.ledger}',
@@ -166,9 +164,7 @@ class AccountDetailScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // Transaction entries list
-          Expanded(
-            child: _TransactionHistoryList(accountId: account.id),
-          ),
+          Expanded(child: _TransactionHistoryList(accountId: account.id)),
         ],
       ),
     );
@@ -227,9 +223,8 @@ class _TransactionHistoryList extends ConsumerWidget {
             final entry = entries[index];
             return TransactionEntryRow(
               entry: entry,
-              onTap: () => context.go(
-                '/ledger/transactions/${entry.transactionId}',
-              ),
+              onTap: () =>
+                  context.go('/ledger/transactions/${entry.transactionId}'),
             );
           },
         );

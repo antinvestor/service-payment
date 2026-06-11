@@ -11,10 +11,7 @@ class LedgerTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StatusBadge.fromEnum(
-      value: type,
-      mapper: _ledgerTypeInfo,
-    );
+    return StatusBadge.fromEnum(value: type, mapper: _ledgerTypeInfo);
   }
 
   static (String, Color, IconData?) _ledgerTypeInfo(LedgerType type) {

@@ -12,16 +12,12 @@ import '../widgets/ledger_type_badge.dart';
 
 /// Screen showing details for a single ledger with Info and Accounts tabs.
 class LedgerDetailScreen extends ConsumerStatefulWidget {
-  const LedgerDetailScreen({
-    super.key,
-    required this.ledgerId,
-  });
+  const LedgerDetailScreen({super.key, required this.ledgerId});
 
   final String ledgerId;
 
   @override
-  ConsumerState<LedgerDetailScreen> createState() =>
-      _LedgerDetailScreenState();
+  ConsumerState<LedgerDetailScreen> createState() => _LedgerDetailScreenState();
 }
 
 class _LedgerDetailScreenState extends ConsumerState<LedgerDetailScreen>
@@ -56,8 +52,11 @@ class _LedgerDetailScreenState extends ConsumerState<LedgerDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
@@ -76,10 +75,7 @@ class _LedgerDetailScreenState extends ConsumerState<LedgerDetailScreen>
           return Scaffold(
             appBar: _buildAppBar(context, theme, 'Ledger'),
             body: Center(
-              child: Text(
-                'Ledger not found',
-                style: theme.textTheme.bodyLarge,
-              ),
+              child: Text('Ledger not found', style: theme.textTheme.bodyLarge),
             ),
           );
         }
@@ -108,11 +104,7 @@ class _LedgerDetailScreenState extends ConsumerState<LedgerDetailScreen>
     );
   }
 
-  Widget _buildDetail(
-    BuildContext context,
-    ThemeData theme,
-    Ledger ledger,
-  ) {
+  Widget _buildDetail(BuildContext context, ThemeData theme, Ledger ledger) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -192,8 +184,13 @@ class _InfoTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _metadataRow(theme, 'ID', ledger.id,
-                      copyable: true, context: context),
+                  _metadataRow(
+                    theme,
+                    'ID',
+                    ledger.id,
+                    copyable: true,
+                    context: context,
+                  ),
                   Row(
                     children: [
                       SizedBox(
@@ -253,11 +250,7 @@ class _InfoTab extends StatelessWidget {
     );
   }
 
-  Widget _parentRow(
-    BuildContext context,
-    ThemeData theme,
-    String parentId,
-  ) {
+  Widget _parentRow(BuildContext context, ThemeData theme, String parentId) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -370,8 +363,7 @@ class _AccountsTab extends ConsumerWidget {
             Text(friendlyError(error)),
             const SizedBox(height: 16),
             FilledButton.tonal(
-              onPressed: () =>
-                  ref.invalidate(accountSearchProvider(ledgerId)),
+              onPressed: () => ref.invalidate(accountSearchProvider(ledgerId)),
               child: const Text('Retry'),
             ),
           ],

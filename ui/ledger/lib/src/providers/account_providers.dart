@@ -1,17 +1,16 @@
-// ignore_for_file: implementation_imports
 import 'package:antinvestor_api_ledger/antinvestor_api_ledger.dart';
-import 'package:antinvestor_api_ledger/src/common/v1/common.pb.dart'
-    as ledger_common;
 import 'package:antinvestor_ui_core/api/stream_helpers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ledger_transport_provider.dart';
 
 /// Search accounts by query string.
-final accountSearchProvider =
-    FutureProvider.family<List<Account>, String>((ref, query) async {
+final accountSearchProvider = FutureProvider.family<List<Account>, String>((
+  ref,
+  query,
+) async {
   final client = ref.watch(ledgerServiceClientProvider);
-  final request = ledger_common.SearchRequest()..query = query;
+  final request = SearchRequest()..query = query;
   final stream = client.searchAccounts(request);
   return collectStream<SearchAccountsResponse, Account>(
     stream,
@@ -24,8 +23,7 @@ class AccountNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  LedgerServiceClient get _client =>
-      ref.read(ledgerServiceClientProvider);
+  LedgerServiceClient get _client => ref.read(ledgerServiceClientProvider);
 
   Future<Account> create(CreateAccountRequest request) async {
     state = const AsyncValue.loading();

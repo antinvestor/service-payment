@@ -1,0 +1,165 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package checkout.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "common/v1/money.proto";
+import "common/v1/permissions.proto";
+
+enum AmountOption {
+  AMOUNT_OPTION_FIXED_UNSPECIFIED = 0;
+  AMOUNT_OPTION_VARIABLE = 1;
+}
+
+enum SessionStatus {
+  SESSION_STATUS_PENDING_UNSPECIFIED = 0;
+  SESSION_STATUS_PROCESSING = 1;
+  SESSION_STATUS_COMPLETED = 2;
+  SESSION_STATUS_FAILED = 3;
+  SESSION_STATUS_EXPIRED = 4;
+}
+
+message PayerContact {
+  string contact_id = 1;
+  string msisdn = 2;
+}
+
+message PayerPrefill {
+  string profile_id = 1;
+  string display_name = 2;
+  string language = 3;
+  repeated PayerContact contacts = 4;
+}
+
+message CheckoutSession {
+  string ref = 1;
+  string name = 2;
+  string description = 3;
+  common.v1.Money amount = 4;
+  AmountOption amount_option = 5;
+  string order_ref = 6;
+  map<string, string> metadata = 7;
+  string return_url = 8;
+  PayerPrefill payer = 9;
+  SessionStatus status = 10;
+  string prompt_id = 11;
+  string page_url = 12;
+  string expires_at = 13; // RFC3339
+}
+
+message CheckoutLink {
+  string ref = 1;
+  string name = 2;
+  string description = 3;
+  common.v1.Money amount = 4;
+  AmountOption amount_option = 5;
+  string order_ref = 6;
+  map<string, string> metadata = 7;
+  string return_url = 8;
+  string page_url = 9;
+  string expires_at = 10; // RFC3339, empty = no expiry
+  bool active = 11;
+}
+
+message CreateCheckoutSessionRequest {
+  string name = 1 [
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 100
+  ];
+  string description = 2 [(buf.validate.field).string.max_len = 500];
+  common.v1.Money amount = 3;
+  AmountOption amount_option = 4;
+  string order_ref = 5 [(buf.validate.field).string.max_len = 250];
+  map<string, string> metadata = 6;
+  string return_url = 7 [(buf.validate.field).string.uri = true];
+  PayerPrefill payer = 8;
+  repeated string methods = 9; // optional restriction; method registry keys
+}
+
+message CreateCheckoutSessionResponse {
+  CheckoutSession data = 1;
+}
+
+message GetCheckoutSessionRequest {
+  string ref = 1 [
+    (buf.validate.field).string.min_len = 8,
+    (buf.validate.field).string.max_len = 64
+  ];
+}
+
+message GetCheckoutSessionResponse {
+  CheckoutSession data = 1;
+}
+
+message CreateCheckoutLinkRequest {
+  string name = 1 [
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 100
+  ];
+  string description = 2 [(buf.validate.field).string.max_len = 500];
+  common.v1.Money amount = 3;
+  AmountOption amount_option = 4;
+  string order_ref = 5 [(buf.validate.field).string.max_len = 250];
+  map<string, string> metadata = 6;
+  string return_url = 7 [(buf.validate.field).string.uri = true];
+  string expires_at = 8; // RFC3339, empty = no expiry
+}
+
+message CreateCheckoutLinkResponse {
+  CheckoutLink data = 1;
+}
+
+service CheckoutService {
+  option (common.v1.service_permissions) = {
+    namespace: "service_checkout"
+    permissions: [
+      "checkout_session_create",
+      "checkout_session_view",
+      "checkout_link_create"
+    ]
+    role_bindings: [
+      {
+        role: ROLE_OWNER
+        permissions: [
+          "checkout_session_create",
+          "checkout_session_view",
+          "checkout_link_create"
+        ]
+      }
+    ]
+  };
+
+  rpc CreateCheckoutSession(CreateCheckoutSessionRequest) returns (CreateCheckoutSessionResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["checkout_session_create"]
+    };
+  }
+
+  rpc GetCheckoutSession(GetCheckoutSessionRequest) returns (GetCheckoutSessionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["checkout_session_view"]
+    };
+  }
+
+  rpc CreateCheckoutLink(CreateCheckoutLinkRequest) returns (CreateCheckoutLinkResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["checkout_link_create"]
+    };
+  }
+}

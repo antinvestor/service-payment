@@ -30,8 +30,14 @@ proto-generate-dart: $(BIN)/buf ## Regenerate the per-module dart SDKs
 		(cd $(PROTO_DIR) && buf generate --template buf.gen.dart.$$m.yaml $$m); \
 	done
 
+.PHONY: proto-generate-checkout
+proto-generate-checkout: $(BIN)/buf ## Regenerate checkout Go stubs locally
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+	@(cd $(PROTO_DIR) && PATH="$$(go env GOPATH)/bin:$$PATH" buf generate --template buf.gen.checkout.yaml --path payment/checkout)
+
 # Wire dart generation into the standard proto-generate pipeline.
-proto-generate: proto-generate-dart
+proto-generate: proto-generate-dart proto-generate-checkout
 
 format: ## Format Go files (used by pre-commit hook)
 	gofmt -w .

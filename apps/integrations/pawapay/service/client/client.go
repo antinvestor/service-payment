@@ -17,11 +17,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
@@ -33,6 +35,11 @@ const httpTimeout = 30 * time.Second
 type client struct {
 	httpClient *http.Client
 	metrics    *integrationobs.Metrics
+
+	// keyCache caches parsed ECDSA private keys keyed by keyID to avoid
+	// re-parsing PEM on every request (mirrors mpesa token caching pattern).
+	keyMu    sync.RWMutex
+	keyCache map[string]*ecdsa.PrivateKey
 }
 
 // NewClient creates a new pawaPay Merchant API v2 client.
@@ -41,8 +48,31 @@ func NewClient() PawapayClient {
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
-		metrics: integrationobs.NewMetrics("pawapay"),
+		metrics:  integrationobs.NewMetrics("pawapay"),
+		keyCache: make(map[string]*ecdsa.PrivateKey),
 	}
+}
+
+// cachedKey returns the parsed ECDSA key for keyID, parsing and caching it
+// from pemData on the first call. Errors if pemData is invalid or non-P256.
+func (c *client) cachedKey(keyID, pemData string) (*ecdsa.PrivateKey, error) {
+	c.keyMu.RLock()
+	if k, ok := c.keyCache[keyID]; ok {
+		c.keyMu.RUnlock()
+		return k, nil
+	}
+	c.keyMu.RUnlock()
+
+	k, err := parsePrivateKey(pemData)
+	if err != nil {
+		return nil, err
+	}
+
+	c.keyMu.Lock()
+	c.keyCache[keyID] = k
+	c.keyMu.Unlock()
+
+	return k, nil
 }
 
 // doRequest performs an authenticated JSON request against the pawaPay API
@@ -64,13 +94,17 @@ func (c *client) doRequest(
 	logger := util.Log(ctx).WithField("type", logType)
 	defer logger.Release()
 
-	var body io.Reader
+	var (
+		rawBody []byte
+		body    io.Reader
+	)
 	if payload != nil {
-		raw, err := json.Marshal(payload)
+		var err error
+		rawBody, err = json.Marshal(payload)
 		if err != nil {
 			return fmt.Errorf("marshal %s payload: %w", logType, err)
 		}
-		body = bytes.NewReader(raw)
+		body = bytes.NewReader(rawBody)
 	}
 
 	apiURL := creds.ResolveBaseURL() + endpoint
@@ -82,6 +116,19 @@ func (c *client) doRequest(
 	httpReq.Header.Set("Authorization", "Bearer "+creds.APIToken)
 	if payload != nil {
 		httpReq.Header.Set("Content-Type", "application/json")
+	}
+
+	// RFC-9421 request signing: only for POST requests with a body and when
+	// signing credentials are configured. A configured-but-broken key must
+	// not silently send unsigned financial requests.
+	if payload != nil && creds.SignatureKeyID != "" && creds.PrivateKeyPEM != "" {
+		key, keyErr := c.cachedKey(creds.SignatureKeyID, creds.PrivateKeyPEM)
+		if keyErr != nil {
+			return fmt.Errorf("parse signing key for %s: %w", logType, keyErr)
+		}
+		if signErr := signRequest(httpReq, rawBody, creds.SignatureKeyID, key, time.Now()); signErr != nil {
+			return fmt.Errorf("sign %s request: %w", logType, signErr)
+		}
 	}
 
 	resp, err := c.httpClient.Do(httpReq)

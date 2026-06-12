@@ -16,7 +16,14 @@ package client_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,6 +32,27 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testKeyPair generates a P-256 PKCS#8 PEM private key for signing tests.
+func testKeyPair(t *testing.T) (*ecdsa.PrivateKey, string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+	return key, string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+}
+
+// testCredsWithSigning builds Credentials with signing key set.
+func testCredsWithSigning(serverURL, keyID, pemStr string) *client.Credentials {
+	return &client.Credentials{
+		APIToken:       "TEST_API_TOKEN",
+		Environment:    "sandbox",
+		BaseURL:        serverURL,
+		SignatureKeyID: keyID,
+		PrivateKeyPEM:  pemStr,
+	}
+}
 
 func testCreds(serverURL string) *client.Credentials {
 	return &client.Credentials{
@@ -545,4 +573,106 @@ func TestAvailability(t *testing.T) {
 	require.Len(t, resp, 1)
 	require.Len(t, resp[0].Providers, 1)
 	assert.Equal(t, "DELAYED", resp[0].Providers[0].OperationTypes[1].Status)
+}
+
+// ─── Signing integration tests ────────────────────────────────────────────────
+
+// TestInitiatePayout_WithSigning verifies that when signing credentials are
+// present the four RFC-9421 headers are emitted and the Content-Digest
+// matches the body received by the server.
+func TestInitiatePayout_WithSigning(t *testing.T) {
+	_, pemStr := testKeyPair(t)
+
+	var receivedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Capture raw body before decoding
+		buf := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(buf)
+		receivedBody = buf
+
+		// All four signing headers must be present
+		assert.NotEmpty(t, r.Header.Get("Content-Digest"), "Content-Digest must be set")
+		assert.NotEmpty(t, r.Header.Get("Signature-Date"), "Signature-Date must be set")
+		assert.NotEmpty(t, r.Header.Get("Signature-Input"), "Signature-Input must be set")
+		assert.NotEmpty(t, r.Header.Get("Signature"), "Signature must be set")
+
+		// Content-Digest must match the received body
+		sum := sha256.Sum256(receivedBody)
+		expectedDigest := "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
+		assert.Equal(t, expectedDigest, r.Header.Get("Content-Digest"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"payoutId":"f4401bd2","status":"ACCEPTED","created":"2020-10-19T11:17:01Z"}`))
+	}))
+	defer server.Close()
+
+	pawapayCli := client.NewClient()
+	resp, err := pawapayCli.InitiatePayout(
+		context.Background(),
+		testCredsWithSigning(server.URL, "TEST_KEY_ID", pemStr),
+		&client.PayoutRequest{
+			PayoutID:    "f4401bd2",
+			Amount:      "100",
+			Currency:    "ZMW",
+			PhoneNumber: "260763456789",
+			Provider:    "MTN_MOMO_ZMB",
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, client.InitiationStatusAccepted, resp.Status)
+}
+
+// TestInitiatePayout_NoSigning confirms that when no signing credentials are
+// configured the four headers are absent.
+func TestInitiatePayout_NoSigning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("Content-Digest"), "Content-Digest must not be set without signing creds")
+		assert.Empty(t, r.Header.Get("Signature-Input"), "Signature-Input must not be set without signing creds")
+		assert.Empty(t, r.Header.Get("Signature"), "Signature must not be set without signing creds")
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"payoutId":"f4401bd2","status":"ACCEPTED","created":"2020-10-19T11:17:01Z"}`))
+	}))
+	defer server.Close()
+
+	pawapayCli := client.NewClient()
+	resp, err := pawapayCli.InitiatePayout(
+		context.Background(),
+		testCreds(server.URL), // no signing fields
+		&client.PayoutRequest{
+			PayoutID:    "f4401bd2",
+			Amount:      "100",
+			Currency:    "ZMW",
+			PhoneNumber: "260763456789",
+			Provider:    "MTN_MOMO_ZMB",
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, client.InitiationStatusAccepted, resp.Status)
+}
+
+// TestInitiatePayout_InvalidPEM confirms that a configured-but-broken key
+// causes InitiatePayout to return an error without hitting the server.
+func TestInitiatePayout_InvalidPEM(t *testing.T) {
+	hitServer := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hitServer = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	pawapayCli := client.NewClient()
+	_, err := pawapayCli.InitiatePayout(
+		context.Background(),
+		testCredsWithSigning(server.URL, "BAD_KEY", "not-a-pem"),
+		&client.PayoutRequest{
+			PayoutID:    "f4401bd2",
+			Amount:      "100",
+			Currency:    "ZMW",
+			PhoneNumber: "260763456789",
+			Provider:    "MTN_MOMO_ZMB",
+		},
+	)
+	require.Error(t, err, "invalid PEM must return an error")
+	assert.False(t, hitServer, "no request must reach the server when key parsing fails")
 }

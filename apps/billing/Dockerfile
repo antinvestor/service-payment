@@ -17,6 +17,7 @@ RUN go mod download
 # Copy project files
 COPY ./apps/billing ./apps/billing
 COPY ./apps/ledger ./apps/ledger
+COPY ./apps/checkout/gen ./apps/checkout/gen
 COPY ./pkg ./pkg
 
 

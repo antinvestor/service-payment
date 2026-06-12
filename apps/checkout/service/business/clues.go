@@ -1,0 +1,109 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package business
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
+
+	"google.golang.org/protobuf/types/known/structpb"
+)
+
+// Clues are the quick-repeat hints stored under the "checkout" key of a
+// profile's properties payload.
+type Clues struct {
+	LastMethod    string `json:"lastMethod"`
+	LastProvider  string `json:"lastProvider"`
+	LastContactID string `json:"lastContactId"`
+	LastCurrency  string `json:"lastCurrency"`
+	LastPaidAt    string `json:"lastPaidAt"`
+}
+
+// CluesFromProperties extracts checkout clues from profile properties.
+func CluesFromProperties(props *structpb.Struct) Clues {
+	if props == nil {
+		return Clues{}
+	}
+	checkout := props.GetFields()["checkout"].GetStructValue()
+	if checkout == nil {
+		return Clues{}
+	}
+	f := checkout.GetFields()
+	return Clues{
+		LastMethod:    f["lastMethod"].GetStringValue(),
+		LastProvider:  f["lastProvider"].GetStringValue(),
+		LastContactID: f["lastContactId"].GetStringValue(),
+		LastCurrency:  f["lastCurrency"].GetStringValue(),
+		LastPaidAt:    f["lastPaidAt"].GetStringValue(),
+	}
+}
+
+// ToProperties renders the clues as a properties patch for profile Update.
+func (c Clues) ToProperties() *structpb.Struct {
+	props, _ := structpb.NewStruct(map[string]any{
+		"checkout": map[string]any{
+			"lastMethod":    c.LastMethod,
+			"lastProvider":  c.LastProvider,
+			"lastContactId": c.LastContactID,
+			"lastCurrency":  c.LastCurrency,
+			"lastPaidAt":    c.LastPaidAt,
+		},
+	})
+	return props
+}
+
+// GuestHints are device-local hints for unauthenticated payers.
+type GuestHints struct {
+	Phone  string `json:"phone"`
+	Method string `json:"method"`
+}
+
+const guestHintsVersion = "v1"
+
+// EncodeGuestHints signs hints into a cookie value: v1.<b64(json)>.<hmac-hex>.
+func EncodeGuestHints(secret []byte, hints GuestHints) string {
+	payload, _ := json.Marshal(hints)
+	body := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(body))
+	return guestHintsVersion + "." + body + "." + hex.EncodeToString(mac.Sum(nil))
+}
+
+// DecodeGuestHints verifies and decodes a cookie value.
+func DecodeGuestHints(secret []byte, value string) (GuestHints, bool) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 3 || parts[0] != guestHintsVersion {
+		return GuestHints{}, false
+	}
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(parts[1]))
+	expected := hex.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(expected), []byte(parts[2])) {
+		return GuestHints{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return GuestHints{}, false
+	}
+	var hints GuestHints
+	if err = json.Unmarshal(payload, &hints); err != nil {
+		return GuestHints{}, false
+	}
+	return hints, true
+}

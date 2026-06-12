@@ -1,0 +1,8 @@
+{{template "layout_top" .}}
+
+<div class="success-icon" aria-hidden="true">&#10003;</div>
+<h2>{{t .Lang "done_title"}}</h2>
+<p>{{t .Lang "redirecting"}}</p>
+{{if .ReturnURL}}<a href="{{.ReturnURL}}" class="return-link">{{t .Lang "redirecting"}}</a>{{end}}
+
+{{template "layout_bottom" .}}

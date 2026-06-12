@@ -1,0 +1,19 @@
+{{define "layout_top"}}<!DOCTYPE html>
+<html lang="{{.Lang}}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{block "title" .}}Checkout{{end}}</title>
+  <link rel="stylesheet" href="/static/checkout.css">
+  {{if .RedirectURL}}<meta http-equiv="refresh" content="2;url={{.RedirectURL}}">{{end}}
+  {{block "head_extra" .}}{{end}}
+</head>
+<body{{if .PollURL}} data-poll="{{.PollURL}}" data-return="{{.ReturnURL}}"{{end}}>
+<div class="card">
+{{end}}
+
+{{define "layout_bottom"}}
+</div>
+<script src="/static/checkout.js" defer></script>
+</body>
+</html>{{end}}

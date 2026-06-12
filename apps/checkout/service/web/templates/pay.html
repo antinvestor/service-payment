@@ -1,0 +1,60 @@
+{{template "layout_top" .}}
+
+{{if .FailureReason}}
+<div class="banner error">{{.FailureReason}}</div>
+{{end}}
+
+<form method="POST" action="/c/{{.SessionRef}}/pay">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+
+  <h1 class="merchant">{{.MerchantName}}</h1>
+  {{if .Description}}<p class="description">{{.Description}}</p>{{end}}
+
+  {{if .Variable}}
+  <div class="field">
+    <label for="amount">{{t .Lang "amount_label"}} ({{.Currency}})</label>
+    <input id="amount" name="amount" type="text" inputmode="decimal" required placeholder="0.00">
+  </div>
+  {{else}}
+  <div class="amount-display">{{.AmountDisplay}}</div>
+  {{end}}
+
+  {{if .PayerName}}
+  <div class="payer-info">
+    <span>{{t .Lang "paying_as"}} <strong>{{.PayerName}}</strong> &middot; {{.MaskedPhone}}</span>
+    {{if .Contacts}}
+    <button type="button" id="change" class="link-btn">{{t .Lang "change"}}</button>
+    <div id="contact-edit" class="contact-list hidden">
+      {{range $i, $c := .Contacts}}
+      <label class="contact-option">
+        <input type="radio" name="contact_id" value="{{$c.ContactID}}"{{if eq $i 0}} checked{{end}}>
+        {{$c.Masked}}
+      </label>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="field">
+    <label for="phone">{{t .Lang "phone_label"}}</label>
+    <input id="phone" name="phone" type="text" inputmode="tel" required>
+  </div>
+  {{end}}
+
+  {{if .Methods}}
+  <div class="method-chips">
+    {{range .Methods}}
+    <label class="chip{{if .Selected}} chip-selected{{end}}">
+      <input type="radio" name="method" value="{{.Key}}"{{if .Selected}} checked{{end}}>
+      {{.Name}}
+    </label>
+    {{end}}
+  </div>
+  {{end}}
+
+  <button type="submit" class="btn-primary">
+    {{t .Lang "pay_button"}}{{if not .Variable}} {{.AmountDisplay}}{{end}}
+  </button>
+</form>
+
+{{template "layout_bottom" .}}

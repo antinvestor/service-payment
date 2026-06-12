@@ -114,7 +114,7 @@ func main() {
 	rpcHandler := setupConnectServer(ctx, svc.SecurityManager(), rpcServer)
 
 	mux := webServer.NewRouter()
-	mux.Handle("/", rpcHandler)
+	mux.Handle("/"+checkoutv1connect.CheckoutServiceName+"/", rpcHandler)
 
 	sd := checkoutv1.File_checkout_v1_checkout_proto.Services().ByName("CheckoutService")
 	svc.Init(ctx,

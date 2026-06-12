@@ -17,7 +17,7 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,6 +37,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // ---------------------------------------------------------------------------
@@ -89,7 +90,7 @@ func (f *fakeSessionRepo) GetByRef(_ context.Context, ref string) (*models.Check
 	}
 	s, ok := f.sessions[ref]
 	if !ok {
-		return nil, errors.New("record not found")
+		return nil, fmt.Errorf("session %q: %w", ref, gorm.ErrRecordNotFound)
 	}
 	return s, nil
 }
@@ -142,7 +143,7 @@ func (f *fakeLinkRepo) GetByRef(_ context.Context, ref string) (*models.Checkout
 	}
 	l, ok := f.links[ref]
 	if !ok {
-		return nil, errors.New("record not found")
+		return nil, fmt.Errorf("link %q: %w", ref, gorm.ErrRecordNotFound)
 	}
 	return l, nil
 }
@@ -246,7 +247,14 @@ func newHarness(t *testing.T) *testHarness {
 	cfg := testConfig()
 	reg := testRegistry()
 
-	biz := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	biz := business.NewCheckoutBusiness(
+		cfg,
+		reg,
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
 	biz = biz.WithClock(fixedNow)
 
 	renderer, err := handlers.NewRenderer(testSecret)
@@ -400,7 +408,11 @@ func TestHandlePay_BadCSRF_403(t *testing.T) {
 		"method": {"mpesa"},
 		"phone":  {"254712345678"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/c/sess-csrf/pay", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/c/sess-csrf/pay",
+		strings.NewReader(form.Encode()),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 	h.router.ServeHTTP(rec, req)
@@ -418,7 +430,11 @@ func TestHandlePay_MissingCSRF_403(t *testing.T) {
 		"method": {"mpesa"},
 		"phone":  {"254712345678"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/c/sess-no-csrf/pay", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/c/sess-no-csrf/pay",
+		strings.NewReader(form.Encode()),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 	h.router.ServeHTTP(rec, req)
@@ -436,7 +452,11 @@ func TestHandlePay_GuestHappyPath(t *testing.T) {
 		"method": {"mpesa"},
 		"phone":  {"254712345678"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/c/sess-pay-ok/pay", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/c/sess-pay-ok/pay",
+		strings.NewReader(form.Encode()),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 	h.router.ServeHTTP(rec, req)
@@ -481,15 +501,25 @@ func TestHandlePay_TooManyAttempts_429(t *testing.T) {
 		"method": {"mpesa"},
 		"phone":  {"254712345678"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/c/sess-exhausted/pay", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/c/sess-exhausted/pay",
+		strings.NewReader(form.Encode()),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 	h.router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
-	// Body should contain a failure message
+	// Re-rendered pay page must contain CSRF input and the localized too_many_attempts text.
 	body := rec.Body.String()
-	assert.NotEmpty(t, body, "body should have failure message")
+	assert.Contains(t, body, `name="csrf"`, "re-rendered pay page must have CSRF input")
+	assert.Contains(
+		t,
+		body,
+		"Too many attempts",
+		"body must contain localised too_many_attempts text",
+	)
 }
 
 // 8. GET /c/{ref}/status completed session → JSON status completed.
@@ -513,6 +543,7 @@ func TestHandleStatus_CompletedSession(t *testing.T) {
 	var payload map[string]string
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
 	assert.Equal(t, "completed", payload["status"])
+	assert.NotContains(t, payload, "failure_reason", "failure_reason field must be absent")
 }
 
 // 8b. GET /c/{ref}/status unknown → 404 JSON.
@@ -580,7 +611,14 @@ func TestHandleLink_RateLimit_429(t *testing.T) {
 	cfg.LinkSpawnPerMinute = 2
 
 	reg := testRegistry()
-	biz := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	biz := business.NewCheckoutBusiness(
+		cfg,
+		reg,
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
 	biz = biz.WithClock(fixedNow)
 
 	renderer, err := handlers.NewRenderer(testSecret)
@@ -617,7 +655,12 @@ func TestHandleLink_RateLimit_429(t *testing.T) {
 
 	// Third call should be rate-limited
 	resp3 := makeReq()
-	assert.Equal(t, http.StatusTooManyRequests, resp3.StatusCode, "third call should be rate limited")
+	assert.Equal(
+		t,
+		http.StatusTooManyRequests,
+		resp3.StatusCode,
+		"third call should be rate limited",
+	)
 }
 
 // 10. Static: GET /static/checkout.css → 200 text/css.
@@ -643,17 +686,24 @@ func TestHandlePay_GuestEmptyPhone_400(t *testing.T) {
 		"method": {"mpesa"},
 		"phone":  {""}, // empty phone
 	}
-	req := httptest.NewRequest(http.MethodPost, "/c/sess-no-phone/pay", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/c/sess-no-phone/pay",
+		strings.NewReader(form.Encode()),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 	h.router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code, "empty phone must yield 400")
 	body := rec.Body.String()
-	// The re-rendered pay page should contain a failure banner or the error text
-	assert.True(t,
-		strings.Contains(body, `class="banner`) || strings.Contains(body, "phone contact is required"),
-		"response body must contain a failure banner or the error text")
+	// The re-rendered pay page should contain the localized contact_required text
+	assert.True(
+		t,
+		strings.Contains(body, `class="banner`) ||
+			strings.Contains(body, "Enter your phone number"),
+		"response body must contain a failure banner or the localized contact_required text",
+	)
 	assert.Equal(t, 0, h.payCli.promptCount, "no prompt must be sent for empty phone")
 }
 
@@ -668,7 +718,14 @@ func TestRateLimiter_XFF_Buckets(t *testing.T) {
 	cfg.LinkSpawnPerMinute = 1 // one token → second request from same bucket is rate-limited
 
 	reg := testRegistry()
-	biz := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	biz := business.NewCheckoutBusiness(
+		cfg,
+		reg,
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
 	biz = biz.WithClock(fixedNow)
 
 	renderer, err := handlers.NewRenderer(testSecret)
@@ -696,15 +753,71 @@ func TestRateLimiter_XFF_Buckets(t *testing.T) {
 		return rec.Result()
 	}
 
-	// First request from 10.0.0.9 (XFF first value) → consumes the one token.
+	// Rightmost hop is the gateway-appended value and is trusted.
+	// Leftmost values are attacker-controlled and must be ignored.
+
+	// First request: rightmost=1.2.3.4, leftmost=10.0.0.9 (spoofed) → consumes the one token.
 	resp1 := makeReq("10.0.0.9, 1.2.3.4")
-	assert.Equal(t, http.StatusSeeOther, resp1.StatusCode, "first XFF=10.0.0.9 request should succeed")
+	assert.Equal(
+		t,
+		http.StatusSeeOther,
+		resp1.StatusCode,
+		"first request (rightmost=1.2.3.4) should succeed",
+	)
 
-	// Second request with the same XFF first value → same bucket, rate-limited.
-	resp2 := makeReq("10.0.0.9, 5.6.7.8")
-	assert.Equal(t, http.StatusTooManyRequests, resp2.StatusCode, "second XFF=10.0.0.9 request should be rate-limited")
+	// Second request: different spoofed leftmost but SAME rightmost=1.2.3.4 → same bucket, rate-limited.
+	resp2 := makeReq("99.99.99.99, 1.2.3.4")
+	assert.Equal(
+		t,
+		http.StatusTooManyRequests,
+		resp2.StatusCode,
+		"spoofed-different-leftmost but same rightmost must share a bucket and be rate-limited",
+	)
 
-	// Request from a different first XFF IP → different bucket, succeeds.
-	resp3 := makeReq("10.0.0.99, 1.2.3.4")
-	assert.Equal(t, http.StatusSeeOther, resp3.StatusCode, "different XFF first IP gets its own bucket")
+	// Request with a different rightmost hop → different bucket, succeeds.
+	resp3 := makeReq("10.0.0.9, 5.6.7.8")
+	assert.Equal(
+		t,
+		http.StatusSeeOther,
+		resp3.StatusCode,
+		"different rightmost IP gets its own bucket",
+	)
+}
+
+// 13. Session with javascript: ReturnURL: done page must NOT include a meta-refresh
+// or any link/redirect target containing "javascript:".
+func TestHandlePage_CompletedSession_JavascriptReturnURL_NoRefresh(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:          "sess-jsurl",
+		Name:         "Merchant",
+		Amount:       "100.00",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionFixed,
+		Status:       models.SessionStatusCompleted,
+		ReturnURL:    "javascript:alert(1)", // malicious URL stored (simulate bypass)
+	}
+	h.sessionRepo.sessions["sess-jsurl"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-jsurl", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	// Defense-in-depth: buildReturnURL must strip the javascript: URL.
+	assert.NotContains(
+		t,
+		body,
+		"javascript:",
+		"page must not contain javascript: scheme in any context",
+	)
+	assert.NotContains(t, body, "meta-refresh", "page must not contain meta-refresh")
+	// The meta http-equiv refresh tag should not be present.
+	assert.NotContains(
+		t,
+		body,
+		`http-equiv="refresh"`,
+		"page must not emit a meta refresh redirect",
+	)
 }

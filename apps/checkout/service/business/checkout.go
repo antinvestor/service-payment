@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -52,6 +53,20 @@ const (
 	linkRefLen    = 12
 	sweepBatch    = 50
 )
+
+// IsSafeReturnURL returns true when rawURL is a non-empty URL with scheme http
+// or https (case-insensitive).  Empty string is NOT safe (caller decides).
+func IsSafeReturnURL(rawURL string) bool {
+	if rawURL == "" {
+		return false
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	return scheme == "http" || scheme == "https"
+}
 
 // methodCategoryMobileMoney is the clue category written to the payer profile on
 // a successful payment.  The registry models individual providers (e.g. "mpesa",
@@ -228,6 +243,9 @@ func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 	if in.Currency == "" || len(in.Currency) != 3 {
 		return errors.New("currency must be a 3-letter code")
 	}
+	if in.ReturnURL != "" && !IsSafeReturnURL(in.ReturnURL) {
+		return errors.New("return_url must use http or https scheme")
+	}
 	for _, key := range in.Methods {
 		if _, ok := b.registry.Get(key); !ok {
 			return fmt.Errorf("%w: %s", ErrUnknownMethod, key)
@@ -356,6 +374,9 @@ func (b *CheckoutBusiness) CreateLink(
 		if _, _, err := ParseAmount(in.Amount); err != nil {
 			return nil, fmt.Errorf("invalid amount: %w", err)
 		}
+	}
+	if in.ReturnURL != "" && !IsSafeReturnURL(in.ReturnURL) {
+		return nil, errors.New("return_url must use http or https scheme")
 	}
 
 	link := &models.CheckoutLink{

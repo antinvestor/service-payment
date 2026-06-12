@@ -30,6 +30,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/antinvestor/service-payments/apps/checkout/service/web"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm"
 )
 
@@ -204,9 +205,10 @@ func firstWord(s string) string {
 }
 
 // buildReturnURL appends session=<ref>&status=<status> to the session's ReturnURL.
-// Returns "" if ReturnURL is empty.
+// Returns "" if ReturnURL is empty or fails the safe-URL check (http/https only).
+// This is defense-in-depth: business validation is the primary gate.
 func buildReturnURL(returnURL, ref, status string) string {
-	if returnURL == "" {
+	if !business.IsSafeReturnURL(returnURL) {
 		return ""
 	}
 	u, err := url.Parse(returnURL)
@@ -387,10 +389,13 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 }
 
 // clientIP extracts the real client IP from X-Forwarded-For or RemoteAddr.
+// The service runs behind a trusted gateway proxy that appends the connecting
+// IP as the LAST comma-separated hop.  Leftmost values are attacker-controlled
+// and MUST NOT be trusted for rate-limiting or security decisions.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.SplitN(xff, ",", splitFirst)
-		return strings.TrimSpace(parts[0])
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[len(parts)-1])
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -405,11 +410,12 @@ func renderError(w http.ResponseWriter, code int, msg string) {
 }
 
 // renderPage renders a named page with the given data, writing the status code first.
-func (s *WebServer) renderPage(w http.ResponseWriter, code int, page string, data PageData) {
+func (s *WebServer) renderPage(w http.ResponseWriter, r *http.Request, code int, page string, data PageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	if err := s.renderer.Render(w, page, data); err != nil {
-		// Template rendering failed after headers sent — log but can't do much
+		// Template rendering failed after headers sent — log and emit a comment.
+		util.Log(r.Context()).WithError(err).Error("template render failed")
 		_, _ = w.Write([]byte("<!-- render error -->"))
 	}
 }
@@ -435,27 +441,27 @@ func (s *WebServer) HandlePage(w http.ResponseWriter, r *http.Request) {
 	case models.SessionStatusCompleted:
 		data := s.pageDataFor(session, r)
 		data.RedirectURL = buildReturnURL(session.ReturnURL, ref, "completed")
-		s.renderPage(w, http.StatusOK, "done", data)
+		s.renderPage(w, r, http.StatusOK, "done", data)
 
 	case models.SessionStatusExpired:
 		// Minimal data — nothing sensitive
 		data := PageData{Lang: pickLang(r, "")}
-		s.renderPage(w, http.StatusOK, "gone", data)
+		s.renderPage(w, r, http.StatusOK, "gone", data)
 
 	case models.SessionStatusProcessing:
 		data := s.pageDataFor(session, r)
 		data.PollURL = "/c/" + ref + "/status"
 		data.ReturnURL = buildReturnURL(session.ReturnURL, ref, "completed")
-		s.renderPage(w, http.StatusOK, "confirm", data)
+		s.renderPage(w, r, http.StatusOK, "confirm", data)
 
 	case models.SessionStatusFailed:
 		data := s.pageDataFor(session, r)
 		data.FailureReason = T(data.Lang, "failed_title")
-		s.renderPage(w, http.StatusOK, "pay", data)
+		s.renderPage(w, r, http.StatusOK, "pay", data)
 
 	default: // pending
 		data := s.pageDataFor(session, r)
-		s.renderPage(w, http.StatusOK, "pay", data)
+		s.renderPage(w, r, http.StatusOK, "pay", data)
 	}
 }
 
@@ -512,6 +518,8 @@ func (s *WebServer) HandlePay(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlePayError maps business errors to HTTP responses for HandlePay.
+// Error messages are localised via translation keys — the raw error text is
+// never reflected to the page to prevent user-input leakage.
 func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref string, payErr error) {
 	switch {
 	case errors.Is(payErr, business.ErrSessionGone):
@@ -519,14 +527,24 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 		http.Redirect(w, r, "/c/"+ref, http.StatusSeeOther)
 		return
 
-	case errors.Is(payErr, business.ErrTooManyAttempts), errors.Is(payErr, business.ErrCooldown):
-		s.reRenderPayWithError(w, r, ref, payErr.Error(), http.StatusTooManyRequests)
+	case errors.Is(payErr, business.ErrTooManyAttempts):
+		s.reRenderPayWithError(w, r, ref, "too_many_attempts", http.StatusTooManyRequests)
 		return
 
-	case errors.Is(payErr, business.ErrUnknownMethod),
-		errors.Is(payErr, business.ErrAmountRequired),
-		errors.Is(payErr, business.ErrContactRequired):
-		s.reRenderPayWithError(w, r, ref, payErr.Error(), http.StatusBadRequest)
+	case errors.Is(payErr, business.ErrCooldown):
+		s.reRenderPayWithError(w, r, ref, "cooldown", http.StatusTooManyRequests)
+		return
+
+	case errors.Is(payErr, business.ErrUnknownMethod):
+		s.reRenderPayWithError(w, r, ref, "bad_method", http.StatusBadRequest)
+		return
+
+	case errors.Is(payErr, business.ErrAmountRequired):
+		s.reRenderPayWithError(w, r, ref, "amount_required", http.StatusBadRequest)
+		return
+
+	case errors.Is(payErr, business.ErrContactRequired):
+		s.reRenderPayWithError(w, r, ref, "contact_required", http.StatusBadRequest)
 		return
 
 	default:
@@ -534,23 +552,22 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 			renderError(w, http.StatusNotFound, "not found")
 			return
 		}
-		s.reRenderPayWithError(w, r, ref, "", http.StatusInternalServerError)
+		s.reRenderPayWithError(w, r, ref, "failed_title", http.StatusInternalServerError)
 	}
 }
 
-// reRenderPayWithError reloads the session and re-renders the pay page with a failure reason.
-func (s *WebServer) reRenderPayWithError(w http.ResponseWriter, r *http.Request, ref, reason string, code int) {
+// reRenderPayWithError reloads the session and re-renders the pay page with a localised
+// failure reason. msgKey is a translation key; it is resolved after the session's language
+// is determined so the message always appears in the payer's language.
+func (s *WebServer) reRenderPayWithError(w http.ResponseWriter, r *http.Request, ref, msgKey string, code int) {
 	session, sessionErr := s.business.GetSessionByRef(r.Context(), ref)
 	if sessionErr != nil || session == nil {
-		renderError(w, code, reason)
+		renderError(w, code, "")
 		return
 	}
 	data := s.pageDataFor(session, r)
-	if reason == "" {
-		reason = T(data.Lang, "failed_title")
-	}
-	data.FailureReason = reason
-	s.renderPage(w, code, "pay", data)
+	data.FailureReason = T(data.Lang, msgKey)
+	s.renderPage(w, r, code, "pay", data)
 }
 
 // ---------------------------------------------------------------------------
@@ -579,8 +596,7 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{
-		"status":         session.Status,
-		"failure_reason": "",
+		"status": session.Status,
 	})
 }
 
@@ -607,8 +623,8 @@ func (s *WebServer) HandleLink(w http.ResponseWriter, r *http.Request) {
 	session, err := s.business.SpawnSession(r.Context(), ref)
 	if err != nil {
 		if errors.Is(err, business.ErrLinkUnusable) {
-			data := PageData{Lang: "en"}
-			s.renderPage(w, http.StatusGone, "gone", data)
+			data := PageData{Lang: pickLang(r, "")}
+			s.renderPage(w, r, http.StatusGone, "gone", data)
 			return
 		}
 		if isNotFoundErr(err) {
@@ -624,18 +640,9 @@ func (s *WebServer) HandleLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// isNotFoundErr checks whether an error is a GORM record-not-found or a
-// plain "record not found" message used in fakes.
+// isNotFoundErr checks whether an error wraps gorm.ErrRecordNotFound.
 // ---------------------------------------------------------------------------
 
 func isNotFoundErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return true
-	}
-	// Covers fake repos in tests and wrapped gorm errors
-	return strings.Contains(err.Error(), "record not found") ||
-		strings.Contains(err.Error(), "not found")
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }

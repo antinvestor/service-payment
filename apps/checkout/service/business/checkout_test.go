@@ -17,6 +17,7 @@ package business_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
+	"gorm.io/gorm"
 )
 
 // ---------------------------------------------------------------------------
@@ -85,7 +87,7 @@ func (f *fakeSessionRepo) GetByRef(_ context.Context, ref string) (*models.Check
 	}
 	s, ok := f.sessions[ref]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, fmt.Errorf("session %q: %w", ref, gorm.ErrRecordNotFound)
 	}
 	return s, nil
 }
@@ -138,7 +140,7 @@ func (f *fakeLinkRepo) GetByRef(_ context.Context, ref string) (*models.Checkout
 	}
 	l, ok := f.links[ref]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, fmt.Errorf("link %q: %w", ref, gorm.ErrRecordNotFound)
 	}
 	return l, nil
 }
@@ -500,17 +502,120 @@ func TestCreateSession_Validation(t *testing.T) {
 			},
 			wantSentinel: business.ErrUnknownMethod,
 		},
+		{
+			name: "javascript: return_url rejected",
+			in: business.CreateSessionInput{
+				Name: "Test", Amount: "10.00", Currency: "KES",
+				AmountOption: models.AmountOptionFixed,
+				ReturnURL:    "javascript:alert(1)",
+			},
+			wantContains: "return_url",
+		},
+		{
+			name: "protocol-relative return_url rejected",
+			in: business.CreateSessionInput{
+				Name: "Test", Amount: "10.00", Currency: "KES",
+				AmountOption: models.AmountOptionFixed,
+				ReturnURL:    "//evil.com/steal",
+			},
+			wantContains: "return_url",
+		},
+		{
+			name: "https return_url accepted",
+			in: business.CreateSessionInput{
+				Name: "Test", Amount: "10.00", Currency: "KES",
+				AmountOption: models.AmountOptionFixed,
+				ReturnURL:    "https://example.com/return",
+			},
+			// no error expected — leave wantContains and wantSentinel empty
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := b.CreateSession(ctx, tt.in)
+			if tt.wantSentinel == nil && tt.wantContains == "" {
+				// test cases that expect success
+				require.NoError(t, err)
+				return
+			}
 			require.Error(t, err)
 			if tt.wantSentinel != nil {
 				require.ErrorIs(t, err, tt.wantSentinel)
 			}
 			if tt.wantContains != "" {
 				assert.ErrorContains(t, err, tt.wantContains)
+			}
+		})
+	}
+}
+
+// 3b-extra. CreateSession with empty ReturnURL is allowed.
+func TestCreateSession_EmptyReturnURL_Allowed(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		&fakePaymentClient{},
+		&fakeProfileClient{},
+	)
+
+	in := business.CreateSessionInput{
+		Name:         "Test",
+		Amount:       "10.00",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionFixed,
+		ReturnURL:    "", // empty must be allowed
+	}
+	_, err := b.CreateSession(context.Background(), in)
+	require.NoError(t, err, "empty ReturnURL must not fail validation")
+}
+
+// 3b-extra. CreateLink return_url validation: javascript rejected, //evil rejected, https accepted, empty allowed.
+func TestCreateLink_ReturnURL_Validation(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name      string
+		returnURL string
+		wantErr   bool
+	}{
+		{"javascript rejected", "javascript:alert(1)", true},
+		{"protocol-relative rejected", "//evil.com", true},
+		{"https accepted", "https://example.com/done", false},
+		{"http accepted", "http://localhost/done", false},
+		{"empty allowed", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionRepo := newFakeSessionRepo()
+			linkRepo := newFakeLinkRepo()
+			b := newBusiness(
+				defaultConfig(),
+				defaultRegistry(),
+				sessionRepo,
+				linkRepo,
+				&fakePaymentClient{},
+				&fakeProfileClient{},
+			)
+
+			in := business.CreateLinkInput{
+				Name:         "Link",
+				Currency:     "KES",
+				AmountOption: models.AmountOptionFixed,
+				Amount:       "10.00",
+				ReturnURL:    tc.returnURL,
+			}
+			_, err := b.CreateLink(ctx, in)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, "return_url")
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -1136,7 +1241,12 @@ func TestRefreshStatus_NotProcessing_NoOp(t *testing.T) {
 	assert.Equal(t, models.SessionStatusPending, updated.Status)
 	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called")
 	// No repository Update should be issued for a non-processing session
-	assert.Equal(t, 0, sessionRepo.updateCount, "session repo Update must not be called on no-op refresh")
+	assert.Equal(
+		t,
+		0,
+		sessionRepo.updateCount,
+		"session repo Update must not be called on no-op refresh",
+	)
 }
 
 // ---------------------------------------------------------------------------
@@ -1231,7 +1341,12 @@ func TestPay_PromptError_AttemptsIncremented(t *testing.T) {
 	stored := sessionRepo.sessions["sess-prompt-fail"]
 	assert.Equal(t, 1, stored.Attempts, "attempt must be incremented even on prompt failure")
 	assert.NotNil(t, stored.LastAttemptAt, "LastAttemptAt must be set even on prompt failure")
-	assert.Equal(t, models.SessionStatusPending, stored.Status, "status must remain pending after prompt failure")
+	assert.Equal(
+		t,
+		models.SessionStatusPending,
+		stored.Status,
+		"status must remain pending after prompt failure",
+	)
 }
 
 // ---------------------------------------------------------------------------

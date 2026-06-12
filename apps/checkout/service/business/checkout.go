@@ -30,6 +30,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/checkout/config"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
+	"github.com/antinvestor/service-payments/apps/checkout/service/observability"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
@@ -138,6 +139,7 @@ type CheckoutBusiness struct {
 	linkRepo    repository.LinkRepository
 	paymentCli  paymentv1connect.PaymentServiceClient
 	profileCli  profilev1connect.ProfileServiceClient
+	obs         *observability.Metrics
 	now         func() time.Time
 	cluesSync   bool               // true in tests only: makes writeClues run synchronously
 	workMan     workerpool.Manager // nil in tests → falls back to synchronous execution
@@ -162,6 +164,7 @@ func NewCheckoutBusiness(
 		linkRepo:    linkRepo,
 		paymentCli:  paymentCli,
 		profileCli:  profileCli,
+		obs:         observability.NewMetrics(),
 		now:         time.Now,
 		workMan:     workMan,
 	}
@@ -192,6 +195,10 @@ func (b *CheckoutBusiness) CreateSession(
 	ctx context.Context,
 	in CreateSessionInput,
 ) (*models.CheckoutSession, error) {
+	ctx, span := b.obs.StartSpan(ctx, "CreateSession")
+	var err error
+	defer func() { b.obs.EndSpan(ctx, span, err) }()
+
 	// Normalise defaults before validation so the stored session always carries
 	// the resolved value (a local default inside the validator would not survive
 	// back to this scope and would leave the session with an empty AmountOption).
@@ -199,7 +206,7 @@ func (b *CheckoutBusiness) CreateSession(
 		in.AmountOption = models.AmountOptionFixed
 	}
 
-	if err := b.validateSessionInput(in); err != nil {
+	if err = b.validateSessionInput(in); err != nil {
 		return nil, err
 	}
 
@@ -239,9 +246,10 @@ func (b *CheckoutBusiness) CreateSession(
 		b.applyPayer(ctx, session, in.Payer)
 	}
 
-	if err := b.sessionRepo.Create(ctx, session); err != nil {
+	if err = b.sessionRepo.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
+	b.obs.RecordSessionCreated(ctx, in.AmountOption, in.Payer != nil)
 	return session, nil
 }
 
@@ -376,6 +384,10 @@ func (b *CheckoutBusiness) CreateLink(
 	ctx context.Context,
 	in CreateLinkInput,
 ) (*models.CheckoutLink, error) {
+	ctx, span := b.obs.StartSpan(ctx, "CreateLink")
+	var err error
+	defer func() { b.obs.EndSpan(ctx, span, err) }()
+
 	if in.Name == "" {
 		return nil, errors.New("link name is required")
 	}
@@ -387,8 +399,8 @@ func (b *CheckoutBusiness) CreateLink(
 		amtOption = models.AmountOptionFixed
 	}
 	if amtOption == models.AmountOptionFixed && in.Amount != "" {
-		if _, _, err := ParseAmount(in.Amount); err != nil {
-			return nil, fmt.Errorf("invalid amount: %w", err)
+		if _, _, parseErr := ParseAmount(in.Amount); parseErr != nil {
+			return nil, fmt.Errorf("invalid amount: %w", parseErr)
 		}
 	}
 	if in.ReturnURL != "" && !IsSafeReturnURL(in.ReturnURL) {
@@ -416,9 +428,10 @@ func (b *CheckoutBusiness) CreateLink(
 		link.Metadata = m
 	}
 
-	if err := b.linkRepo.Create(ctx, link); err != nil {
+	if err = b.linkRepo.Create(ctx, link); err != nil {
 		return nil, fmt.Errorf("create link: %w", err)
 	}
+	b.obs.RecordLinkCreated(ctx)
 	return link, nil
 }
 
@@ -431,12 +444,17 @@ func (b *CheckoutBusiness) SpawnSession(
 	ctx context.Context,
 	linkRef string,
 ) (*models.CheckoutSession, error) {
+	ctx, span := b.obs.StartSpan(ctx, "SpawnSession")
+	var err error
+	defer func() { b.obs.EndSpan(ctx, span, err) }()
+
 	link, err := b.linkRepo.GetByRef(ctx, linkRef)
 	if err != nil {
 		return nil, fmt.Errorf("get link by ref: %w", err)
 	}
 	if !link.IsUsable(b.now()) {
-		return nil, ErrLinkUnusable
+		err = ErrLinkUnusable
+		return nil, err
 	}
 
 	session := &models.CheckoutSession{
@@ -454,9 +472,10 @@ func (b *CheckoutBusiness) SpawnSession(
 		Metadata:     link.Metadata,
 	}
 
-	if createErr := b.sessionRepo.Create(ctx, session); createErr != nil {
-		return nil, fmt.Errorf("create spawned session: %w", createErr)
+	if err = b.sessionRepo.Create(ctx, session); err != nil {
+		return nil, fmt.Errorf("create spawned session: %w", err)
 	}
+	b.obs.RecordSessionSpawned(ctx)
 	return session, nil
 }
 
@@ -465,14 +484,25 @@ func (b *CheckoutBusiness) SpawnSession(
 // ---------------------------------------------------------------------------
 
 // Pay executes a payment attempt against an existing session.
+//
+//nolint:funlen // Guard chain + observability instrumentation makes this function inherently long; extraction would reduce clarity without reducing complexity.
 func (b *CheckoutBusiness) Pay(
 	ctx context.Context,
 	ref string,
 	in PayInput,
 ) (*models.CheckoutSession, error) {
+	ctx, span := b.obs.StartSpan(ctx, "Pay")
+	var err error
+	payStart := b.now()
+	defer func() {
+		b.obs.RecordPayLatency(ctx, float64(b.now().Sub(payStart).Milliseconds()), in.MethodKey)
+		b.obs.EndSpan(ctx, span, err)
+	}()
+
 	session, sessionErr := b.GetSessionByRef(ctx, ref)
 	if sessionErr != nil {
-		return nil, sessionErr
+		err = sessionErr
+		return nil, err
 	}
 
 	// Terminal status check.
@@ -480,27 +510,37 @@ func (b *CheckoutBusiness) Pay(
 	// after a failed prompt, bounded by the MaxAttempts cap.
 	if session.Status == models.SessionStatusCompleted ||
 		session.Status == models.SessionStatusExpired {
-		return nil, ErrSessionGone
+		b.obs.RecordPayFailure(ctx, "session_gone")
+		err = ErrSessionGone
+		return nil, err
 	}
 
 	// Max attempts check
 	if session.Attempts >= b.cfg.MaxAttempts {
-		return nil, ErrTooManyAttempts
+		b.obs.RecordPayFailure(ctx, "too_many_attempts")
+		err = ErrTooManyAttempts
+		return nil, err
 	}
 
 	// Cooldown check
 	cooldown := time.Duration(b.cfg.AttemptCooldownSeconds) * time.Second
 	if session.LastAttemptAt != nil && b.now().Before(session.LastAttemptAt.Add(cooldown)) {
-		return nil, ErrCooldown
+		b.obs.RecordPayFailure(ctx, "cooldown")
+		err = ErrCooldown
+		return nil, err
 	}
 
 	// Amount: variable sessions require in.Amount
 	if session.AmountOption == models.AmountOptionVariable {
 		if in.Amount == "" {
-			return nil, ErrAmountRequired
+			b.obs.RecordPayFailure(ctx, "amount_required")
+			err = ErrAmountRequired
+			return nil, err
 		}
 		if _, _, parseErr := ParseAmount(in.Amount); parseErr != nil {
-			return nil, fmt.Errorf("%w: %w", ErrAmountRequired, parseErr)
+			b.obs.RecordPayFailure(ctx, "amount_required")
+			err = fmt.Errorf("%w: %w", ErrAmountRequired, parseErr)
+			return nil, err
 		}
 		session.Amount = in.Amount
 	}
@@ -508,14 +548,21 @@ func (b *CheckoutBusiness) Pay(
 	// Method validation and restriction check
 	method, methodErr := b.resolveMethod(session, in.MethodKey)
 	if methodErr != nil {
-		return nil, methodErr
+		b.obs.RecordPayFailure(ctx, "unknown_method")
+		err = methodErr
+		return nil, err
 	}
 
 	// Resolve msisdn and contactRef
 	msisdn, contactID, payerErr := b.resolvePayer(session, in)
 	if payerErr != nil {
-		return nil, payerErr
+		b.obs.RecordPayFailure(ctx, "contact_required")
+		err = payerErr
+		return nil, err
 	}
+
+	// All guards passed — record the attempt.
+	b.obs.RecordPayAttempt(ctx, in.MethodKey, session.AmountOption == models.AmountOptionVariable)
 
 	// Record attempt BEFORE calling provider so that even a rejected prompt counts
 	// toward cooldown and max-attempts throttling.
@@ -533,20 +580,24 @@ func (b *CheckoutBusiness) Pay(
 	}
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-		return nil, fmt.Errorf("persist attempt increment: %w", updateErr)
+		err = fmt.Errorf("persist attempt increment: %w", updateErr)
+		return nil, err
 	}
 
 	// Build and send prompt; on failure the attempt is already persisted.
 	promptID, promptErr := b.sendPrompt(ctx, session, method, msisdn, in.MethodKey)
 	if promptErr != nil {
-		return nil, promptErr
+		b.obs.RecordPayFailure(ctx, "prompt_error")
+		err = promptErr
+		return nil, err
 	}
 
 	session.PromptID = promptID
 	session.Status = models.SessionStatusProcessing
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-		return nil, fmt.Errorf("persist prompt id: %w", updateErr)
+		err = fmt.Errorf("persist prompt id: %w", updateErr)
+		return nil, err
 	}
 	return session, nil
 }
@@ -729,6 +780,7 @@ func (b *CheckoutBusiness) RefreshStatus(
 		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 			return nil, fmt.Errorf("update session completed: %w", updateErr)
 		}
+		b.obs.RecordOutcomeCompleted(ctx)
 		// writeClues is best-effort hint persistence. Loss is tolerable, so the
 		// frame workerpool (not a durable queue) is the right tier of the async
 		// decision tree: bounded parallel, survives nothing. Raw goroutines are
@@ -756,6 +808,7 @@ func (b *CheckoutBusiness) RefreshStatus(
 		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 			return nil, fmt.Errorf("update session failed: %w", updateErr)
 		}
+		b.obs.RecordOutcomeFailed(ctx)
 	}
 	return session, nil
 }
@@ -797,6 +850,7 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 	}))
 	if err != nil {
 		util.Log(ctx).WithError(err).Warn("could not write checkout clues to profile")
+		b.obs.RecordClueWritebackFailure(ctx)
 	}
 }
 
@@ -806,7 +860,13 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 
 // SweepProcessing polls processing sessions for status and expires stale pending ones.
 func (b *CheckoutBusiness) SweepProcessing(ctx context.Context) error {
+	ctx, span := b.obs.StartSpan(ctx, "SweepProcessing")
+	sweepStart := b.now()
 	var firstErr error
+	defer func() {
+		b.obs.RecordSweepLatency(ctx, float64(b.now().Sub(sweepStart).Milliseconds()))
+		b.obs.EndSpan(ctx, span, firstErr)
+	}()
 
 	// Refresh processing sessions
 	processing, err := b.sessionRepo.ListByStatus(ctx, models.SessionStatusProcessing, sweepBatch)
@@ -835,6 +895,8 @@ func (b *CheckoutBusiness) SweepProcessing(ctx context.Context) error {
 		s.Status = models.SessionStatusExpired
 		if _, updateErr := b.sessionRepo.Update(ctx, s); updateErr != nil && firstErr == nil {
 			firstErr = updateErr
+		} else if updateErr == nil {
+			b.obs.RecordSweepExpired(ctx)
 		}
 	}
 

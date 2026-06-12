@@ -26,6 +26,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/credentials"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
@@ -44,6 +45,7 @@ type PawapayWebhookServer struct {
 	paymentCli    paymentv1connect.PaymentServiceClient
 	pawapayCli    client.PawapayClient
 	credsResolver *credentials.Resolver
+	metrics       *integrationobs.Metrics
 }
 
 // NewPawapayWebhookServer creates a new webhook server.
@@ -56,6 +58,7 @@ func NewPawapayWebhookServer(
 		paymentCli:    paymentCli,
 		pawapayCli:    pawapayCli,
 		credsResolver: credsResolver,
+		metrics:       integrationobs.NewMetrics("pawapay"),
 	}
 }
 
@@ -102,7 +105,10 @@ var errPaymentNotFound = errors.New("payment not found in pawaPay")
 type verifiedFetch func(ctx context.Context, creds *client.Credentials, id string) (*callbackData, error)
 
 // HandleDepositCallback processes final deposit callbacks from pawaPay.
+//
+//nolint:dupl // deposit/payout/refund handlers are intentionally parallel; types differ
 func (s *PawapayWebhookServer) HandleDepositCallback(w http.ResponseWriter, r *http.Request) {
+	s.metrics.WebhookReceived(r.Context(), "deposit")
 	s.handleCallback(w, r, "deposit",
 		func(ctx context.Context, creds *client.Credentials, id string) (*callbackData, error) {
 			result, err := s.pawapayCli.GetDeposit(ctx, creds, id)
@@ -128,7 +134,10 @@ func (s *PawapayWebhookServer) HandleDepositCallback(w http.ResponseWriter, r *h
 }
 
 // HandlePayoutCallback processes final payout callbacks from pawaPay.
+//
+//nolint:dupl // deposit/payout/refund handlers are intentionally parallel; types differ
 func (s *PawapayWebhookServer) HandlePayoutCallback(w http.ResponseWriter, r *http.Request) {
+	s.metrics.WebhookReceived(r.Context(), "payout")
 	s.handleCallback(w, r, "payout",
 		func(ctx context.Context, creds *client.Credentials, id string) (*callbackData, error) {
 			result, err := s.pawapayCli.GetPayout(ctx, creds, id)
@@ -154,7 +163,10 @@ func (s *PawapayWebhookServer) HandlePayoutCallback(w http.ResponseWriter, r *ht
 }
 
 // HandleRefundCallback processes final refund callbacks from pawaPay.
+//
+//nolint:dupl // deposit/payout/refund handlers are intentionally parallel; types differ
 func (s *PawapayWebhookServer) HandleRefundCallback(w http.ResponseWriter, r *http.Request) {
+	s.metrics.WebhookReceived(r.Context(), "refund")
 	s.handleCallback(w, r, "refund",
 		func(ctx context.Context, creds *client.Credentials, id string) (*callbackData, error) {
 			result, err := s.pawapayCli.GetRefund(ctx, creds, id)
@@ -211,10 +223,12 @@ func (s *PawapayWebhookServer) handleCallback(
 	id := notificationID(notification, kind)
 	cb, err := fetch(r.Context(), creds, id)
 	if errors.Is(err, errPaymentNotFound) {
+		s.metrics.WebhookRejected(r.Context(), kind, "unknown_payment")
 		s.rejectUnknown(w, r, kind, id)
 		return
 	}
 	if err != nil {
+		s.metrics.WebhookRejected(r.Context(), kind, "verification_failed")
 		s.rejectUnverifiable(w, r, kind, err)
 		return
 	}
@@ -236,12 +250,14 @@ func (s *PawapayWebhookServer) acceptNotification(
 	var notification callbackNotification
 	if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
 		logger.WithError(err).Error("failed to decode callback")
+		s.metrics.WebhookRejected(r.Context(), kind, "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return nil, nil, false
 	}
 
 	if notificationID(&notification, kind) == "" {
 		logger.Error("callback missing payment id")
+		s.metrics.WebhookRejected(r.Context(), kind, "missing_id")
 		http.Error(w, "missing payment id", http.StatusBadRequest)
 		return nil, nil, false
 	}
@@ -249,6 +265,7 @@ func (s *PawapayWebhookServer) acceptNotification(
 	creds, err := s.resolveCredentials(r.Context(), notification.Metadata)
 	if err != nil {
 		logger.WithError(err).Error("cannot resolve credentials to verify callback, rejecting")
+		s.metrics.WebhookRejected(r.Context(), kind, "verification_failed")
 		http.Error(w, "callback verification unavailable", http.StatusServiceUnavailable)
 		return nil, nil, false
 	}
@@ -346,6 +363,7 @@ func (s *PawapayWebhookServer) processCallback(w http.ResponseWriter, r *http.Re
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status")
+		s.metrics.WebhookRejected(r.Context(), cb.kind, "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
 
@@ -40,6 +41,7 @@ const (
 
 type polarClient struct {
 	httpClient *http.Client
+	metrics    *integrationobs.Metrics
 }
 
 // NewClient creates a new Polar.sh API client.
@@ -48,14 +50,18 @@ func NewClient() PolarClient {
 		httpClient: &http.Client{
 			Timeout: httpClientTimeout,
 		},
+		metrics: integrationobs.NewMetrics("polar"),
 	}
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *polarClient) CreateCheckout(
 	ctx context.Context,
 	creds *PolarCredentials,
 	req *CheckoutRequest,
-) (*CheckoutResponse, error) {
+) (_ *CheckoutResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "create_checkout")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", "polar.create_checkout")
 	defer logger.Release()
 

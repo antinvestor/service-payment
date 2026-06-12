@@ -24,6 +24,7 @@ import (
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
 	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	"github.com/antinvestor/common/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
@@ -148,6 +149,11 @@ func setupConnectServer(
 	// publishes app.tenant_id + app.partition_id from the claims via set_config,
 	// and binds the transaction to the request context.
 
+	otelInterceptor, otelErr := otelconnect.NewInterceptor()
+	if otelErr != nil {
+		util.Log(ctx).WithError(otelErr).Fatal("main -- Could not configure open telemetry interceptor")
+	}
+
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
 		ctx, securityMan.GetAuthenticator(ctx),
 		tenancyAccessInterceptor, functionAccessInterceptor)
@@ -155,8 +161,10 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
+	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+
 	_, serverHandler := ledgerv1connect.NewLedgerServiceHandler(
-		implementation, connect.WithInterceptors(defaultInterceptorList...))
+		implementation, connect.WithInterceptors(allInterceptors...))
 
 	return serverHandler
 }

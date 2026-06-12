@@ -23,6 +23,7 @@ import (
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
@@ -31,12 +32,14 @@ import (
 // AirtelWebhookServer handles Airtel Money callback webhooks.
 type AirtelWebhookServer struct {
 	paymentCli paymentv1connect.PaymentServiceClient
+	metrics    *integrationobs.Metrics
 }
 
 // NewAirtelWebhookServer creates a new webhook server.
 func NewAirtelWebhookServer(paymentCli paymentv1connect.PaymentServiceClient) *AirtelWebhookServer {
 	return &AirtelWebhookServer{
 		paymentCli: paymentCli,
+		metrics:    integrationobs.NewMetrics("airtel"),
 	}
 }
 
@@ -50,11 +53,13 @@ func (s *AirtelWebhookServer) NewRouterV1() *http.ServeMux {
 
 // HandleCollectionCallback processes collection callbacks from Airtel Money.
 func (s *AirtelWebhookServer) HandleCollectionCallback(w http.ResponseWriter, r *http.Request) {
+	s.metrics.WebhookReceived(r.Context(), "collection")
 	s.handleCallback(w, r, "airtel.webhook.collection", "prompt")
 }
 
 // HandleDisbursementCallback processes disbursement callbacks from Airtel Money.
 func (s *AirtelWebhookServer) HandleDisbursementCallback(w http.ResponseWriter, r *http.Request) {
+	s.metrics.WebhookReceived(r.Context(), "disbursement")
 	s.handleCallback(w, r, "airtel.webhook.disbursement", "payment")
 }
 
@@ -67,6 +72,7 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 	var callback client.CollectionCallbackBody
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode callback")
+		s.metrics.WebhookRejected(ctx, entityType, "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -98,6 +104,7 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status")
+		s.metrics.WebhookRejected(ctx, entityType, "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

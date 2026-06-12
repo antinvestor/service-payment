@@ -20,6 +20,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
@@ -43,6 +44,7 @@ type accountBusiness struct {
 	workMan     workerpool.Manager
 	accountRepo repository.AccountRepository
 	ledgerRepo  repository.LedgerRepository
+	metrics     *observability.Metrics
 }
 
 // NewAccountBusiness creates a new account business instance.
@@ -55,6 +57,7 @@ func NewAccountBusiness(
 		workMan:     workMan,
 		accountRepo: accountRepo,
 		ledgerRepo:  ledgerRepo,
+		metrics:     observability.NewMetrics(),
 	}
 }
 
@@ -63,17 +66,24 @@ func (b *accountBusiness) CreateAccount(
 	ctx context.Context,
 	req *ledgerv1.CreateAccountRequest,
 ) (*ledgerv1.Account, error) {
+	ctx, span := b.metrics.StartSpan(ctx, "CreateAccount")
+	var err error
+	defer func() { b.metrics.EndSpan(ctx, span, err) }()
+
 	// Validate and normalize currency
-	currencyUnit, err := currency.ParseISO(req.GetCurrency())
-	if err != nil {
-		return nil, ErrAccountCurrencyInvalid
+	currencyUnit, parseErr := currency.ParseISO(req.GetCurrency())
+	if parseErr != nil {
+		err = ErrAccountCurrencyInvalid
+		return nil, err
 	}
 
 	if req.GetLedgerId() == "" {
-		return nil, ErrAccountLedgerIDRequired
+		err = ErrAccountLedgerIDRequired
+		return nil, err
 	}
 
-	ledger, err := b.ledgerRepo.GetByID(ctx, req.GetLedgerId())
+	var ledger *models.Ledger
+	ledger, err = b.ledgerRepo.GetByID(ctx, req.GetLedgerId())
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +117,8 @@ func (b *accountBusiness) CreateAccount(
 	if err != nil {
 		return nil, err
 	}
+
+	b.metrics.RecordAccountCreated(ctx)
 
 	// Convert back to API type
 	return accountModel.ToAPI(), nil

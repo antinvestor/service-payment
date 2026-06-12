@@ -22,6 +22,7 @@ import (
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/google/uuid"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
@@ -34,6 +35,7 @@ type promptHandler struct {
 	mtnCli      client.MtnClient
 	settingsCli settingsv1connect.SettingsServiceClient
 	cfg         *config.MtnConfig
+	metrics     *integrationobs.Metrics
 }
 
 // NewPromptHandler creates a queue worker for handling requestToPay collection prompts.
@@ -48,6 +50,7 @@ func NewPromptHandler(
 		mtnCli:      mtnCli,
 		settingsCli: settingsCli,
 		cfg:         cfg,
+		metrics:     integrationobs.NewMetrics("mtn"),
 	}
 }
 
@@ -59,6 +62,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
+		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil
 	}
 
@@ -68,6 +72,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	creds, err := extractCredentials(ctx, headers, h.settingsCli, h.cfg)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
 		emitStatus(ctx, h.eventsMan, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -106,6 +111,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	err = h.mtnCli.RequestToPay(ctx, creds, req)
 	if err != nil {
 		logger.WithError(err).Error("requestToPay failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		emitStatus(ctx, h.eventsMan, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -115,6 +121,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 	logger.WithField("reference_id", referenceID).Debug("requestToPay initiated")
 
+	h.metrics.QueueProcessed(ctx, "prompt")
 	emitStatus(ctx, h.eventsMan, promptID, referenceID, commonv1.STATUS_IN_PROCESS, map[string]any{
 		"reference_id": referenceID,
 		"entity_type":  "prompt",

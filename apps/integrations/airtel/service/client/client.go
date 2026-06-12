@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
 
@@ -42,6 +43,7 @@ type airtelClient struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
 	tokens     map[string]*tokenEntry // keyed by clientID
+	metrics    *integrationobs.Metrics
 }
 
 // NewClient creates a new Airtel Money API client.
@@ -50,7 +52,8 @@ func NewClient() AirtelClient {
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
-		tokens: make(map[string]*tokenEntry),
+		tokens:  make(map[string]*tokenEntry),
+		metrics: integrationobs.NewMetrics("airtel"),
 	}
 }
 
@@ -118,11 +121,14 @@ func (c *airtelClient) generateToken(ctx context.Context, creds *AirtelCredentia
 	return tokenResp.AccessToken, nil
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *airtelClient) CollectionPush(
 	ctx context.Context,
 	creds *AirtelCredentials,
 	req *CollectionRequest,
-) (*CollectionResponse, error) {
+) (_ *CollectionResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "collection_push")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", "airtel.collection_push")
 	defer logger.Release()
 
@@ -186,11 +192,14 @@ func (c *airtelClient) CollectionPush(
 	return &collResp, nil
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *airtelClient) Disburse(
 	ctx context.Context,
 	creds *AirtelCredentials,
 	req *DisbursementRequest,
-) (*DisbursementResponse, error) {
+) (_ *DisbursementResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "disburse")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", "airtel.disburse")
 	defer logger.Release()
 
@@ -252,11 +261,14 @@ func (c *airtelClient) Disburse(
 	return &disbResp, nil
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *airtelClient) TransactionStatus(
 	ctx context.Context,
 	creds *AirtelCredentials,
 	transactionID string,
-) (*StatusResponse, error) {
+) (_ *StatusResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "transaction_status")
+	defer func() { done(retErr) }()
 	token, err := c.generateToken(ctx, creds)
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)

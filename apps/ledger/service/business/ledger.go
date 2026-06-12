@@ -20,6 +20,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
@@ -41,6 +42,7 @@ type ledgerBusiness struct {
 	workMan     workerpool.Manager
 	ledgerRepo  repository.LedgerRepository
 	accountRepo repository.AccountRepository
+	metrics     *observability.Metrics
 }
 
 // NewLedgerBusiness creates a new ledger business instance.
@@ -53,6 +55,7 @@ func NewLedgerBusiness(
 		workMan:     workMan,
 		ledgerRepo:  ledgerRepo,
 		accountRepo: accountRepo,
+		metrics:     observability.NewMetrics(),
 	}
 }
 
@@ -61,9 +64,14 @@ func (b *ledgerBusiness) CreateLedger(
 	ctx context.Context,
 	req *ledgerv1.CreateLedgerRequest,
 ) (*ledgerv1.Ledger, error) {
+	ctx, span := b.metrics.StartSpan(ctx, "CreateLedger")
+	var err error
+	defer func() { b.metrics.EndSpan(ctx, span, err) }()
+
 	// Business logic validation
 	if req.GetId() == "" {
-		return nil, ErrLedgerReferenceRequired
+		err = ErrLedgerReferenceRequired
+		return nil, err
 	}
 
 	// Convert API request to model.
@@ -87,10 +95,12 @@ func (b *ledgerBusiness) CreateLedger(
 	}
 
 	// Create the ledger through repository
-	err := b.ledgerRepo.Create(ctx, ledgerModel)
+	err = b.ledgerRepo.Create(ctx, ledgerModel)
 	if err != nil {
 		return nil, err
 	}
+
+	b.metrics.RecordLedgerCreated(ctx)
 
 	// Convert back to API type
 	return ledgerModel.ToAPI(), nil

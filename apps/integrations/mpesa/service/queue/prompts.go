@@ -24,6 +24,7 @@ import (
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -34,6 +35,7 @@ type promptHandler struct {
 	credentialResolver
 	statusEmitter
 	mpesaCli client.MpesaClient
+	metrics  *integrationobs.Metrics
 }
 
 // NewPromptHandler creates a queue worker for handling STK Push prompt requests.
@@ -47,6 +49,7 @@ func NewPromptHandler(
 		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
 		statusEmitter:      statusEmitter{eventsMan: eventsMan},
 		mpesaCli:           mpesaCli,
+		metrics:            integrationobs.NewMetrics("mpesa"),
 	}
 }
 
@@ -58,6 +61,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
+		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil // non-retriable
 	}
 
@@ -67,6 +71,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -112,6 +117,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	resp, err := h.mpesaCli.STKPush(ctx, creds, stkReq)
 	if err != nil {
 		logger.WithError(err).Error("STK push failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -129,5 +135,6 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		"entity_type":         "prompt",
 	})
 
+	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil
 }

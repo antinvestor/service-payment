@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
+	"github.com/antinvestor/service-payments/apps/billing/service/observability"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
@@ -47,6 +48,7 @@ type billingWorkflow struct {
 	creditEng       CreditEngine
 	invoiceEng      InvoiceEngine
 	ledgerInteg     LedgerIntegration
+	obs             *observability.Metrics
 }
 
 func NewBillingWorkflow(
@@ -76,16 +78,29 @@ func NewBillingWorkflow(
 		creditEng:       creditEng,
 		invoiceEng:      invoiceEng,
 		ledgerInteg:     ledgerInteg,
+		obs:             observability.NewMetrics(),
 	}
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (w *billingWorkflow) RunBilling(
 	ctx context.Context,
 	subscriptionID string,
 	periodStart, periodEnd time.Time,
-) (*models.BillingRun, error) {
+) (result *models.BillingRun, err error) {
+	ctx, span := w.obs.StartSpan(ctx, "RunBilling")
+	start := time.Now()
+	w.obs.RecordBillingRunStarted(ctx)
+	defer func() {
+		w.obs.EndSpan(ctx, span, err)
+		if err == nil && result != nil && result.State == models.BillingRunStateCompleted {
+			w.obs.RecordBillingRunCompleted(ctx, time.Since(start))
+		}
+	}()
+
 	// Get subscription
-	sub, err := w.subBusiness.GetSubscription(ctx, subscriptionID)
+	var sub *models.Subscription
+	sub, err = w.subBusiness.GetSubscription(ctx, subscriptionID)
 	if err != nil {
 		return nil, err
 	}

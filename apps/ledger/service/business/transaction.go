@@ -25,11 +25,14 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util/decimalx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // TransactionBusiness defines the business interface for transaction operations.
@@ -67,6 +70,7 @@ type transactionBusiness struct {
 	workMan         workerpool.Manager
 	transactionRepo repository.TransactionRepository
 	accountRepo     repository.AccountRepository
+	metrics         *observability.Metrics
 }
 
 // NewTransactionBusiness creates a new transaction business instance.
@@ -79,6 +83,7 @@ func NewTransactionBusiness(
 		workMan:         workMan,
 		transactionRepo: transactionRepo,
 		accountRepo:     accountRepo,
+		metrics:         observability.NewMetrics(),
 	}
 }
 
@@ -345,17 +350,24 @@ func (b *transactionBusiness) MarkTransactionFailed(
 func (b *transactionBusiness) transactAsReversal(
 	ctx context.Context, transaction *models.Transaction, originalID string,
 ) (*models.Transaction, error) {
+	ctx, span := b.metrics.StartSpan(ctx, "TransactReversal")
+	start := time.Now()
+
 	if transaction.TransactedAt.IsZero() {
 		transaction.TransactedAt = time.Now()
 	}
 
 	accountsMap, aerr := b.Validate(ctx, transaction)
 	if aerr != nil {
+		b.metrics.RecordTransactionFailed(ctx, "validation")
 		var appErr apperrors.ApplicationError
 		if errors.As(aerr, &appErr) {
+			b.metrics.EndSpan(ctx, span, appErr)
 			return nil, appErr
 		}
-		return nil, apperrors.ErrSystemFailure.Override(aerr)
+		sysErr := apperrors.ErrSystemFailure.Override(aerr)
+		b.metrics.EndSpan(ctx, span, sysErr)
+		return nil, sysErr
 	}
 
 	b.preProcessTransactionEntries(transaction, accountsMap)
@@ -380,14 +392,35 @@ func (b *transactionBusiness) transactAsReversal(
 		entry.TransactionID = transaction.GetID()
 	}
 
-	err := b.transactionRepo.CreateReversal(ctx, transaction, originalID)
-	if err == nil {
+	span.SetAttributes(
+		attribute.String("currency", transaction.Currency),
+		attribute.Int("entry_count", len(transaction.Entries)),
+		attribute.Bool("reversal", true),
+	)
+
+	createErr := b.transactionRepo.CreateReversal(ctx, transaction, originalID)
+	if createErr == nil {
+		latencyMs := float64(time.Since(start).Milliseconds())
+		b.metrics.RecordTransactionPosted(ctx, transaction.Currency, len(transaction.Entries), true, latencyMs)
+		b.metrics.EndSpan(ctx, span, nil)
 		return transaction, nil
 	}
-	if !data.ErrorIsDuplicateKey(err) {
-		return nil, apperrors.ErrSystemFailure.Override(err)
+	if !data.ErrorIsDuplicateKey(createErr) {
+		b.metrics.RecordTransactionFailed(ctx, "system")
+		sysErr := apperrors.ErrSystemFailure.Override(createErr)
+		b.metrics.EndSpan(ctx, span, sysErr)
+		return nil, sysErr
 	}
-	return b.resolveDuplicate(ctx, transaction)
+	resolved, resolveErr := b.resolveDuplicate(ctx, transaction)
+	if resolveErr != nil {
+		b.metrics.RecordTransactionFailed(ctx, "conflict")
+		b.metrics.EndSpan(ctx, span, resolveErr)
+		return nil, resolveErr
+	}
+	latencyMs := float64(time.Since(start).Milliseconds())
+	b.metrics.RecordTransactionPosted(ctx, transaction.Currency, len(transaction.Entries), true, latencyMs)
+	b.metrics.EndSpan(ctx, span, nil)
+	return resolved, nil
 }
 
 // DeleteTransaction is not supported — transactions are immutable audit records.
@@ -537,37 +570,30 @@ func (b *transactionBusiness) IsConflict(
 // path is safe because PostgreSQL only returns 23505 after the competing
 // transaction has fully committed, guaranteeing the subsequent GetByID sees
 // complete data.
+//
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (b *transactionBusiness) Transact(
 	ctx context.Context, transaction *models.Transaction,
-) (*models.Transaction, error) {
+) (result *models.Transaction, err error) {
+	ctx, span := b.metrics.StartSpan(ctx, "Transact")
+	start := time.Now()
+	defer func() {
+		b.metrics.EndSpan(ctx, span, err)
+	}()
+
 	// Set transaction time early to ensure consistency
 	if transaction.TransactedAt.IsZero() {
 		transaction.TransactedAt = time.Now()
 	}
 
-	// Default Status from any legacy ClearedAt the caller set directly (the
-	// model-layer conversion handles the proto path, but the repository/test
-	// surface constructs Transaction values directly). Pending if uncleared.
-	if transaction.Status == "" {
-		if !transaction.ClearedAt.IsZero() {
-			transaction.Status = models.TransactionStatusPosted
-			if transaction.PostedAt == nil {
-				posted := transaction.ClearedAt
-				transaction.PostedAt = &posted
-			}
-		} else {
-			transaction.Status = models.TransactionStatusPending
-		}
-	}
+	// Default Status from any legacy ClearedAt the caller set directly.
+	applyDefaultStatus(transaction)
 
 	// Pre-validate accounts before any database operations to fail fast
 	accountsMap, aerr := b.Validate(ctx, transaction)
 	if aerr != nil {
-		var appErr apperrors.ApplicationError
-		if errors.As(aerr, &appErr) {
-			return nil, appErr
-		}
-		return nil, apperrors.ErrSystemFailure.Override(aerr)
+		b.metrics.RecordTransactionFailed(ctx, "validation")
+		return nil, mapValidationError(aerr)
 	}
 
 	// Process transaction entries with account balances and signage
@@ -598,15 +624,67 @@ func (b *transactionBusiness) Transact(
 		entry.TransactionID = transaction.GetID()
 	}
 
+	// Set bounded span attributes: no amounts, no owner identifiers, no freeform refs.
+	annotateTransactSpan(span, transaction)
+
 	// Attempt to create the transaction.
-	err := b.transactionRepo.Create(ctx, transaction)
+	err = b.transactionRepo.Create(ctx, transaction)
 	if err == nil {
+		latencyMs := float64(time.Since(start).Milliseconds())
+		b.metrics.RecordTransactionPosted(ctx, transaction.Currency, len(transaction.Entries), false, latencyMs)
 		return transaction, nil
 	}
 	if !data.ErrorIsDuplicateKey(err) {
+		b.metrics.RecordTransactionFailed(ctx, "system")
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
-	return b.resolveDuplicate(ctx, transaction)
+	resolved, resolveErr := b.resolveDuplicate(ctx, transaction)
+	if resolveErr != nil {
+		b.metrics.RecordTransactionFailed(ctx, "conflict")
+		return nil, resolveErr
+	}
+	// Idempotent replay — count as posted, latency covers the full round-trip.
+	latencyMs := float64(time.Since(start).Milliseconds())
+	b.metrics.RecordTransactionPosted(ctx, transaction.Currency, len(transaction.Entries), false, latencyMs)
+	return resolved, nil
+}
+
+// applyDefaultStatus fills in Status (and PostedAt when absent) for transactions
+// constructed directly via the repository/test surface. The model-layer conversion
+// handles the proto path. Pending is used when the transaction is not yet cleared.
+func applyDefaultStatus(transaction *models.Transaction) {
+	if transaction.Status != "" {
+		return
+	}
+	if !transaction.ClearedAt.IsZero() {
+		transaction.Status = models.TransactionStatusPosted
+		if transaction.PostedAt == nil {
+			posted := transaction.ClearedAt
+			transaction.PostedAt = &posted
+		}
+	} else {
+		transaction.Status = models.TransactionStatusPending
+	}
+}
+
+// mapValidationError converts an aerr from Validate into the appropriate
+// ApplicationError or wraps it as a system failure.
+func mapValidationError(aerr error) error {
+	var appErr apperrors.ApplicationError
+	if errors.As(aerr, &appErr) {
+		return appErr
+	}
+	return apperrors.ErrSystemFailure.Override(aerr)
+}
+
+// annotateTransactSpan sets bounded, low-cardinality attributes on the Transact
+// span. Amounts, owner identifiers and free-form refs are intentionally excluded.
+func annotateTransactSpan(span trace.Span, transaction *models.Transaction) {
+	span.SetAttributes(
+		attribute.String("currency", transaction.Currency),
+		attribute.Int("entry_count", len(transaction.Entries)),
+		attribute.Bool("reversal", transaction.TransactionType == ledgerv1.TransactionType_REVERSAL.String()),
+	)
 }
 
 // resolveDuplicate is invoked when the optimistic Create hits a unique

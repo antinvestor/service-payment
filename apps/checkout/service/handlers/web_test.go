@@ -560,6 +560,29 @@ func TestHandleStatus_Unknown_404JSON(t *testing.T) {
 	assert.Equal(t, "not_found", payload["error"])
 }
 
+// 8c. GET /c/{ref}/status failed session → JSON with status=failed and failure_reason.
+func TestHandleStatus_FailedSession_IncludesFailureReason(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:      "sess-failed-status",
+		Status:   models.SessionStatusFailed,
+		Currency: "KES",
+	}
+	h.sessionRepo.sessions["sess-failed-status"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-failed-status/status", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+
+	var payload map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	assert.Equal(t, "failed", payload["status"])
+	assert.NotEmpty(t, payload["failure_reason"], "failure_reason must be present for failed sessions")
+}
+
 // 9a. GET /l/{ref} active link → 303 to /c/<new session ref>.
 func TestHandleLink_ActiveLink_Redirect(t *testing.T) {
 	h := newHarness(t)

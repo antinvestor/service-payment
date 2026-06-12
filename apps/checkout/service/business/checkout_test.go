@@ -1095,7 +1095,7 @@ func TestRefreshStatus_Successful_WithClue(t *testing.T) {
 		}),
 	}
 	profCli := &fakeProfileClient{}
-	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli)
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli).WithSynchronousClues()
 	ctx := context.Background()
 
 	promptID := "prompt-123"
@@ -1138,7 +1138,7 @@ func TestRefreshStatus_Successful_NoContactId_NoClue(t *testing.T) {
 		}),
 	}
 	profCli := &fakeProfileClient{}
-	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli)
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli).WithSynchronousClues()
 	ctx := context.Background()
 
 	s := &models.CheckoutSession{
@@ -1492,7 +1492,7 @@ func TestRefreshStatus_Successful_ClueWriteError_Swallowed(t *testing.T) {
 	profCli := &fakeProfileClient{
 		updateErr: errors.New("profile service unavailable"),
 	}
-	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli)
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli).WithSynchronousClues()
 	ctx := context.Background()
 
 	s := &models.CheckoutSession{

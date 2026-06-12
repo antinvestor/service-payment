@@ -333,4 +333,6 @@ func TestRPC_GetSession_ProcessingRefreshedToCompleted(t *testing.T) {
 
 	assert.Equal(t, checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED, getResp.Msg.GetData().GetStatus(),
 		"RefreshStatus must transition processing→completed when payment is SUCCESSFUL")
+	assert.Equal(t, "payment-abc", getResp.Msg.GetData().GetPaymentId(),
+		"payment_id must be set from the external payment ID when SUCCESSFUL")
 }

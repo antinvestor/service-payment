@@ -49,9 +49,10 @@ var (
 
 // Ref length constants.
 const (
-	sessionRefLen = 32
-	linkRefLen    = 12
-	sweepBatch    = 50
+	sessionRefLen       = 32
+	linkRefLen          = 12
+	sweepBatch          = 50
+	clueWriteTimeoutSec = 10 // detached goroutine budget for profile clue write-back
 )
 
 // IsSafeReturnURL returns true when rawURL is a non-empty URL with scheme http
@@ -137,6 +138,7 @@ type CheckoutBusiness struct {
 	paymentCli  paymentv1connect.PaymentServiceClient
 	profileCli  profilev1connect.ProfileServiceClient
 	now         func() time.Time
+	cluesSync   bool // true in tests only: makes writeClues run synchronously
 }
 
 // NewCheckoutBusiness creates a CheckoutBusiness with a real clock.
@@ -163,6 +165,14 @@ func NewCheckoutBusiness(
 func (b *CheckoutBusiness) WithClock(now func() time.Time) *CheckoutBusiness {
 	cp := *b
 	cp.now = now
+	return &cp
+}
+
+// WithSynchronousClues returns a copy of b that runs writeClues synchronously.
+// FOR TESTS ONLY — production code always uses the detached goroutine path.
+func (b *CheckoutBusiness) WithSynchronousClues() *CheckoutBusiness {
+	cp := *b
+	cp.cluesSync = true
 	return &cp
 }
 
@@ -713,7 +723,20 @@ func (b *CheckoutBusiness) RefreshStatus(
 		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 			return nil, fmt.Errorf("update session completed: %w", updateErr)
 		}
-		b.writeClues(ctx, session)
+		// writeClues is best-effort and non-critical; run detached from the request
+		// lifecycle so the browser's /status poll is not delayed. The sweeper uses
+		// the same documented exception pattern for background work.
+		if b.cluesSync {
+			// Synchronous path: FOR TESTS ONLY (set via WithSynchronousClues).
+			b.writeClues(ctx, session)
+		} else {
+			snapshot := *session // shallow copy — avoids racing on the caller's pointer
+			clueCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), clueWriteTimeoutSec*time.Second)
+			go func() {
+				defer cancel()
+				b.writeClues(clueCtx, &snapshot)
+			}()
+		}
 
 	case commonv1.STATUS_FAILED:
 		session.Status = models.SessionStatusFailed

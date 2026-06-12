@@ -210,6 +210,7 @@ func toProtoSession(s *models.CheckoutSession, baseURL string) *checkoutv1.Check
 		OrderRef:    s.OrderRef,
 		ReturnUrl:   s.ReturnURL,
 		PromptId:    s.PromptID,
+		PaymentId:   s.PaymentID,
 		PageUrl:     baseURL + "/c/" + s.Ref,
 		ExpiresAt:   s.ExpiresAt.Format(time.RFC3339),
 	}

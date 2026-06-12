@@ -59,6 +59,7 @@ message CheckoutSession {
   string prompt_id = 11;
   string page_url = 12;
   string expires_at = 13; // RFC3339
+  string payment_id = 14;
 }
 
 message CheckoutLink {

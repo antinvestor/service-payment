@@ -45,5 +45,6 @@ LABEL org.opencontainers.image.source=$REPOSITORY
 WORKDIR /
 
 COPY --from=builder /app/binary /checkout
+COPY --from=builder /app/apps/checkout/migrations /migrations
 
 ENTRYPOINT ["/checkout"]

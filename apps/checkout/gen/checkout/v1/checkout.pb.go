@@ -273,6 +273,7 @@ type CheckoutSession struct {
 	PromptId      string                 `protobuf:"bytes,11,opt,name=prompt_id,json=promptId,proto3" json:"prompt_id,omitempty"`
 	PageUrl       string                 `protobuf:"bytes,12,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
 	ExpiresAt     string                 `protobuf:"bytes,13,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339
+	PaymentId     string                 `protobuf:"bytes,14,opt,name=payment_id,json=paymentId,proto3" json:"payment_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -394,6 +395,13 @@ func (x *CheckoutSession) GetPageUrl() string {
 func (x *CheckoutSession) GetExpiresAt() string {
 	if x != nil {
 		return x.ExpiresAt
+	}
+	return ""
+}
+
+func (x *CheckoutSession) GetPaymentId() string {
+	if x != nil {
+		return x.PaymentId
 	}
 	return ""
 }
@@ -920,7 +928,7 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"profile_id\x18\x01 \x01(\tR\tprofileId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1a\n" +
 	"\blanguage\x18\x03 \x01(\tR\blanguage\x125\n" +
-	"\bcontacts\x18\x04 \x03(\v2\x19.checkout.v1.PayerContactR\bcontacts\"\xc0\x04\n" +
+	"\bcontacts\x18\x04 \x03(\v2\x19.checkout.v1.PayerContactR\bcontacts\"\xdf\x04\n" +
 	"\x0fCheckoutSession\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -937,7 +945,9 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\tprompt_id\x18\v \x01(\tR\bpromptId\x12\x19\n" +
 	"\bpage_url\x18\f \x01(\tR\apageUrl\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\r \x01(\tR\texpiresAt\x1a;\n" +
+	"expires_at\x18\r \x01(\tR\texpiresAt\x12\x1d\n" +
+	"\n" +
+	"payment_id\x18\x0e \x01(\tR\tpaymentId\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd0\x03\n" +

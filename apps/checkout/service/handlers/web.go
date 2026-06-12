@@ -595,9 +595,14 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	payload := map[string]string{
 		"status": session.Status,
-	})
+	}
+	if session.Status == models.SessionStatusFailed {
+		lang := pickLang(r, "")
+		payload["failure_reason"] = T(lang, "failed_title")
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 // writeJSON writes a JSON response with the given status code.

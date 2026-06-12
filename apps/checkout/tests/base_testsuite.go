@@ -87,6 +87,13 @@ func (bs *BaseTestSuite) CreateService(
 	cfg.DatabaseMigrate = true
 	cfg.DatabaseTraceQueries = true
 
+	if depOpts == nil {
+		depOpts = definition.NewDependancyOption(
+			"default",
+			util.RandomAlphaNumericString(DefaultRandomStringLength),
+			bs.Resources(),
+		)
+	}
 	res := depOpts.ByIsDatabase(ctx)
 	testDS, cleanup, err0 := res.GetRandomisedDS(t.Context(), depOpts.Prefix())
 	require.NoError(t, err0)

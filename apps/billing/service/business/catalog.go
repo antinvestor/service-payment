@@ -30,6 +30,7 @@ type CatalogBusiness interface {
 	GetCatalogVersion(ctx context.Context, id string) (*models.CatalogVersion, error)
 	GetEffectiveCatalog(ctx context.Context, catalogID string, at time.Time) (*models.CatalogVersion, error)
 	PublishCatalogVersion(ctx context.Context, id string, effectiveAt time.Time) (*models.CatalogVersion, error)
+	GetPlan(ctx context.Context, id string) (*models.Plan, error)
 	CreatePlan(ctx context.Context, plan *models.Plan) (*models.Plan, error)
 	CreateComponent(ctx context.Context, component *models.Component) (*models.Component, error)
 	CreateTier(ctx context.Context, tier *models.Tier) (*models.Tier, error)
@@ -126,6 +127,14 @@ func (b *catalogBusiness) PublishCatalogVersion(
 	}
 
 	return cv, nil
+}
+
+func (b *catalogBusiness) GetPlan(ctx context.Context, id string) (*models.Plan, error) {
+	if id == "" {
+		return nil, ErrPlanIDRequired
+	}
+
+	return b.planRepo.GetByID(ctx, id)
 }
 
 func (b *catalogBusiness) CreatePlan(ctx context.Context, plan *models.Plan) (*models.Plan, error) {

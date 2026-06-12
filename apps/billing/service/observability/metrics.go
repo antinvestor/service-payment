@@ -51,6 +51,12 @@ type Metrics struct {
 	// Charge instruments.
 	chargesProcessed telemetry.Counter
 	chargeLatency    telemetry.Histogram
+
+	// Polar subscription instruments.
+	polarSubscriptionsStarted  telemetry.Counter
+	polarSubscriptionsMirrored telemetry.Counter
+	polarStateActive           telemetry.Counter
+	polarStateCancelled        telemetry.Counter
 }
 
 // NewMetrics creates and registers all OTel instruments for the billing service.
@@ -112,6 +118,23 @@ func NewMetrics() *Metrics {
 		chargeLatency: bm.Histogram(
 			pkgName+"/charge_latency_ms",
 			"Latency distribution of charge processing",
+		),
+
+		polarSubscriptionsStarted: bm.Counter(
+			pkgName+"/polar_subscriptions_started_total",
+			"Polar-collected subscription starts initiated",
+		),
+		polarSubscriptionsMirrored: bm.Counter(
+			pkgName+"/polar_subscriptions_mirrored_total",
+			"Polar subscription state mirror operations completed",
+		),
+		polarStateActive: bm.Counter(
+			pkgName+"/polar_state_active_total",
+			"Polar subscriptions transitioned to ACTIVE state",
+		),
+		polarStateCancelled: bm.Counter(
+			pkgName+"/polar_state_cancelled_total",
+			"Polar subscriptions transitioned to CANCELLED or EXPIRED state",
 		),
 	}
 }
@@ -203,4 +226,36 @@ func (m *Metrics) RecordChargeProcessed(ctx context.Context, elapsed time.Durati
 	}
 	m.chargesProcessed.Add(ctx, 1)
 	m.chargeLatency.Record(ctx, float64(elapsed.Milliseconds()))
+}
+
+// RecordPolarSubscriptionStarted counts a polar subscription start.
+func (m *Metrics) RecordPolarSubscriptionStarted(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.polarSubscriptionsStarted.Add(ctx, 1)
+}
+
+// RecordPolarSubscriptionMirrored counts a polar subscription mirror operation.
+func (m *Metrics) RecordPolarSubscriptionMirrored(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.polarSubscriptionsMirrored.Add(ctx, 1)
+}
+
+// RecordPolarStateActive counts a polar subscription transition to ACTIVE.
+func (m *Metrics) RecordPolarStateActive(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.polarStateActive.Add(ctx, 1)
+}
+
+// RecordPolarStateCancelled counts a polar subscription transition to CANCELLED or EXPIRED.
+func (m *Metrics) RecordPolarStateCancelled(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.polarStateCancelled.Add(ctx, 1)
 }

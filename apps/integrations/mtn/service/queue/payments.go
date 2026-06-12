@@ -25,6 +25,7 @@ import (
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/google/uuid"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
@@ -37,6 +38,7 @@ type paymentHandler struct {
 	mtnCli      client.MtnClient
 	settingsCli settingsv1connect.SettingsServiceClient
 	cfg         *config.MtnConfig
+	metrics     *integrationobs.Metrics
 }
 
 // NewPaymentHandler creates a queue worker for handling disbursement transfer payments.
@@ -51,6 +53,7 @@ func NewPaymentHandler(
 		mtnCli:      mtnCli,
 		settingsCli: settingsCli,
 		cfg:         cfg,
+		metrics:     integrationobs.NewMetrics("mtn"),
 	}
 }
 
@@ -62,6 +65,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment")
+		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil
 	}
 
@@ -71,6 +75,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	creds, err := extractCredentials(ctx, headers, h.settingsCli, h.cfg)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
 		emitStatus(ctx, h.eventsMan, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -105,6 +110,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	err = h.mtnCli.Transfer(ctx, creds, req)
 	if err != nil {
 		logger.WithError(err).Error("transfer failed")
+		h.metrics.QueueFailed(ctx, "payment", "provider_error")
 		emitStatus(ctx, h.eventsMan, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -114,6 +120,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	logger.WithField("reference_id", referenceID).Debug("transfer initiated")
 
+	h.metrics.QueueProcessed(ctx, "payment")
 	emitStatus(ctx, h.eventsMan, paymentID, referenceID, commonv1.STATUS_IN_PROCESS, map[string]any{
 		"reference_id": referenceID,
 		"entity_type":  "payment",

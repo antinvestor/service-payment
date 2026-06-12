@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
+	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/data"
@@ -52,11 +53,12 @@ type BookBusiness interface {
 
 type bookBusiness struct {
 	bookRepo repository.BookRepository
+	metrics  *observability.Metrics
 }
 
 // NewBookBusiness constructs the book business layer.
 func NewBookBusiness(bookRepo repository.BookRepository) BookBusiness {
-	return &bookBusiness{bookRepo: bookRepo}
+	return &bookBusiness{bookRepo: bookRepo, metrics: observability.NewMetrics()}
 }
 
 func (b *bookBusiness) CreateBook(
@@ -65,18 +67,24 @@ func (b *bookBusiness) CreateBook(
 	parentID *string,
 	dataMap data.JSONMap,
 ) (*models.Book, error) {
+	ctx, span := b.metrics.StartSpan(ctx, "CreateBook")
+	var err error
+	defer func() { b.metrics.EndSpan(ctx, span, err) }()
+
 	if name == "" {
-		return nil, ErrBookNameRequired
+		err = ErrBookNameRequired
+		return nil, err
 	}
 	if bookType == "" {
-		return nil, ErrBookTypeRequired
+		err = ErrBookTypeRequired
+		return nil, err
 	}
 
 	// If a parent is supplied, confirm it exists and belongs to the
 	// caller's tenancy scope (GetByID applies the auto-scope). This
 	// rejects forging a hierarchy across tenants.
 	if parentID != nil && *parentID != "" {
-		if _, err := b.bookRepo.GetByID(ctx, *parentID); err != nil {
+		if _, err = b.bookRepo.GetByID(ctx, *parentID); err != nil {
 			return nil, err
 		}
 	}
@@ -90,9 +98,11 @@ func (b *bookBusiness) CreateBook(
 	}
 	book.GenID(ctx)
 
-	if err := b.bookRepo.Create(ctx, book); err != nil {
+	if err = b.bookRepo.Create(ctx, book); err != nil {
 		return nil, apperrors.ErrSystemFailure.Override(err)
 	}
+
+	b.metrics.RecordBookCreated(ctx)
 	return book, nil
 }
 

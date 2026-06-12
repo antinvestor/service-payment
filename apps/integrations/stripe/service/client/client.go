@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/webhook"
 )
@@ -26,12 +27,14 @@ import (
 type stripeClient struct {
 	mu      sync.RWMutex
 	clients map[string]*stripe.Client // keyed by API key
+	metrics *integrationobs.Metrics
 }
 
 // NewClient creates a new Stripe API client.
 func NewClient() StripeClient {
 	return &stripeClient{
 		clients: make(map[string]*stripe.Client),
+		metrics: integrationobs.NewMetrics("stripe"),
 	}
 }
 
@@ -55,11 +58,14 @@ func (c *stripeClient) getClient(apiKey string) *stripe.Client {
 	return sc
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *stripeClient) CreatePaymentIntent(
 	ctx context.Context,
 	creds *StripeCredentials,
 	req *PaymentIntentRequest,
-) (*PaymentIntentResponse, error) {
+) (_ *PaymentIntentResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "create_payment_intent")
+	defer func() { done(retErr) }()
 	sc := c.getClient(creds.APIKey)
 
 	params := &stripe.PaymentIntentCreateParams{
@@ -92,11 +98,14 @@ func (c *stripeClient) CreatePaymentIntent(
 	}, nil
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *stripeClient) CreatePayout(
 	ctx context.Context,
 	creds *StripeCredentials,
 	req *PayoutRequest,
-) (*PayoutResponse, error) {
+) (_ *PayoutResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "create_payout")
+	defer func() { done(retErr) }()
 	sc := c.getClient(creds.APIKey)
 
 	params := &stripe.PayoutCreateParams{

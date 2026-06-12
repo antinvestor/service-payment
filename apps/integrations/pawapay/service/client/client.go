@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
 
@@ -31,6 +32,7 @@ const httpTimeout = 30 * time.Second
 
 type client struct {
 	httpClient *http.Client
+	metrics    *integrationobs.Metrics
 }
 
 // NewClient creates a new pawaPay Merchant API v2 client.
@@ -39,6 +41,7 @@ func NewClient() PawapayClient {
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
+		metrics: integrationobs.NewMetrics("pawapay"),
 	}
 }
 
@@ -46,6 +49,8 @@ func NewClient() PawapayClient {
 // and unmarshals the response into result. pawaPay returns domain rejections
 // (status REJECTED with a failureReason) with HTTP 200; non-2xx responses
 // indicate request, authentication or platform errors and are returned as errors.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *client) doRequest(
 	ctx context.Context,
 	creds *Credentials,
@@ -53,7 +58,9 @@ func (c *client) doRequest(
 	payload any,
 	result any,
 	logType string,
-) error {
+) (retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, logType)
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", logType)
 	defer logger.Release()
 

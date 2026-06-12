@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
+	"github.com/antinvestor/service-payments/apps/billing/service/observability"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/datastore/pool"
@@ -46,6 +47,7 @@ type invoiceEngine struct {
 	dbPool      pool.Pool
 	invoiceRepo repository.InvoiceRepository
 	lineRepo    repository.InvoiceLineRepository
+	obs         *observability.Metrics
 }
 
 func NewInvoiceEngine(
@@ -59,16 +61,27 @@ func NewInvoiceEngine(
 		dbPool:      dbPool,
 		invoiceRepo: invoiceRepo,
 		lineRepo:    lineRepo,
+		obs:         observability.NewMetrics(),
 	}
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (e *invoiceEngine) GenerateInvoice(
 	ctx context.Context,
 	billingRun *models.BillingRun,
 	ratedLines []*models.RatedLine,
 	discountedLines []*models.DiscountedLine,
 	creditAmount decimalx.Decimal,
-) (*models.Invoice, error) {
+) (result *models.Invoice, err error) {
+	ctx, span := e.obs.StartSpan(ctx, "GenerateInvoice")
+	start := time.Now()
+	defer func() {
+		e.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			e.obs.RecordInvoiceGenerated(ctx, time.Since(start))
+		}
+	}()
+
 	if len(ratedLines) == 0 {
 		return nil, ErrInvoiceNoRatedLines
 	}
@@ -118,40 +131,16 @@ func (e *invoiceEngine) GenerateInvoice(
 	}
 
 	// Wrap invoice + all lines in a transaction
-	err := e.dbPool.DB(ctx, false).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(invoice).Error; err != nil {
-			return err
+	err = e.dbPool.DB(ctx, false).Transaction(func(tx *gorm.DB) error {
+		if genErr := tx.Create(invoice).Error; genErr != nil {
+			return genErr
 		}
 
 		for _, rl := range ratedLines {
-			lineDiscount := discountByRatedLine[rl.GetID()]
-			rlAmount := decimalx.DerefOr(rl.Amount, decimalx.Zero())
-			netAmount := rlAmount.Sub(lineDiscount)
-			if netAmount.IsNegative() {
-				netAmount = decimalx.Zero()
+			il := buildInvoiceLine(ctx, invoice.GetID(), rl, discountByRatedLine[rl.GetID()])
+			if persistErr := tx.Create(il).Error; persistErr != nil {
+				return persistErr
 			}
-
-			il := &models.InvoiceLine{
-				InvoiceID:      invoice.GetID(),
-				RatedLineID:    rl.GetID(),
-				ComponentID:    rl.ComponentID,
-				Description:    rl.Description,
-				Quantity:       rl.Quantity,
-				UnitPrice:      rl.UnitPrice,
-				Amount:         rl.Amount,
-				DiscountAmount: lineDiscount.Ptr(),
-				CreditAmount:   decimalx.Zero().Ptr(),
-				NetAmount:      netAmount.Ptr(),
-				Currency:       rl.Currency,
-				LineType:       models.InvoiceLineTypeUsage,
-			}
-			il.GenID(ctx)
-			il.ID = fmt.Sprintf("%s_%s", invoice.GetID(), rl.GetID())
-
-			if err := tx.Create(il).Error; err != nil {
-				return err
-			}
-
 			invoice.Lines = append(invoice.Lines, il)
 		}
 
@@ -162,6 +151,39 @@ func (e *invoiceEngine) GenerateInvoice(
 	}
 
 	return invoice, nil
+}
+
+// buildInvoiceLine constructs an InvoiceLine for the given rated line, applying
+// any discount that was accumulated for that rated line.
+func buildInvoiceLine(
+	ctx context.Context,
+	invoiceID string,
+	rl *models.RatedLine,
+	lineDiscount decimalx.Decimal,
+) *models.InvoiceLine {
+	rlAmount := decimalx.DerefOr(rl.Amount, decimalx.Zero())
+	netAmount := rlAmount.Sub(lineDiscount)
+	if netAmount.IsNegative() {
+		netAmount = decimalx.Zero()
+	}
+
+	il := &models.InvoiceLine{
+		InvoiceID:      invoiceID,
+		RatedLineID:    rl.GetID(),
+		ComponentID:    rl.ComponentID,
+		Description:    rl.Description,
+		Quantity:       rl.Quantity,
+		UnitPrice:      rl.UnitPrice,
+		Amount:         rl.Amount,
+		DiscountAmount: lineDiscount.Ptr(),
+		CreditAmount:   decimalx.Zero().Ptr(),
+		NetAmount:      netAmount.Ptr(),
+		Currency:       rl.Currency,
+		LineType:       models.InvoiceLineTypeUsage,
+	}
+	il.GenID(ctx)
+	il.ID = fmt.Sprintf("%s_%s", invoiceID, rl.GetID())
+	return il
 }
 
 func (e *invoiceEngine) UpdateInvoiceTotals(
@@ -202,12 +224,22 @@ func (e *invoiceEngine) GetInvoice(ctx context.Context, invoiceID string) (*mode
 	return invoice, nil
 }
 
-func (e *invoiceEngine) IssueInvoice(ctx context.Context, invoiceID string) (*models.Invoice, error) {
+//nolint:nonamedreturns // named err captured by deferred span-end closure
+func (e *invoiceEngine) IssueInvoice(ctx context.Context, invoiceID string) (result *models.Invoice, err error) {
+	ctx, span := e.obs.StartSpan(ctx, "IssueInvoice")
+	defer func() {
+		e.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			e.obs.RecordInvoiceIssued(ctx)
+		}
+	}()
+
 	if invoiceID == "" {
 		return nil, ErrInvoiceIDRequired
 	}
 
-	invoice, err := e.invoiceRepo.GetByID(ctx, invoiceID)
+	var invoice *models.Invoice
+	invoice, err = e.invoiceRepo.GetByID(ctx, invoiceID)
 	if err != nil {
 		return nil, err
 	}
@@ -230,12 +262,22 @@ func (e *invoiceEngine) IssueInvoice(ctx context.Context, invoiceID string) (*mo
 	return invoice, nil
 }
 
-func (e *invoiceEngine) VoidInvoice(ctx context.Context, invoiceID string) (*models.Invoice, error) {
+//nolint:nonamedreturns // named err captured by deferred span-end closure
+func (e *invoiceEngine) VoidInvoice(ctx context.Context, invoiceID string) (result *models.Invoice, err error) {
+	ctx, span := e.obs.StartSpan(ctx, "VoidInvoice")
+	defer func() {
+		e.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			e.obs.RecordInvoiceVoided(ctx)
+		}
+	}()
+
 	if invoiceID == "" {
 		return nil, ErrInvoiceIDRequired
 	}
 
-	invoice, err := e.invoiceRepo.GetByID(ctx, invoiceID)
+	var invoice *models.Invoice
+	invoice, err = e.invoiceRepo.GetByID(ctx, invoiceID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,12 +296,22 @@ func (e *invoiceEngine) VoidInvoice(ctx context.Context, invoiceID string) (*mod
 	return invoice, nil
 }
 
-func (e *invoiceEngine) RecordPayment(ctx context.Context, invoiceID string) (*models.Invoice, error) {
+//nolint:dupl,nonamedreturns // same span+counter pattern; named err captured by deferred span-end closure
+func (e *invoiceEngine) RecordPayment(ctx context.Context, invoiceID string) (result *models.Invoice, err error) {
+	ctx, span := e.obs.StartSpan(ctx, "RecordPayment")
+	defer func() {
+		e.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			e.obs.RecordInvoicePayment(ctx)
+		}
+	}()
+
 	if invoiceID == "" {
 		return nil, ErrInvoiceIDRequired
 	}
 
-	invoice, err := e.invoiceRepo.GetByID(ctx, invoiceID)
+	var invoice *models.Invoice
+	invoice, err = e.invoiceRepo.GetByID(ctx, invoiceID)
 	if err != nil {
 		return nil, err
 	}

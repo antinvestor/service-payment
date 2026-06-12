@@ -23,6 +23,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/config"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/credentials"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -33,6 +34,7 @@ type promptHandler struct {
 	statusEmitter
 	credsResolver *credentials.Resolver
 	pawapayCli    client.PawapayClient
+	metrics       *integrationobs.Metrics
 }
 
 // NewPromptHandler creates a queue worker for handling deposit (collection)
@@ -48,6 +50,7 @@ func NewPromptHandler(
 		statusEmitter: statusEmitter{eventsMan: eventsMan},
 		credsResolver: credentials.NewResolver(settingsCli, cfg),
 		pawapayCli:    pawapayCli,
+		metrics:       integrationobs.NewMetrics("pawapay"),
 	}
 }
 
@@ -59,6 +62,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
+		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil // non-retriable
 	}
 
@@ -68,6 +72,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	creds, err := h.credsResolver.FromHeaders(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -85,6 +90,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	provider, phoneNumber, err := resolveProvider(ctx, h.pawapayCli, creds, extraProvider, phoneNumber)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve provider")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -109,6 +115,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	resp, err := h.pawapayCli.InitiateDeposit(ctx, creds, depositReq)
 	if err != nil {
 		logger.WithError(err).Error("deposit initiation failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -118,6 +125,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 	if resp.Status == client.InitiationStatusRejected {
 		logger.WithField("failure_reason", resp.FailureReason).Error("deposit rejected")
+		h.metrics.QueueFailed(ctx, "prompt", "rejected")
 		h.emitStatus(ctx, promptID, depositID, commonv1.STATUS_FAILED, map[string]any{
 			"deposit_id":      depositID,
 			"failure_code":    failureCode(resp.FailureReason),
@@ -129,6 +137,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 	logger.WithField("deposit_id", depositID).WithField("status", resp.Status).Debug("deposit initiated")
 
+	h.metrics.QueueProcessed(ctx, "prompt")
 	h.emitStatus(ctx, promptID, depositID, commonv1.STATUS_IN_PROCESS, map[string]any{
 		"deposit_id":  depositID,
 		"provider":    provider,

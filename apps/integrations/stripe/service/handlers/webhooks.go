@@ -25,6 +25,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
@@ -35,6 +36,7 @@ type StripeWebhookServer struct {
 	paymentCli    paymentv1connect.PaymentServiceClient
 	stripeCli     client.StripeClient
 	webhookSecret string
+	metrics       *integrationobs.Metrics
 }
 
 // NewStripeWebhookServer creates a new webhook server.
@@ -47,6 +49,7 @@ func NewStripeWebhookServer(
 		paymentCli:    paymentCli,
 		stripeCli:     stripeCli,
 		webhookSecret: cfg.WebhookSecret,
+		metrics:       integrationobs.NewMetrics("stripe"),
 	}
 }
 
@@ -60,12 +63,14 @@ func (s *StripeWebhookServer) NewRouterV1() *http.ServeMux {
 // HandleWebhook processes all Stripe webhook events.
 func (s *StripeWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	s.metrics.WebhookReceived(ctx, "stripe")
 	logger := util.Log(ctx).WithField("type", "stripe.webhook")
 	defer logger.Release()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.WithError(err).Error("failed to read webhook body")
+		s.metrics.WebhookRejected(ctx, "stripe", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -74,6 +79,7 @@ func (s *StripeWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reque
 	event, err := s.stripeCli.VerifyWebhookSignature(body, signature, s.webhookSecret)
 	if err != nil {
 		logger.WithError(err).Error("webhook signature verification failed")
+		s.metrics.WebhookRejected(ctx, "stripe", "verification_failed")
 		http.Error(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
@@ -96,6 +102,7 @@ func (s *StripeWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reque
 	}
 
 	if statusErr != nil {
+		s.metrics.WebhookRejected(ctx, "stripe", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

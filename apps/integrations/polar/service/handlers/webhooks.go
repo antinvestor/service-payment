@@ -24,6 +24,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
@@ -34,6 +35,7 @@ type PolarWebhookServer struct {
 	paymentCli    paymentv1connect.PaymentServiceClient
 	polarCli      client.PolarClient
 	webhookSecret string
+	metrics       *integrationobs.Metrics
 }
 
 // NewPolarWebhookServer creates a new webhook server.
@@ -46,6 +48,7 @@ func NewPolarWebhookServer(
 		paymentCli:    paymentCli,
 		polarCli:      polarCli,
 		webhookSecret: cfg.WebhookSecret,
+		metrics:       integrationobs.NewMetrics("polar"),
 	}
 }
 
@@ -59,12 +62,14 @@ func (s *PolarWebhookServer) NewRouterV1() *http.ServeMux {
 // HandleWebhook processes Polar webhook events.
 func (s *PolarWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	s.metrics.WebhookReceived(ctx, "polar")
 	logger := util.Log(ctx).WithField("type", "polar.webhook")
 	defer logger.Release()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.WithError(err).Error("failed to read webhook body")
+		s.metrics.WebhookRejected(ctx, "polar", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -78,6 +83,7 @@ func (s *PolarWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reques
 	event, err := s.polarCli.VerifyWebhookSignature(body, headers, s.webhookSecret)
 	if err != nil {
 		logger.WithError(err).Error("webhook signature verification failed")
+		s.metrics.WebhookRejected(ctx, "polar", "verification_failed")
 		http.Error(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
@@ -100,6 +106,7 @@ func (s *PolarWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reques
 	}
 
 	if statusErr != nil {
+		s.metrics.WebhookRejected(ctx, "polar", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

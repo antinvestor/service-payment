@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
+	"github.com/antinvestor/service-payments/apps/billing/service/observability"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/workerpool"
@@ -35,6 +36,7 @@ type SubscriptionBusiness interface {
 type subscriptionBusiness struct {
 	workMan workerpool.Manager
 	subRepo repository.SubscriptionRepository
+	obs     *observability.Metrics
 }
 
 func NewSubscriptionBusiness(
@@ -44,13 +46,23 @@ func NewSubscriptionBusiness(
 	return &subscriptionBusiness{
 		workMan: workMan,
 		subRepo: subRepo,
+		obs:     observability.NewMetrics(),
 	}
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (b *subscriptionBusiness) CreateSubscription(
 	ctx context.Context,
 	sub *models.Subscription,
-) (*models.Subscription, error) {
+) (result *models.Subscription, err error) {
+	ctx, span := b.obs.StartSpan(ctx, "CreateSubscription")
+	defer func() {
+		b.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			b.obs.RecordSubscriptionCreated(ctx)
+		}
+	}()
+
 	if sub.ProfileID == "" {
 		return nil, ErrSubscriptionProfileRequired
 	}
@@ -75,14 +87,17 @@ func (b *subscriptionBusiness) CreateSubscription(
 		sub.BillingAnchor = sub.StartAt
 	}
 
-	if err := b.subRepo.Create(ctx, sub); err != nil {
+	if err = b.subRepo.Create(ctx, sub); err != nil {
 		return nil, err
 	}
 
 	return sub, nil
 }
 
-func (b *subscriptionBusiness) GetSubscription(ctx context.Context, id string) (*models.Subscription, error) {
+func (b *subscriptionBusiness) GetSubscription(
+	ctx context.Context,
+	id string,
+) (*models.Subscription, error) {
 	if id == "" {
 		return nil, ErrSubscriptionIDRequired
 	}
@@ -90,12 +105,25 @@ func (b *subscriptionBusiness) GetSubscription(ctx context.Context, id string) (
 	return b.subRepo.GetByID(ctx, id)
 }
 
-func (b *subscriptionBusiness) CancelSubscription(ctx context.Context, id string) (*models.Subscription, error) {
+//nolint:dupl,nonamedreturns // same span+counter pattern; named err captured by deferred span-end closure
+func (b *subscriptionBusiness) CancelSubscription(
+	ctx context.Context,
+	id string,
+) (result *models.Subscription, err error) {
+	ctx, span := b.obs.StartSpan(ctx, "CancelSubscription")
+	defer func() {
+		b.obs.EndSpan(ctx, span, err)
+		if err == nil {
+			b.obs.RecordSubscriptionCancelled(ctx)
+		}
+	}()
+
 	if id == "" {
 		return nil, ErrSubscriptionIDRequired
 	}
 
-	sub, err := b.subRepo.GetByID(ctx, id)
+	var sub *models.Subscription
+	sub, err = b.subRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}

@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
 
@@ -42,6 +43,7 @@ type client struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
 	tokens     map[string]*tokenEntry // keyed by consumerKey
+	metrics    *integrationobs.Metrics
 }
 
 // NewClient creates a new M-Pesa Daraja API client.
@@ -50,7 +52,8 @@ func NewClient() MpesaClient {
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
 		},
-		tokens: make(map[string]*tokenEntry),
+		tokens:  make(map[string]*tokenEntry),
+		metrics: integrationobs.NewMetrics("mpesa"),
 	}
 }
 
@@ -109,6 +112,8 @@ func (c *client) generateToken(ctx context.Context, creds *MpesaCredentials) (st
 
 // doAuthenticatedPost handles the common pattern of: generate token, marshal payload,
 // POST to endpoint, read response, check status, and unmarshal into result.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *client) doAuthenticatedPost(
 	ctx context.Context,
 	creds *MpesaCredentials,
@@ -116,7 +121,9 @@ func (c *client) doAuthenticatedPost(
 	payload any,
 	result any,
 	logType string,
-) error {
+) (retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, logType)
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", logType)
 	defer logger.Release()
 

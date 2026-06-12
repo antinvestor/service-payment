@@ -25,6 +25,7 @@ import (
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/data"
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/util"
@@ -33,12 +34,14 @@ import (
 // MpesaWebhookServer handles M-Pesa callback webhooks.
 type MpesaWebhookServer struct {
 	paymentCli paymentv1connect.PaymentServiceClient
+	metrics    *integrationobs.Metrics
 }
 
 // NewMpesaWebhookServer creates a new webhook server.
 func NewMpesaWebhookServer(paymentCli paymentv1connect.PaymentServiceClient) *MpesaWebhookServer {
 	return &MpesaWebhookServer{
 		paymentCli: paymentCli,
+		metrics:    integrationobs.NewMetrics("mpesa"),
 	}
 }
 
@@ -59,9 +62,12 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.stk")
 	defer logger.Release()
 
+	s.metrics.WebhookReceived(ctx, "stk")
+
 	var callback client.STKCallbackBody
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode STK callback")
+		s.metrics.WebhookRejected(ctx, "stk", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -100,6 +106,7 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status")
+		s.metrics.WebhookRejected(ctx, "stk", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -113,9 +120,12 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.c2b.validation")
 	defer logger.Release()
 
+	s.metrics.WebhookReceived(ctx, "c2b_validation")
+
 	var req client.C2BValidationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.WithError(err).Error("failed to decode C2B validation")
+		s.metrics.WebhookRejected(ctx, "c2b_validation", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -133,9 +143,12 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.c2b.confirmation")
 	defer logger.Release()
 
+	s.metrics.WebhookReceived(ctx, "c2b_confirmation")
+
 	var req client.C2BValidationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.WithError(err).Error("failed to decode C2B confirmation")
+		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -165,6 +178,7 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status for C2B confirmation")
+		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -178,9 +192,12 @@ func (s *MpesaWebhookServer) HandleB2CResult(w http.ResponseWriter, r *http.Requ
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.b2c")
 	defer logger.Release()
 
+	s.metrics.WebhookReceived(ctx, "b2c")
+
 	var callback client.B2CCallbackBody
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode B2C callback")
+		s.metrics.WebhookRejected(ctx, "b2c", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -220,6 +237,7 @@ func (s *MpesaWebhookServer) HandleB2CResult(w http.ResponseWriter, r *http.Requ
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status for B2C result")
+		s.metrics.WebhookRejected(ctx, "b2c", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -233,9 +251,12 @@ func (s *MpesaWebhookServer) HandleB2CTimeout(w http.ResponseWriter, r *http.Req
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.b2c.timeout")
 	defer logger.Release()
 
+	s.metrics.WebhookReceived(ctx, "b2c_timeout")
+
 	var callback client.B2CCallbackBody
 	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode B2C timeout callback")
+		s.metrics.WebhookRejected(ctx, "b2c_timeout", "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -260,6 +281,7 @@ func (s *MpesaWebhookServer) HandleB2CTimeout(w http.ResponseWriter, r *http.Req
 
 	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status for B2C timeout")
+		s.metrics.WebhookRejected(ctx, "b2c_timeout", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

@@ -25,6 +25,7 @@ import (
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/common"
 	"github.com/antinvestor/common/connection"
 	"github.com/antinvestor/common/permissions"
@@ -260,6 +261,12 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
+	otelInterceptor, err := otelconnect.NewInterceptor()
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("main -- could not configure open telemetry")
+	}
+	interceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+
 	implementation := handlers.NewPaymentServer(
 		paymentBusiness,
 		profileCli,
@@ -268,7 +275,7 @@ func setupConnectServer(
 	)
 
 	_, serverHandler := paymentv1connect.NewPaymentServiceHandler(
-		implementation, connect.WithInterceptors(defaultInterceptorList...))
+		implementation, connect.WithInterceptors(interceptors...))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", serverHandler)

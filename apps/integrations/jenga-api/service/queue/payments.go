@@ -24,6 +24,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -35,6 +36,7 @@ type paymentHandler struct {
 	credentialResolver
 	statusEmitter
 	jengaCli coreapi.JengaApiClient
+	metrics  *integrationobs.Metrics
 }
 
 // NewPaymentHandler creates a queue worker for handling disbursement payments via Jenga tills-pay.
@@ -48,6 +50,7 @@ func NewPaymentHandler(
 		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
 		statusEmitter:      statusEmitter{eventsMan: eventsMan},
 		jengaCli:           jengaCli,
+		metrics:            integrationobs.NewMetrics("jenga"),
 	}
 }
 
@@ -58,6 +61,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment protobuf")
+		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil // non-retriable
 	}
 
@@ -71,6 +75,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	jengaCreds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve Jenga credentials")
+		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -106,6 +111,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	token, err := h.jengaCli.GenerateBearerToken(ctx, apiCreds)
 	if err != nil {
 		logger.WithError(err).Error("failed to generate bearer token for disbursement")
+		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       fmt.Sprintf("generate bearer token: %v", err),
 			"entity_type": "payment",
@@ -116,6 +122,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	resp, err := h.jengaCli.InitiateTillsPay(ctx, apiCreds, tillsReq, token.AccessToken)
 	if err != nil {
 		logger.WithError(err).Error("tills pay disbursement failed")
+		h.metrics.QueueFailed(ctx, "payment", "provider_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       fmt.Sprintf("tills pay: %v", err),
 			"entity_type": "payment",
@@ -134,6 +141,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		"entity_type":    "payment",
 	})
 
+	h.metrics.QueueProcessed(ctx, "payment")
 	return nil
 }
 

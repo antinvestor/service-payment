@@ -20,6 +20,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/pkg/events"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -29,6 +30,7 @@ import (
 
 type paymentHandler struct {
 	eventsMan frameEvents.Manager
+	metrics   *integrationobs.Metrics
 }
 
 // NewPaymentHandler creates a queue worker for the payment queue.
@@ -38,6 +40,7 @@ func NewPaymentHandler(
 ) queue.SubscribeWorker {
 	return &paymentHandler{
 		eventsMan: eventsMan,
+		metrics:   integrationobs.NewMetrics("polar"),
 	}
 }
 
@@ -49,11 +52,14 @@ func (h *paymentHandler) Handle(ctx context.Context, _ map[string]string, payloa
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment")
+		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil
 	}
 
 	paymentID := payment.GetId()
 	logger.WithField("payment_id", paymentID).Warn("Polar does not support disbursements")
+
+	h.metrics.QueueFailed(ctx, "payment", "rejected")
 
 	// Polar doesn't support disbursements — report failure
 	extra, _ := structpb.NewStruct(map[string]any{

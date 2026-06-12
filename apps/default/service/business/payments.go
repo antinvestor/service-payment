@@ -40,6 +40,8 @@ import (
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func NewPaymentBusiness(
@@ -75,6 +77,7 @@ func NewPaymentBusiness(
 		paymentLinkRepo:      paymentLinkRepo,
 		workMan:              workMan,
 		paymentMetrics:       metrics.NewPaymentMetrics(),
+		obs:                  metrics.NewMetrics(),
 	}, nil
 }
 
@@ -94,9 +97,22 @@ type paymentBusiness struct {
 	paymentLinkRepo      repository.PaymentLinkRepository
 	workMan              workerpool.Manager
 	paymentMetrics       *metrics.PaymentMetrics
+	obs                  *metrics.Metrics
 }
 
-func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
+//nolint:nonamedreturns // named err captured by deferred span-end closure
+func (pb *paymentBusiness) Send(
+	ctx context.Context,
+	message *paymentv1.Payment,
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "Send",
+		trace.WithAttributes(
+			attribute.String("payment.route", message.GetRoute()),
+			attribute.Bool("payment.outbound", true),
+		),
+	)
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
 	p := &models.Payment{
 		SenderProfileType:    message.GetSource().GetProfileType(),
 		SenderProfileID:      message.GetSource().GetProfileId(),
@@ -125,13 +141,13 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 	pb.validateAmountAndCost(message, p, c)
 
 	// Save cost separately and add its ID to payment
-	if err := pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
 	}
 	p.CostIDs = []string{c.ID}
 
-	if err := pb.eventMan.Emit(ctx, events.EventNamePaymentSave, p); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNamePaymentSave, p); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
@@ -162,8 +178,8 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 
 	// Create ledger transaction for outbound payment
 	if pb.ledgerCli != nil && p.Amount != nil {
-		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
-			util.Log(ctx).WithError(err).Warn("could not create ledger transaction for send")
+		if ledgerErr := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); ledgerErr != nil {
+			util.Log(ctx).WithError(ledgerErr).Warn("could not create ledger transaction for send")
 			// Don't fail the payment if ledger fails, just log the error
 		}
 	}
@@ -178,7 +194,7 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 	}
 	status.GenID(ctx)
 
-	err := pb.statusRepo.Create(ctx, status)
+	err = pb.statusRepo.Create(ctx, status)
 	if err != nil {
 		util.Log(ctx).WithError(err).Warn("could not save status")
 		return nil, err
@@ -189,7 +205,19 @@ func (pb *paymentBusiness) Send(ctx context.Context, message *paymentv1.Payment)
 	return status.ToAPI(), nil
 }
 
-func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
+//nolint:nonamedreturns // named err captured by deferred span-end closure
+func (pb *paymentBusiness) Receive(
+	ctx context.Context,
+	message *paymentv1.Payment,
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "Receive",
+		trace.WithAttributes(
+			attribute.String("payment.route", message.GetRoute()),
+			attribute.Bool("payment.outbound", false),
+		),
+	)
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
 	logger := util.Log(ctx)
 	logger.Debug("handling receive request")
 
@@ -219,13 +247,13 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 	pb.validateAmountAndCost(message, p, c)
 
 	// Save cost separately and add its ID to payment
-	if err := pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit cost event")
 		return nil, err
 	}
 	p.CostIDs = []string{c.ID}
 
-	if err := pb.eventMan.Emit(ctx, events.EventNamePaymentSave, p); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNamePaymentSave, p); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit payment event")
 		return nil, err
 	}
@@ -256,8 +284,11 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 
 	// Create ledger transaction for inbound payment
 	if pb.ledgerCli != nil && p.Amount != nil {
-		if err := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); err != nil {
-			util.Log(ctx).WithError(err).Warn("could not create ledger transaction for receive")
+		if ledgerErr := pb.createDepositStep1(ctx, p, senderTel, groupName, memberName); ledgerErr != nil {
+			util.Log(ctx).
+				WithError(ledgerErr).
+				Warn("could not create ledger transaction for receive")
+
 			// Don't fail the payment if ledger fails, just log the error
 		}
 	}
@@ -272,7 +303,7 @@ func (pb *paymentBusiness) Receive(ctx context.Context, message *paymentv1.Payme
 	}
 	status.GenID(ctx)
 
-	if err := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit status event")
 		return nil, err
 	}
@@ -300,10 +331,14 @@ func (pb *paymentBusiness) Status(
 	return status.ToAPI(), nil
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (pb *paymentBusiness) StatusUpdate(
 	ctx context.Context,
 	req *commonv1.StatusUpdateRequest,
-) (*commonv1.StatusResponse, error) {
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "StatusUpdate")
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
 	logger := util.Log(ctx).WithField("entity_id", req.GetId())
 	logger.Debug("handling status update request")
 
@@ -324,7 +359,7 @@ func (pb *paymentBusiness) StatusUpdate(
 	}
 	status.GenID(ctx)
 
-	if err := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
+	if err = pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
 		logger.WithError(err).Warn("could not emit status save")
 		return nil, err
 	}
@@ -384,14 +419,18 @@ func (pb *paymentBusiness) Search(
 		searchOpts = append(
 			searchOpts,
 			data.WithSearchFiltersOrByValue(
-				map[string]any{"searchable @@ websearch_to_tsquery( 'english', ?) ": searchQuery.GetQuery()},
+				map[string]any{
+					"searchable @@ websearch_to_tsquery( 'english', ?) ": searchQuery.GetQuery(),
+				},
 			),
 		)
 
 		for _, filter := range searchQuery.GetProperties() {
 			searchOpts = append(
 				searchOpts,
-				data.WithSearchFiltersOrByValue(map[string]any{fmt.Sprintf(" %s = ?", filter): searchQuery.GetQuery()}),
+				data.WithSearchFiltersOrByValue(
+					map[string]any{fmt.Sprintf(" %s = ?", filter): searchQuery.GetQuery()},
+				),
 			)
 		}
 	}
@@ -433,14 +472,21 @@ func (pb *paymentBusiness) Search(
 	return processRes, nil
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (pb *paymentBusiness) Release(
 	ctx context.Context,
 	paymentReq *paymentv1.ReleaseRequest,
-) (*commonv1.StatusResponse, error) {
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "Release",
+		trace.WithAttributes(attribute.String("payment.id", paymentReq.GetId())),
+	)
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
 	logger := util.Log(ctx).WithField("payment_id", paymentReq.GetId())
 	logger.Debug("handling release request")
 
-	p, err := pb.paymentRepo.GetByID(ctx, paymentReq.GetId())
+	var p *models.Payment
+	p, err = pb.paymentRepo.GetByID(ctx, paymentReq.GetId())
 	if err != nil {
 		logger.WithError(err).Warn("could not fetch payment by id")
 		return nil, err
@@ -474,18 +520,32 @@ func (pb *paymentBusiness) Release(
 
 		return status.ToAPI(), nil
 	}
-	status, statusErr := pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
-	if statusErr != nil {
-		logger.WithError(statusErr).Warn("could not get payment status")
-		return nil, statusErr
+	var status *models.Status
+	status, err = pb.statusRepo.GetByEntity(ctx, p.ID, "payment")
+	if err != nil {
+		logger.WithError(err).Warn("could not get payment status")
+		return nil, err
 	}
 	return status.ToAPI(), nil
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (pb *paymentBusiness) InitiatePrompt(
 	ctx context.Context,
 	req *paymentv1.InitiatePromptRequest,
-) (*commonv1.StatusResponse, error) {
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "InitiatePrompt")
+	start := time.Now()
+	defer func() {
+		pb.obs.EndSpan(ctx, span, err)
+		if err != nil {
+			pb.obs.RecordPromptFailed(ctx)
+		} else {
+			pb.obs.RecordPromptInitiated(ctx)
+			pb.obs.RecordPromptLatency(ctx, time.Since(start))
+		}
+	}()
+
 	logger := util.Log(ctx)
 	logger.Debug("handling initiate prompt request")
 
@@ -498,7 +558,6 @@ func (pb *paymentBusiness) InitiatePrompt(
 
 	// Use AccountRepository to get or create the account
 	var accountPtr *models.Account
-	var err error
 	accountPtr, err = pb.accountRepo.GetByAccountNumber(ctx, account.AccountNumber)
 	if err != nil {
 		// If not found, create the account
@@ -508,8 +567,46 @@ func (pb *paymentBusiness) InitiatePrompt(
 			logger.WithError(err).Warn("could not create account")
 			return nil, err
 		}
+		accountPtr = &account
+		err = nil
 	}
 
+	transactionRef := generateTransactionRef()
+	p := buildPromptModel(ctx, req, accountPtr, transactionRef)
+
+	logger = logger.WithField("prompt_id", p.ID)
+	logger.Debug("prompt ID set")
+
+	err = pb.eventMan.Emit(ctx, events.EventNamePromptSave, p)
+	if err != nil {
+		logger.WithError(err).Warn("could not emit prompt save")
+		return nil, err
+	}
+
+	logger.Debug("prompt saved and event emitted for STK/USSD processing")
+
+	status, err := pb.publishPromptStatus(ctx, p.ID, transactionRef)
+	if err != nil {
+		return nil, err
+	}
+
+	err = pb.qMan.Publish(ctx, pb.promptTopicName, p)
+	if err != nil {
+		logger.WithError(err).Warn("could not publish initiate-prompt")
+		return nil, err
+	}
+
+	return status.ToAPI(), nil
+}
+
+// buildPromptModel constructs a Prompt model from the initiate-prompt request,
+// attaching the resolved account and seeding Extra fields.
+func buildPromptModel(
+	ctx context.Context,
+	req *paymentv1.InitiatePromptRequest,
+	accountPtr *models.Account,
+	transactionRef string,
+) *models.Prompt {
 	var promptExtras data.JSONMap
 	promptExtras = promptExtras.FromProtoStruct(req.GetExtra())
 
@@ -530,38 +627,27 @@ func (pb *paymentBusiness) InitiatePrompt(
 		Extra:                promptExtras,
 	}
 
-	// Generate a unique transaction reference (6 chars - letter prefix + 5 digits)
-	transactionRef := generateTransactionRef()
-
-	// First explicitly set the provided ID if one was given
 	if req.GetId() != "" {
 		p.ID = req.GetId()
 	}
-
 	if p.ID == "" {
 		p.GenID(ctx)
 		p.ID = p.GetID()
 	}
 
-	logger = logger.WithField("prompt_id", p.ID)
-	logger.Debug("prompt ID set")
-
 	p.Extra["transaction_ref"] = transactionRef
 	p.Extra["currency"] = req.GetAmount().GetCurrencyCode()
 	p.Extra["mobile_number"] = req.GetSource().GetDetail()
-	// Add telco and pushType information if provided
+	return p
+}
 
-	err = pb.eventMan.Emit(ctx, events.EventNamePromptSave, p)
-	if err != nil {
-		logger.WithError(err).Warn("could not emit prompt save")
-		return nil, err
-	}
-
-	logger.Debug("prompt saved and event emitted for STK/USSD processing")
-
-	// Create status using repository
+// publishPromptStatus saves a queued Status record for the prompt and returns it.
+func (pb *paymentBusiness) publishPromptStatus(
+	ctx context.Context,
+	promptID, transactionRef string,
+) (*models.Status, error) {
 	status := &models.Status{
-		EntityID:   p.ID,
+		EntityID:   promptID,
 		EntityType: "prompt",
 		State:      int32(commonv1.STATE_CREATED.Number()),
 		Status:     int32(commonv1.STATUS_QUEUED.Number()),
@@ -570,26 +656,21 @@ func (pb *paymentBusiness) InitiatePrompt(
 	status.GenID(ctx)
 	status.Extra["transaction_ref"] = transactionRef
 
-	err = pb.eventMan.Emit(ctx, events.EventNameStatusSave, status)
-	if err != nil {
-		logger.WithError(err).Warn("could not save status")
+	if err := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); err != nil {
+		util.Log(ctx).WithError(err).Warn("could not save status")
 		return nil, err
 	}
-
-	err = pb.qMan.Publish(ctx, pb.promptTopicName, p)
-	if err != nil {
-		logger.WithError(err).Warn("could not publish initiate-prompt")
-		return nil, err
-	}
-
-	return status.ToAPI(), nil
+	return status, nil
 }
 
-//nolint:gocognit,funlen // Business logic complexity and length are acceptable for payment link creation
+//nolint:gocognit,funlen,nonamedreturns // Business logic complexity and length are acceptable for payment link creation; named err captured by deferred span-end closure
 func (pb *paymentBusiness) CreatePaymentLink(
 	ctx context.Context,
 	req *paymentv1.CreatePaymentLinkRequest,
-) (*commonv1.StatusResponse, error) {
+) (resp *commonv1.StatusResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "CreatePaymentLink")
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
 	logger := util.Log(ctx)
 	logger.Debug("handling create payment link request")
 
@@ -604,10 +685,10 @@ func (pb *paymentBusiness) CreatePaymentLink(
 	// Marshal customers to JSON
 	var customersJSON data.JSONMap
 	if len(req.GetCustomers()) > 0 {
-		customers, err := pb.buildCustomersFromRequest(req.GetCustomers())
-		if err != nil {
-			logger.WithError(err).Error("failed to build customers")
-			return nil, err
+		customers, buildErr := pb.buildCustomersFromRequest(req.GetCustomers())
+		if buildErr != nil {
+			logger.WithError(buildErr).Error("failed to build customers")
+			return nil, buildErr
 		}
 		customersJSON = customers
 	}
@@ -627,10 +708,10 @@ func (pb *paymentBusiness) CreatePaymentLink(
 				continue
 			}
 		}
-		b, err := json.Marshal(notificationTypes)
-		if err != nil {
-			logger.WithError(err).Error("failed to marshal notifications")
-			return nil, err
+		b, marshalErr := json.Marshal(notificationTypes)
+		if marshalErr != nil {
+			logger.WithError(marshalErr).Error("failed to marshal notifications")
+			return nil, marshalErr
 		}
 		if unmarshalErr := json.Unmarshal(b, &notificationsJSON); unmarshalErr != nil {
 			logger.WithError(unmarshalErr).Error("failed to convert notifications to JSONMap")
@@ -639,12 +720,12 @@ func (pb *paymentBusiness) CreatePaymentLink(
 	}
 
 	// Parse dates
-	expiryDate, err := time.Parse("2006-01-02", plReq.GetExpiryDate())
-	if err != nil {
+	expiryDate, parseErr := time.Parse("2006-01-02", plReq.GetExpiryDate())
+	if parseErr != nil {
 		expiryDate = time.Now().Add(1 * 24 * time.Hour) // default: 1 days from now
 	}
-	saleDate, err := time.Parse("2006-01-02", plReq.GetSaleDate())
-	if err != nil {
+	saleDate, parseErr2 := time.Parse("2006-01-02", plReq.GetSaleDate())
+	if parseErr2 != nil {
 		saleDate = time.Now()
 	}
 
@@ -711,15 +792,21 @@ func (pb *paymentBusiness) CreatePaymentLink(
 		status.Status = int32(commonv1.STATUS_FAILED.Number())
 		status.Extra["error"] = err.Error()
 		if statusFailErr := pb.eventMan.Emit(ctx, events.EventNameStatusSave, status); statusFailErr != nil {
-			logger.WithError(statusFailErr).Warn("could not emit payment link status event after publish failure")
+			logger.WithError(statusFailErr).
+				Warn("could not emit payment link status event after publish failure")
 		}
 		return nil, err
 	}
+	pb.obs.RecordPaymentLinkCreated(ctx)
 	return status.ToAPI(), nil
 }
 
 // validateAmountAndCost validates the amount and cost fields of the Payment.
-func (pb *paymentBusiness) validateAmountAndCost(message *paymentv1.Payment, p *models.Payment, c *models.Cost) {
+func (pb *paymentBusiness) validateAmountAndCost(
+	message *paymentv1.Payment,
+	p *models.Payment,
+	c *models.Cost,
+) {
 	if message.GetAmount().GetUnits() <= 0 || message.GetAmount().GetCurrencyCode() == "" {
 		return
 	}
@@ -949,9 +1036,16 @@ func (pb *paymentBusiness) splitProfileName(profileName string) (string, string)
 	return firstName, lastName
 }
 
+//nolint:nonamedreturns // named err captured by deferred span-end closure
 func (pb *paymentBusiness) Reconcile(
-	_ context.Context,
+	ctx context.Context,
 	_ *paymentv1.ReconcileRequest,
-) (*paymentv1.ReconcileResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("reconcile not yet implemented"))
+) (resp *paymentv1.ReconcileResponse, err error) {
+	ctx, span := pb.obs.StartSpan(ctx, "Reconcile")
+	defer func() { pb.obs.EndSpan(ctx, span, err) }()
+
+	return nil, connect.NewError(
+		connect.CodeUnimplemented,
+		errors.New("reconcile not yet implemented"),
+	)
 }

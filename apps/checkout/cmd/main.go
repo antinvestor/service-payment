@@ -25,6 +25,7 @@ import (
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/common"
 	"github.com/antinvestor/common/connection"
 	"github.com/antinvestor/common/permissions"
@@ -150,13 +151,18 @@ func handleDatabaseMigration(
 	return false
 }
 
-// setupConnectServer mirrors ledger's interceptor stack exactly:
-// TenancyAccessInterceptor → FunctionAccessInterceptor → DefaultList.
+// setupConnectServer wires the interceptor stack:
+// otelconnect → TenancyAccessInterceptor → FunctionAccessInterceptor → DefaultList.
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
 	implementation checkoutv1connect.CheckoutServiceHandler,
 ) http.Handler {
+	otelInterceptor, err := otelconnect.NewInterceptor()
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
+	}
+
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
@@ -177,8 +183,11 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
+	// Prepend otelconnect as the outermost interceptor so every RPC is traced.
+	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+
 	_, serverHandler := checkoutv1connect.NewCheckoutServiceHandler(
-		implementation, connect.WithInterceptors(defaultInterceptorList...))
+		implementation, connect.WithInterceptors(allInterceptors...))
 
 	return serverHandler
 }

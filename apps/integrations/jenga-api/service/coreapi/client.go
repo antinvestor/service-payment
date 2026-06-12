@@ -26,6 +26,7 @@ import (
 	"time"
 
 	models "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
 
@@ -41,6 +42,7 @@ type Client struct {
 	HTTPClient *http.Client
 	mu         sync.RWMutex
 	tokens     map[string]*tokenEntry // keyed by MerchantCode
+	metrics    *integrationobs.Metrics
 }
 
 // New creates a new instance of the Jenga API client.
@@ -49,6 +51,7 @@ func New(httpClient *http.Client) *Client {
 	return &Client{
 		HTTPClient: httpClient,
 		tokens:     make(map[string]*tokenEntry),
+		metrics:    integrationobs.NewMetrics("jenga"),
 	}
 }
 
@@ -155,12 +158,16 @@ func generatePaymentSignature(privateKeyPath string, args ...string) (string, er
 }
 
 // InitiateSTKUSSD initiates an STK/USSD push request.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *Client) InitiateSTKUSSD(
 	ctx context.Context,
 	creds *Credentials,
 	request models.STKUSSDRequest,
 	accessToken string,
-) (*models.STKUSSDResponse, error) {
+) (_ *models.STKUSSDResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "initiate_stk_ussd")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithFields(map[string]any{
 		"operation":   "InitiateSTKUSSD",
 		"payment_ref": request.Payment.Ref,
@@ -242,12 +249,16 @@ func (c *Client) InitiateSTKUSSD(
 }
 
 // CreatePaymentLink creates a payment link using the Jenga API.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *Client) CreatePaymentLink(
 	ctx context.Context,
 	creds *Credentials,
 	request models.PaymentLinkRequest,
 	accessToken string,
-) (*models.PaymentLinkResponse, error) {
+) (_ *models.PaymentLinkResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "create_payment_link")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithFields(map[string]any{
 		"operation":    "CreatePaymentLink",
 		"external_ref": request.PaymentLink.ExternalRef,
@@ -327,12 +338,16 @@ func (c *Client) CreatePaymentLink(
 }
 
 // InitiateTillsPay initiates a tills/pay request.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *Client) InitiateTillsPay(
 	ctx context.Context,
 	creds *Credentials,
 	request models.TillsPayRequest,
 	accessToken string,
-) (*models.TillsPayResponse, error) {
+) (_ *models.TillsPayResponse, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "initiate_tills_pay")
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithFields(map[string]any{
 		"operation":   "InitiateTillsPay",
 		"till":        request.Merchant.Till,

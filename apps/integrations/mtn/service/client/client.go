@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/google/uuid"
 	"github.com/pitabwire/util"
 )
@@ -43,6 +44,7 @@ type mtnClient struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
 	tokens     map[string]*tokenEntry // keyed by product:apiUser
+	metrics    *integrationobs.Metrics
 }
 
 // NewClient creates a new MTN MoMo API client.
@@ -51,7 +53,8 @@ func NewClient() MtnClient {
 		httpClient: &http.Client{
 			Timeout: httpClientTimeout,
 		},
-		tokens: make(map[string]*tokenEntry),
+		tokens:  make(map[string]*tokenEntry),
+		metrics: integrationobs.NewMetrics("mtn"),
 	}
 }
 
@@ -115,13 +118,17 @@ func (c *mtnClient) generateToken(ctx context.Context, creds *MtnCredentials, pr
 }
 
 // postTransaction handles the common POST pattern for both RequestToPay and Transfer.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *mtnClient) postTransaction(
 	ctx context.Context,
 	creds *MtnCredentials,
 	product, endpoint, logType string,
 	referenceID, callbackURL string,
 	payload any,
-) error {
+) (retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, logType)
+	defer func() { done(retErr) }()
 	logger := util.Log(ctx).WithField("type", logType)
 	defer logger.Release()
 
@@ -165,11 +172,15 @@ func (c *mtnClient) postTransaction(
 }
 
 // getTransactionStatus handles the common GET status pattern for both collection and disbursement.
+//
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
 func (c *mtnClient) getTransactionStatus(
 	ctx context.Context,
 	creds *MtnCredentials,
 	product, endpoint string,
-) ([]byte, error) {
+) (_ []byte, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "get_transaction_status")
+	defer func() { done(retErr) }()
 	token, err := c.generateToken(ctx, creds, product)
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)

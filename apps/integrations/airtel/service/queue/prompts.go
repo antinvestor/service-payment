@@ -23,6 +23,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/config"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/client"
 	"github.com/antinvestor/service-payments/pkg/events"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -34,6 +35,7 @@ type promptHandler struct {
 	credentialResolver
 	eventsMan frameEvents.Manager
 	airtelCli client.AirtelClient
+	metrics   *integrationobs.Metrics
 }
 
 // NewPromptHandler creates a queue worker for handling USSD push collection prompts.
@@ -50,6 +52,7 @@ func NewPromptHandler(
 		},
 		eventsMan: eventsMan,
 		airtelCli: airtelCli,
+		metrics:   integrationobs.NewMetrics("airtel"),
 	}
 }
 
@@ -61,6 +64,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
+		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil
 	}
 
@@ -70,6 +74,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -101,6 +106,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	resp, err := h.airtelCli.CollectionPush(ctx, creds, req)
 	if err != nil {
 		logger.WithError(err).Error("collection push failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "prompt",
@@ -118,6 +124,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		"entity_type":    "prompt",
 	})
 
+	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil
 }
 

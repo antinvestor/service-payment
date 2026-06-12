@@ -23,6 +23,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/config"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/credentials"
+	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/events"
 	"github.com/pitabwire/frame/queue"
 	"github.com/pitabwire/util"
@@ -33,6 +34,7 @@ type paymentHandler struct {
 	statusEmitter
 	credsResolver *credentials.Resolver
 	pawapayCli    client.PawapayClient
+	metrics       *integrationobs.Metrics
 }
 
 // NewPaymentHandler creates a queue worker for handling payout disbursements.
@@ -46,6 +48,7 @@ func NewPaymentHandler(
 		statusEmitter: statusEmitter{eventsMan: eventsMan},
 		credsResolver: credentials.NewResolver(settingsCli, cfg),
 		pawapayCli:    pawapayCli,
+		metrics:       integrationobs.NewMetrics("pawapay"),
 	}
 }
 
@@ -57,6 +60,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment")
+		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil // non-retriable
 	}
 
@@ -66,6 +70,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	creds, err := h.credsResolver.FromHeaders(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -79,6 +84,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	provider, phoneNumber, err := resolveProvider(ctx, h.pawapayCli, creds, extraProvider, phoneNumber)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve provider")
+		h.metrics.QueueFailed(ctx, "payment", "provider_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -102,6 +108,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	resp, err := h.pawapayCli.InitiatePayout(ctx, creds, payoutReq)
 	if err != nil {
 		logger.WithError(err).Error("payout initiation failed")
+		h.metrics.QueueFailed(ctx, "payment", "provider_error")
 		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
 			"error":       err.Error(),
 			"entity_type": "payment",
@@ -111,6 +118,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	if resp.Status == client.InitiationStatusRejected {
 		logger.WithField("failure_reason", resp.FailureReason).Error("payout rejected")
+		h.metrics.QueueFailed(ctx, "payment", "rejected")
 		h.emitStatus(ctx, paymentID, payoutID, commonv1.STATUS_FAILED, map[string]any{
 			"payout_id":       payoutID,
 			"failure_code":    failureCode(resp.FailureReason),
@@ -122,6 +130,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	logger.WithField("payout_id", payoutID).WithField("status", resp.Status).Debug("payout initiated")
 
+	h.metrics.QueueProcessed(ctx, "payment")
 	h.emitStatus(ctx, paymentID, payoutID, commonv1.STATUS_IN_PROCESS, map[string]any{
 		"payout_id":   payoutID,
 		"provider":    provider,

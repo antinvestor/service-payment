@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"math/big"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -167,21 +166,22 @@ func TestSignRequest_RoundTrip(t *testing.T) {
 		sigParams,
 	)
 
-	// Decode the 64-byte r||s signature
+	// Decode the ASN.1 DER signature (pawaPay's verifier expects DER,
+	// matching their own published signature examples).
 	sigFull := req.Header.Get("Signature")
 	require.NotEmpty(t, sigFull)
-	// Strip "sig-pp=:" prefix and ":" suffix
 	sigB64 := strings.TrimPrefix(sigFull, sigLabel+"=:")
 	sigB64 = strings.TrimSuffix(sigB64, ":")
-	rawSig, err := base64.StdEncoding.DecodeString(sigB64)
+	derSig, err := base64.StdEncoding.DecodeString(sigB64)
 	require.NoError(t, err)
-	require.Len(t, rawSig, 64, "signature must be exactly 64 bytes (r||s)")
-
-	r := new(big.Int).SetBytes(rawSig[:32])
-	s := new(big.Int).SetBytes(rawSig[32:])
+	assert.Equal(t, byte(0x30), derSig[0], "signature must be ASN.1 DER (SEQUENCE)")
 
 	h := sha256.Sum256([]byte(base))
-	assert.True(t, ecdsa.Verify(&key.PublicKey, h[:], r, s), "signature verification must pass")
+	assert.True(t, ecdsa.VerifyASN1(&key.PublicKey, h[:], derSig), "signature verification must pass")
+
+	// The accepted-algorithms headers must accompany signed requests.
+	assert.Equal(t, "ecdsa-p256-sha256", req.Header.Get("Accept-Signature"))
+	assert.Equal(t, "sha-256,sha-512", req.Header.Get("Accept-Digest"))
 }
 
 func TestSignRequest_TamperedBodyFails(t *testing.T) {
@@ -195,14 +195,12 @@ func TestSignRequest_TamperedBodyFails(t *testing.T) {
 	err := signRequest(req, originalBody, "MY_KEY", key, now)
 	require.NoError(t, err)
 
-	// Decode original signature
+	// Decode original DER signature
 	sigFull := req.Header.Get("Signature")
 	sigB64 := strings.TrimPrefix(sigFull, sigLabel+"=:")
 	sigB64 = strings.TrimSuffix(sigB64, ":")
-	rawSig, err := base64.StdEncoding.DecodeString(sigB64)
+	derSig, err := base64.StdEncoding.DecodeString(sigB64)
 	require.NoError(t, err)
-	r := new(big.Int).SetBytes(rawSig[:32])
-	s := new(big.Int).SetBytes(rawSig[32:])
 
 	// Reconstruct signature base with tampered digest
 	tamperedSum := sha256.Sum256(tamperedBody)
@@ -219,7 +217,7 @@ func TestSignRequest_TamperedBodyFails(t *testing.T) {
 
 	// Verification against tampered base must fail
 	h := sha256.Sum256([]byte(tamperedBase))
-	assert.False(t, ecdsa.Verify(&key.PublicKey, h[:], r, s), "tampered body must not verify")
+	assert.False(t, ecdsa.VerifyASN1(&key.PublicKey, h[:], derSig), "tampered body must not verify")
 }
 
 // ─── Signature-Input format ──────────────────────────────────────────────────

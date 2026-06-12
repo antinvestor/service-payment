@@ -24,7 +24,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -36,13 +35,6 @@ const (
 
 	// sigDuration is how long a signed request is valid.
 	sigDuration = 60
-
-	// ecdsaPartLen is the fixed byte length of each ECDSA component (r or s)
-	// for P-256 (256 bits / 8 = 32 bytes).
-	ecdsaPartLen = 32
-
-	// ecdsaSigLen is the total length of the concatenated r||s signature bytes.
-	ecdsaSigLen = ecdsaPartLen * 2
 )
 
 // signRequest adds RFC-9421 message-signature headers (Content-Digest,
@@ -74,25 +66,26 @@ func signRequest(req *http.Request, body []byte, keyID string, key *ecdsa.Privat
 	// Build signature base per RFC 9421 §2.5
 	base := buildSignatureBase(req.Method, authority, path, sigDate, digest, req.Header.Get("Content-Type"), sigParams)
 
-	// Sign: ECDSA-P256 over SHA-256(base) → 64-byte r||s
+	// Sign: ECDSA-P256 over SHA-256(base), ASN.1 DER encoded.
+	// RFC 9421 specifies fixed-width r||s for ecdsa-p256-sha256, but
+	// pawaPay's own published signature examples (and their response
+	// signatures) are ASN.1 DER — their Java verifier expects DER, so we
+	// deliberately match their implementation rather than the strict RFC.
 	h := sha256.Sum256([]byte(base))
-	r, s, err := ecdsa.Sign(rand.Reader, key, h[:])
+	derSig, err := ecdsa.SignASN1(rand.Reader, key, h[:])
 	if err != nil {
 		return fmt.Errorf("ecdsa sign: %w", err)
 	}
+	sigValue := sigLabel + "=:" + base64.StdEncoding.EncodeToString(derSig) + ":"
 
-	// Encode as fixed-width 64-byte r||s (RFC 9421 requirement)
-	rBytes := zeroPad(r, ecdsaPartLen)
-	rawSig := make([]byte, ecdsaSigLen)
-	copy(rawSig[:ecdsaPartLen], rBytes)
-	copy(rawSig[ecdsaPartLen:], zeroPad(s, ecdsaPartLen))
-	sigValue := sigLabel + "=:" + base64.StdEncoding.EncodeToString(rawSig) + ":"
-
-	// Set headers
+	// Set headers, including the accepted algorithms for signed responses
+	// per the pawaPay signatures specification.
 	req.Header.Set("Content-Digest", digest)
 	req.Header.Set("Signature-Date", sigDate)
 	req.Header.Set("Signature-Input", sigInput)
 	req.Header.Set("Signature", sigValue)
+	req.Header.Set("Accept-Signature", "ecdsa-p256-sha256")
+	req.Header.Set("Accept-Digest", "sha-256,sha-512")
 
 	return nil
 }
@@ -110,17 +103,6 @@ func buildSignatureBase(method, authority, path, sigDate, digest, contentType, s
 		`"@signature-params": ` + sigParams,
 	}
 	return strings.Join(lines, "\n")
-}
-
-// zeroPad returns the big.Int's bytes left-padded with zeros to length n.
-func zeroPad(n *big.Int, length int) []byte {
-	b := n.Bytes()
-	if len(b) >= length {
-		return b[len(b)-length:]
-	}
-	padded := make([]byte, length)
-	copy(padded[length-len(b):], b)
-	return padded
 }
 
 // parsePrivateKey parses a PEM-encoded ECDSA private key.

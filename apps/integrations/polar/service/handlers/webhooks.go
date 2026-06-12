@@ -101,6 +101,12 @@ func (s *PolarWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.Reques
 		statusErr = s.handleSubscriptionCreated(ctx, logger, event)
 	case "subscription.updated":
 		statusErr = s.handleSubscriptionUpdated(ctx, logger, event)
+	case "subscription.active":
+		statusErr = s.handleSubscriptionActive(ctx, logger, event)
+	case "subscription.canceled":
+		statusErr = s.handleSubscriptionCanceled(ctx, logger, event)
+	case "subscription.revoked":
+		statusErr = s.handleSubscriptionRevoked(ctx, logger, event)
 	default:
 		logger.Debug("unhandled event type, skipping")
 	}
@@ -260,6 +266,77 @@ func (s *PolarWebhookServer) handleSubscriptionUpdated(
 		"polar_event_type":    event.Type,
 		"subscription_id":     subID,
 		"subscription_status": subStatus,
+		"entity_type":         "prompt",
+	}
+
+	statusReq := &commonv1.StatusUpdateRequest{
+		Id:         promptID,
+		State:      state,
+		Status:     status,
+		ExternalId: subID,
+		Extras:     extras.ToProtoStruct(),
+	}
+
+	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+		logger.WithError(err).Error("could not update payment status")
+		return err
+	}
+	return nil
+}
+
+func (s *PolarWebhookServer) handleSubscriptionActive(
+	ctx context.Context,
+	logger *util.LogEntry,
+	event *client.WebhookEvent,
+) error {
+	return s.updateSubscriptionStatus(ctx, logger, event, commonv1.STATE_ACTIVE, commonv1.STATUS_SUCCESSFUL)
+}
+
+func (s *PolarWebhookServer) handleSubscriptionCanceled(
+	ctx context.Context,
+	logger *util.LogEntry,
+	event *client.WebhookEvent,
+) error {
+	return s.updateSubscriptionStatus(ctx, logger, event, commonv1.STATE_INACTIVE, commonv1.STATUS_FAILED)
+}
+
+func (s *PolarWebhookServer) handleSubscriptionRevoked(
+	ctx context.Context,
+	logger *util.LogEntry,
+	event *client.WebhookEvent,
+) error {
+	return s.updateSubscriptionStatus(ctx, logger, event, commonv1.STATE_INACTIVE, commonv1.STATUS_FAILED)
+}
+
+// updateSubscriptionStatus is the shared implementation for subscription lifecycle
+// events (active, canceled, revoked). It extracts the subscription id, polar status,
+// and current_period_end from the event data and emits a StatusUpdate with the
+// supplied state and status codes. The extras carry polar_event_type,
+// subscription_id, subscription_status, current_period_end, and entity_type so
+// that billing can mirror the period state.
+func (s *PolarWebhookServer) updateSubscriptionStatus(
+	ctx context.Context,
+	logger *util.LogEntry,
+	event *client.WebhookEvent,
+	state commonv1.STATE,
+	status commonv1.STATUS,
+) error {
+	subID := getStringField(event.Data, "id")
+	subStatus := getStringField(event.Data, "status")
+	currentPeriodEnd := getStringField(event.Data, "current_period_end")
+	metadata := getMetadata(event.Data)
+	ctx = injectTenantContext(ctx, metadata)
+
+	promptID := metadata["prompt_id"]
+	if promptID == "" {
+		promptID = subID
+	}
+
+	extras := data.JSONMap{
+		"polar_event_type":    event.Type,
+		"subscription_id":     subID,
+		"subscription_status": subStatus,
+		"current_period_end":  currentPeriodEnd,
 		"entity_type":         "prompt",
 	}
 

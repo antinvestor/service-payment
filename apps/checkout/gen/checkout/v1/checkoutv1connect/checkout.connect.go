@@ -60,8 +60,14 @@ const (
 
 // CheckoutServiceClient is a client for the checkout.v1.CheckoutService service.
 type CheckoutServiceClient interface {
+	// CreateCheckoutSession creates a single-use hosted payment session and
+	// returns the page URL the payer should be redirected to.
 	CreateCheckoutSession(context.Context, *connect.Request[v1.CreateCheckoutSessionRequest]) (*connect.Response[v1.CreateCheckoutSessionResponse], error)
+	// GetCheckoutSession returns the current state of a checkout session;
+	// merchants poll this as one source of payment truth.
 	GetCheckoutSession(context.Context, *connect.Request[v1.GetCheckoutSessionRequest]) (*connect.Response[v1.GetCheckoutSessionResponse], error)
+	// CreateCheckoutLink creates a reusable, shareable link that spawns a
+	// fresh checkout session per visitor.
 	CreateCheckoutLink(context.Context, *connect.Request[v1.CreateCheckoutLinkRequest]) (*connect.Response[v1.CreateCheckoutLinkResponse], error)
 }
 
@@ -122,8 +128,14 @@ func (c *checkoutServiceClient) CreateCheckoutLink(ctx context.Context, req *con
 
 // CheckoutServiceHandler is an implementation of the checkout.v1.CheckoutService service.
 type CheckoutServiceHandler interface {
+	// CreateCheckoutSession creates a single-use hosted payment session and
+	// returns the page URL the payer should be redirected to.
 	CreateCheckoutSession(context.Context, *connect.Request[v1.CreateCheckoutSessionRequest]) (*connect.Response[v1.CreateCheckoutSessionResponse], error)
+	// GetCheckoutSession returns the current state of a checkout session;
+	// merchants poll this as one source of payment truth.
 	GetCheckoutSession(context.Context, *connect.Request[v1.GetCheckoutSessionRequest]) (*connect.Response[v1.GetCheckoutSessionResponse], error)
+	// CreateCheckoutLink creates a reusable, shareable link that spawns a
+	// fresh checkout session per visitor.
 	CreateCheckoutLink(context.Context, *connect.Request[v1.CreateCheckoutLinkRequest]) (*connect.Response[v1.CreateCheckoutLinkResponse], error)
 }
 

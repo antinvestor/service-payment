@@ -30,6 +30,10 @@ const (
 	HeaderProvider = "X-PAWAPAY_PROVIDER"
 	// HeaderCountry is the header for the default ISO 3166-1 alpha-3 country code.
 	HeaderCountry = "X-PAWAPAY_COUNTRY"
+	// HeaderSignatureKeyID is the header for the RFC-9421 signing key identifier.
+	HeaderSignatureKeyID = "X-PAWAPAY_SIGNATURE_KEY_ID"
+	// HeaderPrivateKeyPEM is the header for the PEM-encoded ECDSA P-256 private key.
+	HeaderPrivateKeyPEM = "X-PAWAPAY_PRIVATE_KEY_PEM"
 )
 
 type PawapayConfig struct {
@@ -56,6 +60,15 @@ type PawapayConfig struct {
 
 	// Environment: sandbox or production
 	Environment string `envDefault:"sandbox" env:"PAWAPAY_ENVIRONMENT"`
+
+	// SignatureKeyID is the key identifier used in RFC-9421 request signing.
+	// When both SignatureKeyID and PrivateKeyPEM are set, financial POST
+	// requests are signed before sending.
+	SignatureKeyID string `env:"PAWAPAY_SIGNATURE_KEY_ID"`
+
+	// PrivateKeyPEM is the PEM-encoded ECDSA P-256 private key for
+	// RFC-9421 request signing.
+	PrivateKeyPEM string `env:"PAWAPAY_PRIVATE_KEY_PEM"`
 
 	// Queue configuration - payment queue for payouts (disbursements)
 	QueuePaymentName string `envDefault:"pawapay.payments.dequeue"       env:"QUEUE_PAWAPAY_PAYMENT_NAME"`

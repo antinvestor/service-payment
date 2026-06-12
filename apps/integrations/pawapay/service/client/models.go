@@ -52,6 +52,15 @@ type Credentials struct {
 	Provider string
 	// Country is an optional default ISO 3166-1 alpha-3 country code.
 	Country string
+	// SignatureKeyID is the key identifier used in RFC-9421 request signing.
+	// When both SignatureKeyID and PrivateKeyPEM are set, financial POST
+	// requests are signed with the ECDSA-P256 key before sending.
+	SignatureKeyID string
+	// PrivateKeyPEM is the PEM-encoded ECDSA P-256 private key used for
+	// RFC-9421 request signing. Accepts PKCS#8 ("PRIVATE KEY") and
+	// SEC1 ("EC PRIVATE KEY") PEM blocks. Optional; only used when
+	// SignatureKeyID is also set.
+	PrivateKeyPEM string
 }
 
 // ResolveBaseURL returns the pawaPay API base URL for these credentials.

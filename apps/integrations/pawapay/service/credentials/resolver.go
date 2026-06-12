@@ -57,10 +57,12 @@ func (r *Resolver) FromHeaders(ctx context.Context, headers map[string]string) (
 	}
 
 	creds := &client.Credentials{
-		APIToken:    headerOrDefault(headers, config.HeaderAPIToken, r.cfg.APIToken),
-		Environment: headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
-		Provider:    headerOrDefault(headers, config.HeaderProvider, r.cfg.Provider),
-		Country:     headerOrDefault(headers, config.HeaderCountry, r.cfg.Country),
+		APIToken:       headerOrDefault(headers, config.HeaderAPIToken, r.cfg.APIToken),
+		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
+		Provider:       headerOrDefault(headers, config.HeaderProvider, r.cfg.Provider),
+		Country:        headerOrDefault(headers, config.HeaderCountry, r.cfg.Country),
+		SignatureKeyID: headerOrDefault(headers, config.HeaderSignatureKeyID, r.cfg.SignatureKeyID),
+		PrivateKeyPEM:  headerOrDefault(headers, config.HeaderPrivateKeyPEM, r.cfg.PrivateKeyPEM),
 	}
 
 	if creds.APIToken == "" {
@@ -97,10 +99,12 @@ func (r *Resolver) FromConnection(ctx context.Context, connection string) (*clie
 	}
 
 	creds := &client.Credentials{
-		APIToken:    credMap[config.HeaderAPIToken],
-		Environment: credMap[config.HeaderEnvironment],
-		Provider:    credMap[config.HeaderProvider],
-		Country:     credMap[config.HeaderCountry],
+		APIToken:       credMap[config.HeaderAPIToken],
+		Environment:    credMap[config.HeaderEnvironment],
+		Provider:       credMap[config.HeaderProvider],
+		Country:        credMap[config.HeaderCountry],
+		SignatureKeyID: credMap[config.HeaderSignatureKeyID],
+		PrivateKeyPEM:  credMap[config.HeaderPrivateKeyPEM],
 	}
 
 	if creds.APIToken == "" {
@@ -117,10 +121,12 @@ func (r *Resolver) Default() (*client.Credentials, error) {
 		return nil, ErrMissingAPIToken
 	}
 	return &client.Credentials{
-		APIToken:    r.cfg.APIToken,
-		Environment: r.cfg.Environment,
-		Provider:    r.cfg.Provider,
-		Country:     r.cfg.Country,
+		APIToken:       r.cfg.APIToken,
+		Environment:    r.cfg.Environment,
+		Provider:       r.cfg.Provider,
+		Country:        r.cfg.Country,
+		SignatureKeyID: r.cfg.SignatureKeyID,
+		PrivateKeyPEM:  r.cfg.PrivateKeyPEM,
 	}, nil
 }
 

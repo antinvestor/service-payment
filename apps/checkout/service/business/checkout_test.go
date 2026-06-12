@@ -41,12 +41,13 @@ import (
 
 type fakeSessionRepo struct {
 	repository.SessionRepository
-	sessions   map[string]*models.CheckoutSession
-	byStatus   map[string][]*models.CheckoutSession
-	createErr  error
-	updateErr  error
-	getRefErr  error
-	lastUpdate *models.CheckoutSession
+	sessions    map[string]*models.CheckoutSession
+	byStatus    map[string][]*models.CheckoutSession
+	createErr   error
+	updateErr   error
+	getRefErr   error
+	lastUpdate  *models.CheckoutSession
+	updateCount int
 }
 
 func newFakeSessionRepo() *fakeSessionRepo {
@@ -74,6 +75,7 @@ func (f *fakeSessionRepo) Update(
 	}
 	f.sessions[s.Ref] = s
 	f.lastUpdate = s
+	f.updateCount++
 	return 1, nil
 }
 
@@ -456,14 +458,15 @@ func TestCreateSession_Validation(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		in      business.CreateSessionInput
-		wantErr error
+		name         string
+		in           business.CreateSessionInput
+		wantSentinel error  // use require.ErrorIs when set
+		wantContains string // use assert.ErrorContains when set
 	}{
 		{
-			name:    "missing name",
-			in:      business.CreateSessionInput{Amount: "10.00", Currency: "KES"},
-			wantErr: nil, // any error is fine — just check err != nil below
+			name:         "missing name",
+			in:           business.CreateSessionInput{Amount: "10.00", Currency: "KES"},
+			wantContains: "name",
 		},
 		{
 			name: "fixed without amount",
@@ -471,6 +474,7 @@ func TestCreateSession_Validation(t *testing.T) {
 				Name: "Test", Currency: "KES",
 				AmountOption: models.AmountOptionFixed,
 			},
+			wantContains: "amount",
 		},
 		{
 			name: "fixed with invalid amount",
@@ -478,12 +482,14 @@ func TestCreateSession_Validation(t *testing.T) {
 				Name: "Test", Currency: "KES",
 				AmountOption: models.AmountOptionFixed, Amount: "abc",
 			},
+			wantContains: "amount",
 		},
 		{
 			name: "missing currency",
 			in: business.CreateSessionInput{
 				Name: "Test", Amount: "10.00", AmountOption: models.AmountOptionFixed,
 			},
+			wantContains: "currency",
 		},
 		{
 			name: "unknown method restriction",
@@ -492,7 +498,7 @@ func TestCreateSession_Validation(t *testing.T) {
 				AmountOption: models.AmountOptionFixed,
 				Methods:      []string{"stripe"},
 			},
-			wantErr: business.ErrUnknownMethod,
+			wantSentinel: business.ErrUnknownMethod,
 		},
 	}
 
@@ -500,14 +506,48 @@ func TestCreateSession_Validation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := b.CreateSession(ctx, tt.in)
 			require.Error(t, err)
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
+			if tt.wantSentinel != nil {
+				require.ErrorIs(t, err, tt.wantSentinel)
+			}
+			if tt.wantContains != "" {
+				assert.ErrorContains(t, err, tt.wantContains)
 			}
 		})
 	}
 }
 
-// 3b. CreateSession with profile error still proceeds (tolerate).
+// 3b. CreateSession with empty AmountOption defaults to fixed and persists it.
+func TestCreateSession_EmptyAmountOption_DefaultsToFixed(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		&fakePaymentClient{},
+		&fakeProfileClient{},
+	)
+
+	in := business.CreateSessionInput{
+		Name:         "Default AmountOption",
+		Amount:       "25.00",
+		Currency:     "KES",
+		AmountOption: "", // deliberately empty — should be normalised to fixed
+	}
+	session, err := b.CreateSession(context.Background(), in)
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	assert.Equal(t, models.AmountOptionFixed, session.AmountOption,
+		"empty AmountOption must be stored as fixed")
+
+	// Verify the persisted copy also carries the normalised value
+	stored := sessionRepo.sessions[session.Ref]
+	require.NotNil(t, stored)
+	assert.Equal(t, models.AmountOptionFixed, stored.AmountOption)
+}
+
+// 3c. CreateSession with profile error still proceeds (tolerate).
 func TestCreateSession_ProfileErrorTolerated(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
@@ -1095,6 +1135,8 @@ func TestRefreshStatus_NotProcessing_NoOp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, models.SessionStatusPending, updated.Status)
 	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called")
+	// No repository Update should be issued for a non-processing session
+	assert.Equal(t, 0, sessionRepo.updateCount, "session repo Update must not be called on no-op refresh")
 }
 
 // ---------------------------------------------------------------------------

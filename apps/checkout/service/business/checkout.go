@@ -52,6 +52,11 @@ const (
 	sweepBatch    = 50
 )
 
+// methodCategoryMobileMoney is the clue category written to the payer profile on
+// a successful payment.  The registry models individual providers (e.g. "mpesa",
+// "mtn_momo"), not categories, so the category is hard-coded here today.
+const methodCategoryMobileMoney = "mobile_money"
+
 // Input types.
 
 // PayerContactInput is one phone contact for a known payer.
@@ -155,6 +160,13 @@ func (b *CheckoutBusiness) CreateSession(
 	ctx context.Context,
 	in CreateSessionInput,
 ) (*models.CheckoutSession, error) {
+	// Normalise defaults before validation so the stored session always carries
+	// the resolved value (a local default inside the validator would not survive
+	// back to this scope and would leave the session with an empty AmountOption).
+	if in.AmountOption == "" {
+		in.AmountOption = models.AmountOptionFixed
+	}
+
 	if err := b.validateSessionInput(in); err != nil {
 		return nil, err
 	}
@@ -202,12 +214,10 @@ func (b *CheckoutBusiness) CreateSession(
 }
 
 // validateSessionInput checks the required fields on CreateSessionInput.
+// AmountOption is normalised by the caller (CreateSession) before this is invoked.
 func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 	if in.Name == "" {
 		return errors.New("session name is required")
-	}
-	if in.AmountOption == "" {
-		in.AmountOption = models.AmountOptionFixed
 	}
 	if in.AmountOption == models.AmountOptionFixed {
 		if _, _, err := ParseAmount(in.Amount); err != nil {
@@ -427,7 +437,9 @@ func (b *CheckoutBusiness) Pay(
 		return nil, sessionErr
 	}
 
-	// Terminal status check
+	// Terminal status check.
+	// A failed session intentionally remains payable: the page offers "Try again"
+	// after a failed prompt, bounded by the MaxAttempts cap.
 	if session.Status == models.SessionStatusCompleted ||
 		session.Status == models.SessionStatusExpired {
 		return nil, ErrSessionGone
@@ -483,7 +495,7 @@ func (b *CheckoutBusiness) Pay(
 	}
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-		return nil, fmt.Errorf("update session after pay: %w", updateErr)
+		return nil, fmt.Errorf("persist attempt increment: %w", updateErr)
 	}
 
 	// Build and send prompt; on failure the attempt is already persisted.
@@ -496,7 +508,7 @@ func (b *CheckoutBusiness) Pay(
 	session.Status = models.SessionStatusProcessing
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-		return nil, fmt.Errorf("update session after pay: %w", updateErr)
+		return nil, fmt.Errorf("persist prompt id: %w", updateErr)
 	}
 	return session, nil
 }
@@ -714,7 +726,7 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 	}
 
 	clues := Clues{
-		LastMethod:    "mobile_money",
+		LastMethod:    methodCategoryMobileMoney,
 		LastProvider:  methodKey,
 		LastContactID: contactID,
 		LastCurrency:  session.Currency,

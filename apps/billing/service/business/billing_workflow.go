@@ -16,6 +16,7 @@ package business
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,6 +34,10 @@ import (
 type BillingWorkflow interface {
 	RunBilling(ctx context.Context, subscriptionID string, periodStart, periodEnd time.Time) (*models.BillingRun, error)
 	GetBillingRun(ctx context.Context, id string) (*models.BillingRun, error)
+	// CollectInvoice creates a hosted checkout session for an issued invoice.
+	CollectInvoice(ctx context.Context, invoiceID string) (*InvoiceCheckout, error)
+	// SettleInvoiceFromCheckout marks an invoice as paid from a completed checkout session.
+	SettleInvoiceFromCheckout(ctx context.Context, sessionRef string) (*models.Invoice, error)
 }
 
 type billingWorkflow struct {
@@ -48,6 +53,7 @@ type billingWorkflow struct {
 	creditEng       CreditEngine
 	invoiceEng      InvoiceEngine
 	ledgerInteg     LedgerIntegration
+	checkout        CheckoutIntegration
 	obs             *observability.Metrics
 }
 
@@ -64,6 +70,7 @@ func NewBillingWorkflow(
 	creditEng CreditEngine,
 	invoiceEng InvoiceEngine,
 	ledgerInteg LedgerIntegration,
+	checkoutInteg CheckoutIntegration,
 ) BillingWorkflow {
 	return &billingWorkflow{
 		workMan:         workMan,
@@ -78,6 +85,7 @@ func NewBillingWorkflow(
 		creditEng:       creditEng,
 		invoiceEng:      invoiceEng,
 		ledgerInteg:     ledgerInteg,
+		checkout:        checkoutInteg,
 		obs:             observability.NewMetrics(),
 	}
 }
@@ -350,4 +358,28 @@ func (w *billingWorkflow) GetBillingRun(ctx context.Context, id string) (*models
 	}
 
 	return w.runRepo.GetByID(ctx, id)
+}
+
+// CollectInvoice creates a hosted checkout session for an issued invoice.
+// Returns an error if the checkout integration is not configured.
+func (w *billingWorkflow) CollectInvoice(
+	ctx context.Context,
+	invoiceID string,
+) (*InvoiceCheckout, error) {
+	if w.checkout == nil {
+		return nil, errors.New("checkout integration not configured")
+	}
+	return w.checkout.CreateInvoiceCheckout(ctx, invoiceID)
+}
+
+// SettleInvoiceFromCheckout marks an invoice as paid from a completed checkout session.
+// Returns an error if the checkout integration is not configured.
+func (w *billingWorkflow) SettleInvoiceFromCheckout(
+	ctx context.Context,
+	sessionRef string,
+) (*models.Invoice, error) {
+	if w.checkout == nil {
+		return nil, errors.New("checkout integration not configured")
+	}
+	return w.checkout.SettleFromCheckout(ctx, sessionRef)
 }

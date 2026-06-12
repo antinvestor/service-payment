@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+// Package business_test helpers: exposes unexported symbols for testing.
+package business
 
 import (
-	"github.com/pitabwire/frame/config"
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"github.com/pitabwire/util/decimalx"
 )
 
-type BillingConfig struct {
-	config.ConfigurationDefault
-
-	CheckoutServiceURI                   string `envDefault:"127.0.0.1:7010"                           env:"CHECKOUT_SERVICE_URI"`
-	CheckoutServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-payment-checkout" env:"CHECKOUT_SERVICE_WORKLOAD_API_TARGET_PATH"`
-	CheckoutInvoiceReturnURL             string `                                                      env:"CHECKOUT_INVOICE_RETURN_URL"`
+// MoneyFromDecimalForTest exposes moneyFromDecimal for black-box testing.
+func MoneyFromDecimalForTest(d *decimalx.Decimal, currency string) (*commonv1.Money, error) {
+	return moneyFromDecimal(d, currency)
 }

@@ -60,6 +60,7 @@ type ServiceResources struct {
 	// Repositories for direct access in tests
 	ComponentRepo  repository.ComponentRepository
 	BillingRunRepo repository.BillingRunRepository
+	InvoiceRepo    repository.InvoiceRepository
 }
 
 type BaseTestSuite struct {
@@ -168,7 +169,7 @@ func (bs *BaseTestSuite) CreateService(
 	ledgerInteg := business.NewLedgerIntegration(ledgerTxnBusiness)
 	billingWorkflow := business.NewBillingWorkflow(
 		workMan, billingRunRepo, ratedLineRepo, subscriptionBus, catalogBus, componentRepo,
-		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg)
+		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg, nil)
 
 	resources := &ServiceResources{
 		CatalogBusiness:      catalogBus,
@@ -183,6 +184,7 @@ func (bs *BaseTestSuite) CreateService(
 		LedgerIntegration:    ledgerInteg,
 		ComponentRepo:        componentRepo,
 		BillingRunRepo:       billingRunRepo,
+		InvoiceRepo:          invoiceRepo,
 	}
 
 	// Run both ledger and billing migrations

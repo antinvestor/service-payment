@@ -25,12 +25,15 @@ import (
 	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
+	apis "github.com/antinvestor/common"
+	"github.com/antinvestor/common/connection"
 	"github.com/antinvestor/common/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
+	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 
 	// Ledger integration dependencies.
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
@@ -114,9 +117,17 @@ func main() {
 	creditEng := business.NewCreditEngine(workMan, dbPool, creditGrantRepo, creditEntryRepo)
 	invoiceEng := business.NewInvoiceEngine(workMan, dbPool, invoiceRepo, invoiceLineRepo)
 	ledgerInteg := business.NewLedgerIntegration(ledgerTxnBusiness)
+
+	checkoutCli, checkoutErr := setupCheckoutClient(ctx, cfg)
+	if checkoutErr != nil {
+		log.WithError(checkoutErr).Error("could not setup checkout client")
+		return
+	}
+	checkoutInteg := business.NewCheckoutIntegration(checkoutCli, invoiceRepo, invoiceEng, cfg.CheckoutInvoiceReturnURL)
+
 	billingWorkflow := business.NewBillingWorkflow(
 		workMan, billingRunRepo, ratedLineRepo, subscriptionBus, catalogBus, componentRepo,
-		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg)
+		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg, checkoutInteg)
 
 	// Create handler with injected business layer
 	billingServer := handlers.NewBillingServer(
@@ -145,6 +156,18 @@ func main() {
 	if err != nil {
 		log.WithError(err).Error("could not run Server")
 	}
+}
+
+// setupCheckoutClient creates a gRPC client for the checkout service.
+func setupCheckoutClient(
+	ctx context.Context,
+	cfg aconfig.BillingConfig,
+) (checkoutv1connect.CheckoutServiceClient, error) {
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.CheckoutServiceURI,
+		WorkloadAPITargetPath: cfg.CheckoutServiceWorkloadAPITargetPath,
+		Audiences:             []string{"service_payment_checkout"},
+	}, checkoutv1connect.NewCheckoutServiceClient)
 }
 
 // ensureHypertables registers TimescaleDB hypertables idempotently.

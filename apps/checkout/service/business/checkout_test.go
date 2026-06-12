@@ -1097,6 +1097,299 @@ func TestRefreshStatus_NotProcessing_NoOp(t *testing.T) {
 	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called")
 }
 
+// ---------------------------------------------------------------------------
+// Finding 1: Empty msisdn guard
+// ---------------------------------------------------------------------------
+
+// 1a. Recognised payer with unknown ContactID and no PhoneNumber → validation error, no prompt.
+func TestPay_RecognizedPayer_UnknownContactID_NoPhone_Error(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:            "sess-recog-nomsisdn",
+		Status:         models.SessionStatusPending,
+		ExpiresAt:      future,
+		Amount:         "50.00",
+		Currency:       "KES",
+		AmountOption:   models.AmountOptionFixed,
+		PayerProfileID: "profile-xyz",
+		Prefill: map[string]any{
+			"contacts": []any{
+				map[string]any{"contactId": "cid-known", "msisdn": "254711111111"},
+			},
+		},
+	}
+	sessionRepo.sessions["sess-recog-nomsisdn"] = s
+
+	// ContactID that is NOT in prefill, and no PhoneNumber provided
+	in := business.PayInput{
+		MethodKey: "mpesa",
+		ContactID: "cid-unknown", // not in prefill
+		// PhoneNumber: ""         // no fallback
+	}
+	_, err := b.Pay(ctx, "sess-recog-nomsisdn", in)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "phone contact is required")
+	// No prompt should have been sent
+	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called when msisdn is empty")
+}
+
+// ---------------------------------------------------------------------------
+// Finding 2: Attempt counting on failed prompts
+// ---------------------------------------------------------------------------
+
+// 2a. Prompt error → Attempts incremented, status still pending, error returned.
+func TestPay_PromptError_AttemptsIncremented(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{
+		promptErr: errors.New("provider rejected"),
+	}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-prompt-fail",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "100.00",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionFixed,
+	}
+	sessionRepo.sessions["sess-prompt-fail"] = s
+
+	_, err := b.Pay(ctx, "sess-prompt-fail", business.PayInput{
+		MethodKey:   "mpesa",
+		PhoneNumber: "254712345678",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "initiate prompt")
+
+	// Attempt must be recorded even though prompt failed
+	stored := sessionRepo.sessions["sess-prompt-fail"]
+	assert.Equal(t, 1, stored.Attempts, "attempt must be incremented even on prompt failure")
+	assert.NotNil(t, stored.LastAttemptAt, "LastAttemptAt must be set even on prompt failure")
+	assert.Equal(t, models.SessionStatusPending, stored.Status, "status must remain pending after prompt failure")
+}
+
+// ---------------------------------------------------------------------------
+// Finding 3: VARIABLE happy path + invalid variable amount
+// ---------------------------------------------------------------------------
+
+// 3a. VARIABLE session with valid in.Amount stores amount and prompt Money is correct.
+func TestPay_Variable_ValidAmount_StoresAndPrompts(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-variable",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionVariable,
+	}
+	sessionRepo.sessions["sess-variable"] = s
+
+	updated, err := b.Pay(ctx, "sess-variable", business.PayInput{
+		MethodKey:   "mpesa",
+		PhoneNumber: "254712345678",
+		Amount:      "75.50",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+
+	// Session amount stored as supplied string
+	assert.Equal(t, "75.50", updated.Amount)
+
+	// Prompt Money: units=75, nanos=500_000_000
+	require.NotNil(t, payCli.lastPrompt)
+	assert.Equal(t, int64(75), payCli.lastPrompt.GetAmount().GetUnits())
+	assert.Equal(t, int32(500_000_000), payCli.lastPrompt.GetAmount().GetNanos())
+	assert.Equal(t, "KES", payCli.lastPrompt.GetAmount().GetCurrencyCode())
+}
+
+// 3b. FIXED session ignores in.Amount; prompt uses session's own amount.
+func TestPay_Fixed_IgnoresInAmount(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-fixed-ignore",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "200.00",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionFixed,
+	}
+	sessionRepo.sessions["sess-fixed-ignore"] = s
+
+	updated, err := b.Pay(ctx, "sess-fixed-ignore", business.PayInput{
+		MethodKey:   "mpesa",
+		PhoneNumber: "254712345678",
+		Amount:      "999.99", // should be ignored for FIXED sessions
+	})
+	require.NoError(t, err)
+
+	// Session amount must stay as original
+	assert.Equal(t, "200.00", updated.Amount)
+
+	// Prompt must use session's 200.00
+	require.NotNil(t, payCli.lastPrompt)
+	assert.Equal(t, int64(200), payCli.lastPrompt.GetAmount().GetUnits())
+	assert.Equal(t, int32(0), payCli.lastPrompt.GetAmount().GetNanos())
+}
+
+// 3c. VARIABLE session with invalid non-empty amount (too many decimals) → error mentioning amount.
+func TestPay_Variable_InvalidAmount_Error(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-variable-bad",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionVariable,
+	}
+	sessionRepo.sessions["sess-variable-bad"] = s
+
+	_, err := b.Pay(ctx, "sess-variable-bad", business.PayInput{
+		MethodKey:   "mpesa",
+		PhoneNumber: "254712345678",
+		Amount:      "12.345", // 3 decimal places → invalid
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, business.ErrAmountRequired)
+	assert.Nil(t, payCli.lastPrompt, "no prompt should be sent for invalid amount")
+}
+
+// ---------------------------------------------------------------------------
+// Finding 4: Clue write error swallowed on SUCCESSFUL
+// ---------------------------------------------------------------------------
+
+// 4a. RefreshStatus SUCCESSFUL + profile Update error → still returns completed, nil error.
+func TestRefreshStatus_Successful_ClueWriteError_Swallowed(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Id:     "payment-ext-789",
+			Status: commonv1.STATUS_SUCCESSFUL,
+		}),
+	}
+	profCli := &fakeProfileClient{
+		updateErr: errors.New("profile service unavailable"),
+	}
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli)
+	ctx := context.Background()
+
+	s := &models.CheckoutSession{
+		Ref:            "sess-clue-err",
+		Status:         models.SessionStatusProcessing,
+		PromptID:       "prompt-clue",
+		Currency:       "KES",
+		PayerProfileID: "profile-002",
+		Metadata: map[string]any{
+			"_method":     "mpesa",
+			"_contact_id": "contact-clue",
+		},
+	}
+	sessionRepo.sessions["sess-clue-err"] = s
+
+	updated, err := b.RefreshStatus(ctx, s)
+	// Error from writeClues must be swallowed — it's best-effort
+	require.NoError(t, err, "clue write error must not propagate")
+	assert.Equal(t, models.SessionStatusCompleted, updated.Status)
+}
+
+// ---------------------------------------------------------------------------
+// Nit: exact prefill key count
+// ---------------------------------------------------------------------------
+
+// Prefill has exactly 5 keys (displayName, language, clueProvider, clueContactId, contacts).
+func TestCreateSession_WithPayer_PrefillExactKeys(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{}}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		&fakePaymentClient{},
+		profCli,
+	)
+
+	in := business.CreateSessionInput{
+		Name:     "Key count test",
+		Amount:   "10.00",
+		Currency: "KES",
+		Payer:    &business.PayerInput{ProfileID: "p1", DisplayName: "Tester", Language: "sw"},
+	}
+	session, err := b.CreateSession(context.Background(), in)
+	require.NoError(t, err)
+
+	prefill := session.Prefill
+	require.NotNil(t, prefill)
+	// exactly 5 keys: displayName, language, clueProvider, clueContactId, contacts
+	assert.Len(t, prefill, 5)
+}
+
 // 9. SweepProcessing expires overdue pending and refreshes processing.
 func TestSweepProcessing(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()

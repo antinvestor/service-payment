@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -466,17 +467,11 @@ func (b *CheckoutBusiness) Pay(
 		return nil, payerErr
 	}
 
-	// Build and send prompt
-	promptID, promptErr := b.sendPrompt(ctx, session, method, msisdn, in.MethodKey)
-	if promptErr != nil {
-		return nil, promptErr
-	}
-
+	// Record attempt BEFORE calling provider so that even a rejected prompt counts
+	// toward cooldown and max-attempts throttling.
 	now := b.now()
-	session.PromptID = promptID
 	session.Attempts++
 	session.LastAttemptAt = &now
-	session.Status = models.SessionStatusProcessing
 
 	// Store internal keys for clue write-back
 	if session.Metadata == nil {
@@ -486,6 +481,19 @@ func (b *CheckoutBusiness) Pay(
 	if contactID != "" {
 		session.Metadata["_contact_id"] = contactID
 	}
+
+	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
+		return nil, fmt.Errorf("update session after pay: %w", updateErr)
+	}
+
+	// Build and send prompt; on failure the attempt is already persisted.
+	promptID, promptErr := b.sendPrompt(ctx, session, method, msisdn, in.MethodKey)
+	if promptErr != nil {
+		return nil, promptErr
+	}
+
+	session.PromptID = promptID
+	session.Status = models.SessionStatusProcessing
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 		return nil, fmt.Errorf("update session after pay: %w", updateErr)
@@ -592,7 +600,10 @@ func (b *CheckoutBusiness) resolvePayer(
 	if session.PayerProfileID != "" && in.ContactID != "" {
 		msisdn := b.findMsisdnFromPrefill(session, in.ContactID)
 		if msisdn == "" {
-			msisdn = in.PhoneNumber // fallback
+			msisdn = strings.TrimSpace(in.PhoneNumber) // fallback
+		}
+		if msisdn == "" {
+			return "", "", errors.New("a phone contact is required to pay")
 		}
 		return msisdn, in.ContactID, nil
 	}

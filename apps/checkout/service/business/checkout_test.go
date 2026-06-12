@@ -253,7 +253,7 @@ func newBusiness(
 	payCli paymentv1connect.PaymentServiceClient,
 	profCli profilev1connect.ProfileServiceClient,
 ) *business.CheckoutBusiness {
-	b := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, profCli)
+	b := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, profCli, nil)
 	return b.WithClock(fixedNow)
 }
 
@@ -1596,4 +1596,51 @@ func TestSweepProcessing(t *testing.T) {
 
 	// Processing should be refreshed (completed in this test)
 	assert.Equal(t, models.SessionStatusCompleted, sessionRepo.sessions["in-process"].Status)
+}
+
+// 9. RefreshStatus with nil workMan (async path) must NOT panic and must still
+// complete: when workMan is nil the clue write-back falls back to synchronous
+// execution without panicking or returning an error.
+func TestRefreshStatus_NilWorkMan_AsyncFallback_NoPanic(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Id:     "payment-nil-workman",
+			Status: commonv1.STATUS_SUCCESSFUL,
+		}),
+	}
+	profCli := &fakeProfileClient{}
+
+	// Construct with nil workMan and cluesSync=false (the default) to exercise
+	// the nil-workMan synchronous fallback path without WithSynchronousClues.
+	b := business.NewCheckoutBusiness(
+		defaultConfig(), defaultRegistry(),
+		sessionRepo, linkRepo,
+		payCli, profCli,
+		nil, // nil workMan → synchronous fallback, must not panic
+	).WithClock(fixedNow)
+	// cluesSync is false — we are deliberately NOT calling WithSynchronousClues.
+
+	s := &models.CheckoutSession{
+		Ref:            "sess-nil-workman",
+		Status:         models.SessionStatusProcessing,
+		PromptID:       "prompt-nwm",
+		Currency:       "KES",
+		PayerProfileID: "profile-nwm",
+		Metadata: map[string]any{
+			"_method":     "mpesa",
+			"_contact_id": "contact-nwm",
+		},
+	}
+	sessionRepo.sessions["sess-nil-workman"] = s
+
+	ctx := context.Background()
+	updated, err := b.RefreshStatus(ctx, s)
+	require.NoError(t, err)
+	// Session must have been completed — business logic ran fully.
+	assert.Equal(t, models.SessionStatusCompleted, updated.Status)
+	// Clue write-back executed synchronously via fallback — profile was updated.
+	require.NotNil(t, profCli.updateReq)
+	assert.Equal(t, "profile-nwm", profCli.updateReq.GetId())
 }

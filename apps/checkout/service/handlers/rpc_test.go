@@ -77,6 +77,7 @@ func newRPCHarness(t *testing.T) *rpcHarness {
 		linkRepo,
 		payCli,
 		&fakeProfileClient{},
+		nil,
 	)
 	biz = biz.WithClock(fixedNow)
 

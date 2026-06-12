@@ -32,6 +32,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
 	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -138,10 +139,13 @@ type CheckoutBusiness struct {
 	paymentCli  paymentv1connect.PaymentServiceClient
 	profileCli  profilev1connect.ProfileServiceClient
 	now         func() time.Time
-	cluesSync   bool // true in tests only: makes writeClues run synchronously
+	cluesSync   bool               // true in tests only: makes writeClues run synchronously
+	workMan     workerpool.Manager // nil in tests → falls back to synchronous execution
 }
 
 // NewCheckoutBusiness creates a CheckoutBusiness with a real clock.
+// workMan is the frame worker-pool manager (pass svc.WorkManager() in production,
+// nil in tests — a nil workMan causes the clue write-back to run synchronously).
 func NewCheckoutBusiness(
 	cfg *config.CheckoutConfig,
 	registry *MethodRegistry,
@@ -149,6 +153,7 @@ func NewCheckoutBusiness(
 	linkRepo repository.LinkRepository,
 	paymentCli paymentv1connect.PaymentServiceClient,
 	profileCli profilev1connect.ProfileServiceClient,
+	workMan workerpool.Manager,
 ) *CheckoutBusiness {
 	return &CheckoutBusiness{
 		cfg:         cfg,
@@ -158,6 +163,7 @@ func NewCheckoutBusiness(
 		paymentCli:  paymentCli,
 		profileCli:  profileCli,
 		now:         time.Now,
+		workMan:     workMan,
 	}
 }
 
@@ -723,19 +729,26 @@ func (b *CheckoutBusiness) RefreshStatus(
 		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 			return nil, fmt.Errorf("update session completed: %w", updateErr)
 		}
-		// writeClues is best-effort and non-critical; run detached from the request
-		// lifecycle so the browser's /status poll is not delayed. The sweeper uses
-		// the same documented exception pattern for background work.
-		if b.cluesSync {
-			// Synchronous path: FOR TESTS ONLY (set via WithSynchronousClues).
+		// writeClues is best-effort hint persistence. Loss is tolerable, so the
+		// frame workerpool (not a durable queue) is the right tier of the async
+		// decision tree: bounded parallel, survives nothing. Raw goroutines are
+		// forbidden by repo Go patterns; when workMan is nil (tests) or cluesSync
+		// is set (WithSynchronousClues), we fall back to synchronous execution.
+		if b.cluesSync || b.workMan == nil {
+			// Synchronous path: FOR TESTS ONLY (cluesSync via WithSynchronousClues,
+			// or nil workMan when constructed without one).
 			b.writeClues(ctx, session)
 		} else {
-			snapshot := *session // shallow copy — avoids racing on the caller's pointer
-			clueCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), clueWriteTimeoutSec*time.Second)
-			go func() {
+			snapshot := *session // shallow copy — capture values before submission to avoid racing on caller's pointer
+			job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
+				clueCtx, cancel := context.WithTimeout(context.WithoutCancel(jobCtx), clueWriteTimeoutSec*time.Second)
 				defer cancel()
 				b.writeClues(clueCtx, &snapshot)
-			}()
+				return nil
+			})
+			if submitErr := workerpool.SubmitJob(ctx, b.workMan, job); submitErr != nil {
+				util.Log(ctx).WithError(submitErr).Warn("could not submit clue write-back job")
+			}
 		}
 
 	case commonv1.STATUS_FAILED:

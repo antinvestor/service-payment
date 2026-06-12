@@ -254,6 +254,7 @@ func newHarness(t *testing.T) *testHarness {
 		linkRepo,
 		payCli,
 		&fakeProfileClient{},
+		nil,
 	)
 	biz = biz.WithClock(fixedNow)
 
@@ -641,6 +642,7 @@ func TestHandleLink_RateLimit_429(t *testing.T) {
 		linkRepo,
 		payCli,
 		&fakeProfileClient{},
+		nil,
 	)
 	biz = biz.WithClock(fixedNow)
 
@@ -748,6 +750,7 @@ func TestRateLimiter_XFF_Buckets(t *testing.T) {
 		linkRepo,
 		payCli,
 		&fakeProfileClient{},
+		nil,
 	)
 	biz = biz.WithClock(fixedNow)
 

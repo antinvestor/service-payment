@@ -40,6 +40,7 @@ import (
 	"github.com/pitabwire/frame/security"
 	"github.com/pitabwire/frame/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
+	"github.com/pitabwire/frame/workerpool"
 	"github.com/pitabwire/util"
 )
 
@@ -101,7 +102,7 @@ func main() {
 		return
 	}
 
-	checkoutBiz := business.NewCheckoutBusiness(&cfg, registry, sessionRepo, linkRepo, paymentCli, profileCli)
+	checkoutBiz := business.NewCheckoutBusiness(&cfg, registry, sessionRepo, linkRepo, paymentCli, profileCli, workMan)
 
 	renderer, err := handlers.NewRenderer([]byte(cfg.SigningSecret))
 	if err != nil {
@@ -122,11 +123,10 @@ func main() {
 		frame.WithPermissionRegistration(sd),
 	)
 
-	// runSweeper is a deliberate, documented exception to the no-raw-goroutines rule.
-	// Frame exposes no periodic-job primitive (WorkerPool handles one-shot jobs,
-	// not recurring ticks). The sweeper is best-effort reconciliation — a missed
-	// tick on shutdown is harmless, making a goroutine the correct tool here.
-	go runSweeper(ctx, &cfg, checkoutBiz)
+	// runSweeper uses a raw goroutine only as a periodic scheduler — Frame exposes
+	// no cron/ticker primitive. Each tick submits the sweep as a frame workerpool
+	// job so the work runs on the managed pool, not an ad-hoc goroutine.
+	go runSweeper(ctx, &cfg, checkoutBiz, workMan)
 
 	log.Info("Initiating checkout server operations")
 	if err = svc.Run(ctx, ""); err != nil {
@@ -205,13 +205,19 @@ func setupProfileClient(
 	}, profilev1connect.NewProfileServiceClient)
 }
 
-// runSweeper ticks on SweepIntervalSeconds and calls SweepProcessing.
-// It exits when ctx is cancelled (service shutdown).
+// runSweeper ticks on SweepIntervalSeconds and submits a sweep job to the frame
+// workerpool on each tick. It exits when ctx is cancelled (service shutdown).
 //
-// This is a deliberate raw goroutine: Frame exposes no cron/periodic-job
-// primitive; WorkerPool handles one-shot jobs, not recurring ticks.
-// A missed tick on shutdown is harmless, making a goroutine the right tool.
-func runSweeper(ctx context.Context, cfg *aconfig.CheckoutConfig, biz *business.CheckoutBusiness) {
+// The raw goroutine here is intentional: Frame exposes no cron/periodic-job
+// primitive, so the ticker loop IS the scheduler. The actual sweep work executes
+// on the managed worker pool — not in this goroutine — conforming to the repo
+// no-raw-goroutines-for-work rule. A missed tick on shutdown is harmless.
+func runSweeper(
+	ctx context.Context,
+	cfg *aconfig.CheckoutConfig,
+	biz *business.CheckoutBusiness,
+	workMan workerpool.Manager,
+) {
 	interval := time.Duration(cfg.SweepIntervalSeconds) * time.Second
 	if interval <= 0 {
 		interval = time.Minute
@@ -225,8 +231,14 @@ func runSweeper(ctx context.Context, cfg *aconfig.CheckoutConfig, biz *business.
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := biz.SweepProcessing(ctx); err != nil {
-				util.Log(ctx).WithError(err).Warn("checkout sweep failed")
+			job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
+				if err := biz.SweepProcessing(jobCtx); err != nil {
+					util.Log(jobCtx).WithError(err).Warn("checkout sweep failed")
+				}
+				return nil
+			})
+			if err := workerpool.SubmitJob(ctx, workMan, job); err != nil {
+				util.Log(ctx).WithError(err).Warn("could not submit sweep job")
 			}
 		}
 	}

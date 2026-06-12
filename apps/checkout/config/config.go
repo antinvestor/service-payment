@@ -40,5 +40,5 @@ type CheckoutConfig struct {
 
 	// MethodsJSON is the v1 method registry: which payment methods the page
 	// renders and the prompt route hint each maps to.
-	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"]},{\"key\":\"pawapay\",\"name\":\"Mobile Money\",\"route\":\"pawapay\",\"prefixes\":[],\"currencies\":[]}]"`
+	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"]},{\"key\":\"pawapay\",\"name\":\"Mobile Money\",\"route\":\"pawapay\",\"prefixes\":[],\"currencies\":[]},{\"key\":\"card\",\"name\":\"Card\",\"route\":\"polar\",\"prefixes\":[],\"currencies\":[],\"redirect\":true}]"`
 }

@@ -602,6 +602,17 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		lang := pickLang(r, "")
 		payload["failure_reason"] = T(lang, "failed_title")
 	}
+	// Surface redirect URL for card/redirect payment methods.
+	// Only emit when session is still processing and the URL passes the safe-URL check
+	// (defense in depth — never hand the browser a javascript: URL even if the
+	// provider pipeline were compromised).
+	if session.Status == models.SessionStatusProcessing && session.Metadata != nil {
+		if redirectURL, ok := session.Metadata["_redirect_url"].(string); ok && redirectURL != "" {
+			if business.IsSafeReturnURL(redirectURL) {
+				payload["redirect_url"] = redirectURL
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, payload)
 }
 

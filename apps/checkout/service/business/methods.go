@@ -28,6 +28,7 @@ type Method struct {
 	Route      string   `json:"route"`
 	Prefixes   []string `json:"prefixes"`
 	Currencies []string `json:"currencies"`
+	Redirect   bool     `json:"redirect"`
 }
 
 // MethodRegistry is the config-defined list of supported methods.
@@ -76,6 +77,8 @@ func (r *MethodRegistry) Get(key string) (Method, bool) {
 }
 
 // Preselect picks the default method: profile clue -> phone prefix -> first.
+// Redirect methods are never selected by phone prefix — only by explicit clue key
+// or as a configured-first fallback when the available list has no non-redirect option.
 // methods must be non-empty.
 func Preselect(methods []Method, clueKey, phoneNumber string) Method {
 	for _, m := range methods {
@@ -86,6 +89,9 @@ func Preselect(methods []Method, clueKey, phoneNumber string) Method {
 	phone := strings.TrimPrefix(strings.TrimSpace(phoneNumber), "+")
 	if phone != "" {
 		for _, m := range methods {
+			if m.Redirect {
+				continue // redirect methods must not be selected by phone prefix
+			}
 			for _, p := range m.Prefixes {
 				if strings.HasPrefix(phone, p) {
 					return m

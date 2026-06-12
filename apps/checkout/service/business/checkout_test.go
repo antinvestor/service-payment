@@ -1644,3 +1644,250 @@ func TestRefreshStatus_NilWorkMan_AsyncFallback_NoPanic(t *testing.T) {
 	require.NotNil(t, profCli.updateReq)
 	assert.Equal(t, "profile-nwm", profCli.updateReq.GetId())
 }
+
+// ---------------------------------------------------------------------------
+// Redirect method tests
+// ---------------------------------------------------------------------------
+
+// redirectRegistry returns a registry that includes the card redirect method.
+func redirectRegistry() *business.MethodRegistry {
+	reg, err := business.ParseMethodRegistry(
+		`[{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},` +
+			`{"key":"card","name":"Card","route":"polar","prefixes":[],"currencies":[],"redirect":true}]`,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return reg
+}
+
+// 10a. Pay with redirect method + no phone/contact: prompt sent, Source.ContactId is empty, Route == "polar".
+func TestPay_RedirectMethod_NoPhoneRequired(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		redirectRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-card",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "100.00",
+		Currency:     "USD",
+		AmountOption: models.AmountOptionFixed,
+		OrderRef:     "ORD-CARD-01",
+	}
+	sessionRepo.sessions["sess-card"] = s
+
+	// No phone, no contact — redirect method does not need them.
+	in := business.PayInput{
+		MethodKey: "card",
+	}
+	updated, err := b.Pay(ctx, "sess-card", in)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+	assert.Equal(t, 1, updated.Attempts)
+
+	// Prompt sent with empty ContactId and correct route.
+	require.NotNil(t, payCli.lastPrompt)
+	assert.Equal(t, "polar", payCli.lastPrompt.GetRoute(), "route must be polar for card method")
+	assert.Empty(t, payCli.lastPrompt.GetSource().GetContactId(), "ContactId must be empty for redirect method")
+}
+
+// 10b. Pay with redirect method and a session that has no PayerProfileID — succeeds (no ErrContactRequired).
+func TestPay_RedirectMethod_NoContactId_NoProfileID_Succeeds(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		redirectRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-card-guest",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "50.00",
+		Currency:     "USD",
+		AmountOption: models.AmountOptionFixed,
+		// No PayerProfileID, no Prefill — anonymous/guest redirect.
+	}
+	sessionRepo.sessions["sess-card-guest"] = s
+
+	in := business.PayInput{
+		MethodKey: "card",
+		// No phone, no contact — must succeed for redirect method.
+	}
+	updated, err := b.Pay(ctx, "sess-card-guest", in)
+	require.NoError(t, err, "redirect method must not require phone or contact")
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+
+	require.NotNil(t, payCli.lastPrompt)
+	assert.Empty(t, payCli.lastPrompt.GetSource().GetContactId())
+	assert.Empty(t, payCli.lastPrompt.GetSource().GetProfileId())
+}
+
+// 10c. Non-redirect method without phone still returns ErrContactRequired (unchanged behaviour).
+func TestPay_NonRedirectMethod_NoPhone_ErrContactRequired(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		redirectRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+
+	future := fixedNow().Add(20 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:          "sess-mpesa-nophone",
+		Status:       models.SessionStatusPending,
+		ExpiresAt:    future,
+		Amount:       "10.00",
+		Currency:     "KES",
+		AmountOption: models.AmountOptionFixed,
+	}
+	sessionRepo.sessions["sess-mpesa-nophone"] = s
+
+	_, err := b.Pay(ctx, "sess-mpesa-nophone", business.PayInput{
+		MethodKey: "mpesa",
+		// No phone — non-redirect method must still require one.
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, business.ErrContactRequired)
+}
+
+// 11a. RefreshStatus captures checkout_url from extras and persists it as _redirect_url.
+func TestRefreshStatus_CapturesCheckoutURL(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"checkout_url": "https://polar.sh/checkout/abc123",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		}),
+	}
+	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	ctx := context.Background()
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-redirect-url",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-polar",
+		Currency: "USD",
+	}
+	sessionRepo.sessions["sess-redirect-url"] = s
+
+	updated, err := b.RefreshStatus(ctx, s)
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status, "status remains processing")
+
+	// _redirect_url persisted on session metadata.
+	require.NotNil(t, updated.Metadata)
+	assert.Equal(t, "https://polar.sh/checkout/abc123", updated.Metadata["_redirect_url"])
+}
+
+// 11b. RefreshStatus with checkout_url already matching existing — no extra repo update.
+func TestRefreshStatus_CheckoutURL_Idempotent(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"checkout_url": "https://polar.sh/checkout/already-set",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		}),
+	}
+	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	ctx := context.Background()
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-redirect-idem",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-polar2",
+		Currency: "USD",
+		Metadata: map[string]any{
+			"_redirect_url": "https://polar.sh/checkout/already-set", // already persisted
+		},
+	}
+	sessionRepo.sessions["sess-redirect-idem"] = s
+	initialCount := sessionRepo.updateCount
+
+	updated, err := b.RefreshStatus(ctx, s)
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+
+	// No extra update should have been issued since the URL did not change.
+	assert.Equal(t, initialCount, sessionRepo.updateCount, "no extra repo update for unchanged redirect URL")
+}
+
+// 11c. RefreshStatus with javascript: checkout_url — must be ignored (safe-URL check).
+func TestRefreshStatus_CheckoutURL_Unsafe_Ignored(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"checkout_url": "javascript:alert(1)",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		}),
+	}
+	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	ctx := context.Background()
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-unsafe-url",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-unsafe",
+		Currency: "USD",
+	}
+	sessionRepo.sessions["sess-unsafe-url"] = s
+	initialCount := sessionRepo.updateCount
+
+	updated, err := b.RefreshStatus(ctx, s)
+	require.NoError(t, err)
+
+	// Unsafe URL must not be persisted.
+	assert.Equal(t, initialCount, sessionRepo.updateCount, "unsafe URL must not trigger repo update")
+	if updated.Metadata != nil {
+		assert.Empty(t, updated.Metadata["_redirect_url"], "unsafe URL must not be stored")
+	}
+}

@@ -553,12 +553,18 @@ func (b *CheckoutBusiness) Pay(
 		return nil, err
 	}
 
-	// Resolve msisdn and contactRef
-	msisdn, contactID, payerErr := b.resolvePayer(session, in)
-	if payerErr != nil {
-		b.obs.RecordPayFailure(ctx, "contact_required")
-		err = payerErr
-		return nil, err
+	// Resolve msisdn and contactRef.
+	// Redirect methods (e.g. card/polar) do not require a phone number — the
+	// provider handles identity at its own hosted page.
+	var msisdn, contactID string
+	if !method.Redirect {
+		var payerErr error
+		msisdn, contactID, payerErr = b.resolvePayer(session, in)
+		if payerErr != nil {
+			b.obs.RecordPayFailure(ctx, "contact_required")
+			err = payerErr
+			return nil, err
+		}
 	}
 
 	// All guards passed — record the attempt.
@@ -772,6 +778,12 @@ func (b *CheckoutBusiness) RefreshStatus(
 	}
 
 	status := resp.Msg.GetStatus()
+
+	// Capture redirect URL emitted by redirect-method providers (e.g. polar) while processing.
+	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
+		b.captureRedirectURL(ctx, session, resp.Msg.GetExtras())
+	}
+
 	//nolint:exhaustive // Only terminal statuses need action; all others leave session unchanged.
 	switch status {
 	case commonv1.STATUS_SUCCESSFUL:
@@ -811,6 +823,37 @@ func (b *CheckoutBusiness) RefreshStatus(
 		b.obs.RecordOutcomeFailed(ctx)
 	}
 	return session, nil
+}
+
+// captureRedirectURL extracts a "checkout_url" from the provider extras and persists it
+// on the session as Metadata["_redirect_url"] when the URL changes.  The write is
+// idempotent and a failure is logged but not propagated.
+func (b *CheckoutBusiness) captureRedirectURL(
+	ctx context.Context,
+	session *models.CheckoutSession,
+	extras *structpb.Struct,
+) {
+	if extras == nil {
+		return
+	}
+	field, ok := extras.GetFields()["checkout_url"]
+	if !ok {
+		return
+	}
+	urlStr := field.GetStringValue()
+	if urlStr == "" || !IsSafeReturnURL(urlStr) {
+		return
+	}
+	if session.Metadata == nil {
+		session.Metadata = make(map[string]any)
+	}
+	if existing, _ := session.Metadata["_redirect_url"].(string); existing == urlStr {
+		return // already persisted — no-op
+	}
+	session.Metadata["_redirect_url"] = urlStr
+	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
+		util.Log(ctx).WithError(updateErr).Warn("could not persist redirect url on session")
+	}
 }
 
 // writeClues persists checkout clues to the payer's profile (best-effort).

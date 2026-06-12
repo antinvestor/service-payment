@@ -810,6 +810,85 @@ func TestRateLimiter_XFF_Buckets(t *testing.T) {
 	)
 }
 
+// 12b. HandleStatus for a processing session with _redirect_url in metadata → JSON includes redirect_url.
+func TestHandleStatus_ProcessingSession_IncludesRedirectURL(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:       "sess-redirect-status",
+		Status:    models.SessionStatusProcessing,
+		PromptID:  "prompt-polar",
+		Currency:  "USD",
+		ExpiresAt: fixedNow().Add(30 * time.Minute),
+		Metadata: map[string]any{
+			"_redirect_url": "https://polar.sh/checkout/abc123",
+		},
+	}
+	h.sessionRepo.sessions["sess-redirect-status"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-redirect-status/status", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+
+	var payload map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	assert.Equal(t, "processing", payload["status"])
+	assert.Equal(t, "https://polar.sh/checkout/abc123", payload["redirect_url"])
+}
+
+// 12c. HandleStatus for a processing session with javascript: _redirect_url → redirect_url NOT emitted.
+func TestHandleStatus_ProcessingSession_JavascriptRedirectURL_NotEmitted(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:       "sess-js-redirect",
+		Status:    models.SessionStatusProcessing,
+		PromptID:  "prompt-js",
+		Currency:  "USD",
+		ExpiresAt: fixedNow().Add(30 * time.Minute),
+		Metadata: map[string]any{
+			"_redirect_url": "javascript:alert(1)",
+		},
+	}
+	h.sessionRepo.sessions["sess-js-redirect"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-js-redirect/status", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var payload map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	assert.Equal(t, "processing", payload["status"])
+	assert.Empty(t, payload["redirect_url"], "javascript: URL must never be surfaced")
+}
+
+// 12d. HandleStatus for a completed session with _redirect_url → redirect_url NOT emitted (only processing).
+func TestHandleStatus_CompletedSession_RedirectURL_NotEmitted(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:    "sess-done-redirect",
+		Status: models.SessionStatusCompleted,
+		Metadata: map[string]any{
+			"_redirect_url": "https://polar.sh/checkout/done",
+		},
+	}
+	h.sessionRepo.sessions["sess-done-redirect"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-done-redirect/status", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var payload map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	assert.Equal(t, "completed", payload["status"])
+	assert.Empty(t, payload["redirect_url"], "redirect_url must not be emitted for completed sessions")
+}
+
 // 13. Session with javascript: ReturnURL: done page must NOT include a meta-refresh
 // or any link/redirect target containing "javascript:".
 func TestHandlePage_CompletedSession_JavascriptReturnURL_NoRefresh(t *testing.T) {

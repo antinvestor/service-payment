@@ -11,7 +11,10 @@
       fetch(pollURL)
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          if (data.status === 'completed') {
+          if (data.redirect_url) {
+            clearInterval(intervalID);
+            window.location = data.redirect_url;
+          } else if (data.status === 'completed') {
             clearInterval(intervalID);
             var dest = returnURL || location.href;
             var sep = dest.indexOf('?') >= 0 ? '&' : '?';

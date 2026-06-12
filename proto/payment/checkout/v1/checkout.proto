@@ -17,7 +17,6 @@ syntax = "proto3";
 package checkout.v1;
 
 import "buf/validate/validate.proto";
-import "common/v1/common.proto";
 import "common/v1/money.proto";
 import "common/v1/permissions.proto";
 

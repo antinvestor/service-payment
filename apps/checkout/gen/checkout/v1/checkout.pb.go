@@ -910,7 +910,7 @@ var File_checkout_v1_checkout_proto protoreflect.FileDescriptor
 
 const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
-	"\x1acheckout/v1/checkout.proto\x12\vcheckout.v1\x1a\x1bbuf/validate/validate.proto\x1a\x16common/v1/common.proto\x1a\x15common/v1/money.proto\x1a\x1bcommon/v1/permissions.proto\"E\n" +
+	"\x1acheckout/v1/checkout.proto\x12\vcheckout.v1\x1a\x1bbuf/validate/validate.proto\x1a\x15common/v1/money.proto\x1a\x1bcommon/v1/permissions.proto\"E\n" +
 	"\fPayerContact\x12\x1d\n" +
 	"\n" +
 	"contact_id\x18\x01 \x01(\tR\tcontactId\x12\x16\n" +

@@ -523,7 +523,9 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 		s.reRenderPayWithError(w, r, ref, payErr.Error(), http.StatusTooManyRequests)
 		return
 
-	case errors.Is(payErr, business.ErrUnknownMethod), errors.Is(payErr, business.ErrAmountRequired):
+	case errors.Is(payErr, business.ErrUnknownMethod),
+		errors.Is(payErr, business.ErrAmountRequired),
+		errors.Is(payErr, business.ErrContactRequired):
 		s.reRenderPayWithError(w, r, ref, payErr.Error(), http.StatusBadRequest)
 		return
 

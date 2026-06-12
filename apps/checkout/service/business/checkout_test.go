@@ -909,10 +909,10 @@ func TestPay_Guards(t *testing.T) {
 			wantErr: business.ErrAmountRequired,
 		},
 		{
-			name:    "guest without phone → error",
+			name:    "guest without phone → ErrContactRequired",
 			session: makeSession(models.SessionStatusPending, 0, nil),
 			in:      business.PayInput{MethodKey: "mpesa"},
-			wantErr: nil, // any error, just non-nil
+			wantErr: business.ErrContactRequired,
 		},
 	}
 
@@ -1183,7 +1183,7 @@ func TestPay_RecognizedPayer_UnknownContactID_NoPhone_Error(t *testing.T) {
 	}
 	_, err := b.Pay(ctx, "sess-recog-nomsisdn", in)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "phone contact is required")
+	require.ErrorIs(t, err, business.ErrContactRequired)
 	// No prompt should have been sent
 	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called when msisdn is empty")
 }

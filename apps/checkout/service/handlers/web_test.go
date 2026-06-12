@@ -456,6 +456,8 @@ func TestHandlePay_GuestHappyPath(t *testing.T) {
 	}
 	require.NotNil(t, hintsCookie, "co_hints cookie must be set")
 	assert.True(t, hintsCookie.HttpOnly, "co_hints must be httpOnly")
+	assert.True(t, hintsCookie.Secure, "co_hints must be Secure")
+	assert.Equal(t, http.SameSiteLaxMode, hintsCookie.SameSite, "co_hints must be SameSite=Lax")
 	assert.NotEmpty(t, hintsCookie.Value, "co_hints must have a value")
 }
 
@@ -629,4 +631,80 @@ func TestStatic_CheckoutCSS(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 	ct := rec.Header().Get("Content-Type")
 	assert.Contains(t, ct, "text/css", "should serve text/css")
+}
+
+// 11. POST /pay guest with valid CSRF + method but EMPTY phone → 400 + banner, no prompt sent.
+func TestHandlePay_GuestEmptyPhone_400(t *testing.T) {
+	h := newHarness(t)
+	h.addGuestPendingSession("sess-no-phone")
+
+	form := url.Values{
+		"csrf":   {validCSRF("sess-no-phone")},
+		"method": {"mpesa"},
+		"phone":  {""}, // empty phone
+	}
+	req := httptest.NewRequest(http.MethodPost, "/c/sess-no-phone/pay", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "empty phone must yield 400")
+	body := rec.Body.String()
+	// The re-rendered pay page should contain a failure banner or the error text
+	assert.True(t,
+		strings.Contains(body, `class="banner`) || strings.Contains(body, "phone contact is required"),
+		"response body must contain a failure banner or the error text")
+	assert.Equal(t, 0, h.payCli.promptCount, "no prompt must be sent for empty phone")
+}
+
+// 12. Rate-limiter X-Forwarded-For: two requests with the same XFF first-IP share a bucket;
+// a different XFF first-IP gets its own bucket.
+func TestRateLimiter_XFF_Buckets(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+
+	cfg := testConfig()
+	cfg.LinkSpawnPerMinute = 1 // one token → second request from same bucket is rate-limited
+
+	reg := testRegistry()
+	biz := business.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	biz = biz.WithClock(fixedNow)
+
+	renderer, err := handlers.NewRenderer(testSecret)
+	require.NoError(t, err)
+
+	srv := handlers.NewWebServer(biz, renderer, reg, cfg)
+	router := srv.NewRouter()
+
+	// Active link
+	link := &models.CheckoutLink{
+		Ref:          "link-xff",
+		Name:         "XFF Rate Test",
+		Currency:     "KES",
+		Amount:       "10.00",
+		AmountOption: models.AmountOptionFixed,
+		Active:       true,
+	}
+	linkRepo.links["link-xff"] = link
+
+	makeReq := func(xff string) *http.Response {
+		req := httptest.NewRequest(http.MethodGet, "/l/link-xff", nil)
+		req.Header.Set("X-Forwarded-For", xff)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec.Result()
+	}
+
+	// First request from 10.0.0.9 (XFF first value) → consumes the one token.
+	resp1 := makeReq("10.0.0.9, 1.2.3.4")
+	assert.Equal(t, http.StatusSeeOther, resp1.StatusCode, "first XFF=10.0.0.9 request should succeed")
+
+	// Second request with the same XFF first value → same bucket, rate-limited.
+	resp2 := makeReq("10.0.0.9, 5.6.7.8")
+	assert.Equal(t, http.StatusTooManyRequests, resp2.StatusCode, "second XFF=10.0.0.9 request should be rate-limited")
+
+	// Request from a different first XFF IP → different bucket, succeeds.
+	resp3 := makeReq("10.0.0.99, 1.2.3.4")
+	assert.Equal(t, http.StatusSeeOther, resp3.StatusCode, "different XFF first IP gets its own bucket")
 }

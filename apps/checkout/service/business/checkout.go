@@ -43,6 +43,7 @@ var (
 	ErrUnknownMethod   = errors.New("unknown payment method")
 	ErrLinkUnusable    = errors.New("checkout link is not usable")
 	ErrAmountRequired  = errors.New("an amount is required for this payment")
+	ErrContactRequired = errors.New("a phone contact is required to pay")
 )
 
 // Ref length constants.
@@ -615,14 +616,14 @@ func (b *CheckoutBusiness) resolvePayer(
 			msisdn = strings.TrimSpace(in.PhoneNumber) // fallback
 		}
 		if msisdn == "" {
-			return "", "", errors.New("a phone contact is required to pay")
+			return "", "", fmt.Errorf("%w: contact not found in prefill", ErrContactRequired)
 		}
 		return msisdn, in.ContactID, nil
 	}
 
 	// Guest payer
 	if in.PhoneNumber == "" {
-		return "", "", errors.New("phone number is required for guest checkout")
+		return "", "", ErrContactRequired
 	}
 	return in.PhoneNumber, "", nil
 }

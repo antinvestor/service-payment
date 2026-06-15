@@ -8,10 +8,10 @@ buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260511161419-a9463f1
 buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260511161419-a9463f1bcd2f.1/go.mod h1:3AqOMvEC+ExEM4t7JZ/Mif8ZzpwGgadH4aAycqznBtI=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1 h1:c2wKBc4Uq4dY3O1oNRYC/BpMgn4VoWrxBSc6jAI/Bu0=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1/go.mod h1:f6HRnswwrB/pfixN3elxObPUC0rhYInyP7Z+IplLar0=
-buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260509050938-163a1062e27a.1 h1:8B/jO3w0pANxh9+H8XYNjs+dow5lCr7M/WQ1sRfjoXY=
-buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260509050938-163a1062e27a.1/go.mod h1:dI0Nkt/oM8EwPMsfjt9gE6/2HoL+sQ7KBintXhoy8Dk=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1 h1:X1XlgV37VxVcbpQLE4wGc89BRC7xn72vcLavl8p7jD8=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260509050938-163a1062e27a.1/go.mod h1:rf9ucOd7/BQtxE4s6GVdyzk+0ZBD0uzyWi5Tx3NDHyw=
+buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1 h1:TuPHRdsjK2O/rXhiiiE+QOJCz6ca5zIXavhE1rWNHKc=
+buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1/go.mod h1:euArvd/a9ll55Xv/4o909TxfMaUwtleig3Zf2F702Hk=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1 h1:f/NnuVHx6m+/AMKGEoXCjSAcllYhfZg+f+YRIFPSgAc=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1/go.mod h1:rf9ucOd7/BQtxE4s6GVdyzk+0ZBD0uzyWi5Tx3NDHyw=
 buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260612021939-e32a27e4910e.1 h1:hyzQvRGSrTKMbzPvqr29Rw1MbopLntdBdhYjKjviogo=
 buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260612021939-e32a27e4910e.1/go.mod h1:7BjUxsa4AAgddPu4GfpcV8vXLcGb5zaTcKakHRQOWx8=
 buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260612021939-e32a27e4910e.1 h1:0WaTXI1WDNAOmQ/hPqFZE5OrFtECKjsAeJ7/ve01MlU=

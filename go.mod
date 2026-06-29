@@ -16,7 +16,7 @@ require (
 	buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260612021939-e32a27e4910e.1
 	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260612021939-e3b9c0882723.1
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260612021939-e3b9c0882723.1
-	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.20.0-20260510082433-f63874a7edbf.1
+	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.20.0-20260629054636-19bb401b07c4.1
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/otelconnect v0.9.0
@@ -43,7 +43,7 @@ require (
 )
 
 require (
-	buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go v1.36.11-20260510082433-f63874a7edbf.1 // indirect
+	buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go v1.36.11-20260629054636-19bb401b07c4.1 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/go/protovalidate v1.2.0 // indirect
 	cel.dev/expr v0.25.2 // indirect

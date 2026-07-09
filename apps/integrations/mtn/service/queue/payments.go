@@ -27,8 +27,8 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/google/uuid"
-	frameEvents "github.com/pitabwire/frame/events"
-	"github.com/pitabwire/frame/queue"
+	frameEvents "github.com/pitabwire/frame/v2/events"
+	"github.com/pitabwire/frame/v2/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 )

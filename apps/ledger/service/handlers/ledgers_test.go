@@ -29,7 +29,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	_ "github.com/lib/pq"
-	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/pitabwire/frame/v2/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

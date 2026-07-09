@@ -15,7 +15,7 @@
 package config
 
 import (
-	"github.com/pitabwire/frame/config"
+	"github.com/pitabwire/frame/v2/config"
 )
 
 type CheckoutConfig struct {

@@ -21,7 +21,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/antinvestor/service-payments/apps/checkout/tests"
 	_ "github.com/lib/pq"
-	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/pitabwire/frame/v2/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -21,7 +21,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerModels "github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/util/decimalx"
 )
 

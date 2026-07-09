@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/pitabwire/frame/frametests/definition"
+	"github.com/pitabwire/frame/v2/frametests/definition"
 	"github.com/stretchr/testify/require"
 )
 

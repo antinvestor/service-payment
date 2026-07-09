@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/v2/datastore"
 )
 
 func Migrate(ctx context.Context, dbManager datastore.Manager, migrationPath string) error {

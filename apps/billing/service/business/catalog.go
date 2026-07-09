@@ -21,7 +21,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/workerpool"
+	"github.com/pitabwire/frame/v2/workerpool"
 )
 
 // CatalogBusiness defines the business interface for catalog operations.

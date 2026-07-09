@@ -25,9 +25,10 @@ import (
 	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common"
-	"github.com/antinvestor/common/connection"
-	"github.com/antinvestor/common/timescale"
+	apis "github.com/antinvestor/common/v2"
+	"github.com/antinvestor/common/v2/connection"
+	"github.com/antinvestor/common/v2/servicecatalog"
+	"github.com/antinvestor/common/v2/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
@@ -38,12 +39,12 @@ import (
 	// Ledger integration dependencies.
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerRepo "github.com/antinvestor/service-payments/apps/ledger/service/repository"
-	"github.com/pitabwire/frame"
-	"github.com/pitabwire/frame/config"
-	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/datastore/pool"
-	"github.com/pitabwire/frame/security"
-	securityconnect "github.com/pitabwire/frame/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v2/config"
+	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v2/datastore/pool"
+	"github.com/pitabwire/frame/v2/security"
+	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
 	"github.com/pitabwire/util"
 )
 
@@ -166,7 +167,7 @@ func setupCheckoutClient(
 	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.CheckoutServiceURI,
 		WorkloadAPITargetPath: cfg.CheckoutServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_payment_checkout"},
+		ServiceID:             servicecatalog.ServiceCheckout,
 	}, checkoutv1connect.NewCheckoutServiceClient)
 }
 

@@ -22,7 +22,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 )
 
 // Errors for book operations.

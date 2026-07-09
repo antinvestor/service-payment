@@ -21,7 +21,7 @@ import (
 	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
 	"google.golang.org/protobuf/types/known/structpb"

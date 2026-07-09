@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/apps/default/service/models"
-	"github.com/pitabwire/frame/data"
-	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/workerpool"
+	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v2/workerpool"
 )
 
 type PaymentRepository interface {

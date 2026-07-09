@@ -22,7 +22,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

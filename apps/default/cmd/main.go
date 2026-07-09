@@ -26,21 +26,22 @@ import (
 	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common"
-	"github.com/antinvestor/common/connection"
-	"github.com/antinvestor/common/permissions"
+	apis "github.com/antinvestor/common/v2"
+	"github.com/antinvestor/common/v2/connection"
+	"github.com/antinvestor/common/v2/servicecatalog"
+	"github.com/antinvestor/common/v2/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/default/config"
 	"github.com/antinvestor/service-payments/apps/default/service/authz"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/handlers"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/pitabwire/frame"
-	"github.com/pitabwire/frame/config"
-	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/security"
-	"github.com/pitabwire/frame/security/authorizer"
-	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v2/config"
+	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v2/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
 	"github.com/pitabwire/util"
 )
 
@@ -189,7 +190,7 @@ func setupProfileClient(
 	profileCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.ProfileServiceURI,
 		WorkloadAPITargetPath: cfg.ProfileServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_profile"},
+		ServiceID:             servicecatalog.ServiceProfile,
 	}, profilev1connect.NewProfileServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup profile client")
@@ -205,7 +206,7 @@ func setupLedgerClient(
 	ledgerCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.LedgerServiceURI,
 		WorkloadAPITargetPath: cfg.LedgerServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_ledger"},
+		ServiceID:             servicecatalog.ServiceLedger,
 	}, ledgerv1connect.NewLedgerServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup ledger client")
@@ -221,7 +222,7 @@ func setupTenancyClient(
 	tenancyCli, err := connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.TenancyServiceURI,
 		WorkloadAPITargetPath: cfg.TenancyServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_tenancy"},
+		ServiceID:             servicecatalog.ServiceTenancy,
 	}, tenancyv1connect.NewTenancyServiceClient)
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not setup partition client")

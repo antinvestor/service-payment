@@ -19,7 +19,7 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/pkg/events"
-	frameEvents "github.com/pitabwire/frame/events"
+	frameEvents "github.com/pitabwire/frame/v2/events"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )

@@ -19,7 +19,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
 )

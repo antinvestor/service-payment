@@ -19,15 +19,16 @@ import (
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
-	apis "github.com/antinvestor/common"
-	"github.com/antinvestor/common/connection"
+	apis "github.com/antinvestor/common/v2"
+	"github.com/antinvestor/common/v2/connection"
+	"github.com/antinvestor/common/v2/servicecatalog"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	handlers "github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/handler"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/queue"
 	"github.com/antinvestor/service-payments/pkg/events"
-	"github.com/pitabwire/frame"
-	"github.com/pitabwire/frame/config"
+	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v2/config"
 	"github.com/pitabwire/util"
 )
 
@@ -96,7 +97,7 @@ func setupPaymentClient(
 	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PaymentServiceURI,
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_payment"},
+		ServiceID:             servicecatalog.ServicePayment,
 	}, paymentv1connect.NewPaymentServiceClient)
 }
 
@@ -107,6 +108,6 @@ func setupSettingsClient(
 	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.SettingsServiceURI,
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_setting"},
+		ServiceID:             servicecatalog.ServiceSettings,
 	}, settingsv1connect.NewSettingsServiceClient)
 }

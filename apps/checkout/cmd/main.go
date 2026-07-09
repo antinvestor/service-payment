@@ -26,22 +26,23 @@ import (
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common"
-	"github.com/antinvestor/common/connection"
-	"github.com/antinvestor/common/permissions"
+	apis "github.com/antinvestor/common/v2"
+	"github.com/antinvestor/common/v2/connection"
+	"github.com/antinvestor/common/v2/servicecatalog"
+	"github.com/antinvestor/common/v2/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/checkout/config"
 	checkoutv1 "github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/handlers"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
-	"github.com/pitabwire/frame"
-	"github.com/pitabwire/frame/config"
-	"github.com/pitabwire/frame/datastore"
-	"github.com/pitabwire/frame/security"
-	"github.com/pitabwire/frame/security/authorizer"
-	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
-	"github.com/pitabwire/frame/workerpool"
+	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v2/config"
+	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v2/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/workerpool"
 	"github.com/pitabwire/util"
 )
 
@@ -199,7 +200,7 @@ func setupPaymentClient(
 	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.PaymentServiceURI,
 		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_payment"},
+		ServiceID:             servicecatalog.ServicePayment,
 	}, paymentv1connect.NewPaymentServiceClient)
 }
 
@@ -210,7 +211,7 @@ func setupProfileClient(
 	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
 		Endpoint:              cfg.ProfileServiceURI,
 		WorkloadAPITargetPath: cfg.ProfileServiceWorkloadAPITargetPath,
-		Audiences:             []string{"service_profile"},
+		ServiceID:             servicecatalog.ServiceProfile,
 	}, profilev1connect.NewProfileServiceClient)
 }
 

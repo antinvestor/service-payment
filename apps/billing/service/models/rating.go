@@ -15,7 +15,7 @@
 package models
 
 import (
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/util/decimalx"
 )
 

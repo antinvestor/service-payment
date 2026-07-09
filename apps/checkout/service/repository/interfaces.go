@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
-	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/v2/datastore"
 )
 
 // SessionRepository manages CheckoutSession persistence.

@@ -23,8 +23,8 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	frameEvents "github.com/pitabwire/frame/events"
-	"github.com/pitabwire/frame/queue"
+	frameEvents "github.com/pitabwire/frame/v2/events"
+	"github.com/pitabwire/frame/v2/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 )

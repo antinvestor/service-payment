@@ -19,7 +19,7 @@ import (
 	"errors"
 
 	"github.com/antinvestor/service-payments/apps/default/service/models"
-	"github.com/pitabwire/frame/datastore"
+	"github.com/pitabwire/frame/v2/datastore"
 	"github.com/pitabwire/util"
 )
 

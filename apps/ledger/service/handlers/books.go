@@ -19,7 +19,7 @@ import (
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"connectrpc.com/connect"
-	"github.com/pitabwire/frame/data"
+	"github.com/pitabwire/frame/v2/data"
 )
 
 // CreateBook creates a new independent accounting scope (book).

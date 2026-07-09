@@ -23,8 +23,8 @@ import (
 	"github.com/antinvestor/service-payments/apps/ledger/service/observability"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/data"
-	"github.com/pitabwire/frame/workerpool"
+	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v2/workerpool"
 )
 
 // LedgerBusiness defines the business interface for ledger operations.

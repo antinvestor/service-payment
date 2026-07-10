@@ -4,10 +4,10 @@ buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260709214338-
 buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.11-20260709214338-f3b9464d257d.1/go.mod h1:wQA4yqWxG3hVLSQAlJ/C4XRbCJUVYRn9v0XoXroZqIU=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260509050709-3f270876dbf3.1 h1:B8kYvDw/nWj5TLW9vrl95Q5jpD3sSsM/MZa9nViUc/I=
 buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.11-20260509050709-3f270876dbf3.1/go.mod h1:jRgXqWVsMsSV2ZDzo9s21a1fiAyyO68FibJVAGQzJoY=
-buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260511161419-a9463f1bcd2f.1 h1:VCv7SyleLXK2YFIM7yrRVw8SsCTwsVbLa93N97EpbaY=
-buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260511161419-a9463f1bcd2f.1/go.mod h1:3AqOMvEC+ExEM4t7JZ/Mif8ZzpwGgadH4aAycqznBtI=
-buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1 h1:c2wKBc4Uq4dY3O1oNRYC/BpMgn4VoWrxBSc6jAI/Bu0=
-buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260511161419-a9463f1bcd2f.1/go.mod h1:f6HRnswwrB/pfixN3elxObPUC0rhYInyP7Z+IplLar0=
+buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260709214338-fcdd6e08a283.1 h1:SLMRegrjpvRMTTkT77mWjNqYU0IJ16gx4RTHqCP6GxU=
+buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260709214338-fcdd6e08a283.1/go.mod h1:2SNcHxnWRYJsyKLMz6WJv/Vt/MbvSPxvFtxp2bPXDBw=
+buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260709214338-fcdd6e08a283.1 h1:QeUt7kTt+ITcDXAv8JV/sIgE+i6ecSUIulwpyuVeEKg=
+buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260709214338-fcdd6e08a283.1/go.mod h1:UDu80qQwySQ0jX58mWyTlpP0nyfgJGolKEc14cPQKwc=
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1 h1:TuPHRdsjK2O/rXhiiiE+QOJCz6ca5zIXavhE1rWNHKc=
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1/go.mod h1:euArvd/a9ll55Xv/4o909TxfMaUwtleig3Zf2F702Hk=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1 h1:f/NnuVHx6m+/AMKGEoXCjSAcllYhfZg+f+YRIFPSgAc=

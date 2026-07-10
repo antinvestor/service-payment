@@ -12,10 +12,10 @@ buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1/go.mod h1:euArvd/a9ll55Xv/4o909TxfMaUwtleig3Zf2F702Hk=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1 h1:f/NnuVHx6m+/AMKGEoXCjSAcllYhfZg+f+YRIFPSgAc=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1/go.mod h1:rf9ucOd7/BQtxE4s6GVdyzk+0ZBD0uzyWi5Tx3NDHyw=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260612021939-e32a27e4910e.1 h1:hyzQvRGSrTKMbzPvqr29Rw1MbopLntdBdhYjKjviogo=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260612021939-e32a27e4910e.1/go.mod h1:7BjUxsa4AAgddPu4GfpcV8vXLcGb5zaTcKakHRQOWx8=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260612021939-e32a27e4910e.1 h1:0WaTXI1WDNAOmQ/hPqFZE5OrFtECKjsAeJ7/ve01MlU=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260612021939-e32a27e4910e.1/go.mod h1:Fst3GhuP6DjMU6ZkauzaPFx8m/rLvwo2fUpuhk5tb5w=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e8857a1e6.1 h1:yIket4DZFX+LMrCAqd6+wXJwiu5Ai7bnXlP2bobj+Xk=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e8857a1e6.1/go.mod h1:GyzR0zeCo1Y8R0QNgYo/vY10+HWnVAKWHzS0S+sbZVo=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260709214326-6f6e8857a1e6.1 h1:dwzZBZGJ5dG4Q5kCUk91UCvWf7Kwv/YTvajVCPM69NU=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260709214326-6f6e8857a1e6.1/go.mod h1:HJyYRw13LRm0HWyGy2/yKqTpMzA2PDNKDeGigVkJH2A=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260612021939-e3b9c0882723.1 h1:tc5CFxAOrfdob7bnXZbaoUB7mYjvwjhyIO9PFkiaP0A=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260612021939-e3b9c0882723.1/go.mod h1:7lIThPoMlITMBqXgj7tnd/HQWigS/CQijd6/TqLNP4Q=
 buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260612021939-e3b9c0882723.1 h1:7BRjsLWfUd8hlnGlOKf8GfPokaiWJH3TuZGFDs4yj5w=

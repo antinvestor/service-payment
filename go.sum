@@ -8,10 +8,10 @@ buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260709214338-fcdd6e0
 buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260709214338-fcdd6e08a283.1/go.mod h1:2SNcHxnWRYJsyKLMz6WJv/Vt/MbvSPxvFtxp2bPXDBw=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260709214338-fcdd6e08a283.1 h1:QeUt7kTt+ITcDXAv8JV/sIgE+i6ecSUIulwpyuVeEKg=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.11-20260709214338-fcdd6e08a283.1/go.mod h1:UDu80qQwySQ0jX58mWyTlpP0nyfgJGolKEc14cPQKwc=
-buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1 h1:TuPHRdsjK2O/rXhiiiE+QOJCz6ca5zIXavhE1rWNHKc=
-buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260612103037-9360f7ab38b4.1/go.mod h1:euArvd/a9ll55Xv/4o909TxfMaUwtleig3Zf2F702Hk=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1 h1:f/NnuVHx6m+/AMKGEoXCjSAcllYhfZg+f+YRIFPSgAc=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260612103037-9360f7ab38b4.1/go.mod h1:rf9ucOd7/BQtxE4s6GVdyzk+0ZBD0uzyWi5Tx3NDHyw=
+buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260709214338-d7f951ea5a6e.1 h1:KMdbrZvRBAd6DyD1Ju45A8Hi0gcGPQ8QL9RoqejoOjA=
+buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260709214338-d7f951ea5a6e.1/go.mod h1:DvCmTxeTB87FIyDNE+wnpIcL/wKGC8GCyfMESZhW9DQ=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260709214338-d7f951ea5a6e.1 h1:NNRjZWpzL2/eUN4+74/RJ1DOHKhBeuYCRUuAFgRuDcs=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.11-20260709214338-d7f951ea5a6e.1/go.mod h1:FpDvxCvzDgtf8SX1wyD0EbnoZM3MDQqNjaRrAUyXszg=
 buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e8857a1e6.1 h1:yIket4DZFX+LMrCAqd6+wXJwiu5Ai7bnXlP2bobj+Xk=
 buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e8857a1e6.1/go.mod h1:GyzR0zeCo1Y8R0QNgYo/vY10+HWnVAKWHzS0S+sbZVo=
 buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260709214326-6f6e8857a1e6.1 h1:dwzZBZGJ5dG4Q5kCUk91UCvWf7Kwv/YTvajVCPM69NU=

@@ -16,10 +16,10 @@ buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e88
 buf.build/gen/go/antinvestor/profile/connectrpc/go v1.20.0-20260709214326-6f6e8857a1e6.1/go.mod h1:GyzR0zeCo1Y8R0QNgYo/vY10+HWnVAKWHzS0S+sbZVo=
 buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260709214326-6f6e8857a1e6.1 h1:dwzZBZGJ5dG4Q5kCUk91UCvWf7Kwv/YTvajVCPM69NU=
 buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.11-20260709214326-6f6e8857a1e6.1/go.mod h1:HJyYRw13LRm0HWyGy2/yKqTpMzA2PDNKDeGigVkJH2A=
-buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260612021939-e3b9c0882723.1 h1:tc5CFxAOrfdob7bnXZbaoUB7mYjvwjhyIO9PFkiaP0A=
-buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260612021939-e3b9c0882723.1/go.mod h1:7lIThPoMlITMBqXgj7tnd/HQWigS/CQijd6/TqLNP4Q=
-buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260612021939-e3b9c0882723.1 h1:7BRjsLWfUd8hlnGlOKf8GfPokaiWJH3TuZGFDs4yj5w=
-buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260612021939-e3b9c0882723.1/go.mod h1:zkRCi1DLStznOaqUuvL4fvhVkP6oZSipSRrhHWnihbE=
+buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260709214326-f637cc57d60d.1 h1:IMksnq6KnG1MCvuQ/V3malVGFTzInp1LQApOz0XM4v8=
+buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260709214326-f637cc57d60d.1/go.mod h1:0G5zdKF7bksAYzmw+k7CX9n+NI8Z7Cmg73LVUruC9I0=
+buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260709214326-f637cc57d60d.1 h1:VU7eaRxsbZbkKqYYQNjBH1G9FXaZDbLr+Yj0Xg29U8M=
+buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.11-20260709214326-f637cc57d60d.1/go.mod h1:3VW+jzOZ0VanQt+Zi2w5srsfDJBHR9yZ2IY/kdonzfk=
 buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.20.0-20260709203041-c02aadb0111f.1 h1:iACMEnOb52OP70D+Q7UwbtbwQ51WHxmW0xXhaG2LSY0=
 buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.20.0-20260709203041-c02aadb0111f.1/go.mod h1:Da7UBdtaDtY1Z0PEgkEcOL0DBRf8s9SaNNTHF3lGm5Y=
 buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go v1.36.11-20260709203041-c02aadb0111f.1 h1:sgYqPvohhVTbSDr6s3QWfxLOFLEf7EJlR9YHJtzprVM=

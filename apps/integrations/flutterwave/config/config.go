@@ -94,5 +94,6 @@ type FlutterwaveConfig struct {
 	// EnableSubscriptionWorker turns on the lifecycle subscriber.
 	// v4 has no payment-plans API like v3; this worker is for correlation/logging
 	// and optional cancel hooks when flutterwave charge ids are stored.
-	EnableSubscriptionWorker bool `envDefault:"true" env:"FLUTTERWAVE_ENABLE_SUBSCRIPTION_WORKER"`
+	// Default false: requires a real QUEUE_FLUTTERWAVE_SUBSCRIPTION_URI (not bare mem://).
+	EnableSubscriptionWorker bool `envDefault:"false" env:"FLUTTERWAVE_ENABLE_SUBSCRIPTION_WORKER"`
 }

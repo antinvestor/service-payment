@@ -191,10 +191,14 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		return nil
 	}
 
+	apiVersion := "v4"
+	if client.IsV3Credentials(creds) {
+		apiVersion = "v3"
+	}
 	extras := map[string]any{
 		"entity_type":   "prompt",
 		"provider":      "flutterwave",
-		"api_version":   "v4",
+		"api_version":   apiVersion,
 		"mode":          mode,
 		"reference":     ch.Reference,
 		"charge_id":     ch.ID,

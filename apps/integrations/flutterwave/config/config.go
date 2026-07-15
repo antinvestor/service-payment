@@ -46,13 +46,20 @@ type FlutterwaveConfig struct {
 	SettingsIntegrationName string `envDefault:"flutterwave" env:"SETTINGS_INTEGRATION_NAME"`
 	SettingsIntegrationID   string `envDefault:"flutterwave" env:"SETTINGS_INTEGRATION_ID"`
 
-	// Flutterwave v4 OAuth credentials (dashboard → Settings → API Keys → v4).
-	// Sandbox: developer sandbox portal. Live: switch to v4 live API keys.
-	ClientID     string `env:"FLUTTERWAVE_CLIENT_ID"`
-	ClientSecret string `env:"FLUTTERWAVE_CLIENT_SECRET"`
-	// WebhookSecret is the secret hash used for flutterwave-signature (HMAC-SHA256).
+	// Flutterwave credentials — either v4 OAuth OR classic v3 secret keys.
+	//
+	// v4: ClientID + ClientSecret (UUID-style from "Switch to v4 API keys").
+	// v3: SecretKey=FLWSECK_TEST-… PublicKey=FLWPUBK_TEST-… (EncryptionKey optional).
+	// Dashboard often labels these "public/secret key"; you may put them in
+	// CLIENT_ID / CLIENT_SECRET — auto-detected by FLW* prefix.
+	ClientID      string `env:"FLUTTERWAVE_CLIENT_ID"`
+	ClientSecret  string `env:"FLUTTERWAVE_CLIENT_SECRET"`
+	PublicKey     string `env:"FLUTTERWAVE_PUBLIC_KEY"`
+	SecretKey     string `env:"FLUTTERWAVE_SECRET_KEY"`
+	EncryptionKey string `env:"FLUTTERWAVE_ENCRYPTION_KEY"`
+	// WebhookSecret is the secret hash (verif-hash / flutterwave-signature).
 	WebhookSecret string `env:"FLUTTERWAVE_WEBHOOK_SECRET"`
-	// Environment: sandbox | production. Selects API base URL.
+	// Environment: sandbox | production. Selects v4 API base URL (v3 uses key prefix).
 	Environment string `envDefault:"sandbox" env:"FLUTTERWAVE_ENVIRONMENT"`
 
 	// OAuth token endpoint (same for sandbox and production).

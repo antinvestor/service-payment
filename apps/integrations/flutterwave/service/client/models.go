@@ -14,10 +14,23 @@
 
 package client
 
-// Credentials holds Flutterwave v4 OAuth client credentials for a tenant/request.
+// Credentials holds Flutterwave credentials for a tenant/request.
+//
+// Two modes are supported:
+//   - v4 OAuth: ClientID + ClientSecret (UUID-style, from "Switch to v4 API keys")
+//   - v3 secret key: SecretKey (FLWSECK_*) + optional PublicKey (FLWPUBK_*) + EncryptionKey
+//
+// Dashboard test keys often look like FLWPUBK_TEST-… / FLWSECK_TEST-… — those are v3.
+// The client auto-detects via IsV3Credentials.
 type Credentials struct {
-	ClientID      string
-	ClientSecret  string
+	// v4 OAuth
+	ClientID     string
+	ClientSecret string
+	// v3 classic
+	PublicKey     string
+	SecretKey     string
+	EncryptionKey string
+	// Shared
 	WebhookSecret string
 	Environment   string // sandbox | production
 	// Optional overrides
@@ -208,11 +221,25 @@ type oauthTokenResponse struct {
 
 // --- Webhooks ---
 
-// WebhookEvent is the v4 webhook body.
+// WebhookEvent is the v4 webhook body (also accepts classic v3 shape).
+// v4: type / webhook_id / data
+// v3: event / data  (event ≈ charge.completed | transfer.completed)
 // https://developer.flutterwave.com/docs/webhooks
 type WebhookEvent struct {
 	WebhookID string         `json:"webhook_id"`
 	Timestamp int64          `json:"timestamp"`
-	Type      string         `json:"type"` // charge.completed | transfer.disburse | …
+	Type      string         `json:"type"`  // charge.completed | transfer.disburse | …
+	Event     string         `json:"event"` // v3 alias for Type
 	Data      map[string]any `json:"data"`
+}
+
+// EventType returns the webhook event name from v4 or v3 fields.
+func (e *WebhookEvent) EventType() string {
+	if e == nil {
+		return ""
+	}
+	if e.Type != "" {
+		return e.Type
+	}
+	return e.Event
 }

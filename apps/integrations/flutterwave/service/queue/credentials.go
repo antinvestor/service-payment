@@ -44,14 +44,30 @@ func (r *credentialResolver) extractCredentials(
 	creds := &client.Credentials{
 		ClientID:      headerOrDefault(headers, config.HeaderClientID, r.cfg.ClientID),
 		ClientSecret:  headerOrDefault(headers, config.HeaderClientSecret, r.cfg.ClientSecret),
+		PublicKey:     firstNonEmpty(r.cfg.PublicKey, r.cfg.ClientID),
+		SecretKey:     firstNonEmpty(r.cfg.SecretKey, r.cfg.ClientSecret),
+		EncryptionKey: r.cfg.EncryptionKey,
 		WebhookSecret: headerOrDefault(headers, config.HeaderWebhookSecret, r.cfg.WebhookSecret),
 		Environment:   headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
 		OAuthTokenURL: r.cfg.OAuthTokenURL,
+	}
+	// Accept dashboard v3 keys mapped into client_id/client_secret fields.
+	if strings.HasPrefix(creds.ClientID, "FLWPUBK_") {
+		creds.PublicKey = creds.ClientID
+	}
+	if strings.HasPrefix(creds.ClientSecret, "FLWSECK_") {
+		creds.SecretKey = creds.ClientSecret
 	}
 	if strings.EqualFold(creds.Environment, "production") {
 		creds.APIBaseURL = r.cfg.ProductionAPIBaseURL
 	} else {
 		creds.APIBaseURL = r.cfg.SandboxAPIBaseURL
+	}
+	if client.IsV3Credentials(creds) {
+		if creds.SecretKey == "" {
+			return nil, errors.New("missing Flutterwave secret key (FLWSECK_* via FLUTTERWAVE_CLIENT_SECRET or FLUTTERWAVE_SECRET_KEY)")
+		}
+		return creds, nil
 	}
 	if creds.ClientID == "" || creds.ClientSecret == "" {
 		return nil, errors.New("missing Flutterwave v4 client_id/client_secret (FLUTTERWAVE_CLIENT_ID / FLUTTERWAVE_CLIENT_SECRET)")
@@ -89,6 +105,15 @@ func (r *credentialResolver) credentialsFromSettings(
 		ClientSecret: firstNonEmpty(
 			credMap[config.HeaderClientSecret], credMap["client_secret"], credMap["FLUTTERWAVE_CLIENT_SECRET"],
 		),
+		PublicKey: firstNonEmpty(
+			credMap["public_key"], credMap["FLUTTERWAVE_PUBLIC_KEY"], credMap["FLWPUBK"],
+		),
+		SecretKey: firstNonEmpty(
+			credMap["secret_key"], credMap["FLUTTERWAVE_SECRET_KEY"], credMap["FLWSECK"],
+		),
+		EncryptionKey: firstNonEmpty(
+			credMap["encryption_key"], credMap["FLUTTERWAVE_ENCRYPTION_KEY"],
+		),
 		WebhookSecret: firstNonEmpty(
 			credMap[config.HeaderWebhookSecret], credMap["webhook_secret"], credMap["secret_hash"],
 		),
@@ -97,10 +122,22 @@ func (r *credentialResolver) credentialsFromSettings(
 		),
 		OAuthTokenURL: r.cfg.OAuthTokenURL,
 	}
+	if strings.HasPrefix(creds.ClientID, "FLWPUBK_") {
+		creds.PublicKey = firstNonEmpty(creds.PublicKey, creds.ClientID)
+	}
+	if strings.HasPrefix(creds.ClientSecret, "FLWSECK_") {
+		creds.SecretKey = firstNonEmpty(creds.SecretKey, creds.ClientSecret)
+	}
 	if strings.EqualFold(creds.Environment, "production") {
 		creds.APIBaseURL = r.cfg.ProductionAPIBaseURL
 	} else {
 		creds.APIBaseURL = r.cfg.SandboxAPIBaseURL
+	}
+	if client.IsV3Credentials(creds) {
+		if creds.SecretKey == "" {
+			return nil, errors.New("settings credentials missing FLWSECK secret key")
+		}
+		return creds, nil
 	}
 	if creds.ClientID == "" || creds.ClientSecret == "" {
 		return nil, errors.New("settings credentials missing client_id/client_secret")

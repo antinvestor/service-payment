@@ -70,6 +70,13 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	creds *Credentials,
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
+	if IsV3Credentials(creds) {
+		// Hosted Standard for card/bank_transfer/opay; direct MoMo charge when phone rail.
+		if req.PaymentMethod.Type == "mobile_money" {
+			return c.createMoMoChargeV3(ctx, creds, req)
+		}
+		return c.createStandardPaymentV3(ctx, creds, req)
+	}
 	var env APIEnvelope[Charge]
 	if err := c.doJSON(ctx, creds, http.MethodPost, "/orchestration/direct-charges", req, &env); err != nil {
 		return nil, err
@@ -85,6 +92,9 @@ func (c *flutterwaveClient) GetCharge(
 	creds *Credentials,
 	chargeID string,
 ) (*Charge, error) {
+	if IsV3Credentials(creds) {
+		return c.getChargeV3(ctx, creds, chargeID)
+	}
 	var env APIEnvelope[Charge]
 	if err := c.doJSON(ctx, creds, http.MethodGet, "/charges/"+url.PathEscape(chargeID), nil, &env); err != nil {
 		return nil, err
@@ -115,6 +125,9 @@ func (c *flutterwaveClient) CreateTransfer(
 	creds *Credentials,
 	req map[string]any,
 ) (*Transfer, error) {
+	if IsV3Credentials(creds) {
+		return c.createTransferV3(ctx, creds, req)
+	}
 	var env APIEnvelope[Transfer]
 	if err := c.doJSON(ctx, creds, http.MethodPost, "/transfers", req, &env); err != nil {
 		return nil, err
@@ -155,12 +168,16 @@ func (c *flutterwaveClient) GetTransfer(
 	return &env.Data, nil
 }
 
-// VerifyWebhookSignature validates the flutterwave-signature header.
-// Flutterwave hashes the raw body with HMAC-SHA256 using the secret hash and base64-encodes it.
-// https://developer.flutterwave.com/docs/webhooks
+// VerifyWebhookSignature validates webhook authenticity.
+// v4: flutterwave-signature = base64(HMAC-SHA256(secret, body))
+// v3: verif-hash header may equal the secret hash exactly (also accepted when equal).
 func (c *flutterwaveClient) VerifyWebhookSignature(rawBody []byte, signatureHeader, secretHash string) bool {
 	if secretHash == "" || signatureHeader == "" {
 		return false
+	}
+	// Exact match (v3 verif-hash style).
+	if hmac.Equal([]byte(signatureHeader), []byte(secretHash)) {
+		return true
 	}
 	mac := hmac.New(sha256.New, []byte(secretHash))
 	_, _ = mac.Write(rawBody)
@@ -264,6 +281,9 @@ func (c *flutterwaveClient) doJSON(
 }
 
 func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials) (string, error) {
+	if IsV3Credentials(creds) {
+		return "", fmt.Errorf("v3 secret-key mode does not use OAuth access tokens")
+	}
 	if creds == nil || creds.ClientID == "" || creds.ClientSecret == "" {
 		return "", fmt.Errorf("flutterwave client_id and client_secret are required (v4 OAuth)")
 	}

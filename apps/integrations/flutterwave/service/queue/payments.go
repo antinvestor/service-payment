@@ -126,56 +126,6 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		reference = reference[:42]
 	}
 
-	// Create recipient then transfer (general flow).
-	var recipientID string
-	if payoutType == "mobile_money" {
-		corridor := resolveMoMoCorridor(accountNumber, currency)
-		if corridor == nil {
-			h.metrics.QueueFailed(ctx, "payment", "validation_error")
-			h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-				"error": "unsupported mobile money corridor", "entity_type": "payment",
-			})
-			return nil
-		}
-		net := corridor.Network
-		if o := extraString(payment.GetExtra(), "network"); o != "" {
-			net = strings.ToUpper(o)
-		}
-		recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
-			Type: "mobile_money",
-			MobileMoney: &client.MobileMoneyRecipientDetails{
-				Network: net,
-				Country: isoFromDial(corridor.CountryCode),
-				MSISDN:  digitsOnly(accountNumber),
-			},
-			Name: splitName(beneficiaryName),
-		})
-	} else {
-		if bankCode == "" || accountNumber == "" {
-			h.metrics.QueueFailed(ctx, "payment", "validation_error")
-			h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-				"error": "account_bank and account_number required", "entity_type": "payment",
-			})
-			return nil
-		}
-		recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
-			Type: resolveRecipientType(currency),
-			Bank: &client.BankRecipientDetails{
-				AccountNumber: accountNumber,
-				Code:          bankCode,
-			},
-			Name: splitName(beneficiaryName),
-		})
-	}
-	if err != nil {
-		logger.WithError(err).Error("create transfer recipient failed")
-		h.metrics.QueueFailed(ctx, "payment", "provider_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "payment",
-		})
-		return nil
-	}
-
 	callbackURL := ""
 	if h.cfg.PublicWebhookBase != "" {
 		callbackURL = strings.TrimRight(h.cfg.PublicWebhookBase, "/") + "/webhook/flutterwave"
@@ -193,23 +143,107 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		meta["partition_id"] = v
 	}
 
-	transferReq := map[string]any{
-		"action":    "instant",
-		"reference": reference,
-		"narration": firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement"),
-		"meta":      meta,
-		"payment_instruction": map[string]any{
-			"source_currency":      currency,
-			"destination_currency": currency,
-			"amount": map[string]any{
-				"applies_to": "destination_currency",
-				"value":      float64(amountWhole),
+	var transferReq map[string]any
+	var recipientID string
+	apiVersion := "v4"
+	if client.IsV3Credentials(creds) {
+		apiVersion = "v3"
+		v3 := map[string]any{
+			"amount":    amountWhole,
+			"currency":  currency,
+			"reference": reference,
+			"narration": firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement"),
+			"meta":      meta,
+		}
+		if payoutType == "mobile_money" {
+			v3["account_bank"] = firstNonEmptyStr(bankCode, "MPS")
+			v3["account_number"] = digitsOnly(accountNumber)
+			v3["beneficiary_name"] = firstNonEmptyStr(beneficiaryName, "Beneficiary")
+		} else {
+			if bankCode == "" || accountNumber == "" {
+				h.metrics.QueueFailed(ctx, "payment", "validation_error")
+				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
+					"error": "account_bank and account_number required", "entity_type": "payment",
+				})
+				return nil
+			}
+			v3["account_bank"] = bankCode
+			v3["account_number"] = accountNumber
+			if beneficiaryName != "" {
+				v3["beneficiary_name"] = beneficiaryName
+			}
+		}
+		if callbackURL != "" {
+			v3["callback_url"] = callbackURL
+		}
+		transferReq = v3
+	} else {
+		// v4: create recipient then transfer.
+		if payoutType == "mobile_money" {
+			corridor := resolveMoMoCorridor(accountNumber, currency)
+			if corridor == nil {
+				h.metrics.QueueFailed(ctx, "payment", "validation_error")
+				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
+					"error": "unsupported mobile money corridor", "entity_type": "payment",
+				})
+				return nil
+			}
+			net := corridor.Network
+			if o := extraString(payment.GetExtra(), "network"); o != "" {
+				net = strings.ToUpper(o)
+			}
+			recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
+				Type: "mobile_money",
+				MobileMoney: &client.MobileMoneyRecipientDetails{
+					Network: net,
+					Country: isoFromDial(corridor.CountryCode),
+					MSISDN:  digitsOnly(accountNumber),
+				},
+				Name: splitName(beneficiaryName),
+			})
+		} else {
+			if bankCode == "" || accountNumber == "" {
+				h.metrics.QueueFailed(ctx, "payment", "validation_error")
+				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
+					"error": "account_bank and account_number required", "entity_type": "payment",
+				})
+				return nil
+			}
+			recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
+				Type: resolveRecipientType(currency),
+				Bank: &client.BankRecipientDetails{
+					AccountNumber: accountNumber,
+					Code:          bankCode,
+				},
+				Name: splitName(beneficiaryName),
+			})
+		}
+		if err != nil {
+			logger.WithError(err).Error("create transfer recipient failed")
+			h.metrics.QueueFailed(ctx, "payment", "provider_error")
+			h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
+				"error": err.Error(), "entity_type": "payment",
+			})
+			return nil
+		}
+		transferReq = map[string]any{
+			"action":    "instant",
+			"reference": reference,
+			"narration": firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement"),
+			"meta":      meta,
+			"payment_instruction": map[string]any{
+				"source_currency":      currency,
+				"destination_currency": currency,
+				"amount": map[string]any{
+					"applies_to": "destination_currency",
+					"value":      float64(amountWhole),
+				},
+				"recipient_id": recipientID,
 			},
-			"recipient_id": recipientID,
-		},
-	}
-	if callbackURL != "" {
-		transferReq["callback_url"] = callbackURL
+		}
+		if callbackURL != "" {
+			transferReq["callback_url"] = callbackURL
+		}
 	}
 
 	tr, err := h.fwCli.CreateTransfer(ctx, creds, transferReq)
@@ -223,15 +257,18 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 
 	logger.WithField("transfer_id", tr.ID).WithField("status", tr.Status).Debug("transfer initiated")
-	h.emitStatus(ctx, paymentID, tr.ID, commonv1.STATUS_IN_PROCESS, map[string]any{
+	extras := map[string]any{
 		"entity_type":     "payment",
 		"provider":        "flutterwave",
-		"api_version":     "v4",
+		"api_version":     apiVersion,
 		"transfer_id":     tr.ID,
 		"transfer_status": tr.Status,
 		"reference":       tr.Reference,
-		"recipient_id":    recipientID,
-	})
+	}
+	if recipientID != "" {
+		extras["recipient_id"] = recipientID
+	}
+	h.emitStatus(ctx, paymentID, tr.ID, commonv1.STATUS_IN_PROCESS, extras)
 	h.metrics.QueueProcessed(ctx, "payment")
 	return nil
 }

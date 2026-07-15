@@ -84,9 +84,19 @@ func main() {
 
 	svc.Init(ctx, serviceOptions...)
 
-	logger.Info("Initiating Flutterwave v4 integration server operations")
-	if cfg.ClientID == "" || cfg.ClientSecret == "" {
+	logger.Info("Initiating Flutterwave integration server operations")
+	testCreds := &client.Credentials{
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+		PublicKey:    cfg.PublicKey,
+		SecretKey:    firstNonEmptyCfg(cfg.SecretKey, cfg.ClientSecret),
+	}
+	if client.IsV3Credentials(testCreds) {
+		logger.Info("Flutterwave classic (v3) secret-key mode enabled")
+	} else if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		logger.Warn("FLUTTERWAVE_CLIENT_ID / FLUTTERWAVE_CLIENT_SECRET empty — OAuth will fail until set or provided per-message")
+	} else {
+		logger.Info("Flutterwave v4 OAuth mode enabled")
 	}
 
 	err = svc.Run(ctx, "")
@@ -115,4 +125,13 @@ func setupSettingsClient(
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceSettings,
 	}, settingsv1connect.NewSettingsServiceClient)
+}
+
+func firstNonEmptyCfg(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

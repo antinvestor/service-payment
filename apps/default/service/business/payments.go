@@ -42,6 +42,7 @@ import (
 	utilmoney "github.com/pitabwire/util/moneyx"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/protobuf/proto"
 )
 
 func NewPaymentBusiness(
@@ -590,13 +591,46 @@ func (pb *paymentBusiness) InitiatePrompt(
 		return nil, err
 	}
 
-	err = pb.qMan.Publish(ctx, pb.promptTopicName, p)
+	// Publish InitiatePromptRequest protobuf (not the ORM model) so integrators
+	// can proto.Unmarshal. Route-specific publishers take priority when registered.
+	apiPrompt := p.ToAPI(nil)
+	binaryPrompt, marshalErr := proto.Marshal(apiPrompt)
+	if marshalErr != nil {
+		logger.WithError(marshalErr).Warn("could not marshal initiate-prompt")
+		return nil, marshalErr
+	}
+
+	topicName := pb.resolvePromptTopic(p.Route)
+	logger = logger.WithField("prompt_topic", topicName).WithField("route", p.Route)
+	err = pb.qMan.Publish(ctx, topicName, binaryPrompt)
 	if err != nil {
 		logger.WithError(err).Warn("could not publish initiate-prompt")
 		return nil, err
 	}
 
 	return status.ToAPI(), nil
+}
+
+// resolvePromptTopic picks the queue publisher for a checkout/payment route.
+// Prefers "prompt.<route>" when registered via INITIATE_PROMPT_ROUTE_URIS;
+// otherwise uses the default INITIATE_PROMPT_TOPIC_NAME.
+func (pb *paymentBusiness) resolvePromptTopic(route string) string {
+	route = strings.TrimSpace(strings.ToLower(route))
+	if route == "" {
+		return pb.promptTopicName
+	}
+	ref := promptRoutePublisherRef(route)
+	if pb.qMan != nil {
+		if _, err := pb.qMan.GetPublisher(ref); err == nil {
+			return ref
+		}
+	}
+	return pb.promptTopicName
+}
+
+// promptRoutePublisherRef is the stable publisher name for a route key.
+func promptRoutePublisherRef(route string) string {
+	return "prompt." + strings.TrimSpace(strings.ToLower(route))
 }
 
 // buildPromptModel constructs a Prompt model from the initiate-prompt request,

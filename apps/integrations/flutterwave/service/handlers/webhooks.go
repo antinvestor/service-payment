@@ -17,6 +17,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -52,9 +53,18 @@ func NewFlutterwaveWebhookServer(
 	creds := &client.Credentials{
 		ClientID:      cfg.ClientID,
 		ClientSecret:  cfg.ClientSecret,
+		PublicKey:     firstNonEmpty(cfg.PublicKey, cfg.ClientID),
+		SecretKey:     firstNonEmpty(cfg.SecretKey, cfg.ClientSecret),
+		EncryptionKey: cfg.EncryptionKey,
 		WebhookSecret: cfg.WebhookSecret,
 		Environment:   cfg.Environment,
 		OAuthTokenURL: cfg.OAuthTokenURL,
+	}
+	if strings.HasPrefix(creds.ClientID, "FLWPUBK_") {
+		creds.PublicKey = creds.ClientID
+	}
+	if strings.HasPrefix(creds.ClientSecret, "FLWSECK_") {
+		creds.SecretKey = creds.ClientSecret
 	}
 	if strings.EqualFold(cfg.Environment, "production") {
 		creds.APIBaseURL = cfg.ProductionAPIBaseURL
@@ -122,17 +132,18 @@ func (s *FlutterwaveWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.
 		return
 	}
 
-	logger = logger.WithField("event_type", event.Type).WithField("webhook_id", event.WebhookID)
-	logger.Debug("processing flutterwave v4 webhook")
+	eventType := event.EventType()
+	logger = logger.WithField("event_type", eventType).WithField("webhook_id", event.WebhookID)
+	logger.Debug("processing flutterwave webhook")
 
 	ctx = injectTenantFromQuery(ctx, r)
 	ctx = injectTenantFromMeta(ctx, event.Data)
 
 	var processErr error
-	switch strings.ToLower(event.Type) {
+	switch strings.ToLower(eventType) {
 	case "charge.completed":
 		processErr = s.handleChargeCompleted(ctx, logger, &event)
-	case "transfer.disburse":
+	case "transfer.disburse", "transfer.completed":
 		processErr = s.handleTransferDisburse(ctx, logger, &event)
 	case "transfer.reversal":
 		processErr = s.handleTransferDisburse(ctx, logger, &event) // map similarly
@@ -161,7 +172,8 @@ func (s *FlutterwaveWebhookServer) HandleReturn(w http.ResponseWriter, r *http.R
 	if chargeID == "" {
 		chargeID = q.Get("id")
 	}
-	if chargeID != "" && s.defaultCreds.ClientID != "" {
+	if chargeID != "" && s.defaultCreds != nil &&
+		(s.defaultCreds.ClientID != "" || s.defaultCreds.SecretKey != "" || s.defaultCreds.ClientSecret != "") {
 		go s.reconcileCharge(context.WithoutCancel(r.Context()), chargeID)
 	}
 
@@ -188,21 +200,58 @@ func (s *FlutterwaveWebhookServer) handleChargeCompleted(
 	logger *util.LogEntry,
 	event *client.WebhookEvent,
 ) error {
-	chargeID, _ := event.Data["id"].(string)
+	chargeID := anyToString(event.Data["id"])
 	// Re-verify with API when credentials available (best practice).
-	if chargeID != "" && s.defaultCreds.ClientID != "" && s.defaultCreds.ClientSecret != "" {
+	if chargeID != "" && s.canVerify() {
 		ch, err := s.fwCli.GetCharge(ctx, s.defaultCreds, chargeID)
+		if err != nil {
+			// v3 often identifies by tx_ref; try that next.
+			if txRef := anyToString(event.Data["tx_ref"]); txRef != "" {
+				ch, err = s.fwCli.GetCharge(ctx, s.defaultCreds, txRef)
+			}
+		}
 		if err != nil {
 			logger.WithError(err).Warn("verify charge failed — using webhook body")
 		} else {
 			return s.applyCharge(ctx, logger, ch)
 		}
 	}
-	// Fallback: map from webhook body.
+	// Fallback: map from webhook body (v3 uses tx_ref; v4 uses reference).
 	statusStr, _ := event.Data["status"].(string)
-	ref, _ := event.Data["reference"].(string)
+	ref := firstNonEmpty(anyToString(event.Data["reference"]), anyToString(event.Data["tx_ref"]))
 	meta := extractMeta(event.Data)
 	return s.pushPromptStatus(ctx, logger, chargeID, ref, statusStr, meta, event.Data)
+}
+
+func (s *FlutterwaveWebhookServer) canVerify() bool {
+	if s.defaultCreds == nil {
+		return false
+	}
+	if client.IsV3Credentials(s.defaultCreds) {
+		return s.defaultCreds.SecretKey != "" || s.defaultCreds.ClientSecret != ""
+	}
+	return s.defaultCreds.ClientID != "" && s.defaultCreds.ClientSecret != ""
+}
+
+func anyToString(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		// JSON numbers decode as float64
+		if t == float64(int64(t)) {
+			return strings.TrimSpace(strings.ReplaceAll(
+				// avoid scientific notation for IDs
+				fmt.Sprintf("%.0f", t), " ", ""))
+		}
+		return fmt.Sprintf("%v", t)
+	case json.Number:
+		return t.String()
+	case int, int64, int32:
+		return fmt.Sprintf("%v", t)
+	default:
+		return ""
+	}
 }
 
 func (s *FlutterwaveWebhookServer) applyCharge(
@@ -251,10 +300,14 @@ func (s *FlutterwaveWebhookServer) pushPromptStatus(
 		state = commonv1.STATE_INACTIVE
 	}
 
+	apiVersion := "v4"
+	if s.defaultCreds != nil && client.IsV3Credentials(s.defaultCreds) {
+		apiVersion = "v3"
+	}
 	extras := data.JSONMap{
 		"entity_type":   "prompt",
 		"provider":      "flutterwave",
-		"api_version":   "v4",
+		"api_version":   apiVersion,
 		"charge_id":     chargeID,
 		"reference":     reference,
 		"charge_status": statusStr,
@@ -384,4 +437,13 @@ func injectTenantContext(ctx context.Context, tenantID, partitionID string) cont
 		PartitionID: partitionID,
 	}
 	return claims.ClaimsToContext(ctx)
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }

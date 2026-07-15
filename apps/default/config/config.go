@@ -30,6 +30,12 @@ type PaymentConfig struct {
 	SecurelyRunService      bool   `envDefault:"true"                      env:"SECURELY_RUN_SERVICE"`
 	InitiatePromptTopicName string `envDefault:"initiate_prompt"           env:"INITIATE_PROMPT_TOPIC_NAME" required:"true"`
 	InitiatePromptTopicURI  string `envDefault:"mem://initiate_prompt"     env:"INITIATE_PROMPT_TOPIC_URI"  required:"true"`
+	// InitiatePromptRouteURIs is optional JSON map of route key → NATS/mem URI.
+	// When set, InitiatePrompt publishes to the matching route publisher instead of
+	// (or in addition to configuring) the single default INITIATE_PROMPT_TOPIC_URI.
+	// Example: {"mpesa":"nats://…mpesa.prompts","flutterwave":"nats://…flutterwave.prompts"}
+	// Publisher reference becomes "prompt.<route>". Unlisted routes fall back to default.
+	InitiatePromptRouteURIs string `env:"INITIATE_PROMPT_ROUTE_URIS"`
 	PaymentLinkTopicName    string `envDefault:"create_payment_link"       env:"PAYMENT_LINK_TOPIC_NAME"    required:"true"`
 	PaymentLinkTopicURI     string `envDefault:"mem://create_payment_link" env:"PAYMENT_LINK_TOPIC_URI"     required:"true"`
 }

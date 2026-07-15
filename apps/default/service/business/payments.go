@@ -622,6 +622,7 @@ func buildPromptModel(
 		DeviceID:             req.GetDeviceId(),
 		State:                int32(commonv1.STATE_CREATED.Number()),
 		Status:               int32(commonv1.STATUS_QUEUED.Number()),
+		Route:                req.GetRoute(),
 		AccountID:            accountPtr.ID,
 		Account:              *accountPtr,
 		Extra:                promptExtras,

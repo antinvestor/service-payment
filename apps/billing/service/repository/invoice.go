@@ -30,6 +30,9 @@ type InvoiceRepository interface {
 	datastore.BaseRepository[*models.Invoice]
 	SearchAsESQ(ctx context.Context, query string) (workerpool.JobResultPipe[[]*models.Invoice], error)
 	GetByBillingRunID(ctx context.Context, billingRunID string) (*models.Invoice, error)
+	// ListOpenWithCheckoutSession returns ISSUED invoices that have a
+	// checkoutSessionRef stored in Data (candidates for auto-settle).
+	ListOpenWithCheckoutSession(ctx context.Context, limit int) ([]*models.Invoice, error)
 }
 
 type invoiceRepository struct {
@@ -59,6 +62,29 @@ func (r *invoiceRepository) GetByBillingRunID(ctx context.Context, billingRunID 
 	}
 
 	return &invoice, nil
+}
+
+// ListOpenWithCheckoutSession finds ISSUED invoices that started hosted checkout.
+// Uses a JSONB path filter on data->>'checkoutSessionRef'.
+func (r *invoiceRepository) ListOpenWithCheckoutSession(
+	ctx context.Context,
+	limit int,
+) ([]*models.Invoice, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var list []*models.Invoice
+	result := r.Pool().DB(ctx, true).
+		Where("state = ?", models.InvoiceStateIssued).
+		Where("data->>'checkoutSessionRef' IS NOT NULL").
+		Where("data->>'checkoutSessionRef' <> ''").
+		Order("modified_at ASC").
+		Limit(limit).
+		Find(&list)
+	if result.Error != nil {
+		return nil, apperrors.ErrSystemFailure.Override(result.Error)
+	}
+	return list, nil
 }
 
 //nolint:dupl // SearchAsESQ follows a generic pattern that Go cannot DRY with generics + worker pools.

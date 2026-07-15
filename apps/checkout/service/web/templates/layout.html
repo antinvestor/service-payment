@@ -8,7 +8,7 @@
   {{if .RedirectURL}}<meta http-equiv="refresh" content="2;url={{.RedirectURL}}">{{end}}
   {{block "head_extra" .}}{{end}}
 </head>
-<body{{if .PollURL}} data-poll="{{.PollURL}}" data-return="{{.ReturnURL}}"{{end}}>
+<body{{if .PollURL}} data-poll="{{.PollURL}}" data-return="{{.ReturnURL}}" data-session="{{.SessionRef}}"{{end}}>
 <div class="card">
 {{end}}
 

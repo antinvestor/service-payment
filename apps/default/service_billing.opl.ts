@@ -46,6 +46,7 @@ class service_billing implements Namespace {
     granted_invoice_view: (profile_user | service_billing)[]
     granted_invoice_manage: (profile_user | service_billing)[]
     granted_payment_record: (profile_user | service_billing)[]
+    granted_payment_collect: (profile_user | service_billing)[]
     granted_credit_view: (profile_user | service_billing)[]
     granted_credit_manage: (profile_user | service_billing)[]
     granted_discount_view: (profile_user | service_billing)[]
@@ -150,6 +151,13 @@ class service_billing implements Namespace {
       this.related.owner.includes(ctx.subject) ||
       this.related.service.includes(ctx.subject) ||
       this.related.granted_payment_record.includes(ctx.subject),
+
+    payment_collect: (ctx: Context): boolean =>
+      this.related.admin.includes(ctx.subject) ||
+      this.related.owner.includes(ctx.subject) ||
+      this.related.operator.includes(ctx.subject) ||
+      this.related.service.includes(ctx.subject) ||
+      this.related.granted_payment_collect.includes(ctx.subject),
 
     credit_view: (ctx: Context): boolean =>
       this.related.admin.includes(ctx.subject) ||

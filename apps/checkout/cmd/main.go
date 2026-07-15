@@ -85,6 +85,11 @@ func main() {
 		log.WithError(err).Error("invalid CHECKOUT_METHODS")
 		return
 	}
+	partitionAllowlists, err := business.ParsePartitionAllowlists(cfg.PartitionMethodsJSON)
+	if err != nil {
+		log.WithError(err).Error("invalid CHECKOUT_PARTITION_METHODS")
+		return
+	}
 
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 	workMan := svc.WorkManager()
@@ -112,7 +117,7 @@ func main() {
 		return
 	}
 
-	webServer := handlers.NewWebServer(checkoutBiz, renderer, registry, &cfg)
+	webServer := handlers.NewWebServer(checkoutBiz, renderer, registry, &cfg, partitionAllowlists)
 	rpcServer := handlers.NewCheckoutServer(checkoutBiz, &cfg)
 	rpcHandler := setupConnectServer(ctx, svc.SecurityManager(), rpcServer)
 

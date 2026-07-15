@@ -261,7 +261,7 @@ func newHarness(t *testing.T) *testHarness {
 	renderer, err := handlers.NewRenderer(testSecret)
 	require.NoError(t, err)
 
-	srv := handlers.NewWebServer(biz, renderer, reg, cfg)
+	srv := handlers.NewWebServer(biz, renderer, reg, cfg, nil)
 	return &testHarness{
 		sessionRepo: sessionRepo,
 		linkRepo:    linkRepo,
@@ -649,7 +649,7 @@ func TestHandleLink_RateLimit_429(t *testing.T) {
 	renderer, err := handlers.NewRenderer(testSecret)
 	require.NoError(t, err)
 
-	srv := handlers.NewWebServer(biz, renderer, reg, cfg)
+	srv := handlers.NewWebServer(biz, renderer, reg, cfg, nil)
 	router := srv.NewRouter()
 
 	// Add an active link
@@ -757,7 +757,7 @@ func TestRateLimiter_XFF_Buckets(t *testing.T) {
 	renderer, err := handlers.NewRenderer(testSecret)
 	require.NoError(t, err)
 
-	srv := handlers.NewWebServer(biz, renderer, reg, cfg)
+	srv := handlers.NewWebServer(biz, renderer, reg, cfg, nil)
 	router := srv.NewRouter()
 
 	// Active link

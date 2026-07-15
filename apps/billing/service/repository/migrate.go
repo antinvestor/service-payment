@@ -27,6 +27,7 @@ func Migrate(ctx context.Context, dbManager datastore.Manager, migrationPath str
 	return dbManager.Migrate(ctx, dbPool, migrationPath,
 		&models.CatalogVersion{}, &models.Plan{}, &models.Component{}, &models.Tier{},
 		&models.Subscription{},
+		&models.IntegrationRoute{},
 		&models.UsageEvent{},
 		&models.MeteredUsage{},
 		&models.RatedLine{},

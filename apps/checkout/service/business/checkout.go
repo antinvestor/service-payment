@@ -280,6 +280,10 @@ func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 
 // applyPayer enriches a session with prefill data from the payer + optional profile.
 //
+// Prefill is the source of truth for checkout UI and provider prompts (Flutterwave, etc.):
+// display name, email, MSISDN contacts, last-used method, and country — so the payer
+// does not re-type identity they already have on their profile.
+//
 //nolint:gocognit,nestif // Profile enrichment requires sequential nil-guard checks; extracting further would reduce clarity.
 func (b *CheckoutBusiness) applyPayer(
 	ctx context.Context,
@@ -290,7 +294,7 @@ func (b *CheckoutBusiness) applyPayer(
 
 	displayName := payer.DisplayName
 	language := payer.Language
-	var clueProvider, clueContactID string
+	var clueProvider, clueMethod, clueContactID, clueCountry, email string
 	var profileContacts []*profilev1.ContactObject
 
 	// Fetch profile if ID provided
@@ -313,9 +317,21 @@ func (b *CheckoutBusiness) applyPayer(
 					}
 				}
 			}
+			// Email property fallback (some profiles store email on properties).
+			if props := profile.GetProperties(); props != nil {
+				if v, ok := props.GetFields()["email"]; ok {
+					email = strings.TrimSpace(v.GetStringValue())
+				}
+			}
 			clues := CluesFromProperties(profile.GetProperties())
+			// lastProvider is the registry key (e.g. mpesa); lastMethod may be a category.
 			clueProvider = clues.LastProvider
+			if clueProvider == "" {
+				clueProvider = clues.LastMethod
+			}
+			clueMethod = clues.LastMethod
 			clueContactID = clues.LastContactID
+			clueCountry = clues.LastCountry
 			profileContacts = profile.GetContacts()
 		}
 	}
@@ -331,11 +347,26 @@ func (b *CheckoutBusiness) applyPayer(
 		}
 	} else {
 		for _, c := range profileContacts {
-			if c.GetType() == profilev1.ContactType_MSISDN {
+			switch c.GetType() {
+			case profilev1.ContactType_MSISDN:
 				contacts = append(contacts, map[string]any{
 					"contactId": c.GetId(),
 					"msisdn":    c.GetDetail(),
 				})
+			case profilev1.ContactType_EMAIL:
+				if email == "" {
+					email = strings.TrimSpace(c.GetDetail())
+				}
+			}
+		}
+	}
+	// Also scan caller contacts path: if only profile was used above for email, fine.
+	// When caller supplied MSISDNs only, still pull emails from profile contacts.
+	if email == "" && len(payer.Contacts) > 0 {
+		for _, c := range profileContacts {
+			if c.GetType() == profilev1.ContactType_EMAIL {
+				email = strings.TrimSpace(c.GetDetail())
+				break
 			}
 		}
 	}
@@ -344,7 +375,10 @@ func (b *CheckoutBusiness) applyPayer(
 		"displayName":   displayName,
 		"language":      language,
 		"clueProvider":  clueProvider,
+		"clueMethod":    clueMethod,
 		"clueContactId": clueContactID,
+		"country":       clueCountry,
+		"email":         email,
 		"contacts":      contacts,
 	}
 	session.Prefill = prefill
@@ -553,12 +587,22 @@ func (b *CheckoutBusiness) Pay(
 		return nil, err
 	}
 
-	// Resolve msisdn and contactRef
-	msisdn, contactID, payerErr := b.resolvePayer(session, in)
-	if payerErr != nil {
-		b.obs.RecordPayFailure(ctx, "contact_required")
-		err = payerErr
-		return nil, err
+	// Resolve msisdn and contactRef.
+	// Redirect methods (e.g. card/flutterwave) do not *require* a phone number —
+	// the provider page can collect it — but when the profile has contacts we
+	// still resolve them so Flutterwave/MoMo get identity without re-entry.
+	var msisdn, contactID string
+	if !method.Redirect {
+		var payerErr error
+		msisdn, contactID, payerErr = b.resolvePayer(session, in)
+		if payerErr != nil {
+			b.obs.RecordPayFailure(ctx, "contact_required")
+			err = payerErr
+			return nil, err
+		}
+	} else {
+		// Best-effort profile phone for redirect rails (optional).
+		msisdn, contactID = b.resolvePayerOptional(session, in)
 	}
 
 	// All guards passed — record the attempt.
@@ -643,6 +687,9 @@ func (b *CheckoutBusiness) checkMethodRestriction(
 }
 
 // sendPrompt builds the prompt request, calls the payment service, and returns the promptID.
+//
+// Prefill identity (email, name) and return URLs are forwarded in Extra so provider
+// integrations (Flutterwave v4) can build the customer object without re-prompting.
 func (b *CheckoutBusiness) sendPrompt(
 	ctx context.Context,
 	session *models.CheckoutSession,
@@ -655,12 +702,45 @@ func (b *CheckoutBusiness) sendPrompt(
 		"order_ref":   session.OrderRef,
 		"provider":    methodKey,
 	}
+	// Provider return after hosted pay: land back on our checkout session page so
+	// the confirm poll can finish and then send the user to session.ReturnURL.
+	if b.cfg != nil && b.cfg.PublicBaseURL != "" && session.Ref != "" {
+		successURL := strings.TrimRight(b.cfg.PublicBaseURL, "/") + "/c/" + session.Ref
+		extraMap["success_url"] = successURL
+		extraMap["redirect_url"] = successURL
+	}
+	// Profile / prefill identity for Flutterwave customer + MoMo.
+	if session.Prefill != nil {
+		if email, _ := session.Prefill["email"].(string); strings.TrimSpace(email) != "" {
+			extraMap["customer_email"] = strings.TrimSpace(email)
+			extraMap["email"] = strings.TrimSpace(email)
+		}
+		if name, _ := session.Prefill["displayName"].(string); strings.TrimSpace(name) != "" {
+			extraMap["customer_name"] = strings.TrimSpace(name)
+			extraMap["display_name"] = strings.TrimSpace(name)
+		}
+	}
+	if session.OrderRef != "" {
+		// Common correlation keys used by billing/collection.
+		if strings.HasPrefix(session.OrderRef, "inv") || len(session.OrderRef) > 0 {
+			extraMap["invoice_id"] = session.OrderRef
+		}
+	}
 	for k, v := range session.Metadata {
 		if len(k) > 0 && k[0] == '_' {
 			continue
 		}
 		if vStr, isStr := v.(string); isStr {
 			extraMap["meta_"+k] = vStr
+			// Also pass billing correlation keys without meta_ prefix.
+			switch k {
+			case "invoiceId", "invoice_id":
+				extraMap["invoice_id"] = vStr
+			case "subscriptionId", "subscription_id":
+				extraMap["subscription_id"] = vStr
+			case "source":
+				extraMap["collection_source"] = vStr
+			}
 		}
 	}
 
@@ -676,6 +756,10 @@ func (b *CheckoutBusiness) sendPrompt(
 
 	promptReq := &paymentv1.InitiatePromptRequest{
 		Source: &commonv1.ContactLink{
+			ProfileId: session.PayerProfileID,
+			ContactId: msisdn,
+		},
+		Recipient: &commonv1.ContactLink{
 			ProfileId: session.PayerProfileID,
 			ContactId: msisdn,
 		},
@@ -697,23 +781,74 @@ func (b *CheckoutBusiness) resolvePayer(
 	session *models.CheckoutSession,
 	in PayInput,
 ) (string, string, error) {
-	// Recognized payer
+	msisdn, contactID := b.resolvePayerOptional(session, in)
+	if msisdn == "" {
+		return "", "", ErrContactRequired
+	}
+	return msisdn, contactID, nil
+}
+
+// resolvePayerOptional is like resolvePayer but never errors — used for redirect
+// methods where phone is helpful but not mandatory.
+func (b *CheckoutBusiness) resolvePayerOptional(
+	session *models.CheckoutSession,
+	in PayInput,
+) (string, string) {
+	// Explicit contact from form (recognized payer).
 	if session.PayerProfileID != "" && in.ContactID != "" {
 		msisdn := b.findMsisdnFromPrefill(session, in.ContactID)
 		if msisdn == "" {
-			msisdn = strings.TrimSpace(in.PhoneNumber) // fallback
+			msisdn = strings.TrimSpace(in.PhoneNumber)
 		}
-		if msisdn == "" {
-			return "", "", fmt.Errorf("%w: contact not found in prefill", ErrContactRequired)
-		}
-		return msisdn, in.ContactID, nil
+		// Caller chose a specific contact: do not silently substitute another.
+		return msisdn, in.ContactID
 	}
 
-	// Guest payer
-	if in.PhoneNumber == "" {
-		return "", "", ErrContactRequired
+	// Guest typed phone.
+	if phone := strings.TrimSpace(in.PhoneNumber); phone != "" {
+		return phone, ""
 	}
-	return in.PhoneNumber, "", nil
+
+	// Auto-pick from profile prefill only when no contact was selected:
+	// clue contact, else first MSISDN (zero re-entry path).
+	if session.PayerProfileID != "" && session.Prefill != nil {
+		if clueID, _ := session.Prefill["clueContactId"].(string); clueID != "" {
+			if msisdn := b.findMsisdnFromPrefill(session, clueID); msisdn != "" {
+				return msisdn, clueID
+			}
+		}
+		if msisdn, contactID := b.firstPrefillContact(session); msisdn != "" {
+			return msisdn, contactID
+		}
+	}
+	return "", ""
+}
+
+// firstPrefillContact returns the first MSISDN contact from session prefill.
+func (b *CheckoutBusiness) firstPrefillContact(session *models.CheckoutSession) (msisdn, contactID string) {
+	if session.Prefill == nil {
+		return "", ""
+	}
+	contactsRaw, ok := session.Prefill["contacts"]
+	if !ok {
+		return "", ""
+	}
+	contacts, ok := contactsRaw.([]any)
+	if !ok {
+		return "", ""
+	}
+	for _, raw := range contacts {
+		c, isMap := raw.(map[string]any)
+		if !isMap {
+			continue
+		}
+		phone, _ := c["msisdn"].(string)
+		cid, _ := c["contactId"].(string)
+		if strings.TrimSpace(phone) != "" {
+			return strings.TrimSpace(phone), cid
+		}
+	}
+	return "", ""
 }
 
 // findMsisdnFromPrefill looks up a msisdn for contactID in session prefill contacts.
@@ -772,6 +907,12 @@ func (b *CheckoutBusiness) RefreshStatus(
 	}
 
 	status := resp.Msg.GetStatus()
+
+	// Capture redirect URL emitted by redirect-method providers (e.g. polar) while processing.
+	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
+		b.captureRedirectURL(ctx, session, resp.Msg.GetExtras())
+	}
+
 	//nolint:exhaustive // Only terminal statuses need action; all others leave session unchanged.
 	switch status {
 	case commonv1.STATUS_SUCCESSFUL:
@@ -813,34 +954,83 @@ func (b *CheckoutBusiness) RefreshStatus(
 	return session, nil
 }
 
-// writeClues persists checkout clues to the payer's profile (best-effort).
-func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.CheckoutSession) {
-	if session.PayerProfileID == "" {
+// captureRedirectURL extracts a "checkout_url" from the provider extras and persists it
+// on the session as Metadata["_redirect_url"] when the URL changes. The write is
+// idempotent and a failure is logged but not propagated.
+func (b *CheckoutBusiness) captureRedirectURL(
+	ctx context.Context,
+	session *models.CheckoutSession,
+	extras *structpb.Struct,
+) {
+	if extras == nil {
 		return
 	}
-	// Only write when a linked contact was used
+	field, ok := extras.GetFields()["checkout_url"]
+	if !ok {
+		return
+	}
+	urlStr := field.GetStringValue()
+	if urlStr == "" || !IsSafeReturnURL(urlStr) {
+		return
+	}
+	if session.Metadata == nil {
+		session.Metadata = make(data.JSONMap)
+	}
+	if existing, _ := session.Metadata["_redirect_url"].(string); existing == urlStr {
+		return // already persisted — no-op
+	}
+	session.Metadata["_redirect_url"] = urlStr
+	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
+		util.Log(ctx).WithError(updateErr).Warn("could not persist redirect url on session")
+	}
+}
+
+// writeClues persists checkout clues to the payer's profile (best-effort).
+// Always stores the method key so the next visit can preselect like Stripe Link,
+// including card/redirect payments that may not have a linked contact.
+func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.CheckoutSession) {
+	if session.PayerProfileID == "" || b.profileCli == nil {
+		return
+	}
+
 	contactID := ""
+	methodKey := ""
 	if session.Metadata != nil {
 		if cid, ok := session.Metadata["_contact_id"].(string); ok {
 			contactID = cid
 		}
-	}
-	if contactID == "" {
-		return
-	}
-
-	methodKey := ""
-	if session.Metadata != nil {
 		if mk, ok := session.Metadata["_method"].(string); ok {
 			methodKey = mk
 		}
 	}
+	if methodKey == "" {
+		return
+	}
+
+	// Category is informational; LastProvider is the registry key used for preselect.
+	category := methodCategoryMobileMoney
+	if m, ok := b.registry.Get(methodKey); ok && m.Redirect {
+		category = "card"
+	}
+
+	// Infer country from the payer MSISDN (not contact ID).
+	msisdn := ""
+	if contactID != "" {
+		msisdn = b.findMsisdnFromPrefill(session, contactID)
+	}
+	country := InferCountryFromPhone(msisdn)
+	if country == "" && session.Prefill != nil {
+		if c, _ := session.Prefill["country"].(string); c != "" {
+			country = strings.ToUpper(strings.TrimSpace(c))
+		}
+	}
 
 	clues := Clues{
-		LastMethod:    methodCategoryMobileMoney,
+		LastMethod:    category,
 		LastProvider:  methodKey,
 		LastContactID: contactID,
 		LastCurrency:  session.Currency,
+		LastCountry:   country,
 		LastPaidAt:    b.now().Format(time.RFC3339),
 	}
 

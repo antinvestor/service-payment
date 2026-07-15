@@ -127,6 +127,7 @@ var translations = map[string]map[string]string{
 		"bad_method":        "Choose a payment method",
 		"amount_required":   "Enter a valid amount",
 		"contact_required":  "Enter your phone number",
+		"redirect_hint":     "Taking you to secure payment…",
 	},
 	"fr": {
 		"pay_button":        "Payer",
@@ -147,6 +148,7 @@ var translations = map[string]map[string]string{
 		"bad_method":        "Choisissez un moyen de paiement",
 		"amount_required":   "Saisissez un montant valide",
 		"contact_required":  "Saisissez votre numéro de téléphone",
+		"redirect_hint":     "Redirection vers le paiement sécurisé…",
 	},
 }
 

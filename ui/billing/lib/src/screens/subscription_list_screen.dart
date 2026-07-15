@@ -46,7 +46,14 @@ class _SubscriptionListScreenState
       onSearch: (query) {
         setState(() => _searchQuery = query.trim());
       },
-      actions: [_buildStateFilter()],
+      actions: [
+        FilledButton.icon(
+          onPressed: () => context.go('/billing/subscriptions/start'),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Start subscription'),
+        ),
+        _buildStateFilter(),
+      ],
       columns: const [
         DataColumn(label: Text('ID')),
         DataColumn(label: Text('Profile')),

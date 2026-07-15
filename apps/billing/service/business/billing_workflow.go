@@ -369,7 +369,7 @@ func (w *billingWorkflow) CollectInvoice(
 	if w.checkout == nil {
 		return nil, errors.New("checkout integration not configured")
 	}
-	return w.checkout.CreateInvoiceCheckout(ctx, invoiceID)
+	return w.checkout.CreateInvoiceCheckout(ctx, invoiceID, CheckoutOptions{Source: CollectionSourceInvoice})
 }
 
 // SettleInvoiceFromCheckout marks an invoice as paid from a completed checkout session.

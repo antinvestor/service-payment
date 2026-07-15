@@ -11,11 +11,23 @@
       fetch(pollURL)
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          if (data.status === 'completed') {
+          if (data.redirect_url) {
+            // Card/redirect rails: send the payer to the provider hosted page.
+            clearInterval(intervalID);
+            window.location = data.redirect_url;
+          } else if (data.status === 'completed') {
             clearInterval(intervalID);
             var dest = returnURL || location.href;
-            var sep = dest.indexOf('?') >= 0 ? '&' : '?';
-            location.href = dest + sep + 'status=completed';
+            // Prefer server-built return URL (already has session+status);
+            // fall back to appending params for older sessions.
+            if (returnURL) {
+              location.href = returnURL;
+            } else {
+              var sep = dest.indexOf('?') >= 0 ? '&' : '?';
+              var session = body.dataset.session || '';
+              location.href = dest + sep + 'status=completed' +
+                (session ? '&session=' + encodeURIComponent(session) : '');
+            }
           } else if (data.status === 'failed') {
             clearInterval(intervalID);
             location.reload();

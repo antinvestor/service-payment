@@ -59,6 +59,7 @@ type ServiceResources struct {
 
 	// Repositories for direct access in tests
 	ComponentRepo  repository.ComponentRepository
+	PlanRepo       repository.PlanRepository
 	BillingRunRepo repository.BillingRunRepository
 	InvoiceRepo    repository.InvoiceRepository
 }
@@ -183,6 +184,7 @@ func (bs *BaseTestSuite) CreateService(
 		BillingWorkflow:      billingWorkflow,
 		LedgerIntegration:    ledgerInteg,
 		ComponentRepo:        componentRepo,
+		PlanRepo:             planRepo,
 		BillingRunRepo:       billingRunRepo,
 		InvoiceRepo:          invoiceRepo,
 	}

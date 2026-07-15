@@ -26,12 +26,13 @@ import (
 )
 
 // Clues are the quick-repeat hints stored under the "checkout" key of a
-// profile's properties payload.
+// profile's properties payload (Stripe Link-style memory).
 type Clues struct {
-	LastMethod    string `json:"lastMethod"`
-	LastProvider  string `json:"lastProvider"`
+	LastMethod    string `json:"lastMethod"`   // registry key or category
+	LastProvider  string `json:"lastProvider"` // preferred registry key (e.g. mpesa)
 	LastContactID string `json:"lastContactId"`
 	LastCurrency  string `json:"lastCurrency"`
+	LastCountry   string `json:"lastCountry"` // ISO 3166-1 alpha-2 when known
 	LastPaidAt    string `json:"lastPaidAt"`
 }
 
@@ -50,28 +51,32 @@ func CluesFromProperties(props *structpb.Struct) Clues {
 		LastProvider:  f["lastProvider"].GetStringValue(),
 		LastContactID: f["lastContactId"].GetStringValue(),
 		LastCurrency:  f["lastCurrency"].GetStringValue(),
+		LastCountry:   f["lastCountry"].GetStringValue(),
 		LastPaidAt:    f["lastPaidAt"].GetStringValue(),
 	}
 }
 
 // ToProperties renders the clues as a properties patch for profile Update.
 func (c Clues) ToProperties() *structpb.Struct {
-	props, _ := structpb.NewStruct(map[string]any{
-		"checkout": map[string]any{
-			"lastMethod":    c.LastMethod,
-			"lastProvider":  c.LastProvider,
-			"lastContactId": c.LastContactID,
-			"lastCurrency":  c.LastCurrency,
-			"lastPaidAt":    c.LastPaidAt,
-		},
-	})
+	checkout := map[string]any{
+		"lastMethod":    c.LastMethod,
+		"lastProvider":  c.LastProvider,
+		"lastContactId": c.LastContactID,
+		"lastCurrency":  c.LastCurrency,
+		"lastPaidAt":    c.LastPaidAt,
+	}
+	if c.LastCountry != "" {
+		checkout["lastCountry"] = c.LastCountry
+	}
+	props, _ := structpb.NewStruct(map[string]any{"checkout": checkout})
 	return props
 }
 
-// GuestHints are device-local hints for unauthenticated payers.
+// GuestHints are device-local hints for unauthenticated payers (Link device memory).
 type GuestHints struct {
-	Phone  string `json:"phone"`
-	Method string `json:"method"`
+	Phone   string `json:"phone"`
+	Method  string `json:"method"`
+	Country string `json:"country,omitempty"`
 }
 
 const guestHintsVersion = "v1"

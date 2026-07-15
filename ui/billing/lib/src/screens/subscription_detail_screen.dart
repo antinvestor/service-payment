@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/collection_providers.dart';
 import '../providers/subscription_providers.dart';
 import '../providers/usage_providers.dart';
 import '../widgets/subscription_state_badge.dart';
@@ -197,15 +198,21 @@ class SubscriptionDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Cancel action
-            if (subscription.state == SubscriptionState.SUBSCRIPTION_ACTIVE)
+            // Cancel action — ACTIVE or PENDING (awaiting first payment)
+            if (subscription.state == SubscriptionState.SUBSCRIPTION_ACTIVE ||
+                subscription.state == SubscriptionState.SUBSCRIPTION_PENDING)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () =>
                       _cancelSubscription(context, ref, subscription),
                   icon: const Icon(Icons.cancel, size: 18),
-                  label: const Text('Cancel Subscription'),
+                  label: Text(
+                    subscription.state ==
+                            SubscriptionState.SUBSCRIPTION_PENDING
+                        ? 'Cancel pending subscription'
+                        : 'Cancel subscription',
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -332,26 +339,46 @@ class SubscriptionDetailScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      final notifier = ref.read(subscriptionNotifierProvider.notifier);
-      final request = CancelSubscriptionRequest()..id = subscription.id;
-      await notifier.cancel(request);
+      // Collection cancel handles PENDING (voids unpaid signup invoice) and ACTIVE.
+      final result = await ref
+          .read(collectionNotifierProvider.notifier)
+          .cancelSubscription(subscription.id);
       if (context.mounted) {
+        final voided = result.voidedInvoiceId.isNotEmpty
+            ? ' Open invoice ${result.voidedInvoiceId} voided.'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Subscription cancelled'),
+          SnackBar(
+            content: Text('Subscription cancelled.$voided'),
             behavior: SnackBarBehavior.floating,
           ),
         );
         ref.invalidate(subscriptionProvider(subscription.id));
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cancel failed: ${friendlyError(e)}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      // Fallback to classic billing cancel for ACTIVE-only environments.
+      try {
+        final notifier = ref.read(subscriptionNotifierProvider.notifier);
+        final request = CancelSubscriptionRequest()..id = subscription.id;
+        await notifier.cancel(request);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription cancelled'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          ref.invalidate(subscriptionProvider(subscription.id));
+        }
+      } catch (e2) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cancel failed: ${friendlyError(e2)}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }

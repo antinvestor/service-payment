@@ -1148,9 +1148,16 @@ func (b *CheckoutBusiness) RefreshStatus(
 		return session, nil
 	}
 
+	// Status rows are keyed by (entity_id, entity_type). InitiatePrompt writes
+	// entity_type=prompt; omitting it queries entity_type='' and always 404s
+	// ("record not found") even after Flutterwave reports SUCCESSFUL.
+	statusExtras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
 	resp, err := b.paymentCli.Status(
 		ctx,
-		connect.NewRequest(&commonv1.StatusRequest{Id: session.PromptID}),
+		connect.NewRequest(&commonv1.StatusRequest{
+			Id:     session.PromptID,
+			Extras: statusExtras,
+		}),
 	)
 	if err != nil {
 		util.Log(ctx).

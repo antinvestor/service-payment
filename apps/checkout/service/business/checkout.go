@@ -89,7 +89,9 @@ type PayerInput struct {
 	ProfileID   string
 	DisplayName string
 	Language    string
-	Contacts    []PayerContactInput
+	// Email is used when the profile has no EMAIL contact / property yet.
+	Email    string
+	Contacts []PayerContactInput
 }
 
 // CreateSessionInput carries all fields needed to create a CheckoutSession.
@@ -336,6 +338,7 @@ func (b *CheckoutBusiness) applyPayer(
 	var clueProvider, clueMethod, clueContactID, clueCountry, email string
 	var paymentMethodID, providerCustomerID string
 	var profileContacts []*profilev1.ContactObject
+	email = strings.TrimSpace(payer.Email)
 
 	// Fetch profile if ID provided
 	if payer.ProfileID != "" && b.profileCli != nil {
@@ -358,9 +361,11 @@ func (b *CheckoutBusiness) applyPayer(
 				}
 			}
 			// Email property fallback (some profiles store email on properties).
-			if props := profile.GetProperties(); props != nil {
-				if v, ok := props.GetFields()["email"]; ok {
-					email = strings.TrimSpace(v.GetStringValue())
+			if email == "" {
+				if props := profile.GetProperties(); props != nil {
+					if v, ok := props.GetFields()["email"]; ok {
+						email = strings.TrimSpace(v.GetStringValue())
+					}
 				}
 			}
 			clues := CluesFromProperties(profile.GetProperties())

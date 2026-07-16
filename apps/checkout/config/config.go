@@ -34,6 +34,11 @@ type CheckoutConfig struct {
 	// SigningSecret signs CSRF tokens and the guest hint cookie.
 	SigningSecret string `env:"CHECKOUT_SIGNING_SECRET"`
 
+	// InternalToken authenticates cluster callers of POST /internal/v1/sessions
+	// (product services that cannot complete Connect RPC permissions yet).
+	// Defaults to SigningSecret when empty so one secret can cover both.
+	InternalToken string `env:"CHECKOUT_INTERNAL_TOKEN"`
+
 	SessionTTLMinutes      int `envDefault:"30" env:"CHECKOUT_SESSION_TTL_MINUTES"`
 	MaxAttempts            int `envDefault:"3"  env:"CHECKOUT_MAX_ATTEMPTS"`
 	AttemptCooldownSeconds int `envDefault:"20" env:"CHECKOUT_ATTEMPT_COOLDOWN_SECONDS"`
@@ -73,4 +78,15 @@ func (c *CheckoutConfig) ResolvedCardEncryptionKey() string {
 		return strings.TrimSpace(c.CardEncryptionKey)
 	}
 	return strings.TrimSpace(c.CardEncryptionKeyAlt)
+}
+
+// ResolvedInternalToken returns the shared secret for internal session create.
+func (c *CheckoutConfig) ResolvedInternalToken() string {
+	if c == nil {
+		return ""
+	}
+	if strings.TrimSpace(c.InternalToken) != "" {
+		return strings.TrimSpace(c.InternalToken)
+	}
+	return strings.TrimSpace(c.SigningSecret)
 }

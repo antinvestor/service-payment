@@ -410,14 +410,17 @@ func TestCreateSession_WithPayer_ProfileContactsFallback(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 
+	// properties.email must NOT win over attached EMAIL contact.
+	props, _ := structpb.NewStruct(map[string]any{"email": "props-only@example.com"})
 	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{
+		Properties: props,
 		Contacts: []*profilev1.ContactObject{
 			{Id: "c1", Type: profilev1.ContactType_MSISDN, Detail: "254700000001"},
 			{
 				Id:     "c2",
 				Type:   profilev1.ContactType_EMAIL,
 				Detail: "bob@example.com",
-			}, // should be filtered out
+			}, // email for prefill; not listed as MSISDN contact chips
 		},
 	}}
 	b := newBusiness(
@@ -443,6 +446,38 @@ func TestCreateSession_WithPayer_ProfileContactsFallback(t *testing.T) {
 	c0 := contacts[0].(map[string]any)
 	assert.Equal(t, "c1", c0["contactId"])
 	assert.Equal(t, "254700000001", c0["msisdn"])
+	// Email is resolved from the EMAIL contact, not properties.
+	assert.Equal(t, "bob@example.com", session.Prefill["email"])
+}
+
+// 2d. No EMAIL contact → prefill email stays empty (do not use properties.email).
+func TestCreateSession_WithPayer_EmailFromContactNotProperties(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	props, _ := structpb.NewStruct(map[string]any{"email": "props-only@example.com", "name": "Bob"})
+	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{
+		Properties: props,
+		Contacts: []*profilev1.ContactObject{
+			{Id: "c1", Type: profilev1.ContactType_MSISDN, Detail: "254700000001"},
+		},
+	}}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		&fakePaymentClient{},
+		profCli,
+	)
+
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "Test", Amount: "10.00", Currency: "KES",
+		Payer: &business.PayerInput{ProfileID: "p1"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Bob", session.Prefill["displayName"])
+	assert.Equal(t, "", session.Prefill["email"], "email must come from EMAIL contact, not properties")
 }
 
 // 3. CreateSession fixed without valid amount → error.

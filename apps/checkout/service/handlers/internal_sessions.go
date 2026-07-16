@@ -79,13 +79,12 @@ func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Prefer email in metadata for prefill when profile has no email contact yet.
+	// Optional product-supplied email; profile EMAIL contacts still win when
+	// profile_id is set and applyPayer finds a contact (caller email is only
+	// used when the profile has no EMAIL contact).
 	meta := in.Metadata
 	if meta == nil {
 		meta = map[string]string{}
-	}
-	if in.Email != "" {
-		meta["email"] = in.Email
 	}
 
 	var payer *business.PayerInput

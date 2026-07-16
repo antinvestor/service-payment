@@ -360,14 +360,6 @@ func (b *CheckoutBusiness) applyPayer(
 					}
 				}
 			}
-			// Email property fallback (some profiles store email on properties).
-			if email == "" {
-				if props := profile.GetProperties(); props != nil {
-					if v, ok := props.GetFields()["email"]; ok {
-						email = strings.TrimSpace(v.GetStringValue())
-					}
-				}
-			}
 			clues := CluesFromProperties(profile.GetProperties())
 			// lastProvider is the registry key (e.g. mpesa); lastMethod may be a category.
 			clueProvider = clues.LastProvider
@@ -383,6 +375,12 @@ func (b *CheckoutBusiness) applyPayer(
 		}
 	}
 
+	// Email comes from attached EMAIL contacts on the profile (not properties).
+	// Caller-supplied payer.Email still wins when set (guest / product override).
+	if email == "" {
+		email = firstEmailFromContacts(profileContacts)
+	}
+
 	// Build contacts list: caller first; fall back to profile MSISDN contacts
 	var contacts []any
 	if len(payer.Contacts) > 0 {
@@ -394,26 +392,11 @@ func (b *CheckoutBusiness) applyPayer(
 		}
 	} else {
 		for _, c := range profileContacts {
-			switch c.GetType() {
-			case profilev1.ContactType_MSISDN:
+			if c.GetType() == profilev1.ContactType_MSISDN {
 				contacts = append(contacts, map[string]any{
 					"contactId": c.GetId(),
 					"msisdn":    c.GetDetail(),
 				})
-			case profilev1.ContactType_EMAIL:
-				if email == "" {
-					email = strings.TrimSpace(c.GetDetail())
-				}
-			}
-		}
-	}
-	// Also scan caller contacts path: if only profile was used above for email, fine.
-	// When caller supplied MSISDNs only, still pull emails from profile contacts.
-	if email == "" && len(payer.Contacts) > 0 {
-		for _, c := range profileContacts {
-			if c.GetType() == profilev1.ContactType_EMAIL {
-				email = strings.TrimSpace(c.GetDetail())
-				break
 			}
 		}
 	}
@@ -435,6 +418,22 @@ func (b *CheckoutBusiness) applyPayer(
 		prefill["providerCustomerId"] = providerCustomerID
 	}
 	session.Prefill = prefill
+}
+
+// firstEmailFromContacts returns the first non-empty EMAIL contact detail.
+// Profile email for checkout is contact-backed, not a free-form properties field.
+func firstEmailFromContacts(contacts []*profilev1.ContactObject) string {
+	for _, c := range contacts {
+		if c == nil {
+			continue
+		}
+		if c.GetType() == profilev1.ContactType_EMAIL {
+			if e := strings.TrimSpace(c.GetDetail()); e != "" {
+				return e
+			}
+		}
+	}
+	return ""
 }
 
 // ---------------------------------------------------------------------------

@@ -156,7 +156,17 @@ func NewWebServer(
 // NewRouter returns a ServeMux with all checkout routes registered.
 func (s *WebServer) NewRouter() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(mustSub(web.Static, "static"))))
+	// Versioned URLs (?v=hash) let us cache aggressively; unversioned requests
+	// must revalidate so CF does not serve a stale confirm-page JS for hours.
+	staticFS := http.FileServerFS(mustSub(web.Static, "static"))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("v") != "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+		}
+		staticFS.ServeHTTP(w, r)
+	})))
 	mux.HandleFunc("GET /c/{ref}", s.HandlePage)
 	mux.HandleFunc("POST /c/{ref}/pay", s.HandlePay)
 	mux.HandleFunc("GET /c/{ref}/status", s.HandleStatus)
@@ -417,6 +427,7 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 		Variable:     session.AmountOption == models.AmountOptionVariable,
 		CSRF:         CSRFToken(s.signingSecret(), ref),
 		Status:       session.Status,
+		AssetVersion: web.AssetVersion,
 	}
 
 	// AmountDisplay: only for fixed, non-empty amounts
@@ -516,7 +527,12 @@ func renderError(w http.ResponseWriter, code int, msg string) {
 
 // renderPage renders a named page with the given data, writing the status code first.
 func (s *WebServer) renderPage(w http.ResponseWriter, r *http.Request, code int, page string, data PageData) {
+	if data.AssetVersion == "" {
+		data.AssetVersion = web.AssetVersion
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// HTML must not be cached long — it embeds the asset version query string.
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
 	if err := s.renderer.Render(w, page, data); err != nil {
 		// Template rendering failed after headers sent — log and emit a comment.
@@ -550,7 +566,7 @@ func (s *WebServer) HandlePage(w http.ResponseWriter, r *http.Request) {
 
 	case models.SessionStatusExpired:
 		// Minimal data — nothing sensitive
-		data := PageData{Lang: pickLang(r, "")}
+		data := PageData{Lang: pickLang(r, ""), AssetVersion: web.AssetVersion}
 		s.renderPage(w, r, http.StatusOK, "gone", data)
 
 	case models.SessionStatusProcessing:

@@ -78,6 +78,8 @@ type PageData struct {
 	NextAction string
 	// PaymentInstruction for bank transfer notes.
 	PaymentInstruction string
+	// AssetVersion cache-busts /static/* URLs (see web.AssetVersion).
+	AssetVersion string
 }
 
 // MaskMsisdn masks a phone number for display.

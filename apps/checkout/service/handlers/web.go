@@ -176,6 +176,8 @@ func (s *WebServer) NewRouter() *http.ServeMux {
 	// Cluster product services create sessions here (token auth), then redirect
 	// the browser to pay.*/c/{ref} — never Flutterwave multipay.
 	mux.HandleFunc("POST /internal/v1/sessions", s.HandleInternalCreateSession)
+	mux.HandleFunc("GET /internal/v1/sessions/{ref}", s.HandleInternalGetSession)
+	mux.HandleFunc("GET /internal/v1/sessions", s.HandleInternalGetSession)
 	return mux
 }
 

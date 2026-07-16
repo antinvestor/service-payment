@@ -52,15 +52,7 @@ func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.R
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	token := strings.TrimSpace(r.Header.Get("X-Checkout-Internal-Token"))
-	if token == "" {
-		// Also accept Authorization: Bearer <token>
-		if auth := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(auth), "bearer ") {
-			token = strings.TrimSpace(auth[7:])
-		}
-	}
-	expected := s.cfg.ResolvedInternalToken()
-	if expected == "" || subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+	if !s.authorizeInternal(r) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
@@ -132,4 +124,68 @@ func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.R
 		"page_url": pageURL,
 		"pageUrl":  pageURL,
 	})
+}
+
+// HandleInternalGetSession returns session status for trusted product services.
+//
+//	GET /internal/v1/sessions/{ref}
+//	GET /internal/v1/sessions?order_ref=chk_…
+//
+// Auth: X-Checkout-Internal-Token (same as create).
+func (s *WebServer) HandleInternalGetSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.authorizeInternal(r) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	ref := strings.TrimSpace(r.PathValue("ref"))
+	orderRef := strings.TrimSpace(r.URL.Query().Get("order_ref"))
+
+	var (
+		session *models.CheckoutSession
+		err     error
+	)
+	switch {
+	case ref != "":
+		session, err = s.business.GetSessionByRef(r.Context(), ref)
+	case orderRef != "":
+		session, err = s.business.GetSessionByOrderRef(r.Context(), orderRef)
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "ref_or_order_ref_required"})
+		return
+	}
+	if err != nil {
+		if isNotFoundErr(err) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+			return
+		}
+		util.Log(r.Context()).WithError(err).Warn("internal get session failed")
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"ref":       session.Ref,
+		"status":    session.Status,
+		"prompt_id": session.PromptID,
+		"order_ref": session.OrderRef,
+	})
+}
+
+func (s *WebServer) authorizeInternal(r *http.Request) bool {
+	token := strings.TrimSpace(r.Header.Get("X-Checkout-Internal-Token"))
+	if token == "" {
+		if auth := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+			token = strings.TrimSpace(auth[7:])
+		}
+	}
+	expected := s.cfg.ResolvedInternalToken()
+	if expected == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
 }

@@ -54,6 +54,19 @@ func (r *sessionRepository) GetByRef(ctx context.Context, ref string) (*models.C
 	return &session, nil
 }
 
+// GetByOrderRef fetches the most recent CheckoutSession for a product order_ref.
+func (r *sessionRepository) GetByOrderRef(ctx context.Context, orderRef string) (*models.CheckoutSession, error) {
+	var session models.CheckoutSession
+	err := r.Pool().DB(ctx, false).
+		Where("order_ref = ? AND deleted_at IS NULL", orderRef).
+		Order("created_at DESC").
+		First(&session).Error
+	if err != nil {
+		return nil, fmt.Errorf("get checkout session by order_ref: %w", err)
+	}
+	return &session, nil
+}
+
 // ListByStatus returns sessions matching the given status, ordered by
 // modified_at ascending (oldest first), using a replica read.
 func (r *sessionRepository) ListByStatus(

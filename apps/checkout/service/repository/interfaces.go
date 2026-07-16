@@ -25,6 +25,8 @@ import (
 type SessionRepository interface {
 	datastore.BaseRepository[*models.CheckoutSession]
 	GetByRef(ctx context.Context, ref string) (*models.CheckoutSession, error)
+	// GetByOrderRef returns the newest session for a product order_ref (e.g. chk_*).
+	GetByOrderRef(ctx context.Context, orderRef string) (*models.CheckoutSession, error)
 	ListByStatus(ctx context.Context, status string, limit int) ([]*models.CheckoutSession, error)
 }
 

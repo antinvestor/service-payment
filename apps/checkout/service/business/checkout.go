@@ -499,6 +499,19 @@ func (b *CheckoutBusiness) applyPayer(
 // GetSessionByRef
 // ---------------------------------------------------------------------------
 
+// GetSessionByOrderRef loads the newest session for a product order_ref (chk_*),
+// then applies the same expiry/recovery rules as GetSessionByRef.
+func (b *CheckoutBusiness) GetSessionByOrderRef(
+	ctx context.Context,
+	orderRef string,
+) (*models.CheckoutSession, error) {
+	session, err := b.sessionRepo.GetByOrderRef(ctx, orderRef)
+	if err != nil {
+		return nil, fmt.Errorf("get session by order_ref: %w", err)
+	}
+	return b.finalizeSessionRead(ctx, session)
+}
+
 // GetSessionByRef retrieves a session by ref, flipping status to expired if needed.
 // Processing sessions that already succeeded at the payment provider are completed
 // first (never expire a paid charge as "link expired"). Already-expired sessions
@@ -511,6 +524,17 @@ func (b *CheckoutBusiness) GetSessionByRef(
 	session, err := b.sessionRepo.GetByRef(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("get session by ref: %w", err)
+	}
+	return b.finalizeSessionRead(ctx, session)
+}
+
+// finalizeSessionRead recovers paid sessions and expires unpaid past-TTL ones.
+func (b *CheckoutBusiness) finalizeSessionRead(
+	ctx context.Context,
+	session *models.CheckoutSession,
+) (*models.CheckoutSession, error) {
+	if session == nil {
+		return nil, fmt.Errorf("get session: nil")
 	}
 
 	// Recover paid-but-stuck / paid-but-expired sessions before showing "gone".

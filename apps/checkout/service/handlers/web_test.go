@@ -95,6 +95,15 @@ func (f *fakeSessionRepo) GetByRef(_ context.Context, ref string) (*models.Check
 	return s, nil
 }
 
+func (f *fakeSessionRepo) GetByOrderRef(_ context.Context, orderRef string) (*models.CheckoutSession, error) {
+	for _, s := range f.sessions {
+		if s != nil && s.OrderRef == orderRef {
+			return s, nil
+		}
+	}
+	return nil, fmt.Errorf("session order_ref %q: %w", orderRef, gorm.ErrRecordNotFound)
+}
+
 func (f *fakeSessionRepo) ListByStatus(
 	_ context.Context,
 	status string,

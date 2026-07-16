@@ -348,6 +348,10 @@ func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 // display name, email, MSISDN contacts, last-used method, and country — so the payer
 // does not re-type identity they already have on their profile.
 //
+// Display name: when profile_id is set, service_authentication's au_name (and
+// legacy name keys) take precedence over merchant DisplayName so the pay page
+// always reflects the authenticated profile, not a product-local label.
+//
 //nolint:gocognit,nestif // Profile enrichment requires sequential nil-guard checks; extracting further would reduce clarity.
 func (b *CheckoutBusiness) applyPayer(
 	ctx context.Context,
@@ -356,14 +360,17 @@ func (b *CheckoutBusiness) applyPayer(
 ) {
 	session.PayerProfileID = payer.ProfileID
 
-	displayName := payer.DisplayName
+	callerDisplayName := strings.TrimSpace(payer.DisplayName)
+	displayName := callerDisplayName
 	language := payer.Language
 	var clueProvider, clueMethod, clueContactID, clueEmailContactID, cluePhoneContactID, clueCountry string
 	var paymentMethodID, providerCustomerID string
 	var profileContacts []*profilev1.ContactObject
+	var profileProps *structpb.Struct
 	email := strings.TrimSpace(payer.Email)
+	nameSource := "caller"
 
-	// Fetch profile if ID provided
+	// Fetch profile if ID provided — authoritative identity for the pay session.
 	if payer.ProfileID != "" && b.profileCli != nil {
 		resp, err := b.profileCli.GetById(
 			ctx,
@@ -372,18 +379,19 @@ func (b *CheckoutBusiness) applyPayer(
 		if err != nil {
 			util.Log(ctx).
 				WithError(err).
+				WithField("profile_id", payer.ProfileID).
 				Warn("could not fetch profile for prefill — continuing without it")
 		} else if resp.Msg.GetData() != nil {
 			profile := resp.Msg.GetData()
-			// Fallback display name from "name" property
-			if displayName == "" {
-				if props := profile.GetProperties(); props != nil {
-					if v, ok := props.GetFields()["name"]; ok {
-						displayName = v.GetStringValue()
-					}
+			profileProps = profile.GetProperties()
+			// Identity from service_authentication (au_name) wins over caller label.
+			if n := ResolveDisplayName(callerDisplayName, profileProps); n != "" {
+				displayName = n
+				if ProfileDisplayName(profileProps) != "" {
+					nameSource = "profile"
 				}
 			}
-			clues := CluesFromProperties(profile.GetProperties())
+			clues := CluesFromProperties(profileProps)
 			// lastProvider is the registry key (e.g. mpesa); lastMethod may be a category.
 			clueProvider = clues.LastProvider
 			if clueProvider == "" {
@@ -482,6 +490,9 @@ func (b *CheckoutBusiness) applyPayer(
 		"emailContactId":     emailPick.ContactID,
 		"phone":              phone,
 		"contacts":           contacts,
+		// nameSource is "profile" when au_name (or legacy profile keys) filled
+		// displayName; "caller" when only the merchant/product label was used.
+		"nameSource": nameSource,
 	}
 	if emailPick.ContactID != "" {
 		prefill["emailContactId"] = emailPick.ContactID
@@ -491,6 +502,14 @@ func (b *CheckoutBusiness) applyPayer(
 	}
 	if providerCustomerID != "" {
 		prefill["providerCustomerId"] = providerCustomerID
+	}
+	// Surface avatar for optional UI (never required for pay).
+	if profileProps != nil {
+		if fields := profileProps.GetFields(); fields != nil {
+			if u := strings.TrimSpace(fields[ProfilePropAvatarURL].GetStringValue()); u != "" {
+				prefill["avatarUrl"] = u
+			}
+		}
 	}
 	session.Prefill = prefill
 }

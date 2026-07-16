@@ -320,12 +320,14 @@ func TestCreateSession_Persists(t *testing.T) {
 }
 
 // 2. CreateSession with payer: profile fetched; prefill has exact keys.
+// Display name comes from profile au_name (service_authentication), not the
+// shorter merchant DisplayName.
 func TestCreateSession_WithPayer_PrefillKeys(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 
 	props, _ := structpb.NewStruct(map[string]any{
-		"name": "Alice Wanjiru",
+		business.ProfilePropName: "Alice Wanjiru",
 		"checkout": map[string]any{
 			"lastProvider":  "mpesa",
 			"lastContactId": "contact-abc",
@@ -357,7 +359,7 @@ func TestCreateSession_WithPayer_PrefillKeys(t *testing.T) {
 		AmountOption: models.AmountOptionFixed,
 		Payer: &business.PayerInput{
 			ProfileID:   "profile-001",
-			DisplayName: "Alice",
+			DisplayName: "Alice", // product may pass a short label
 			Language:    "en",
 			Contacts: []business.PayerContactInput{
 				{ContactID: "contact-abc", Msisdn: "254712345678"},
@@ -371,7 +373,9 @@ func TestCreateSession_WithPayer_PrefillKeys(t *testing.T) {
 
 	prefill := session.Prefill
 	require.NotNil(t, prefill)
-	assert.Equal(t, "Alice", prefill["displayName"], "displayName from caller value")
+	assert.Equal(t, "Alice Wanjiru", prefill["displayName"],
+		"displayName must come from profile au_name (service_authentication)")
+	assert.Equal(t, "profile", prefill["nameSource"])
 	assert.Equal(t, "en", prefill["language"])
 	assert.Equal(t, "mpesa", prefill["clueProvider"])
 	assert.Equal(t, "contact-abc", prefill["clueContactId"])
@@ -387,12 +391,13 @@ func TestCreateSession_WithPayer_PrefillKeys(t *testing.T) {
 	assert.Equal(t, "profile-001", session.PayerProfileID)
 }
 
-// 2b. CreateSession with payer — displayName falls back to profile "name" when caller empty.
+// 2b. CreateSession with payer — displayName from profile au_name when caller empty.
 func TestCreateSession_WithPayer_DisplayNameFallback(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 
-	props, _ := structpb.NewStruct(map[string]any{"name": "Bob Kariuki"})
+	// service_authentication stores the user name as au_name.
+	props, _ := structpb.NewStruct(map[string]any{business.ProfilePropName: "Bob Kariuki"})
 	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{Properties: props}}
 	b := newBusiness(
 		defaultConfig(),
@@ -412,6 +417,66 @@ func TestCreateSession_WithPayer_DisplayNameFallback(t *testing.T) {
 	session, err := b.CreateSession(context.Background(), in)
 	require.NoError(t, err)
 	assert.Equal(t, "Bob Kariuki", session.Prefill["displayName"])
+	assert.Equal(t, "profile", session.Prefill["nameSource"])
+}
+
+// 2b2. Profile au_name wins over a wrong/stale merchant DisplayName.
+func TestCreateSession_WithPayer_AuNameBeatsCallerDisplayName(t *testing.T) {
+	props, _ := structpb.NewStruct(map[string]any{
+		business.ProfilePropName: "Authenticated User",
+		"name":                   "Legacy Name Field",
+	})
+	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{Properties: props}}
+	b := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli,
+	)
+
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "Test", Amount: "10.00", Currency: "KES",
+		Payer: &business.PayerInput{
+			ProfileID:   "p1",
+			DisplayName: "Merchant Label From Product",
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Authenticated User", session.Prefill["displayName"],
+		"au_name from service_authentication must be preferred over product DisplayName")
+	assert.Equal(t, "profile", session.Prefill["nameSource"])
+}
+
+// 2b3. When au_name missing, legacy "name" still works; caller used only if profile empty.
+func TestCreateSession_WithPayer_LegacyNameThenCaller(t *testing.T) {
+	props, _ := structpb.NewStruct(map[string]any{"name": "Legacy Bob"})
+	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{Properties: props}}
+	b := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli,
+	)
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "Test", Amount: "10.00", Currency: "KES",
+		Payer: &business.PayerInput{ProfileID: "p1", DisplayName: "Caller"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Legacy Bob", session.Prefill["displayName"])
+
+	// No profile name props → caller name.
+	emptyProps, _ := structpb.NewStruct(map[string]any{"checkout": map[string]any{}})
+	profCli2 := &fakeProfileClient{profile: &profilev1.ProfileObject{Properties: emptyProps}}
+	b2 := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli2,
+	)
+	session2, err := b2.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "Test", Amount: "10.00", Currency: "KES",
+		Payer: &business.PayerInput{ProfileID: "p2", DisplayName: "Only Caller"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Only Caller", session2.Prefill["displayName"])
+	assert.Equal(t, "caller", session2.Prefill["nameSource"])
 }
 
 // 2c. Profile contacts used when caller provides none.
@@ -464,7 +529,10 @@ func TestCreateSession_WithPayer_EmailFromContactNotProperties(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 
-	props, _ := structpb.NewStruct(map[string]any{"email": "props-only@example.com", "name": "Bob"})
+	props, _ := structpb.NewStruct(map[string]any{
+		"email":                  "props-only@example.com",
+		business.ProfilePropName: "Bob",
+	})
 	profCli := &fakeProfileClient{profile: &profilev1.ProfileObject{
 		Properties: props,
 		Contacts: []*profilev1.ContactObject{
@@ -486,6 +554,7 @@ func TestCreateSession_WithPayer_EmailFromContactNotProperties(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "Bob", session.Prefill["displayName"])
+	assert.Equal(t, "profile", session.Prefill["nameSource"])
 	assert.Equal(t, "", session.Prefill["email"], "email must come from EMAIL contact, not properties")
 }
 

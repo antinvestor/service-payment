@@ -66,9 +66,15 @@ type MethodRegistry struct {
 //   - currency
 //   - locality when signals exist (universal methods without locality
 //     constraints always remain, e.g. card)
+//
+// Phone contacts override session restriction for matching local phone rails:
+// if Phones/Phone include an MSISDN that matches a method's prefix/country,
+// that phone method is offered even when the merchant only listed e.g. "card".
+// Partition allowlist and currency still apply.
 type MethodFilter struct {
 	Currency           string
-	Phone              string   // E.164 or national digits
+	Phone              string   // E.164 or national digits (primary / preferred)
+	Phones             []string // all contact MSISDNs (preferred first when possible)
 	Country            string   // ISO 3166-1 alpha-2
 	SessionRestriction []string // CreateCheckoutSession methods[]
 	PartitionAllowlist []string // partition-configured method keys
@@ -161,15 +167,34 @@ func (r *MethodRegistry) Available(restriction []string, currency ...string) []M
 
 // Resolve filters and ranks methods for a checkout session (Stripe Link style).
 func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
-	phone := normalizePhone(f.Phone)
+	phones := collectPhones(f.Phone, f.Phones)
+	phone := ""
+	if len(phones) > 0 {
+		phone = phones[0]
+	}
 	country := strings.ToUpper(strings.TrimSpace(f.Country))
 	if country == "" {
-		country = InferCountryFromPhone(phone)
+		// Prefer country inferred from any contact phone (first match wins).
+		for _, p := range phones {
+			if c := InferCountryFromPhone(p); c != "" {
+				country = c
+				break
+			}
+		}
 	}
 	currency := strings.ToUpper(strings.TrimSpace(f.Currency))
 
-	allow := intersectAllowlists(f.SessionRestriction, f.PartitionAllowlist)
-	hasLocality := phone != "" || country != ""
+	// Session restriction is relaxed for phone-local methods when contacts
+	// include matching MSISDNs — otherwise PreferCard-only sessions hide MoMo.
+	sessionKeys := cleanKeys(f.SessionRestriction)
+	partitionKeys := cleanKeys(f.PartitionAllowlist)
+	phoneLocalKeys := phoneLocalMethodKeys(r.Methods, phones, country, currency, partitionKeys)
+	effectiveSession := sessionKeys
+	if len(phoneLocalKeys) > 0 && len(sessionKeys) > 0 {
+		effectiveSession = unionKeys(sessionKeys, phoneLocalKeys)
+	}
+	allow := intersectAllowlists(effectiveSession, partitionKeys)
+	hasLocality := len(phones) > 0 || country != ""
 
 	var available []Method
 	for _, m := range r.Methods {
@@ -181,7 +206,8 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 		}
 		// When locality is known, drop methods that declare a locality and do
 		// not match — keep universal methods (no prefixes and no countries).
-		if hasLocality && !methodMatchesLocality(m, phone, country) && !methodIsUniversal(m) {
+		// Match against any contact phone, not only the preferred one.
+		if hasLocality && !methodMatchesAnyLocality(m, phones, country) && !methodIsUniversal(m) {
 			continue
 		}
 		available = append(available, m)
@@ -211,6 +237,97 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 		Selected:  selected,
 		Reason:    reason,
 	}
+}
+
+// collectPhones normalizes primary + extra MSISDNs (deduped, preferred first).
+func collectPhones(primary string, extra []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(raw string) {
+		p := normalizePhone(raw)
+		if p == "" || seen[p] {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	add(primary)
+	for _, e := range extra {
+		add(e)
+	}
+	return out
+}
+
+// phoneLocalMethodKeys returns registry method keys that are non-universal
+// phone/MoMo rails matching any contact MSISDN (or inferred country), and that
+// pass currency + partition filters. Used to auto-enable local phone methods
+// when the payer has phone contacts.
+func phoneLocalMethodKeys(
+	methods []Method,
+	phones []string,
+	country, currency string,
+	partitionAllow []string,
+) []string {
+	if len(phones) == 0 && country == "" {
+		return nil
+	}
+	var keys []string
+	for _, m := range methods {
+		if methodIsUniversal(m) {
+			continue // card etc. already available via session/default
+		}
+		if !methodMatchesAnyLocality(m, phones, country) {
+			continue
+		}
+		if currency != "" && len(m.Currencies) > 0 && !methodSupportsCurrency(m, currency) {
+			continue
+		}
+		if len(partitionAllow) > 0 && !containsFold(partitionAllow, m.Key) {
+			continue
+		}
+		keys = append(keys, m.Key)
+	}
+	return keys
+}
+
+func methodMatchesAnyLocality(m Method, phones []string, country string) bool {
+	for _, p := range phones {
+		if methodMatchesPhone(m, p) {
+			return true
+		}
+		// Infer country from each phone when explicit country missing.
+		if country == "" {
+			if methodMatchesCountry(m, InferCountryFromPhone(p)) {
+				return true
+			}
+		}
+	}
+	if country != "" && methodMatchesCountry(m, country) {
+		return true
+	}
+	return false
+}
+
+func unionKeys(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	var out []string
+	for _, k := range a {
+		lk := strings.ToLower(strings.TrimSpace(k))
+		if lk == "" || seen[lk] {
+			continue
+		}
+		seen[lk] = true
+		out = append(out, strings.TrimSpace(k))
+	}
+	for _, k := range b {
+		lk := strings.ToLower(strings.TrimSpace(k))
+		if lk == "" || seen[lk] {
+			continue
+		}
+		seen[lk] = true
+		out = append(out, strings.TrimSpace(k))
+	}
+	return out
 }
 
 // Preselect is kept for tests; uses the same ranking rules as Resolve.

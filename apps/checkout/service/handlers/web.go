@@ -246,17 +246,25 @@ func buildReturnURL(returnURL, ref, status string) string {
 	return u.String()
 }
 
-// extractContacts builds []ContactChoice and the preferred msisdn from prefill.
+// extractContacts builds []ContactChoice, the preferred msisdn, and all
+// contact MSISDNs (for enabling country phone payment methods).
 // Preferred phone (last successful payment contact) is selected first when present.
 // The clue msisdn is the raw msisdn for method preselect logic (not for display).
-func extractContacts(prefill map[string]any, clueContactID string) ([]ContactChoice, string) {
+func extractContacts(prefill map[string]any, clueContactID string) ([]ContactChoice, string, []string) {
 	contactsRaw, hasContacts := prefill["contacts"]
 	if !hasContacts {
-		return nil, ""
+		// Still surface a single prefill.phone when no contact chips.
+		if p, _ := prefill["phone"].(string); p != "" {
+			return nil, p, []string{p}
+		}
+		return nil, "", nil
 	}
 	list, isList := contactsRaw.([]any)
 	if !isList {
-		return nil, ""
+		if p, _ := prefill["phone"].(string); p != "" {
+			return nil, p, []string{p}
+		}
+		return nil, "", nil
 	}
 
 	// Prefer explicit phone prefer id from prefill when set.
@@ -267,10 +275,12 @@ func extractContacts(prefill map[string]any, clueContactID string) ([]ContactCho
 	}
 
 	contacts := make([]ContactChoice, 0, len(list))
+	allPhones := make([]string, 0, len(list)+1)
 	cluePhone := ""
 	// Also honour prefill.phone when chips exist.
 	if p, _ := prefill["phone"].(string); p != "" {
 		cluePhone = p
+		allPhones = append(allPhones, p)
 	}
 
 	for _, raw := range list {
@@ -281,6 +291,9 @@ func extractContacts(prefill map[string]any, clueContactID string) ([]ContactCho
 		cid, _ := m["contactId"].(string)
 		msisdn, _ := m["msisdn"].(string)
 		preferred, _ := m["preferred"].(bool)
+		if msisdn != "" {
+			allPhones = append(allPhones, msisdn)
+		}
 		contacts = append(contacts, ContactChoice{
 			ContactID: cid,
 			Masked:    MaskMsisdn(msisdn),
@@ -298,7 +311,7 @@ func extractContacts(prefill map[string]any, clueContactID string) ([]ContactCho
 		}
 	}
 
-	return contacts, cluePhone
+	return contacts, cluePhone, allPhones
 }
 
 // methodChoices builds []MethodChoice from available methods, marking the preselected one.
@@ -354,7 +367,14 @@ func (s *WebServer) guestHintsFromCookie(r *http.Request) business.GuestHints {
 
 // buildMethods returns Link-style method choices for a session:
 // location + partition config + cached last-used preference.
-func (s *WebServer) buildMethods(session *models.CheckoutSession, r *http.Request, cluePhone string) []MethodChoice {
+// contactPhones enables country phone rails (M-PESA/MoMo) when contacts
+// include MSISDNs — even if the session only requested card.
+func (s *WebServer) buildMethods(
+	session *models.CheckoutSession,
+	r *http.Request,
+	cluePhone string,
+	contactPhones []string,
+) []MethodChoice {
 	clueKey := ""
 	phone := cluePhone
 	guestMethod := ""
@@ -395,6 +415,7 @@ func (s *WebServer) buildMethods(session *models.CheckoutSession, r *http.Reques
 	filter := business.MethodFilter{
 		Currency:           session.Currency,
 		Phone:              phone,
+		Phones:             contactPhones,
 		Country:            country,
 		SessionRestriction: restrictionKeys(session.Methods),
 		PartitionAllowlist: s.partitions.ForPartition(session.PartitionID),
@@ -442,11 +463,12 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 
 	// Payer block (cluePhone used internally for method preselect — never echoed to HTML)
 	cluePhone := ""
+	var contactPhones []string
 	email := ""
 	if session.Prefill != nil {
 		clueContactID, _ := session.Prefill["clueContactId"].(string)
 		var contacts []ContactChoice
-		contacts, cluePhone = extractContacts(session.Prefill, clueContactID)
+		contacts, cluePhone, contactPhones = extractContacts(session.Prefill, clueContactID)
 		data.Contacts = contacts
 		if cluePhone != "" {
 			data.MaskedPhone = MaskMsisdn(cluePhone)
@@ -463,7 +485,7 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 	}
 	data.NeedEmail = strings.TrimSpace(email) == ""
 	data.NeedName = strings.TrimSpace(data.PayerName) == ""
-	data.Methods = s.buildMethods(session, r, cluePhone)
+	data.Methods = s.buildMethods(session, r, cluePhone, contactPhones)
 
 	// Card form when selected method is embedded card and encryption is configured.
 	selectedEmbed := false

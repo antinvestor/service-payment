@@ -242,6 +242,57 @@ func TestInferCountryFromPhone(t *testing.T) {
 	assert.Equal(t, "", business.InferCountryFromPhone(""))
 }
 
+func TestResolve_PhoneContactsEnableLocalMethodDespiteSessionCardOnly(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(testMethodsJSON)
+	require.NoError(t, err)
+
+	// Merchant restricted to card (PreferCard), but payer has a KE phone contact.
+	res := reg.Resolve(business.MethodFilter{
+		Currency:           "KES",
+		Phones:             []string{"+254712345678"},
+		SessionRestriction: []string{"card"},
+	})
+	keys := methodKeys(res.Available)
+	assert.Contains(t, keys, "card", "card remains available")
+	assert.Contains(t, keys, "mpesa", "KE phone contact must enable M-PESA")
+	assert.NotContains(t, keys, "mtn_momo")
+	// Preselect prefers phone locality when no clue.
+	assert.Equal(t, "mpesa", res.Selected.Key)
+	assert.Equal(t, "location_phone", res.Reason)
+}
+
+func TestResolve_PhoneContactsStillRespectPartitionAllowlist(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(testMethodsJSON)
+	require.NoError(t, err)
+
+	// Partition only allows card — phone contact must not bypass partition policy.
+	res := reg.Resolve(business.MethodFilter{
+		Currency:           "KES",
+		Phone:              "254712345678",
+		SessionRestriction: []string{"card"},
+		PartitionAllowlist: []string{"card"},
+	})
+	require.Len(t, res.Available, 1)
+	assert.Equal(t, "card", res.Available[0].Key)
+}
+
+func TestResolve_MultipleContactPhonesMatchAnyLocalRail(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(testMethodsJSON)
+	require.NoError(t, err)
+
+	// Preferred contact might be blank-country; second contact is UG.
+	res := reg.Resolve(business.MethodFilter{
+		Currency:           "UGX",
+		Phone:              "", // no primary
+		Phones:             []string{"256700000001"},
+		SessionRestriction: []string{"card"},
+	})
+	keys := methodKeys(res.Available)
+	assert.Contains(t, keys, "mtn_momo")
+	assert.Contains(t, keys, "card")
+	assert.Equal(t, "mtn_momo", res.Selected.Key)
+}
+
 func methodKeys(methods []business.Method) []string {
 	out := make([]string, len(methods))
 	for i, m := range methods {

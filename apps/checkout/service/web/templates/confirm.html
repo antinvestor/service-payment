@@ -2,8 +2,42 @@
 
 <h2>{{t .Lang "confirm_title"}}</h2>
 <p class="hint">{{t .Lang "confirm_hint"}}</p>
+{{if .PaymentInstruction}}
+<div class="banner info">{{.PaymentInstruction}}</div>
+{{end}}
 <p class="hint redirect-hint">{{t .Lang "redirect_hint"}}</p>
 <div class="spinner" aria-label="loading"></div>
+
+{{/* 3DS: prefer in-page frame when bank allows; status poll also may top-level redirect */}}
+<div id="auth-frame-wrap" class="auth-frame-wrap hidden">
+  <iframe id="auth-frame" title="Secure authentication" class="auth-frame" sandbox="allow-scripts allow-forms allow-same-origin allow-top-navigation-by-user-activation"></iframe>
+</div>
+
+{{/* PIN / OTP stay on our domain */}}
+<div id="auth-pin" class="auth-step{{if ne .NextAction "requires_pin"}} hidden{{end}}">
+  <form method="POST" action="{{.AuthorizeURL}}" class="auth-form">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="auth_type" value="pin">
+    <div class="field">
+      <label for="pin">{{t .Lang "card_pin"}}</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" required>
+    </div>
+    <button type="submit" class="btn-primary">{{t .Lang "continue"}}</button>
+  </form>
+</div>
+
+<div id="auth-otp" class="auth-step{{if ne .NextAction "requires_otp"}} hidden{{end}}">
+  <form method="POST" action="{{.AuthorizeURL}}" class="auth-form">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="auth_type" value="otp">
+    <div class="field">
+      <label for="otp">{{t .Lang "card_otp"}}</label>
+      <input id="otp" name="otp" type="text" inputmode="numeric" maxlength="8" autocomplete="one-time-code" required>
+    </div>
+    <button type="submit" class="btn-primary">{{t .Lang "continue"}}</button>
+  </form>
+</div>
+
 <a href="/c/{{.SessionRef}}" class="retry-link">{{t .Lang "retry"}}</a>
 
 {{template "layout_bottom" .}}

@@ -34,6 +34,9 @@ type Clues struct {
 	LastCurrency  string `json:"lastCurrency"`
 	LastCountry   string `json:"lastCountry"` // ISO 3166-1 alpha-2 when known
 	LastPaidAt    string `json:"lastPaidAt"`
+	// Tokenized instrument for one-click card / subscription renewals.
+	PaymentMethodID    string `json:"paymentMethodId,omitempty"`
+	ProviderCustomerID string `json:"providerCustomerId,omitempty"`
 }
 
 // CluesFromProperties extracts checkout clues from profile properties.
@@ -47,12 +50,14 @@ func CluesFromProperties(props *structpb.Struct) Clues {
 	}
 	f := checkout.GetFields()
 	return Clues{
-		LastMethod:    f["lastMethod"].GetStringValue(),
-		LastProvider:  f["lastProvider"].GetStringValue(),
-		LastContactID: f["lastContactId"].GetStringValue(),
-		LastCurrency:  f["lastCurrency"].GetStringValue(),
-		LastCountry:   f["lastCountry"].GetStringValue(),
-		LastPaidAt:    f["lastPaidAt"].GetStringValue(),
+		LastMethod:         f["lastMethod"].GetStringValue(),
+		LastProvider:       f["lastProvider"].GetStringValue(),
+		LastContactID:      f["lastContactId"].GetStringValue(),
+		LastCurrency:       f["lastCurrency"].GetStringValue(),
+		LastCountry:        f["lastCountry"].GetStringValue(),
+		LastPaidAt:         f["lastPaidAt"].GetStringValue(),
+		PaymentMethodID:    f["paymentMethodId"].GetStringValue(),
+		ProviderCustomerID: f["providerCustomerId"].GetStringValue(),
 	}
 }
 
@@ -67,6 +72,12 @@ func (c Clues) ToProperties() *structpb.Struct {
 	}
 	if c.LastCountry != "" {
 		checkout["lastCountry"] = c.LastCountry
+	}
+	if c.PaymentMethodID != "" {
+		checkout["paymentMethodId"] = c.PaymentMethodID
+	}
+	if c.ProviderCustomerID != "" {
+		checkout["providerCustomerId"] = c.ProviderCustomerID
 	}
 	props, _ := structpb.NewStruct(map[string]any{"checkout": checkout})
 	return props

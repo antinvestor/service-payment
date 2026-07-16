@@ -4,36 +4,55 @@ Provider service: `apps/integrations/flutterwave`
 Official docs: [Getting started](https://developer.flutterwave.com/docs/getting-started) ·
 [Authentication](https://developer.flutterwave.com/docs/authentication) ·
 [Orchestrator charges](https://developer.flutterwave.com/docs/payment-orchestrator-flow) ·
+[Cards](https://developer.flutterwave.com/docs/card) ·
+[Encryption](https://developer.flutterwave.com/docs/encryption) ·
 [Mobile money](https://developer.flutterwave.com/docs/mobile-money) ·
 [Transfers](https://developer.flutterwave.com/docs/making-a-transfer) ·
 [Webhooks](https://developer.flutterwave.com/docs/webhooks)
 
-This integration targets **API v4 only** (OAuth 2.0, not v3 secret keys).
+This integration targets **API v4** (OAuth 2.0). Classic v3 secret keys remain
+only as a **legacy fallback** for multipay redirects when encrypted card fields
+are absent.
 
-## Architecture
+## Preferred product experience
+
+```
+Product (opportunities / billing)
+  → CheckoutService.CreateCheckoutSession (payer prefill from profile)
+  → Browser: https://pay.stawi.org/c/{session_ref}
+       • Stripe Link style: show name/email/phone already on file
+       • Prefer Card (embedded form)
+       • Browser AES-256-GCM encrypts PAN (never hits our servers clear)
+  → POST /c/{ref}/pay → InitiatePrompt(route=flutterwave, encrypted card extras)
+  → Flutterwave v4 POST /orchestration/direct-charges
+  → next_action:
+       • requires_pin / requires_otp → stay on pay.stawi.org
+       • redirect_url (3DS) → iframe when possible, else bank page
+  → Webhook charge.completed + GET /charges/{id}
+  → StatusUpdate SUCCESSFUL → checkout session completed → product return_url
+```
+
+**No Flutterwave multipay homepage** when encryption key + OAuth v4 are configured.
+3DS bank challenges may still open a bank-controlled page (unavoidable).
+
+## Architecture (collections)
 
 ```
 Checkout / Billing collection
-  → PaymentService.InitiatePrompt (route=flutterwave)
+  → PaymentService.InitiatePrompt (route from method registry, default flutterwave)
   → QUEUE_FLUTTERWAVE_PROMPT_URI
   → Flutterwave integration
-       ├─ phone present → POST /orchestration/direct-charges (mobile_money)
-       └─ else          → POST /orchestration/direct-charges (bank_transfer | opay | ussd)
-  → StatusUpdate(IN_PROCESS, extras.checkout_url | payment_instruction)
+       ├─ action=authorize     → PUT /charges/{id} (PIN/OTP/AVS)
+       ├─ payment_method_id    → POST /charges (recurring / saved card)
+       ├─ encrypted card       → POST /orchestration/direct-charges (type=card)
+       ├─ phone + corridor     → mobile_money
+       └─ legacy FLWSECK only  → v3 Standard multipay (fallback)
+  → StatusUpdate(IN_PROCESS|SUCCESSFUL|FAILED, portable extras)
   → Webhook charge.completed + GET /charges/{id} verify
-  → StatusUpdate(SUCCESSFUL|FAILED)
-
-PaymentService.Send (released)
-  → route mode=tx URI=flutterwave.payments.dequeue
-  → POST /transfers/recipients → POST /transfers (action=instant)
-  → Webhook transfer.disburse
-  → StatusUpdate(SUCCESSFUL|FAILED)
-
-Billing subscription lifecycle (optional)
-  → subscription.lifecycle queue
-  → correlation / logging (billing remains source of truth;
-     v4 has no v3-style payment-plans API)
 ```
+
+Portable Extra keys live in `pkg/collection` so swapping providers only changes
+the route + adapter, not the checkout UI.
 
 ## Auth (v4 OAuth)
 
@@ -45,7 +64,7 @@ client_id=…&client_secret=…&grant_type=client_credentials
 ```
 
 Tokens expire in **10 minutes**; the client refreshes ≥60s before expiry and
-retries once on HTTP 401.
+retries once on HTTP 401. Charge calls retry transient 5xx/429 with backoff.
 
 | Environment | API base URL |
 |-------------|--------------|
@@ -58,26 +77,42 @@ Every API call sends:
 - `X-Trace-Id` (12–255 chars)
 - `X-Idempotency-Key` (12–255 chars, unique per request)
 
+## Card encryption (embedded)
+
+1. Dashboard → API settings → **Encryption key** (base64 AES-256).
+2. Checkout: `CHECKOUT_CARD_ENCRYPTION_KEY` or `FLUTTERWAVE_ENCRYPTION_KEY`.
+3. Browser `GET /c/{ref}/crypto` → encrypts PAN/expiry/CVV with AES-GCM + 12-char nonce.
+4. Prompt extras: `encrypted_card_number`, `encrypted_expiry_month`,
+   `encrypted_expiry_year`, `encrypted_cvv`, `card_nonce`.
+
+## Subscriptions
+
+- **Billing service** owns subscription state (`StartSubscription` → checkout → `ConfirmPayment`).
+- First payment stores `payment_method_id` + `customer_id` on profile checkout clues.
+- Renewals: InitiatePrompt with `payment_method_id`, `customer_id`, `recurring=true`
+  (no card re-entry, no browser hop).
+- Flutterwave subscription lifecycle queue is optional correlation only — v4 has no
+  v3-style payment-plans API as the system of record.
+
+## Retries (win fully)
+
+| Layer | Mechanism |
+|-------|-----------|
+| Provider HTTP | Exponential backoff on 408/429/5xx (3 attempts) |
+| Checkout UI | MaxAttempts + cooldown; failed sessions stay payable |
+| Settlement | Billing sweeper confirms open invoices; checkout SweepProcessing |
+| Webhook + poll | charge.completed re-queries GET /charges/{id} before SUCCESSFUL |
+
 ## Quick start
-
-### 1. Dashboard
-
-1. Create / open a [Flutterwave developer account](https://developer.flutterwave.com/docs/getting-started).
-2. Copy **v4** Client ID + Client Secret (sandbox or live).
-3. **Settings → Webhooks** → URL `https://<host>/webhook/flutterwave`, set secret hash.
-4. For disbursements: enable transfers + whitelist egress IPs.
-
-### 2. Run
 
 ```bash
 export FLUTTERWAVE_CLIENT_ID=…
 export FLUTTERWAVE_CLIENT_SECRET=…
+export FLUTTERWAVE_ENCRYPTION_KEY=…   # same as CHECKOUT_CARD_ENCRYPTION_KEY
 export FLUTTERWAVE_WEBHOOK_SECRET=…
 export FLUTTERWAVE_ENVIRONMENT=sandbox
-export PAYMENT_SERVICE_URI=payment-service:7006
+export FLUTTERWAVE_DEFAULT_COLLECTION_METHOD=card
 export QUEUE_FLUTTERWAVE_PROMPT_URI=mem://flutterwave.prompts.dequeue
-export QUEUE_FLUTTERWAVE_PAYMENT_URI=mem://flutterwave.payments.dequeue
-# Align core prompt topic:
 export INITIATE_PROMPT_TOPIC_URI=mem://flutterwave.prompts.dequeue
 export INITIATE_PROMPT_TOPIC_NAME=flutterwave.prompts.dequeue
 
@@ -86,83 +121,35 @@ go run ./apps/integrations/flutterwave/cmd
 
 See `apps/integrations/flutterwave/deploy/env.example`.
 
-### 3. Wire routes
-
-```sql
--- Disbursement route (URI must match QUEUE_FLUTTERWAVE_PAYMENT_URI)
-INSERT INTO routes (…, mode, route_type, uri)
-VALUES (…, 'tx', 'any', 'mem://flutterwave.payments.dequeue');
-```
-
-### 4. Checkout methods
-
-Defaults use `route: "flutterwave"` for card / multi-currency pay.  
-With a phone number, MoMo is preferred automatically.
-
 ## Collections detail
 
 | Signal | Payment method | User experience |
 |--------|----------------|-----------------|
-| Phone + KE/UG/TZ/GH/… | `mobile_money` | Push PIN / optional redirect |
-| No phone | `bank_transfer` (default) | Virtual account instructions |
-| Extra `payment_method_type=opay` | `opay` | Redirect URL |
-| Extra `payment_method_type=ussd` | `ussd` | USSD dial string |
-
-Prompt extras of interest: `customer_email`, `customer_name`, `network`,
-`payment_method_type`, `success_url`, `session_ref`, `invoice_id`, `subscription_id`.
-
-Charge `meta` always includes `prompt_id` so webhooks map back to StatusUpdate.
+| Encrypted card extras | `card` (v4 orchestrator) | Embedded form on pay.* |
+| Saved `payment_method_id` | POST /charges recurring | One-click / renewal |
+| Phone + KE/UG/TZ/GH/… | `mobile_money` | Push PIN |
+| Explicit `opay` / `ussd` | opay / ussd | Redirect / dial |
+| No card + FLWSECK only | Standard multipay | Legacy external page |
 
 ## Webhooks (v4)
 
 - Header: **`flutterwave-signature`** = Base64(HMAC-SHA256(secret_hash, raw_body))
-- Body: `{ "webhook_id", "timestamp", "type", "data" }`
-- Types handled: `charge.completed`, `transfer.disburse`, `transfer.reversal`
-- Charge status values: `succeeded` | `pending` | `failed` | `voided`
-- Transfer status values: `SUCCESSFUL` | `FAILED` | `PENDING` | …
+- Types: `charge.completed`, `transfer.disburse`, `transfer.reversal`
+- After `charge.completed`, re-query `GET /charges/{id}` before fulfilling.
 
-After `charge.completed`, we re-query `GET /charges/{id}` before fulfilling (best practice).
+## Switching providers
 
-## Subscriptions
-
-Our **billing service** owns subscription state (`StartSubscription` → checkout → `ConfirmPayment`).  
-Renewals are additional invoice collections through the same prompt path.  
-The Flutterwave subscription queue worker is a lifecycle **observer / extension point** —
-v4 does not mirror v3 payment-plan endpoints.
-
-## Multi-tenant credentials
-
-Priority: settings connection → message headers → process env.
-
-```json
-{
-  "client_id": "…",
-  "client_secret": "…",
-  "webhook_secret": "…",
-  "environment": "sandbox"
-}
-```
-
-Headers: `X-API_CLIENT_ID`, `X-API_CLIENT_SECRET`, `X-API_WEBHOOK_SECRET`, `X-API_ENVIRONMENT`.
-
-## Docker
-
-```bash
-docker build -f apps/integrations/flutterwave/Dockerfile -t ghcr.io/antinvestor/service-payment/flutterwave:dev .
-```
+1. Change checkout method `route` (e.g. `stripe` / `flutterwave`).
+2. Implement the same portable Extra contract in the new adapter
+   (`pkg/collection` keys).
+3. Keep checkout UI and product gateways unchanged.
 
 ## Production checklist
 
-- [ ] v4 Client ID + Secret (live) in secret store  
-- [ ] Webhook HTTPS + secret hash + signature verify  
-- [ ] Prompt topic URI aligned with integrator queue  
-- [ ] Route rows for `tx`  
-- [ ] Transfer IP whitelist  
-- [ ] Settlement sweeper on billing  
-- [ ] `FLUTTERWAVE_ENVIRONMENT=production`  
-
-## Extensibility
-
-- New MoMo corridors: `service/queue/momo.go`  
-- New collection methods: `defaultCollectionMethod` / prompt extras  
-- Token cache is per `client_id:environment` — safe for multi-tenant  
+- [ ] v4 Client ID + Secret (live)
+- [ ] Encryption key on checkout + flutterwave
+- [ ] Webhook HTTPS + signature verify
+- [ ] Prompt topic URI aligned with integrator queue
+- [ ] `CHECKOUT_PUBLIC_BASE_URL=https://pay.stawi.org`
+- [ ] Settlement sweeper on billing
+- [ ] `FLUTTERWAVE_ENVIRONMENT=production`

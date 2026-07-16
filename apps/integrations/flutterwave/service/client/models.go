@@ -87,14 +87,94 @@ type USSDDetails struct {
 	AccountBank string `json:"account_bank,omitempty"`
 }
 
+// CardCOF enables Credential-on-File when Flutterwave has approved the feature.
+type CardCOF struct {
+	Enabled     bool   `json:"enabled"`
+	AgreementID string `json:"agreement_id,omitempty"`
+}
+
+// CardDetails holds AES-256-GCM encrypted card fields for v4.
+// Docs: https://developer.flutterwave.com/docs/encryption
+// Docs: https://developer.flutterwave.com/docs/card
+type CardDetails struct {
+	EncryptedCardNumber  string   `json:"encrypted_card_number"`
+	EncryptedExpiryMonth string   `json:"encrypted_expiry_month"`
+	EncryptedExpiryYear  string   `json:"encrypted_expiry_year"`
+	EncryptedCVV         string   `json:"encrypted_cvv"`
+	Nonce                string   `json:"nonce"` // exactly 12 alphanumeric chars
+	COF                  *CardCOF `json:"cof,omitempty"`
+}
+
 // PaymentMethodInput is embedded in orchestrator or POST /payment-methods.
 type PaymentMethodInput struct {
 	Type         string               `json:"type"` // mobile_money | bank_transfer | opay | ussd | card
 	MobileMoney  *MobileMoneyDetails  `json:"mobile_money,omitempty"`
 	BankTransfer *BankTransferDetails `json:"bank_transfer,omitempty"`
 	USSD         *USSDDetails         `json:"ussd,omitempty"`
+	Card         *CardDetails         `json:"card,omitempty"`
 	CustomerID   string               `json:"customer_id,omitempty"`
 	Meta         map[string]string    `json:"meta,omitempty"`
+}
+
+// PaymentMethod is the response object from POST /payment-methods.
+type PaymentMethod struct {
+	ID        string         `json:"id"`
+	Type      string         `json:"type"`
+	Card      map[string]any `json:"card,omitempty"`
+	Meta      map[string]any `json:"meta,omitempty"`
+	CreatedAt string         `json:"created_datetime"`
+}
+
+// Customer is the response from POST /customers.
+type Customer struct {
+	ID        string         `json:"id"`
+	Email     string         `json:"email"`
+	Name      *CustomerName  `json:"name,omitempty"`
+	Phone     *CustomerPhone `json:"phone,omitempty"`
+	Meta      map[string]any `json:"meta,omitempty"`
+	CreatedAt string         `json:"created_datetime"`
+}
+
+// ChargeRequest is POST /charges (general flow with existing customer + method).
+type ChargeRequest struct {
+	Amount          float64           `json:"amount"`
+	Currency        string            `json:"currency"`
+	Reference       string            `json:"reference"`
+	CustomerID      string            `json:"customer_id"`
+	PaymentMethodID string            `json:"payment_method_id"`
+	RedirectURL     string            `json:"redirect_url,omitempty"`
+	Recurring       bool              `json:"recurring,omitempty"`
+	Meta            map[string]string `json:"meta,omitempty"`
+}
+
+// ChargeAuthorization updates a pending charge (PIN / OTP / AVS).
+// Docs: https://developer.flutterwave.com/docs/card#authorising-payments-auth-models
+type ChargeAuthorization struct {
+	Type string   `json:"type"` // pin | otp | avs
+	PIN  *PINAuth `json:"pin,omitempty"`
+	OTP  *OTPAuth `json:"otp,omitempty"`
+	AVS  *AVSAuth `json:"avs,omitempty"`
+}
+
+// PINAuth is encrypted card PIN authorization.
+type PINAuth struct {
+	Nonce        string `json:"nonce"`
+	EncryptedPIN string `json:"encrypted_pin"`
+}
+
+// OTPAuth is OTP authorization.
+type OTPAuth struct {
+	Code string `json:"code"`
+}
+
+// AVSAuth is address verification authorization.
+type AVSAuth struct {
+	Address *CustomerAddress `json:"address"`
+}
+
+// UpdateChargeRequest is PUT /charges/{id}.
+type UpdateChargeRequest struct {
+	Authorization ChargeAuthorization `json:"authorization"`
 }
 
 // --- Orchestrator charge (collections) ---

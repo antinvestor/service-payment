@@ -4,8 +4,13 @@
 <div class="banner error">{{.FailureReason}}</div>
 {{end}}
 
-<form method="POST" action="/c/{{.SessionRef}}/pay">
+<form method="POST" action="/c/{{.SessionRef}}/pay" id="pay-form" data-crypto="{{.CardCryptoURL}}">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <input type="hidden" name="encrypted_card_number" id="enc-pan" value="">
+  <input type="hidden" name="encrypted_expiry_month" id="enc-mm" value="">
+  <input type="hidden" name="encrypted_expiry_year" id="enc-yy" value="">
+  <input type="hidden" name="encrypted_cvv" id="enc-cvv" value="">
+  <input type="hidden" name="card_nonce" id="enc-nonce" value="">
 
   <h1 class="merchant">{{.MerchantName}}</h1>
   {{if .Description}}<p class="description">{{.Description}}</p>{{end}}
@@ -19,9 +24,13 @@
   <div class="amount-display">{{.AmountDisplay}}</div>
   {{end}}
 
-  {{if .PayerName}}
+  {{if or .PayerName .MaskedPhone .MaskedEmail}}
   <div class="payer-info">
-    <span>{{t .Lang "paying_as"}} <strong>{{.PayerName}}</strong> &middot; {{.MaskedPhone}}</span>
+    <span>{{t .Lang "paying_as"}}
+      {{if .PayerName}}<strong>{{.PayerName}}</strong>{{end}}
+      {{if .MaskedEmail}} &middot; {{.MaskedEmail}}{{end}}
+      {{if .MaskedPhone}} &middot; {{.MaskedPhone}}{{end}}
+    </span>
     {{if .Contacts}}
     <button type="button" id="change" class="link-btn">{{t .Lang "change"}}</button>
     <div id="contact-edit" class="contact-list hidden">
@@ -34,17 +43,32 @@
     </div>
     {{end}}
   </div>
-  {{else}}
+  {{end}}
+
+  {{if .NeedEmail}}
   <div class="field">
+    <label for="email">{{t .Lang "email_label"}}</label>
+    <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+  </div>
+  {{end}}
+  {{if .NeedName}}
+  <div class="field">
+    <label for="name">{{t .Lang "name_label"}}</label>
+    <input id="name" name="name" type="text" autocomplete="name" placeholder="Full name">
+  </div>
+  {{end}}
+
+  {{if not .PayerName}}
+  <div class="field phone-field" id="phone-field">
     <label for="phone">{{t .Lang "phone_label"}}</label>
-    <input id="phone" name="phone" type="text" inputmode="tel" required>
+    <input id="phone" name="phone" type="text" inputmode="tel" autocomplete="tel">
   </div>
   {{end}}
 
   {{if .Methods}}
   <div class="method-chips">
     {{range .Methods}}
-    <label class="chip{{if .Selected}} chip-selected{{end}}">
+    <label class="chip{{if .Selected}} chip-selected{{end}}" data-embed="{{if .Embed}}1{{else}}0{{end}}" data-key="{{.Key}}">
       <input type="radio" name="method" value="{{.Key}}"{{if .Selected}} checked{{end}}>
       {{.Name}}
     </label>
@@ -52,7 +76,35 @@
   </div>
   {{end}}
 
-  <button type="submit" class="btn-primary">
+  {{if .HasSavedCard}}
+  <label class="saved-card">
+    <input type="checkbox" name="use_saved_card" value="1" id="use-saved" checked>
+    {{t .Lang "use_saved_card"}}
+  </label>
+  {{end}}
+
+  <div id="card-fields" class="card-fields{{if not .ShowCardForm}} hidden{{end}}">
+    <div class="field">
+      <label for="card-number">{{t .Lang "card_number"}}</label>
+      <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number"
+             maxlength="23" placeholder="•••• •••• •••• ••••" data-clear-card>
+    </div>
+    <div class="card-row">
+      <div class="field">
+        <label for="card-exp">{{t .Lang "card_expiry"}}</label>
+        <input id="card-exp" type="text" inputmode="numeric" autocomplete="cc-exp"
+               maxlength="5" placeholder="MM/YY" data-clear-card>
+      </div>
+      <div class="field">
+        <label for="card-cvv">{{t .Lang "card_cvv"}}</label>
+        <input id="card-cvv" type="password" inputmode="numeric" autocomplete="cc-csc"
+               maxlength="4" placeholder="CVV" data-clear-card>
+      </div>
+    </div>
+    <p class="hint secure-hint">{{t .Lang "card_secure_hint"}}</p>
+  </div>
+
+  <button type="submit" class="btn-primary" id="pay-btn">
     {{t .Lang "pay_button"}}{{if not .Variable}} {{.AmountDisplay}}{{end}}
   </button>
 </form>

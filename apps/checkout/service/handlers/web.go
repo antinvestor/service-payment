@@ -160,6 +160,8 @@ func (s *WebServer) NewRouter() *http.ServeMux {
 	mux.HandleFunc("GET /c/{ref}", s.HandlePage)
 	mux.HandleFunc("POST /c/{ref}/pay", s.HandlePay)
 	mux.HandleFunc("GET /c/{ref}/status", s.HandleStatus)
+	mux.HandleFunc("GET /c/{ref}/crypto", s.HandleCardCrypto)
+	mux.HandleFunc("POST /c/{ref}/authorize", s.HandleAuthorize)
 	mux.HandleFunc("GET /l/{ref}", s.HandleLink)
 	return mux
 }
@@ -275,6 +277,8 @@ func methodChoices(available []business.Method, selected business.Method) []Meth
 			Key:      m.Key,
 			Name:     m.Name,
 			Selected: m.Key == selected.Key,
+			Embed:    m.IsEmbedded(),
+			Redirect: m.Redirect,
 		})
 	}
 	return choices
@@ -405,6 +409,7 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 
 	// Payer block (cluePhone used internally for method preselect — never echoed to HTML)
 	cluePhone := ""
+	email := ""
 	if session.Prefill != nil {
 		clueContactID, _ := session.Prefill["clueContactId"].(string)
 		var contacts []ContactChoice
@@ -415,10 +420,57 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 		}
 		displayName, _ := session.Prefill["displayName"].(string)
 		data.PayerName = firstWord(displayName)
+		email, _ = session.Prefill["email"].(string)
+		if email != "" {
+			data.MaskedEmail = maskEmail(email)
+		}
+		if pmd, _ := session.Prefill["paymentMethodId"].(string); pmd != "" {
+			data.HasSavedCard = true
+		}
 	}
-
+	data.NeedEmail = strings.TrimSpace(email) == ""
+	data.NeedName = strings.TrimSpace(data.PayerName) == ""
 	data.Methods = s.buildMethods(session, r, cluePhone)
+
+	// Card form when selected method is embedded card and encryption is configured.
+	selectedEmbed := false
+	for _, m := range data.Methods {
+		if m.Selected && m.Embed {
+			selectedEmbed = true
+			break
+		}
+	}
+	if selectedEmbed && s.cfg.ResolvedCardEncryptionKey() != "" {
+		data.ShowCardForm = true
+		data.CardCryptoURL = "/c/" + ref + "/crypto"
+	}
+	data.AuthorizeURL = "/c/" + ref + "/authorize"
+
+	// Surface next_action on processing sessions (PIN / OTP / 3DS).
+	if session.Metadata != nil {
+		if na, _ := session.Metadata["_next_action"].(string); na != "" {
+			data.NextAction = na
+		}
+		if note, _ := session.Metadata["_payment_instruction"].(string); note != "" {
+			data.PaymentInstruction = note
+		}
+	}
 	return data
+}
+
+// maskEmail shows first char + domain for Link-style identity strip.
+func maskEmail(email string) string {
+	email = strings.TrimSpace(email)
+	at := strings.IndexByte(email, '@')
+	if at <= 0 {
+		return "•••"
+	}
+	local := email[:at]
+	domain := email[at:]
+	if len(local) == 1 {
+		return local + "•••" + domain
+	}
+	return string(local[0]) + "•••" + domain
 }
 
 // clientIP extracts the real client IP from X-Forwarded-For or RemoteAddr.
@@ -519,10 +571,36 @@ func (s *WebServer) HandlePay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	in := business.PayInput{
-		MethodKey:   r.FormValue("method"),
-		PhoneNumber: strings.TrimSpace(r.FormValue("phone")),
-		ContactID:   r.FormValue("contact_id"),
-		Amount:      r.FormValue("amount"),
+		MethodKey:       r.FormValue("method"),
+		PhoneNumber:     strings.TrimSpace(r.FormValue("phone")),
+		ContactID:       r.FormValue("contact_id"),
+		Amount:          r.FormValue("amount"),
+		Email:           strings.TrimSpace(r.FormValue("email")),
+		GuestEmail:      strings.TrimSpace(r.FormValue("email")),
+		Name:            strings.TrimSpace(r.FormValue("name")),
+		PaymentMethodID: strings.TrimSpace(r.FormValue("payment_method_id")),
+		CustomerID:      strings.TrimSpace(r.FormValue("customer_id")),
+	}
+	// Encrypted card fields (browser AES-GCM) — never clear PAN.
+	if enc := strings.TrimSpace(r.FormValue("encrypted_card_number")); enc != "" {
+		in.Card = &business.EncryptedCardInput{
+			EncryptedCardNumber:  enc,
+			EncryptedExpiryMonth: strings.TrimSpace(r.FormValue("encrypted_expiry_month")),
+			EncryptedExpiryYear:  strings.TrimSpace(r.FormValue("encrypted_expiry_year")),
+			EncryptedCVV:         strings.TrimSpace(r.FormValue("encrypted_cvv")),
+			Nonce:                strings.TrimSpace(r.FormValue("card_nonce")),
+		}
+	}
+	// Saved card one-click: use profile token when form checkbox set.
+	if r.FormValue("use_saved_card") == "1" && in.PaymentMethodID == "" {
+		if session, err := s.business.GetSessionByRef(r.Context(), ref); err == nil && session.Prefill != nil {
+			if pmd, _ := session.Prefill["paymentMethodId"].(string); pmd != "" {
+				in.PaymentMethodID = pmd
+			}
+			if cus, _ := session.Prefill["providerCustomerId"].(string); cus != "" {
+				in.CustomerID = cus
+			}
+		}
 	}
 
 	_, payErr := s.business.Pay(r.Context(), ref, in)
@@ -643,16 +721,89 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		lang := pickLang(r, "")
 		payload["failure_reason"] = T(lang, "failed_title")
 	}
-	// Surface redirect URL for card/redirect payment methods.
-	// Only emit when session is still processing and the URL passes the safe-URL check.
+	// Surface next steps for embedded card (3DS URL, PIN/OTP) while processing.
 	if session.Status == models.SessionStatusProcessing && session.Metadata != nil {
 		if redirectURL, ok := session.Metadata["_redirect_url"].(string); ok && redirectURL != "" {
 			if business.IsSafeReturnURL(redirectURL) {
 				payload["redirect_url"] = redirectURL
 			}
 		}
+		if na, ok := session.Metadata["_next_action"].(string); ok && na != "" {
+			payload["next_action"] = na
+		}
+		if note, ok := session.Metadata["_payment_instruction"].(string); ok && note != "" {
+			payload["payment_instruction"] = note
+		}
 	}
 	writeJSON(w, http.StatusOK, payload)
+}
+
+// HandleCardCrypto returns the AES-256 key for browser-side card encryption.
+// Only the encryption key (not secret/client secrets) is exposed — same model as FW docs.
+func (s *WebServer) HandleCardCrypto(w http.ResponseWriter, r *http.Request) {
+	ref := r.PathValue("ref")
+	if _, err := s.business.GetSessionByRef(r.Context(), ref); err != nil {
+		if isNotFoundErr(err) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		return
+	}
+	key := s.cfg.ResolvedCardEncryptionKey()
+	if key == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "card_encryption_not_configured",
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"encryption_key": key,
+		"algorithm":      "AES-GCM",
+		"nonce_length":   "12",
+	})
+}
+
+// HandleAuthorize accepts PIN / OTP / AVS for a processing card charge.
+func (s *WebServer) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	ref := r.PathValue("ref")
+	if err := r.ParseForm(); err != nil {
+		renderError(w, http.StatusBadRequest, "bad request")
+		return
+	}
+	token := r.FormValue("csrf")
+	if !VerifyCSRF(s.signingSecret(), ref, token) {
+		renderError(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	in := business.AuthorizeInput{
+		Type:         strings.TrimSpace(r.FormValue("auth_type")),
+		PIN:          strings.TrimSpace(r.FormValue("pin")),
+		EncryptedPIN: strings.TrimSpace(r.FormValue("encrypted_pin")),
+		Nonce:        strings.TrimSpace(r.FormValue("nonce")),
+		OTP:          strings.TrimSpace(r.FormValue("otp")),
+		City:         strings.TrimSpace(r.FormValue("avs_city")),
+		Country:      strings.TrimSpace(r.FormValue("avs_country")),
+		Line1:        strings.TrimSpace(r.FormValue("avs_line1")),
+		Line2:        strings.TrimSpace(r.FormValue("avs_line2")),
+		PostalCode:   strings.TrimSpace(r.FormValue("avs_postal_code")),
+		State:        strings.TrimSpace(r.FormValue("avs_state")),
+	}
+	if _, err := s.business.Authorize(r.Context(), ref, in); err != nil {
+		if isNotFoundErr(err) {
+			renderError(w, http.StatusNotFound, "not found")
+			return
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "authorize_failed"})
+		return
+	}
+	// Prefer redirect back to confirm page for form posts; JSON for XHR.
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "processing"})
+		return
+	}
+	//nolint:gosec // G710: ref from path after session lookup
+	http.Redirect(w, r, "/c/"+ref, http.StatusSeeOther)
 }
 
 // writeJSON writes a JSON response with the given status code.

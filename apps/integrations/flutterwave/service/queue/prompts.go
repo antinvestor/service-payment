@@ -29,6 +29,7 @@ import (
 	"github.com/pitabwire/frame/v2/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type promptHandler struct {
@@ -77,6 +78,18 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 			"error": err.Error(), "entity_type": "prompt",
 		})
 		return nil
+	}
+
+	// Authorization step for an existing charge (PIN / OTP / AVS) — no new charge.
+	if action := strings.ToLower(extraString(prompt.GetExtra(), "action")); action == "authorize" {
+		return h.handleAuthorize(ctx, logger, &prompt, creds, promptID)
+	}
+
+	// Tokenized / subscription renewal: charge saved payment_method_id.
+	if pmd := extraString(prompt.GetExtra(), "payment_method_id"); pmd != "" {
+		if cus := extraString(prompt.GetExtra(), "customer_id"); cus != "" {
+			return h.handleTokenCharge(ctx, logger, &prompt, creds, promptID, cus, pmd, headers)
+		}
 	}
 
 	amountStr, currency := formatMoneyAmount(prompt.GetAmount())
@@ -142,10 +155,13 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		}
 	}
 
-	// Build payment method: prefer MoMo when phone is present.
+	// Build payment method: prefer encrypted card (embedded) → MoMo → default.
 	var pm client.PaymentMethodInput
 	mode := "collection"
-	if phone != "" {
+	if card := cardFromExtras(prompt.GetExtra()); card != nil {
+		pm = client.PaymentMethodInput{Type: "card", Card: card}
+		mode = "card"
+	} else if phone != "" {
 		if corridor := resolveMoMoCorridor(phone, currency); corridor != nil {
 			currency = corridor.Currency
 			pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
@@ -191,10 +207,171 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		return nil
 	}
 
-	apiVersion := "v4"
-	if client.IsV3Credentials(creds) {
-		apiVersion = "v3"
+	h.emitChargeStatus(ctx, logger, promptID, ch, mode, reference)
+	h.metrics.QueueProcessed(ctx, "prompt")
+	return nil
+}
+
+// handleTokenCharge charges a previously saved payment method (subscription renewals).
+func (h *promptHandler) handleTokenCharge(
+	ctx context.Context,
+	logger *util.LogEntry,
+	prompt *paymentv1.InitiatePromptRequest,
+	creds *client.Credentials,
+	promptID, customerID, paymentMethodID string,
+	headers map[string]string,
+) error {
+	amountStr, currency := formatMoneyAmount(prompt.GetAmount())
+	if currency == "" {
+		currency = "KES"
 	}
+	amount, _ := strconv.ParseFloat(amountStr, 64)
+	if amount <= 0 {
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error": "invalid amount", "entity_type": "prompt",
+		})
+		return nil
+	}
+	reference := extraString(prompt.GetExtra(), "tx_ref")
+	if reference == "" {
+		reference = "renew-" + sanitizeRef(promptID)
+	}
+	if len(reference) > 42 {
+		reference = reference[:42]
+	}
+	redirectURL := extraString(prompt.GetExtra(), "success_url")
+	if redirectURL == "" {
+		redirectURL = extraString(prompt.GetExtra(), "redirect_url")
+	}
+	meta := map[string]string{"prompt_id": promptID, "entity": "prompt", "mode": "recurring"}
+	for _, k := range []string{"session_ref", "invoice_id", "subscription_id"} {
+		if v := extraString(prompt.GetExtra(), k); v != "" {
+			meta[k] = v
+		}
+	}
+	if v := headers["tenant_id"]; v != "" {
+		meta["tenant_id"] = v
+	}
+
+	// Recurring defaults true for token charges (subscription renewals).
+	recurring := !strings.EqualFold(extraString(prompt.GetExtra(), "recurring"), "false")
+
+	ch, err := h.fwCli.CreateCharge(ctx, creds, &client.ChargeRequest{
+		Amount:          amount,
+		Currency:        currency,
+		Reference:       reference,
+		CustomerID:      customerID,
+		PaymentMethodID: paymentMethodID,
+		RedirectURL:     redirectURL,
+		Recurring:       recurring,
+		Meta:            meta,
+	})
+	if err != nil {
+		logger.WithError(err).Error("token charge failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error": err.Error(), "entity_type": "prompt", "reference": reference,
+		})
+		return nil
+	}
+	h.emitChargeStatus(ctx, logger, promptID, ch, "recurring", reference)
+	h.metrics.QueueProcessed(ctx, "prompt")
+	return nil
+}
+
+// handleAuthorize completes PIN / OTP / AVS on a pending charge.
+func (h *promptHandler) handleAuthorize(
+	ctx context.Context,
+	logger *util.LogEntry,
+	prompt *paymentv1.InitiatePromptRequest,
+	creds *client.Credentials,
+	promptID string,
+) error {
+	chargeID := extraString(prompt.GetExtra(), "charge_id")
+	if chargeID == "" {
+		chargeID = extraString(prompt.GetExtra(), "external_id")
+	}
+	if chargeID == "" {
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error": "charge_id required for authorize", "entity_type": "prompt",
+		})
+		return nil
+	}
+
+	authType := strings.ToLower(extraString(prompt.GetExtra(), "authorization_type"))
+	if authType == "" {
+		authType = strings.ToLower(extraString(prompt.GetExtra(), "auth_type"))
+	}
+	req := &client.UpdateChargeRequest{
+		Authorization: client.ChargeAuthorization{Type: authType},
+	}
+	switch authType {
+	case "pin":
+		req.Authorization.PIN = &client.PINAuth{
+			Nonce:        extraString(prompt.GetExtra(), "nonce"),
+			EncryptedPIN: extraString(prompt.GetExtra(), "encrypted_pin"),
+		}
+		// Server-side encrypt when clear PIN + encryption key available.
+		if req.Authorization.PIN.EncryptedPIN == "" {
+			if pin := extraString(prompt.GetExtra(), "pin"); pin != "" && creds.EncryptionKey != "" {
+				nonce, enc, err := client.EncryptPIN(pin, creds.EncryptionKey)
+				if err != nil {
+					h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
+						"error": err.Error(), "entity_type": "prompt",
+					})
+					return nil
+				}
+				req.Authorization.PIN.Nonce = nonce
+				req.Authorization.PIN.EncryptedPIN = enc
+			}
+		}
+	case "otp":
+		req.Authorization.OTP = &client.OTPAuth{
+			Code: extraString(prompt.GetExtra(), "otp"),
+		}
+	case "avs":
+		req.Authorization.AVS = &client.AVSAuth{
+			Address: &client.CustomerAddress{
+				City:       extraString(prompt.GetExtra(), "avs_city"),
+				Country:    extraString(prompt.GetExtra(), "avs_country"),
+				Line1:      extraString(prompt.GetExtra(), "avs_line1"),
+				Line2:      extraString(prompt.GetExtra(), "avs_line2"),
+				PostalCode: extraString(prompt.GetExtra(), "avs_postal_code"),
+				State:      extraString(prompt.GetExtra(), "avs_state"),
+			},
+		}
+	default:
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
+			"error": "unknown authorization_type", "entity_type": "prompt",
+		})
+		return nil
+	}
+
+	ch, err := h.fwCli.UpdateCharge(ctx, creds, chargeID, req)
+	if err != nil {
+		logger.WithError(err).Error("authorize charge failed")
+		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
+		h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
+			"error": err.Error(), "entity_type": "prompt",
+		})
+		return nil
+	}
+	h.emitChargeStatus(ctx, logger, promptID, ch, "authorize", ch.Reference)
+	h.metrics.QueueProcessed(ctx, "prompt")
+	return nil
+}
+
+func (h *promptHandler) emitChargeStatus(
+	ctx context.Context,
+	logger *util.LogEntry,
+	promptID string,
+	ch *client.Charge,
+	mode, reference string,
+) {
+	apiVersion := "v4"
 	extras := map[string]any{
 		"entity_type":   "prompt",
 		"provider":      "flutterwave",
@@ -203,16 +380,35 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		"reference":     ch.Reference,
 		"charge_id":     ch.ID,
 		"charge_status": ch.Status,
-		"tx_ref":        ch.Reference,
+		"tx_ref":        firstNonEmpty(ch.Reference, reference),
 	}
-	if url := client.ExtractRedirectURL(ch); url != "" {
-		// Checkout reads extras.checkout_url for browser redirect.
-		extras["checkout_url"] = url
+	if ch.CustomerID != "" {
+		extras["customer_id"] = ch.CustomerID
 	}
-	if note := client.ExtractPaymentInstructionNote(ch); note != "" {
-		extras["payment_instruction"] = note
+	if pmd := client.PaymentMethodIDFromCharge(ch); pmd != "" {
+		extras["payment_method_id"] = pmd
 	}
-	// Bank transfer details when present.
+
+	na := client.ExtractNextAction(ch)
+	if na.Type != "" {
+		extras["next_action"] = string(na.Type)
+		extras["next_action_type"] = string(na.Type)
+	}
+	if na.RedirectURL != "" {
+		// Checkout reads extras.checkout_url for 3DS / legacy redirect.
+		extras["checkout_url"] = na.RedirectURL
+		extras["auth_redirect_url"] = na.RedirectURL
+	}
+	if na.Note != "" {
+		extras["payment_instruction"] = na.Note
+	}
+	if len(na.Fields) > 0 {
+		fields := make([]any, len(na.Fields))
+		for i, f := range na.Fields {
+			fields[i] = f
+		}
+		extras["avs_fields"] = fields
+	}
 	if ch.NextAction != nil {
 		if t, _ := ch.NextAction["type"].(string); t == "requires_bank_transfer" {
 			if bt, ok := ch.NextAction["requires_bank_transfer"].(map[string]any); ok {
@@ -221,10 +417,18 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		}
 	}
 
-	logger.WithField("charge_id", ch.ID).WithField("status", ch.Status).Debug("charge initiated")
-	h.emitStatus(ctx, promptID, ch.ID, commonv1.STATUS_IN_PROCESS, extras)
-	h.metrics.QueueProcessed(ctx, "prompt")
-	return nil
+	// Terminal statuses from provider on first response.
+	status := commonv1.STATUS_IN_PROCESS
+	switch strings.ToLower(ch.Status) {
+	case "succeeded", "successful", "success":
+		status = commonv1.STATUS_SUCCESSFUL
+	case "failed", "voided":
+		status = commonv1.STATUS_FAILED
+	}
+
+	logger.WithField("charge_id", ch.ID).WithField("status", ch.Status).
+		WithField("next_action", na.Type).Debug("charge initiated")
+	h.emitStatus(ctx, promptID, ch.ID, status, extras)
 }
 
 func (h *promptHandler) defaultCollectionMethod(
@@ -236,8 +440,6 @@ func (h *promptHandler) defaultCollectionMethod(
 		methodType = h.cfg.DefaultCollectionMethod
 	}
 	if methodType == "" {
-		// Hosted multipayment page (Standard) — not bank_transfer.
-		// v4 orchestrator rejects bank_transfer on many accounts.
 		methodType = "card"
 	}
 	switch strings.ToLower(methodType) {
@@ -253,7 +455,6 @@ func (h *promptHandler) defaultCollectionMethod(
 			USSD: &client.USSDDetails{AccountBank: bank},
 		}
 	case "bank_transfer", "banktransfer":
-		// Explicit bank transfer only — not the SPA default.
 		display := extraString(prompt.GetExtra(), "account_display_name")
 		if display == "" {
 			display = "Payment"
@@ -267,12 +468,45 @@ func (h *promptHandler) defaultCollectionMethod(
 			},
 		}
 	case "card", "hosted", "standard", "payment_link":
-		// Marker for hosted Standard multipayment page (redirect to Flutterwave).
+		// Without encrypted card fields the client falls back to Standard (if FLWSECK)
+		// or returns a clear error directing operators to embedded card encryption.
 		return client.PaymentMethodInput{Type: "card"}
 	default:
-		// Unknown → hosted card page, never bank_transfer (v4 400).
 		return client.PaymentMethodInput{Type: "card"}
 	}
+}
+
+// cardFromExtras builds CardDetails from portable prompt extras.
+// Keys are provider-agnostic so checkout can switch PSPs without UI changes.
+func cardFromExtras(extra *structpb.Struct) *client.CardDetails {
+	if extra == nil {
+		return nil
+	}
+	nonce := extraString(extra, "card_nonce")
+	if nonce == "" {
+		nonce = extraString(extra, "nonce")
+	}
+	encNum := extraString(extra, "encrypted_card_number")
+	encMon := extraString(extra, "encrypted_expiry_month")
+	encYear := extraString(extra, "encrypted_expiry_year")
+	encCVV := extraString(extra, "encrypted_cvv")
+	if encNum == "" || nonce == "" {
+		return nil
+	}
+	card := &client.CardDetails{
+		EncryptedCardNumber:  encNum,
+		EncryptedExpiryMonth: encMon,
+		EncryptedExpiryYear:  encYear,
+		EncryptedCVV:         encCVV,
+		Nonce:                nonce,
+	}
+	if strings.EqualFold(extraString(extra, "cof_enabled"), "true") {
+		card.COF = &client.CardCOF{
+			Enabled:     true,
+			AgreementID: extraString(extra, "cof_agreement_id"),
+		}
+	}
+	return card
 }
 
 func sanitizeRef(s string) string {

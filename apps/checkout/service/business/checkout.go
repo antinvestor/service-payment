@@ -119,12 +119,51 @@ type CreateLinkInput struct {
 	ExpiresAt    *time.Time
 }
 
+// EncryptedCardInput is AES-256-GCM card material produced in the browser.
+// Raw PAN never touches our servers when the encryption key is served to the client.
+type EncryptedCardInput struct {
+	EncryptedCardNumber  string
+	EncryptedExpiryMonth string
+	EncryptedExpiryYear  string
+	EncryptedCVV         string
+	Nonce                string
+}
+
 // PayInput carries the fields submitted by the payer on the payment form.
 type PayInput struct {
 	MethodKey   string
 	PhoneNumber string // guest payers
 	ContactID   string // recognised payer: which prefill contact to charge
 	Amount      string // VARIABLE sessions only
+	// Email / name only when profile did not already store them.
+	Email string
+	Name  string
+	// Encrypted card (embedded checkout).
+	Card *EncryptedCardInput
+	// Saved instrument for Link-style one-click / subscription renewals.
+	PaymentMethodID string
+	CustomerID      string
+	// Optional guest email when not on profile (card requires email for FW).
+	GuestEmail string
+}
+
+// AuthorizeInput completes PIN / OTP / AVS on a processing charge.
+type AuthorizeInput struct {
+	// pin | otp | avs
+	Type string
+	// PIN: either clear (server encrypts) or pre-encrypted.
+	PIN          string
+	EncryptedPIN string
+	Nonce        string
+	// OTP
+	OTP string
+	// AVS
+	City       string
+	Country    string
+	Line1      string
+	Line2      string
+	PostalCode string
+	State      string
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +334,7 @@ func (b *CheckoutBusiness) applyPayer(
 	displayName := payer.DisplayName
 	language := payer.Language
 	var clueProvider, clueMethod, clueContactID, clueCountry, email string
+	var paymentMethodID, providerCustomerID string
 	var profileContacts []*profilev1.ContactObject
 
 	// Fetch profile if ID provided
@@ -332,6 +372,8 @@ func (b *CheckoutBusiness) applyPayer(
 			clueMethod = clues.LastMethod
 			clueContactID = clues.LastContactID
 			clueCountry = clues.LastCountry
+			paymentMethodID = clues.PaymentMethodID
+			providerCustomerID = clues.ProviderCustomerID
 			profileContacts = profile.GetContacts()
 		}
 	}
@@ -380,6 +422,12 @@ func (b *CheckoutBusiness) applyPayer(
 		"country":       clueCountry,
 		"email":         email,
 		"contacts":      contacts,
+	}
+	if paymentMethodID != "" {
+		prefill["paymentMethodId"] = paymentMethodID
+	}
+	if providerCustomerID != "" {
+		prefill["providerCustomerId"] = providerCustomerID
 	}
 	session.Prefill = prefill
 }
@@ -589,11 +637,10 @@ func (b *CheckoutBusiness) Pay(
 	}
 
 	// Resolve msisdn and contactRef.
-	// Redirect methods (e.g. card/flutterwave) do not *require* a phone number —
-	// the provider page can collect it — but when the profile has contacts we
-	// still resolve them so Flutterwave/MoMo get identity without re-entry.
+	// Embedded card and redirect methods do not require phone — profile contacts
+	// are still resolved so we never re-ask for data we already store.
 	var msisdn, contactID string
-	if !method.Redirect {
+	if !method.Redirect && !method.IsEmbedded() {
 		var payerErr error
 		msisdn, contactID, payerErr = b.resolvePayer(session, in)
 		if payerErr != nil {
@@ -602,8 +649,18 @@ func (b *CheckoutBusiness) Pay(
 			return nil, err
 		}
 	} else {
-		// Best-effort profile phone for redirect rails (optional).
+		// Best-effort profile phone for card / redirect rails (optional).
 		msisdn, contactID = b.resolvePayerOptional(session, in)
+	}
+
+	// Embedded card must include encrypted fields or a saved payment method.
+	if method.IsEmbedded() && in.PaymentMethodID == "" {
+		if in.Card == nil || strings.TrimSpace(in.Card.EncryptedCardNumber) == "" ||
+			strings.TrimSpace(in.Card.Nonce) == "" {
+			b.obs.RecordPayFailure(ctx, "card_required")
+			err = fmt.Errorf("%w: encrypted card fields required", ErrUnknownMethod)
+			return nil, err
+		}
 	}
 
 	// All guards passed — record the attempt.
@@ -630,7 +687,7 @@ func (b *CheckoutBusiness) Pay(
 	}
 
 	// Build and send prompt; on failure the attempt is already persisted.
-	promptID, promptErr := b.sendPrompt(ctx, session, method, msisdn, in.MethodKey)
+	promptID, promptErr := b.sendPrompt(ctx, session, method, msisdn, in)
 	if promptErr != nil {
 		b.obs.RecordPayFailure(ctx, "prompt_error")
 		err = promptErr
@@ -691,43 +748,84 @@ func (b *CheckoutBusiness) checkMethodRestriction(
 //
 // Prefill identity (email, name) and return URLs are forwarded in Extra so provider
 // integrations (Flutterwave v4) can build the customer object without re-prompting.
+// Encrypted card fields are portable keys so the payment route can switch PSPs.
 //
-//nolint:gocognit // Builds prompt extras from prefill, metadata, and success URL.
+//nolint:gocognit,funlen // Builds prompt extras from prefill, metadata, card, and success URL.
 func (b *CheckoutBusiness) sendPrompt(
 	ctx context.Context,
 	session *models.CheckoutSession,
 	method Method,
 	msisdn string,
-	methodKey string,
+	in PayInput,
 ) (string, error) {
+	methodKey := in.MethodKey
 	extraMap := map[string]any{
 		"session_ref": session.Ref,
 		"order_ref":   session.OrderRef,
 		"provider":    methodKey,
 	}
-	// Provider return after hosted pay: land back on our checkout session page so
-	// the confirm poll can finish and then send the user to session.ReturnURL.
+	if method.IsEmbedded() || strings.EqualFold(methodKey, "card") {
+		extraMap["payment_method_type"] = "card"
+	}
+	// Provider return after 3DS / hosted: land back on our checkout session page.
 	if b.cfg != nil && b.cfg.PublicBaseURL != "" && session.Ref != "" {
 		successURL := strings.TrimRight(b.cfg.PublicBaseURL, "/") + "/c/" + session.Ref
 		extraMap["success_url"] = successURL
 		extraMap["redirect_url"] = successURL
 	}
-	// Profile / prefill identity for Flutterwave customer + MoMo.
+	// Profile / prefill identity — only fill gaps from form input.
+	email := strings.TrimSpace(in.Email)
+	if email == "" {
+		email = strings.TrimSpace(in.GuestEmail)
+	}
+	name := strings.TrimSpace(in.Name)
 	if session.Prefill != nil {
-		if email, _ := session.Prefill["email"].(string); strings.TrimSpace(email) != "" {
-			extraMap["customer_email"] = strings.TrimSpace(email)
-			extraMap["email"] = strings.TrimSpace(email)
+		if email == "" {
+			if v, _ := session.Prefill["email"].(string); strings.TrimSpace(v) != "" {
+				email = strings.TrimSpace(v)
+			}
 		}
-		if name, _ := session.Prefill["displayName"].(string); strings.TrimSpace(name) != "" {
-			extraMap["customer_name"] = strings.TrimSpace(name)
-			extraMap["display_name"] = strings.TrimSpace(name)
+		if name == "" {
+			if v, _ := session.Prefill["displayName"].(string); strings.TrimSpace(v) != "" {
+				name = strings.TrimSpace(v)
+			}
+		}
+	}
+	if email != "" {
+		extraMap["customer_email"] = email
+		extraMap["email"] = email
+	}
+	if name != "" {
+		extraMap["customer_name"] = name
+		extraMap["display_name"] = name
+	}
+	// Embedded encrypted card (never clear PAN).
+	if in.Card != nil {
+		extraMap["encrypted_card_number"] = in.Card.EncryptedCardNumber
+		extraMap["encrypted_expiry_month"] = in.Card.EncryptedExpiryMonth
+		extraMap["encrypted_expiry_year"] = in.Card.EncryptedExpiryYear
+		extraMap["encrypted_cvv"] = in.Card.EncryptedCVV
+		extraMap["card_nonce"] = in.Card.Nonce
+		extraMap["nonce"] = in.Card.Nonce
+	}
+	// Tokenized / Link-style saved card (subscriptions + returning payers).
+	if strings.TrimSpace(in.PaymentMethodID) != "" {
+		extraMap["payment_method_id"] = strings.TrimSpace(in.PaymentMethodID)
+	}
+	if strings.TrimSpace(in.CustomerID) != "" {
+		extraMap["customer_id"] = strings.TrimSpace(in.CustomerID)
+	}
+	// Saved instrument from profile clues when form did not send one.
+	if session.Prefill != nil && extraMap["payment_method_id"] == nil {
+		if pmd, _ := session.Prefill["paymentMethodId"].(string); strings.TrimSpace(pmd) != "" {
+			extraMap["payment_method_id"] = strings.TrimSpace(pmd)
+			if cus, _ := session.Prefill["providerCustomerId"].(string); strings.TrimSpace(cus) != "" {
+				extraMap["customer_id"] = strings.TrimSpace(cus)
+			}
 		}
 	}
 	if session.OrderRef != "" {
-		// Common correlation keys used by billing/collection.
-		if strings.HasPrefix(session.OrderRef, "inv") || len(session.OrderRef) > 0 {
-			extraMap["invoice_id"] = session.OrderRef
-		}
+		extraMap["invoice_id"] = session.OrderRef
 	}
 	for k, v := range session.Metadata {
 		if len(k) > 0 && k[0] == '_' {
@@ -735,7 +833,6 @@ func (b *CheckoutBusiness) sendPrompt(
 		}
 		if vStr, isStr := v.(string); isStr {
 			extraMap["meta_"+k] = vStr
-			// Also pass billing correlation keys without meta_ prefix.
 			switch k {
 			case "invoiceId", "invoice_id":
 				extraMap["invoice_id"] = vStr
@@ -743,6 +840,14 @@ func (b *CheckoutBusiness) sendPrompt(
 				extraMap["subscription_id"] = vStr
 			case "source":
 				extraMap["collection_source"] = vStr
+			case "paymentMethodId", "payment_method_id":
+				if extraMap["payment_method_id"] == nil {
+					extraMap["payment_method_id"] = vStr
+				}
+			case "customerId", "customer_id", "providerCustomerId":
+				if extraMap["customer_id"] == nil {
+					extraMap["customer_id"] = vStr
+				}
 			}
 		}
 	}
@@ -776,6 +881,96 @@ func (b *CheckoutBusiness) sendPrompt(
 		return "", fmt.Errorf("initiate prompt: %w", respErr)
 	}
 	return resp.Msg.GetData().GetId(), nil
+}
+
+// Authorize completes PIN / OTP / AVS for a processing session by re-using the
+// same payment route with action=authorize (provider-portable extras).
+func (b *CheckoutBusiness) Authorize(
+	ctx context.Context,
+	ref string,
+	in AuthorizeInput,
+) (*models.CheckoutSession, error) {
+	session, err := b.GetSessionByRef(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	if session.Status != models.SessionStatusProcessing {
+		return nil, ErrSessionGone
+	}
+	chargeID := ""
+	methodKey := "card"
+	route := "flutterwave"
+	if session.Metadata != nil {
+		if v, _ := session.Metadata["_charge_id"].(string); v != "" {
+			chargeID = v
+		}
+		if v, _ := session.Metadata["_method"].(string); v != "" {
+			methodKey = v
+		}
+	}
+	if m, ok := b.registry.Get(methodKey); ok {
+		route = m.Route
+	}
+	if chargeID == "" {
+		// Fall back to payment external id = charge id after StatusUpdate.
+		chargeID = session.PaymentID
+	}
+	if chargeID == "" {
+		return nil, fmt.Errorf("charge id not ready for authorization")
+	}
+
+	extraMap := map[string]any{
+		"action":             "authorize",
+		"authorization_type": strings.ToLower(strings.TrimSpace(in.Type)),
+		"charge_id":          chargeID,
+		"session_ref":        session.Ref,
+		"provider":           methodKey,
+	}
+	switch strings.ToLower(in.Type) {
+	case "pin":
+		if in.EncryptedPIN != "" {
+			extraMap["encrypted_pin"] = in.EncryptedPIN
+			extraMap["nonce"] = in.Nonce
+		} else {
+			extraMap["pin"] = in.PIN
+		}
+	case "otp":
+		extraMap["otp"] = in.OTP
+	case "avs":
+		extraMap["avs_city"] = in.City
+		extraMap["avs_country"] = in.Country
+		extraMap["avs_line1"] = in.Line1
+		extraMap["avs_line2"] = in.Line2
+		extraMap["avs_postal_code"] = in.PostalCode
+		extraMap["avs_state"] = in.State
+	default:
+		return nil, fmt.Errorf("%w: authorization type", ErrUnknownMethod)
+	}
+	extra, err := structpb.NewStruct(extraMap)
+	if err != nil {
+		return nil, fmt.Errorf("build authorize extras: %w", err)
+	}
+	money, err := MoneyFromAmount(session.Amount, session.Currency)
+	if err != nil {
+		return nil, err
+	}
+	// Same prompt id so status updates continue on this session.
+	promptReq := &paymentv1.InitiatePromptRequest{
+		Id: session.PromptID,
+		Source: &commonv1.ContactLink{
+			ProfileId: session.PayerProfileID,
+		},
+		Recipient: &commonv1.ContactLink{
+			ProfileId: session.PayerProfileID,
+		},
+		Amount: money,
+		Route:  route,
+		Extra:  extra,
+	}
+	if _, err := b.paymentCli.InitiatePrompt(ctx, connect.NewRequest(promptReq)); err != nil {
+		return nil, fmt.Errorf("authorize prompt: %w", err)
+	}
+	return session, nil
 }
 
 // resolvePayer returns (msisdn, contactID) from the PayInput.
@@ -911,9 +1106,12 @@ func (b *CheckoutBusiness) RefreshStatus(
 
 	status := resp.Msg.GetStatus()
 
-	// Capture redirect URL emitted by redirect-method providers (e.g. polar) while processing.
+	// Capture provider next steps (3DS URL, PIN/OTP, charge/token ids) while processing.
 	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
-		b.captureRedirectURL(ctx, session, resp.Msg.GetExtras())
+		b.captureProviderExtras(ctx, session, resp.Msg.GetExtras())
+	} else if status == commonv1.STATUS_SUCCESSFUL {
+		// Persist tokenized instrument for Link-style reuse / subscription renewals.
+		b.captureProviderExtras(ctx, session, resp.Msg.GetExtras())
 	}
 
 	//nolint:exhaustive // Only terminal statuses need action; all others leave session unchanged.
@@ -957,10 +1155,9 @@ func (b *CheckoutBusiness) RefreshStatus(
 	return session, nil
 }
 
-// captureRedirectURL extracts a "checkout_url" from the provider extras and persists it
-// on the session as Metadata["_redirect_url"] when the URL changes. The write is
-// idempotent and a failure is logged but not propagated.
-func (b *CheckoutBusiness) captureRedirectURL(
+// captureProviderExtras persists portable provider fields on the session:
+// 3DS redirect, next_action type (pin/otp/avs), charge_id, payment_method_id.
+func (b *CheckoutBusiness) captureProviderExtras(
 	ctx context.Context,
 	session *models.CheckoutSession,
 	extras *structpb.Struct,
@@ -968,23 +1165,50 @@ func (b *CheckoutBusiness) captureRedirectURL(
 	if extras == nil {
 		return
 	}
-	field, ok := extras.GetFields()["checkout_url"]
-	if !ok {
-		return
-	}
-	urlStr := field.GetStringValue()
-	if urlStr == "" || !IsSafeReturnURL(urlStr) {
-		return
-	}
 	if session.Metadata == nil {
 		session.Metadata = make(data.JSONMap)
 	}
-	if existing, _ := session.Metadata["_redirect_url"].(string); existing == urlStr {
-		return // already persisted — no-op
+	changed := false
+	set := func(key, val string) {
+		if val == "" {
+			return
+		}
+		if existing, _ := session.Metadata[key].(string); existing == val {
+			return
+		}
+		session.Metadata[key] = val
+		changed = true
 	}
-	session.Metadata["_redirect_url"] = urlStr
+	// 3DS / legacy hosted URL
+	if f, ok := extras.GetFields()["checkout_url"]; ok {
+		urlStr := f.GetStringValue()
+		if urlStr != "" && IsSafeReturnURL(urlStr) {
+			set("_redirect_url", urlStr)
+		}
+	}
+	if f, ok := extras.GetFields()["auth_redirect_url"]; ok {
+		urlStr := f.GetStringValue()
+		if urlStr != "" && IsSafeReturnURL(urlStr) {
+			set("_redirect_url", urlStr)
+		}
+	}
+	for _, k := range []struct{ from, to string }{
+		{"next_action_type", "_next_action"},
+		{"next_action", "_next_action"},
+		{"charge_id", "_charge_id"},
+		{"payment_method_id", "_payment_method_id"},
+		{"customer_id", "_customer_id"},
+		{"payment_instruction", "_payment_instruction"},
+	} {
+		if f, ok := extras.GetFields()[k.from]; ok {
+			set(k.to, f.GetStringValue())
+		}
+	}
+	if !changed {
+		return
+	}
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-		util.Log(ctx).WithError(updateErr).Warn("could not persist redirect url on session")
+		util.Log(ctx).WithError(updateErr).Warn("could not persist provider extras on session")
 	}
 }
 
@@ -1012,7 +1236,7 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 
 	// Category is informational; LastProvider is the registry key used for preselect.
 	category := methodCategoryMobileMoney
-	if m, ok := b.registry.Get(methodKey); ok && m.Redirect {
+	if m, ok := b.registry.Get(methodKey); ok && (m.Redirect || m.IsEmbedded()) {
 		category = "card"
 	}
 
@@ -1035,6 +1259,15 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 		LastCurrency:  session.Currency,
 		LastCountry:   country,
 		LastPaidAt:    b.now().Format(time.RFC3339),
+	}
+	// Tokenized card for Stripe Link-style reuse and subscription renewals.
+	if session.Metadata != nil {
+		if pmd, _ := session.Metadata["_payment_method_id"].(string); pmd != "" {
+			clues.PaymentMethodID = pmd
+		}
+		if cus, _ := session.Metadata["_customer_id"].(string); cus != "" {
+			clues.ProviderCustomerID = cus
+		}
 	}
 
 	_, err := b.profileCli.Update(ctx, connect.NewRequest(&profilev1.UpdateRequest{

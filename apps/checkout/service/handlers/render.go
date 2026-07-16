@@ -36,6 +36,8 @@ type MethodChoice struct {
 	Key      string
 	Name     string
 	Selected bool
+	Embed    bool // card form on this page
+	Redirect bool
 }
 
 // PageData holds all values needed to render any checkout page.
@@ -49,6 +51,19 @@ type PageData struct {
 	Currency      string
 	PayerName     string
 	MaskedPhone   string
+	MaskedEmail   string
+	// NeedEmail is true when profile has no email and card requires one.
+	NeedEmail bool
+	// NeedName is true when profile has no display name.
+	NeedName bool
+	// HasSavedCard enables Link-style "pay with saved card" one-click.
+	HasSavedCard bool
+	// ShowCardForm when selected method is embedded card.
+	ShowCardForm bool
+	// CardCryptoURL is GET endpoint that returns AES key for browser encryption.
+	CardCryptoURL string
+	// AuthorizeURL for PIN/OTP steps.
+	AuthorizeURL  string
 	Contacts      []ContactChoice
 	Methods       []MethodChoice
 	CSRF          string
@@ -57,6 +72,10 @@ type PageData struct {
 	ReturnURL     string
 	PollURL       string
 	RedirectURL   string
+	// NextAction: requires_pin | requires_otp | redirect_url | …
+	NextAction string
+	// PaymentInstruction for bank transfer notes.
+	PaymentInstruction string
 }
 
 // MaskMsisdn masks a phone number for display.
@@ -113,8 +132,18 @@ var translations = map[string]map[string]string{
 		"paying_as":         "Paying as",
 		"change":            "Change",
 		"phone_label":       "Phone number",
+		"email_label":       "Email",
+		"name_label":        "Name",
+		"card_number":       "Card number",
+		"card_expiry":       "Expiry",
+		"card_cvv":          "CVV",
+		"card_pin":          "Card PIN",
+		"card_otp":          "One-time code",
+		"card_secure_hint":  "Card details are encrypted in your browser before they leave this page.",
+		"use_saved_card":    "Pay with your saved card",
+		"continue":          "Continue",
 		"confirm_title":     "Confirm payment",
-		"confirm_hint":      "Check your phone and follow the prompt to complete payment.",
+		"confirm_hint":      "Complete any bank prompts. You stay on this secure page whenever possible.",
 		"retry":             "Try again",
 		"done_title":        "Payment successful",
 		"redirecting":       "Redirecting you back…",
@@ -127,15 +156,25 @@ var translations = map[string]map[string]string{
 		"bad_method":        "Choose a payment method",
 		"amount_required":   "Enter a valid amount",
 		"contact_required":  "Enter your phone number",
-		"redirect_hint":     "Taking you to secure payment…",
+		"redirect_hint":     "Securing your payment…",
 	},
 	"fr": {
 		"pay_button":        "Payer",
 		"paying_as":         "Payer en tant que",
 		"change":            "Changer",
 		"phone_label":       "Numéro de téléphone",
+		"email_label":       "E-mail",
+		"name_label":        "Nom",
+		"card_number":       "Numéro de carte",
+		"card_expiry":       "Expiration",
+		"card_cvv":          "CVV",
+		"card_pin":          "Code PIN",
+		"card_otp":          "Code à usage unique",
+		"card_secure_hint":  "Les données de carte sont chiffrées dans votre navigateur avant l’envoi.",
+		"use_saved_card":    "Payer avec la carte enregistrée",
+		"continue":          "Continuer",
 		"confirm_title":     "Confirmer le paiement",
-		"confirm_hint":      "Vérifiez votre téléphone et suivez les instructions pour finaliser le paiement.",
+		"confirm_hint":      "Suivez les instructions de votre banque. Vous restez sur cette page sécurisée autant que possible.",
 		"retry":             "Réessayer",
 		"done_title":        "Paiement réussi",
 		"redirecting":       "Vous êtes redirigé…",
@@ -148,7 +187,7 @@ var translations = map[string]map[string]string{
 		"bad_method":        "Choisissez un moyen de paiement",
 		"amount_required":   "Saisissez un montant valide",
 		"contact_required":  "Saisissez votre numéro de téléphone",
-		"redirect_hint":     "Redirection vers le paiement sécurisé…",
+		"redirect_hint":     "Sécurisation du paiement…",
 	},
 }
 

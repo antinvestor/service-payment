@@ -15,6 +15,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/pitabwire/frame/v2/config"
 )
 
@@ -39,20 +41,36 @@ type CheckoutConfig struct {
 	SweepIntervalSeconds   int `envDefault:"60" env:"CHECKOUT_SWEEP_INTERVAL_SECONDS"`
 
 	// MethodsJSON is the global method catalog. Each method may declare
-	// currencies, MSISDN prefixes (locality), and ISO countries. Redirect
-	// methods (card) skip phone capture and open a provider-hosted page.
+	// currencies, MSISDN prefixes (locality), and ISO countries.
 	//
 	// Link-style resolution on the page:
-	//   1. Filter by partition allowlist + session methods[] + currency + location
-	//   2. Preselect: profile last-used → guest cookie → phone/country → default
-	// Card defaults to Flutterwave hosted Standard (redirect). MoMo routes remain
-	// available for direct-network integrations; Flutterwave also handles MoMo
-	// when route=flutterwave with a phone number.
-	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"],\"countries\":[\"KE\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"],\"countries\":[\"UG\",\"ZM\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"],\"countries\":[\"TZ\",\"UG\"]},{\"key\":\"flutterwave\",\"name\":\"Pay with Flutterwave\",\"route\":\"flutterwave\",\"prefixes\":[],\"currencies\":[\"KES\",\"NGN\",\"UGX\",\"TZS\",\"GHS\",\"ZAR\",\"USD\"],\"countries\":[],\"redirect\":true},{\"key\":\"card\",\"name\":\"Card\",\"route\":\"flutterwave\",\"prefixes\":[],\"currencies\":[],\"countries\":[],\"redirect\":true}]"`
+	//  1. Filter by partition allowlist + session methods[] + currency + location
+	//  2. Preselect: profile last-used → guest cookie → phone/country → default
+	//
+	// Card is first and embedded (redirect=false, embed=true): PAN is AES-GCM
+	// encrypted in the browser and charged via Flutterwave v4 on our domain.
+	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"card\",\"name\":\"Card\",\"route\":\"flutterwave\",\"prefixes\":[],\"currencies\":[],\"countries\":[],\"redirect\":false,\"embed\":true},{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"],\"countries\":[\"KE\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"],\"countries\":[\"UG\",\"ZM\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"],\"countries\":[\"TZ\",\"UG\"]}]"`
 
 	// PartitionMethodsJSON optionally restricts methods per partition.
 	// Format: {"partition-uuid":["mpesa","card"],"*":["card"]}
 	// "*" is the default when the session partition has no explicit entry.
 	// Empty = no partition-level filtering (only currency/locality/session).
 	PartitionMethodsJSON string `env:"CHECKOUT_PARTITION_METHODS"`
+
+	// CardEncryptionKey is the base64 AES-256 key from the Flutterwave dashboard.
+	// Served to the browser for client-side encryption — raw PAN never hits our servers.
+	CardEncryptionKey string `env:"CHECKOUT_CARD_ENCRYPTION_KEY"`
+	// CardEncryptionKeyAlt accepts the same value under the Flutterwave env name.
+	CardEncryptionKeyAlt string `env:"FLUTTERWAVE_ENCRYPTION_KEY"`
+}
+
+// ResolvedCardEncryptionKey returns the encryption key for client-side AES-GCM.
+func (c *CheckoutConfig) ResolvedCardEncryptionKey() string {
+	if c == nil {
+		return ""
+	}
+	if strings.TrimSpace(c.CardEncryptionKey) != "" {
+		return strings.TrimSpace(c.CardEncryptionKey)
+	}
+	return strings.TrimSpace(c.CardEncryptionKeyAlt)
 }

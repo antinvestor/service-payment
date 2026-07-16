@@ -53,6 +53,18 @@ type stubFW struct{}
 func (f *stubFW) CreateOrchestratorCharge(context.Context, *client.Credentials, *client.OrchestratorChargeRequest) (*client.Charge, error) {
 	return &client.Charge{}, nil
 }
+func (f *stubFW) CreateCustomer(context.Context, *client.Credentials, *client.CreateCustomerRequest) (*client.Customer, error) {
+	return &client.Customer{}, nil
+}
+func (f *stubFW) CreatePaymentMethod(context.Context, *client.Credentials, *client.PaymentMethodInput) (*client.PaymentMethod, error) {
+	return &client.PaymentMethod{}, nil
+}
+func (f *stubFW) CreateCharge(context.Context, *client.Credentials, *client.ChargeRequest) (*client.Charge, error) {
+	return &client.Charge{}, nil
+}
+func (f *stubFW) UpdateCharge(context.Context, *client.Credentials, string, *client.UpdateChargeRequest) (*client.Charge, error) {
+	return &client.Charge{}, nil
+}
 func (f *stubFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
 	return &client.Charge{}, nil
 }

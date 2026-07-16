@@ -6,24 +6,31 @@ Flutterwave style) and what must be configured in each environment.
 ## End-to-end flow
 
 ```
-Merchant / Admin UI
-  CollectPayment(invoice)  or  StartSubscription(plan)
+Product / Admin UI  (or opportunities SPA)
+  CollectPayment / StartSubscription / CreateCheckoutSession
+        │  (session pre-created with profile prefill — ready when user commits)
+        ▼
+  Hosted checkout  https://pay.stawi.org/c/{session_ref}
+  Stripe Link style:
+    • Show name / email / phone already stored
+    • Prefer Card (embedded AES-GCM form)
+    • Optional saved card one-click
+    • MoMo chips only when locality matches
         │
         ▼
-  Hosted checkout  pay.*/c/{session_ref}
-  (payer selects method: M-PESA, MTN, Airtel, card/Polar, …)
-        │
-        ▼
-  Payment service → provider integration
-        │
+  Payment service route (default flutterwave) → v4 orchestrator / charge
+        │  PIN/OTP on our page · 3DS bank page only if required
         ▼
   ConfirmPayment(session_ref)   ← return page OR settlement sweeper
         │
         ▼
   Invoice PAID + optional subscription ACTIVE + ledger cash post
+  Profile clues updated (last method + payment_method_id for renewals)
 ```
 
-**Never trust the browser alone.** Capture is always `ConfirmPayment`.
+**Never trust the browser alone.** Capture is always `ConfirmPayment` / activator.
+
+**No provider multipay redirect** when card encryption + v4 OAuth are configured.
 
 ## Required configuration
 
@@ -188,9 +195,11 @@ Grant `payment_collect` to product and admin service accounts that initiate coll
 
 ## Payment methods
 
-- Hosted page shows methods from `CHECKOUT_METHODS`, filtered by currency and optional session restriction.
-- MoMo methods require phone; **card** (`redirect: true`, route `polar`) does not.
-- Merchant may pass `methods: ["mpesa","card"]` on CollectPayment / StartSubscription.
+- Hosted page shows methods from `CHECKOUT_METHODS`, filtered by currency, locality, partition, and session restriction.
+- **Card is first and embedded** (`embed: true`, `redirect: false`, route `flutterwave`).
+- MoMo methods require phone when selected; card only needs email (prefilled when known).
+- Merchant may pass `methods: ["card"]` or `["mpesa","card"]` on CollectPayment / StartSubscription / product CreateSession.
+- Required env for embedded card: `CHECKOUT_CARD_ENCRYPTION_KEY` (or `FLUTTERWAVE_ENCRYPTION_KEY`).
 
 ## Health checklist
 

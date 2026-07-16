@@ -192,3 +192,56 @@ h2 { margin-bottom: .75rem; }
 }
 
 .retry-link:hover, .return-link:hover { text-decoration: underline; }
+
+.hidden { display: none !important; }
+
+.card-fields { margin-bottom: .75rem; }
+
+.card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+}
+
+.saved-card {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .9rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.secure-hint {
+  font-size: .8rem;
+  color: #6b7280;
+  margin-top: -.25rem;
+}
+
+.banner.info {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.auth-frame-wrap {
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  min-height: 360px;
+}
+
+.auth-frame {
+  width: 100%;
+  min-height: 360px;
+  border: 0;
+  background: #fff;
+}
+
+.auth-step { margin: 1rem 0; }
+
+.btn-primary:disabled {
+  opacity: .65;
+  cursor: wait;
+}

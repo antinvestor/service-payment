@@ -81,39 +81,130 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 		return c.orchestratorDirectCharge(ctx, creds, req)
 	}
 
-	// Hosted multipayment page (Flutterwave Standard /v3/payments).
-	// This is what SPA products need: a browser redirect_url/link, not an
-	// inline bank_transfer instruction set. bank_transfer on v4 orchestrator
-	// is rejected on many accounts ("Invalid value 'bank_transfer' for PaymentMethodIn").
-	// Prefer Standard whenever a classic secret key is available.
+	// Embedded card: encrypted fields present → pure v4 orchestrator (no FW hosted page).
+	// Docs: https://developer.flutterwave.com/docs/payment-orchestrator-flow
+	if pmType == "card" && req.PaymentMethod.Card != nil &&
+		req.PaymentMethod.Card.EncryptedCardNumber != "" &&
+		req.PaymentMethod.Card.Nonce != "" {
+		if IsV3Credentials(creds) {
+			return nil, errors.New("embedded card charges require Flutterwave v4 OAuth credentials")
+		}
+		return c.orchestratorDirectCharge(ctx, creds, req)
+	}
+
+	// Opay / USSD / explicit bank_transfer on v4.
+	if pmType == "opay" || pmType == "ussd" || pmType == "bank_transfer" {
+		if !IsV3Credentials(creds) {
+			return c.orchestratorDirectCharge(ctx, creds, req)
+		}
+	}
+
+	// Fallback: Flutterwave Standard multipayment page (v3 secret key).
+	// Only when the caller did not supply encrypted card fields (legacy redirect).
 	if hasStandardSecret(creds) || IsV3Credentials(creds) {
 		return c.createStandardPaymentV3(ctx, creds, req)
 	}
 
-	// Pure v4 OAuth without FLWSECK_*: only methods that do not need a secret-key Standard page.
-	if pmType == "opay" || pmType == "ussd" {
-		return c.orchestratorDirectCharge(ctx, creds, req)
+	if pmType == "card" || pmType == "hosted" || pmType == "standard" || pmType == "" {
+		return nil, fmt.Errorf(
+			"embedded card checkout requires encrypted card fields (nonce + AES-GCM) on payment_method.card, " +
+				"or configure FLWSECK_* for legacy Standard hosted page fallback",
+		)
 	}
 
-	return nil, fmt.Errorf(
-		"hosted Flutterwave checkout requires a classic secret key (FLWSECK_*). " +
-			"Set FLUTTERWAVE_SECRET_KEY or FLUTTERWAVE_CLIENT_SECRET to FLWSECK_… " +
-			"(OAuth-only client_id/secret cannot open the Standard pay page; bank_transfer is invalid on v4 orchestrator)",
-	)
+	return nil, fmt.Errorf("unsupported flutterwave payment method type %q", pmType)
 }
 
 // orchestratorDirectCharge is POST /orchestration/direct-charges (v4 OAuth).
+// Retries transient provider failures so a committed pay still collects.
 func (c *flutterwaveClient) orchestratorDirectCharge(
 	ctx context.Context,
 	creds *Credentials,
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
-	var env APIEnvelope[Charge]
-	if err := c.doJSON(ctx, creds, http.MethodPost, "/orchestration/direct-charges", req, &env); err != nil {
+	var out *Charge
+	err := withRetry(ctx, RetryPolicy{}, func() error {
+		var env APIEnvelope[Charge]
+		if err := c.doJSON(ctx, creds, http.MethodPost, "/orchestration/direct-charges", req, &env); err != nil {
+			return err
+		}
+		if !strings.EqualFold(env.Status, "success") && env.Data.ID == "" {
+			return apiError("orchestrator charge", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
+}
+
+func (c *flutterwaveClient) CreateCustomer(
+	ctx context.Context,
+	creds *Credentials,
+	req *CreateCustomerRequest,
+) (*Customer, error) {
+	var env APIEnvelope[Customer]
+	if err := c.doJSON(ctx, creds, http.MethodPost, "/customers", req, &env); err != nil {
 		return nil, err
 	}
-	if !strings.EqualFold(env.Status, "success") && env.Data.ID == "" {
-		return nil, apiError("orchestrator charge", env.Status, env.Message, env.Error)
+	if env.Data.ID == "" {
+		return nil, apiError("create customer", env.Status, env.Message, env.Error)
+	}
+	return &env.Data, nil
+}
+
+func (c *flutterwaveClient) CreatePaymentMethod(
+	ctx context.Context,
+	creds *Credentials,
+	req *PaymentMethodInput,
+) (*PaymentMethod, error) {
+	var env APIEnvelope[PaymentMethod]
+	if err := c.doJSON(ctx, creds, http.MethodPost, "/payment-methods", req, &env); err != nil {
+		return nil, err
+	}
+	if env.Data.ID == "" {
+		return nil, apiError("create payment method", env.Status, env.Message, env.Error)
+	}
+	return &env.Data, nil
+}
+
+func (c *flutterwaveClient) CreateCharge(
+	ctx context.Context,
+	creds *Credentials,
+	req *ChargeRequest,
+) (*Charge, error) {
+	var out *Charge
+	err := withRetry(ctx, RetryPolicy{}, func() error {
+		var env APIEnvelope[Charge]
+		if err := c.doJSON(ctx, creds, http.MethodPost, "/charges", req, &env); err != nil {
+			return err
+		}
+		if !strings.EqualFold(env.Status, "success") && env.Data.ID == "" {
+			return apiError("create charge", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
+}
+
+func (c *flutterwaveClient) UpdateCharge(
+	ctx context.Context,
+	creds *Credentials,
+	chargeID string,
+	req *UpdateChargeRequest,
+) (*Charge, error) {
+	if strings.TrimSpace(chargeID) == "" {
+		return nil, errors.New("charge id is required")
+	}
+	var env APIEnvelope[Charge]
+	path := "/charges/" + url.PathEscape(chargeID)
+	if err := c.doJSON(ctx, creds, http.MethodPut, path, req, &env); err != nil {
+		return nil, err
+	}
+	if env.Data.ID == "" {
+		return nil, apiError("update charge", env.Status, env.Message, env.Error)
 	}
 	return &env.Data, nil
 }

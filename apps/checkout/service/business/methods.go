@@ -27,7 +27,8 @@ import (
 //   - Currencies: ISO 4217 codes this method accepts (empty = all)
 //   - Prefixes: E.164 country/network prefixes for MSISDN locality (e.g. "254")
 //   - Countries: ISO 3166-1 alpha-2 country codes (e.g. "KE") for geo headers
-//   - Redirect: hosted-provider methods that skip phone capture
+//   - Redirect: provider-hosted page (legacy); prefer Embed for cards
+//   - Embed: collect instrument on our page (Stripe Link style for cards)
 type Method struct {
 	Key        string   `json:"key"`
 	Name       string   `json:"name"`
@@ -36,6 +37,12 @@ type Method struct {
 	Currencies []string `json:"currencies"`
 	Countries  []string `json:"countries"`
 	Redirect   bool     `json:"redirect"`
+	Embed      bool     `json:"embed"` // card form on pay.stawi.org
+}
+
+// IsEmbedded reports whether this method collects payment details on our domain.
+func (m Method) IsEmbedded() bool {
+	return m.Embed || (!m.Redirect && strings.EqualFold(m.Key, "card"))
 }
 
 // MethodRegistry is the configured catalog of payment methods for this service.
@@ -251,7 +258,12 @@ func preselect(methods []Method, clueKey, guestKey, phone, country string) (Meth
 			}
 		}
 	}
-	// 5) Prefer non-redirect local rails, else first
+	// 5) Prefer embedded card (universal), then non-redirect local rails, else first
+	for _, m := range methods {
+		if m.IsEmbedded() {
+			return m, "default_embed_card"
+		}
+	}
 	for _, m := range methods {
 		if !m.Redirect {
 			return m, "default_local"
@@ -275,7 +287,10 @@ func rankMethods(methods []Method, clue, guest, phone, country string) []Method 
 		if country != "" && methodMatchesCountry(m, country) {
 			s += 30
 		}
-		// Prefer non-redirect local rails slightly over hosted redirects when tied.
+		// Prefer embedded card over redirect/hosted when tied.
+		if m.IsEmbedded() {
+			s += 15
+		}
 		if m.Redirect {
 			s--
 		}

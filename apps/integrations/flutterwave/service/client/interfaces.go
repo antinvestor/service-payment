@@ -18,10 +18,31 @@ import "context"
 
 // FlutterwaveClient is the Flutterwave v4 adapter.
 // Docs: https://developer.flutterwave.com/docs/getting-started
+//
+// Collections prefer:
+//   - Orchestrator + encrypted card (embedded checkout on our domain)
+//   - Orchestrator + mobile_money (STK / push)
+//   - Tokenized recurring: CreateCharge with payment_method_id + recurring=true
+//
+// Hosted Standard (v3 FLWSECK) remains a fallback only when encrypted card
+// fields are absent and a classic secret key is configured.
 type FlutterwaveClient interface {
 	// CreateOrchestratorCharge creates customer + payment method + charge in one call.
-	// Preferred for MoMo / bank transfer / opay collections.
+	// Preferred for MoMo, card (with encrypted fields), bank transfer, opay, ussd.
 	CreateOrchestratorCharge(ctx context.Context, creds *Credentials, req *OrchestratorChargeRequest) (*Charge, error)
+
+	// CreateCustomer creates a Flutterwave customer (POST /customers).
+	CreateCustomer(ctx context.Context, creds *Credentials, req *CreateCustomerRequest) (*Customer, error)
+
+	// CreatePaymentMethod tokenises a card (POST /payment-methods).
+	CreatePaymentMethod(ctx context.Context, creds *Credentials, req *PaymentMethodInput) (*PaymentMethod, error)
+
+	// CreateCharge charges an existing customer + payment method (POST /charges).
+	// Use Recurring=true for subscription renewals with a saved pmd_*.
+	CreateCharge(ctx context.Context, creds *Credentials, req *ChargeRequest) (*Charge, error)
+
+	// UpdateCharge authorises a pending charge (PIN / OTP / AVS) — PUT /charges/{id}.
+	UpdateCharge(ctx context.Context, creds *Credentials, chargeID string, req *UpdateChargeRequest) (*Charge, error)
 
 	// GetCharge verifies a charge by id (GET /charges/{id}).
 	GetCharge(ctx context.Context, creds *Credentials, chargeID string) (*Charge, error)

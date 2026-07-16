@@ -121,22 +121,61 @@ func digitsOnly(s string) string {
 	return b.String()
 }
 
-// splitName best-effort splits "First Last" into CustomerName.
+// splitName best-effort splits "First Last" into CustomerName for Flutterwave v4.
+// v4 requires each name part to be 2–50 chars of letters/spaces/,'-./ only.
 func splitName(full string) *client.CustomerName {
 	full = strings.TrimSpace(full)
 	if full == "" {
-		return nil
+		return &client.CustomerName{First: "Customer", Last: "Payer"}
 	}
-	parts := strings.Fields(full)
+	raw := strings.Fields(full)
+	parts := make([]string, 0, len(raw))
+	for _, p := range raw {
+		if s := sanitizeNamePart(p); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	if len(parts) == 0 {
+		return &client.CustomerName{First: "Customer", Last: "Payer"}
+	}
 	n := &client.CustomerName{First: parts[0]}
-	if len(parts) > 1 {
-		n.Last = parts[len(parts)-1]
+	if len(parts) == 1 {
+		n.Last = parts[0]
+		return n
 	}
+	n.Last = parts[len(parts)-1]
 	if len(parts) > 2 {
-		n.Middle = strings.Join(parts[1:len(parts)-1], " ")
-	}
-	if n.Last == "" {
-		n.Last = n.First
+		// Only set middle when every middle token is valid (v4 rejects short/invalid middle).
+		mid := sanitizeNamePart(strings.Join(parts[1:len(parts)-1], " "))
+		if len(mid) >= 2 {
+			n.Middle = mid
+		}
 	}
 	return n
+}
+
+// sanitizeNamePart keeps letters/spaces/,'-./ and enforces min length 2.
+func sanitizeNamePart(s string) string {
+	s = strings.TrimSpace(s)
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z'):
+			b.WriteRune(r)
+		case r == ' ' || r == ',' || r == '.' || r == '\'' || r == '-':
+			b.WriteRune(r)
+		}
+	}
+	out := strings.TrimSpace(b.String())
+	// Collapse repeated spaces
+	for strings.Contains(out, "  ") {
+		out = strings.ReplaceAll(out, "  ", " ")
+	}
+	if len(out) < 2 {
+		return ""
+	}
+	if len(out) > 50 {
+		out = out[:50]
+	}
+	return out
 }

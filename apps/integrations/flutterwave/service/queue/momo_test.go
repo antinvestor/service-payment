@@ -50,4 +50,16 @@ func TestSplitName(t *testing.T) {
 	assert.Equal(t, "King", n.First)
 	assert.Equal(t, "Leo", n.Middle)
 	assert.Equal(t, "James", n.Last)
+
+	// Digits stripped (E2E→EE); V4 dropped; middle omitted.
+	n = splitName("E2E V4 Test")
+	require.NotNil(t, n)
+	assert.Equal(t, "EE", n.First)
+	assert.Equal(t, "Test", n.Last)
+	assert.Empty(t, n.Middle)
+
+	n = splitName("")
+	require.NotNil(t, n)
+	assert.Equal(t, "Customer", n.First)
+	assert.Equal(t, "Payer", n.Last)
 }

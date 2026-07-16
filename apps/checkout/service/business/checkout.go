@@ -375,30 +375,28 @@ func (b *CheckoutBusiness) applyPayer(
 		}
 	}
 
-	// Email comes from attached EMAIL contacts on the profile (not properties).
-	// Caller-supplied payer.Email still wins when set (guest / product override).
+	// Contacts are email or phone. Classify carefully:
+	// ContactType_EMAIL is protobuf zero (0), so unset type + phone detail is common.
+	// Prefer declared type, but correct mislabels by inspecting detail shape.
+	if email == "" {
+		// Caller may have stuffed an email into Contacts[].Msisdn (no type field).
+		email = firstEmailFromCallerContacts(payer.Contacts)
+	}
 	if email == "" {
 		email = firstEmailFromContacts(profileContacts)
 	}
 
-	// Build contacts list: caller first; fall back to profile MSISDN contacts
-	var contacts []any
+	// Phone chips: only phone-shaped contacts (never email addresses).
+	var phoneMaps []map[string]any
 	if len(payer.Contacts) > 0 {
-		for _, c := range payer.Contacts {
-			contacts = append(contacts, map[string]any{
-				"contactId": c.ContactID,
-				"msisdn":    c.Msisdn,
-			})
-		}
-	} else {
-		for _, c := range profileContacts {
-			if c.GetType() == profilev1.ContactType_MSISDN {
-				contacts = append(contacts, map[string]any{
-					"contactId": c.GetId(),
-					"msisdn":    c.GetDetail(),
-				})
-			}
-		}
+		phoneMaps = normalizeCallerPhoneContacts(payer.Contacts)
+	}
+	if len(phoneMaps) == 0 {
+		phoneMaps = phoneContactsFromProfile(profileContacts)
+	}
+	contacts := make([]any, 0, len(phoneMaps))
+	for _, m := range phoneMaps {
+		contacts = append(contacts, m)
 	}
 
 	prefill := data.JSONMap{
@@ -418,22 +416,6 @@ func (b *CheckoutBusiness) applyPayer(
 		prefill["providerCustomerId"] = providerCustomerID
 	}
 	session.Prefill = prefill
-}
-
-// firstEmailFromContacts returns the first non-empty EMAIL contact detail.
-// Profile email for checkout is contact-backed, not a free-form properties field.
-func firstEmailFromContacts(contacts []*profilev1.ContactObject) string {
-	for _, c := range contacts {
-		if c == nil {
-			continue
-		}
-		if c.GetType() == profilev1.ContactType_EMAIL {
-			if e := strings.TrimSpace(c.GetDetail()); e != "" {
-				return e
-			}
-		}
-	}
-	return ""
 }
 
 // ---------------------------------------------------------------------------

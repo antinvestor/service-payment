@@ -235,6 +235,11 @@ func (h *promptHandler) defaultCollectionMethod(
 	if methodType == "" {
 		methodType = h.cfg.DefaultCollectionMethod
 	}
+	if methodType == "" {
+		// Hosted multipayment page (Standard) — not bank_transfer.
+		// v4 orchestrator rejects bank_transfer on many accounts.
+		methodType = "card"
+	}
 	switch strings.ToLower(methodType) {
 	case "opay":
 		return client.PaymentMethodInput{Type: "opay"}
@@ -247,8 +252,8 @@ func (h *promptHandler) defaultCollectionMethod(
 			Type: "ussd",
 			USSD: &client.USSDDetails{AccountBank: bank},
 		}
-	default:
-		// bank_transfer virtual account collection
+	case "bank_transfer", "banktransfer":
+		// Explicit bank transfer only — not the SPA default.
 		display := extraString(prompt.GetExtra(), "account_display_name")
 		if display == "" {
 			display = "Payment"
@@ -261,6 +266,12 @@ func (h *promptHandler) defaultCollectionMethod(
 				AccountDisplayName: display,
 			},
 		}
+	case "card", "hosted", "standard", "payment_link":
+		// Marker for hosted Standard multipayment page (redirect to Flutterwave).
+		return client.PaymentMethodInput{Type: "card"}
+	default:
+		// Unknown → hosted card page, never bank_transfer (v4 400).
+		return client.PaymentMethodInput{Type: "card"}
 	}
 }
 

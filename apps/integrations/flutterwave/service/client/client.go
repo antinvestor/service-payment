@@ -71,13 +71,43 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	creds *Credentials,
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
-	if IsV3Credentials(creds) {
-		// Hosted Standard for card/bank_transfer/opay; direct MoMo charge when phone rail.
-		if req.PaymentMethod.Type == "mobile_money" {
+	pmType := strings.ToLower(strings.TrimSpace(req.PaymentMethod.Type))
+
+	// Direct mobile-money charge (STK / push) — orchestrator or classic v3.
+	if pmType == "mobile_money" {
+		if IsV3Credentials(creds) || hasStandardSecret(creds) {
 			return c.createMoMoChargeV3(ctx, creds, req)
 		}
+		return c.orchestratorDirectCharge(ctx, creds, req)
+	}
+
+	// Hosted multipayment page (Flutterwave Standard /v3/payments).
+	// This is what SPA products need: a browser redirect_url/link, not an
+	// inline bank_transfer instruction set. bank_transfer on v4 orchestrator
+	// is rejected on many accounts ("Invalid value 'bank_transfer' for PaymentMethodIn").
+	// Prefer Standard whenever a classic secret key is available.
+	if hasStandardSecret(creds) || IsV3Credentials(creds) {
 		return c.createStandardPaymentV3(ctx, creds, req)
 	}
+
+	// Pure v4 OAuth without FLWSECK_*: only methods that do not need a secret-key Standard page.
+	if pmType == "opay" || pmType == "ussd" {
+		return c.orchestratorDirectCharge(ctx, creds, req)
+	}
+
+	return nil, fmt.Errorf(
+		"hosted Flutterwave checkout requires a classic secret key (FLWSECK_*). " +
+			"Set FLUTTERWAVE_SECRET_KEY or FLUTTERWAVE_CLIENT_SECRET to FLWSECK_… " +
+			"(OAuth-only client_id/secret cannot open the Standard pay page; bank_transfer is invalid on v4 orchestrator)",
+	)
+}
+
+// orchestratorDirectCharge is POST /orchestration/direct-charges (v4 OAuth).
+func (c *flutterwaveClient) orchestratorDirectCharge(
+	ctx context.Context,
+	creds *Credentials,
+	req *OrchestratorChargeRequest,
+) (*Charge, error) {
 	var env APIEnvelope[Charge]
 	if err := c.doJSON(ctx, creds, http.MethodPost, "/orchestration/direct-charges", req, &env); err != nil {
 		return nil, err
@@ -86,6 +116,16 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 		return nil, apiError("orchestrator charge", env.Status, env.Message, env.Error)
 	}
 	return &env.Data, nil
+}
+
+// hasStandardSecret reports whether credentials include a classic secret key
+// usable for POST /v3/payments (hosted Standard checkout).
+func hasStandardSecret(c *Credentials) bool {
+	if c == nil {
+		return false
+	}
+	sec := firstNonEmpty(c.SecretKey, c.ClientSecret)
+	return strings.HasPrefix(sec, "FLWSECK_") || strings.HasPrefix(sec, "FLWSECK-")
 }
 
 func (c *flutterwaveClient) GetCharge(

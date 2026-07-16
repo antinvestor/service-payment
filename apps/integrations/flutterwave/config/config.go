@@ -75,9 +75,11 @@ type FlutterwaveConfig struct {
 	// PublicWebhookBase for transfer callback_url if set.
 	PublicWebhookBase string `env:"FLUTTERWAVE_PUBLIC_WEBHOOK_BASE"`
 
-	// Default non-MoMo payment method type for redirect collection when no phone:
-	// bank_transfer | opay | ussd (requires bank code in extras).
-	DefaultCollectionMethod string `envDefault:"bank_transfer" env:"FLUTTERWAVE_DEFAULT_COLLECTION_METHOD"`
+	// Default non-MoMo payment method type for collection when no phone:
+	// card|hosted → Flutterwave Standard pay page (browser redirect);
+	// opay | ussd | bank_transfer (explicit only — bank_transfer is rejected
+	// by many v4 orchestrator accounts).
+	DefaultCollectionMethod string `envDefault:"card" env:"FLUTTERWAVE_DEFAULT_COLLECTION_METHOD"`
 
 	// Queue: outbound disbursements (Payment Send → route → this queue).
 	QueuePaymentName string `envDefault:"flutterwave.payments.dequeue"       env:"QUEUE_FLUTTERWAVE_PAYMENT_NAME"`

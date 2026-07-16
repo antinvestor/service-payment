@@ -14,6 +14,10 @@ export 'src/providers/invoice_providers.dart';
 export 'src/providers/billing_run_providers.dart';
 export 'src/providers/credit_providers.dart';
 export 'src/providers/discount_providers.dart';
+export 'src/providers/collection_providers.dart';
+
+// API
+export 'src/api/collection_client.dart';
 
 // Widgets
 export 'src/widgets/subscription_state_badge.dart';
@@ -24,12 +28,15 @@ export 'src/widgets/subscription_card.dart';
 export 'src/widgets/pricing_model_badge.dart';
 export 'src/widgets/invoice_line_tile.dart';
 export 'src/widgets/usage_event_tile.dart';
+export 'src/widgets/payment_method_picker.dart';
 
 // Screens
 export 'src/screens/catalog_list_screen.dart';
 export 'src/screens/catalog_detail_screen.dart';
 export 'src/screens/subscription_list_screen.dart';
 export 'src/screens/subscription_detail_screen.dart';
+export 'src/screens/start_subscription_screen.dart';
+export 'src/screens/payment_return_screen.dart';
 export 'src/screens/invoice_list_screen.dart';
 export 'src/screens/invoice_detail_screen.dart';
 export 'src/screens/usage_events_screen.dart';

@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"time"
 
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
@@ -30,6 +31,8 @@ import (
 	"github.com/antinvestor/common/v2/servicecatalog"
 	"github.com/antinvestor/common/v2/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
+	collectionv1 "github.com/antinvestor/service-payments/apps/billing/gen/collection/v1"
+	"github.com/antinvestor/service-payments/apps/billing/gen/collection/v1/collectionv1connect"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
@@ -45,6 +48,7 @@ import (
 	"github.com/pitabwire/frame/v2/datastore/pool"
 	"github.com/pitabwire/frame/v2/security"
 	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/workerpool"
 	"github.com/pitabwire/util"
 )
 
@@ -108,9 +112,22 @@ func main() {
 	_ = ledgerBusiness.NewAccountBusiness(workMan, lLedgerRepo, lAccountRepo)
 	ledgerTxnBusiness := ledgerBusiness.NewTransactionBusiness(workMan, lAccountRepo, lTransactionRepo)
 
+	// Subscription lifecycle fan-out to external entity integrators
+	// (product apps / entitlements) — payment Send/Receive style.
+	integrationRouteRepo := repository.NewIntegrationRouteRepository(ctx, dbPool, workMan)
+	qMan := service.QueueManager()
+	lifecycleNotifier := business.NewSubscriptionLifecycleNotifier(
+		qMan,
+		integrationRouteRepo,
+		business.LifecycleNotifierConfig{
+			DefaultTopicName: cfg.SubscriptionLifecycleTopicName,
+			DefaultTopicURI:  cfg.SubscriptionLifecycleTopicURI,
+		},
+	)
+
 	// Create billing business layers
 	catalogBus := business.NewCatalogBusiness(workMan, catalogVersionRepo, planRepo, componentRepo, tierRepo)
-	subscriptionBus := business.NewSubscriptionBusiness(workMan, subscriptionRepo)
+	subscriptionBus := business.NewSubscriptionBusiness(workMan, subscriptionRepo, lifecycleNotifier)
 	usageIngestionBus := business.NewUsageIngestionBusiness(workMan, usageEventRepo)
 	meteringEng := business.NewMeteringEngine(workMan, usageEventRepo, meteredUsageRepo)
 	pricingEng := business.NewPricingEngine()
@@ -130,27 +147,54 @@ func main() {
 		workMan, billingRunRepo, ratedLineRepo, subscriptionBus, catalogBus, componentRepo,
 		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg, checkoutInteg)
 
-	// Create handler with injected business layer
+	ledgerAccounts := business.CollectionLedgerAccounts{
+		CashAccountID: cfg.LedgerCashAccountID,
+		ARAccountID:   cfg.LedgerARAccountID,
+	}
+	collectionBiz := business.NewCollectionBusiness(
+		checkoutInteg, invoiceEng, invoiceRepo, subscriptionBus,
+		planRepo, componentRepo, billingRunRepo, pricingEng,
+		ledgerInteg, ledgerAccounts,
+	)
+	settlementSweeper := business.NewSettlementSweeper(
+		invoiceRepo, collectionBiz, cfg.SettlementSweepBatchSize,
+	)
+
+	// Create handlers with injected business layer
 	billingServer := handlers.NewBillingServer(
 		catalogBus, subscriptionBus, usageIngestionBus, meteringEng, pricingEng,
 		discountEng, creditEng, invoiceEng, billingWorkflow, ledgerInteg,
 		catalogVersionRepo, usageEventRepo, invoiceRepo, discountRepo, subscriptionRepo)
+	collectionServer := handlers.NewCollectionServer(collectionBiz)
 
 	// Handle database migration if requested
 	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
 		return
 	}
 
-	// Setup Connect server with injected dependencies
-	connectHandler := setupConnectServer(ctx, service.SecurityManager(), billingServer)
+	// Setup Connect server with both BillingService and CollectionService
+	connectHandler := setupConnectServer(ctx, service.SecurityManager(), billingServer, collectionServer)
 
 	// Setup HTTP handlers and register permissions with Keto
-	sd := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
+	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
+	collectionSD := collectionv1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(connectHandler),
-		frame.WithPermissionRegistration(sd),
+		frame.WithPermissionRegistration(billingSD),
+		frame.WithPermissionRegistration(collectionSD),
+	}
+	// Global default lifecycle queue (product services subscribe here).
+	// Partition IntegrationRoute rows register additional publishers on demand.
+	if cfg.SubscriptionLifecycleTopicName != "" && cfg.SubscriptionLifecycleTopicURI != "" {
+		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(
+			cfg.SubscriptionLifecycleTopicName,
+			cfg.SubscriptionLifecycleTopicURI,
+		))
 	}
 	service.Init(ctx, serviceOptions...)
+
+	// Settlement sweeper recovers abandoned browser return/confirm paths.
+	go runSettlementSweeper(ctx, &cfg, settlementSweeper, workMan)
 
 	// Startup service
 	err = service.Run(ctx, "")
@@ -197,11 +241,12 @@ func handleDatabaseMigration(
 	return false
 }
 
-// setupConnectServer initializes and configures the connect server.
+// setupConnectServer mounts BillingService and CollectionService on one mux.
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
-	implementation billingv1connect.BillingServiceHandler,
+	billingImpl billingv1connect.BillingServiceHandler,
+	collectionImpl collectionv1connect.CollectionServiceHandler,
 ) http.Handler {
 	otelInterceptor, err := otelconnect.NewInterceptor()
 	if err != nil {
@@ -212,9 +257,63 @@ func setupConnectServer(
 
 	authenticator := securityMan.GetAuthenticator(ctx)
 	authInterceptor := securityconnect.NewAuthInterceptor(authenticator)
+	opts := connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor)
 
-	_, serverHandler := billingv1connect.NewBillingServiceHandler(
-		implementation, connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor))
+	mux := http.NewServeMux()
 
-	return serverHandler
+	billingPath, billingHandler := billingv1connect.NewBillingServiceHandler(billingImpl, opts)
+	mux.Handle(billingPath, billingHandler)
+
+	collectionPath, collectionHandler := collectionv1connect.NewCollectionServiceHandler(collectionImpl, opts)
+	mux.Handle(collectionPath, collectionHandler)
+
+	return mux
+}
+
+// runSettlementSweeper ticks periodically and submits sweep work to the frame workerpool.
+// The raw goroutine is only the scheduler; Frame has no cron primitive.
+func runSettlementSweeper(
+	ctx context.Context,
+	cfg *aconfig.BillingConfig,
+	sweeper business.SettlementSweeper,
+	workMan workerpool.Manager,
+) {
+	intervalSec := cfg.SettlementSweepIntervalSeconds
+	if intervalSec <= 0 {
+		util.Log(ctx).Info("settlement sweeper disabled (interval <= 0)")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
+	defer ticker.Stop()
+
+	util.Log(ctx).
+		WithField("interval_seconds", intervalSec).
+		Info("settlement sweeper started")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
+				result, sweepErr := sweeper.Sweep(jobCtx)
+				if sweepErr != nil {
+					util.Log(jobCtx).WithError(sweepErr).Warn("settlement sweep failed")
+					return nil // do not retry the whole tick via workerpool
+				}
+				if result != nil && (result.Settled > 0 || result.Errors > 0) {
+					util.Log(jobCtx).
+						WithField("candidates", result.Candidates).
+						WithField("settled", result.Settled).
+						WithField("skipped", result.Skipped).
+						WithField("errors", result.Errors).
+						Info("settlement sweep completed")
+				}
+				return nil
+			})
+			if submitErr := workerpool.SubmitJob(ctx, workMan, job); submitErr != nil {
+				util.Log(ctx).WithError(submitErr).Warn("could not submit settlement sweep job")
+			}
+		}
+	}
 }

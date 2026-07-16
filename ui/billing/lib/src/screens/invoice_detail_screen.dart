@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../providers/collection_providers.dart';
 import '../providers/invoice_providers.dart';
 import '../widgets/invoice_line_tile.dart';
 import '../widgets/invoice_state_badge.dart';
+import '../widgets/payment_method_picker.dart';
 
 /// Screen showing details for a single invoice with amounts, lines,
 /// and actions (issue, void, record payment).
@@ -249,12 +252,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
     if (invoice.state == InvoiceState.INVOICE_DRAFT) {
       actions.add(
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: () => _issueInvoice(context, ref, invoice),
-            icon: const Icon(Icons.send, size: 18),
-            label: const Text('Issue'),
-          ),
+        FilledButton.icon(
+          onPressed: () => _issueInvoice(context, ref, invoice),
+          icon: const Icon(Icons.send, size: 18),
+          label: const Text('Issue'),
         ),
       );
     }
@@ -262,31 +263,31 @@ class InvoiceDetailScreen extends ConsumerWidget {
     if (invoice.state == InvoiceState.INVOICE_ISSUED ||
         invoice.state == InvoiceState.INVOICE_OVERDUE) {
       actions.add(
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: () => _recordPayment(context, ref, invoice),
-            icon: const Icon(Icons.payment, size: 18),
-            label: const Text('Record Payment'),
-          ),
+        FilledButton.icon(
+          onPressed: () => _collectPayment(context, ref, invoice),
+          icon: const Icon(Icons.payment, size: 18),
+          label: const Text('Collect payment'),
+        ),
+      );
+      actions.add(
+        OutlinedButton.icon(
+          onPressed: () => _recordPayment(context, ref, invoice),
+          icon: const Icon(Icons.done_all, size: 18),
+          label: const Text('Mark paid'),
         ),
       );
     }
 
     if (invoice.state != InvoiceState.INVOICE_VOIDED &&
         invoice.state != InvoiceState.INVOICE_PAID) {
-      if (actions.isNotEmpty) {
-        actions.add(const SizedBox(width: 12));
-      }
       actions.add(
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _voidInvoice(context, ref, invoice),
-            icon: const Icon(Icons.block, size: 18),
-            label: const Text('Void'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-            ),
+        OutlinedButton.icon(
+          onPressed: () => _voidInvoice(context, ref, invoice),
+          icon: const Icon(Icons.block, size: 18),
+          label: const Text('Void'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.red,
+            side: const BorderSide(color: Colors.red),
           ),
         ),
       );
@@ -294,7 +295,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
     if (actions.isEmpty) return const SizedBox.shrink();
 
-    return Row(children: actions);
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: actions,
+    );
   }
 
   Future<void> _issueInvoice(
@@ -398,6 +403,132 @@ class InvoiceDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _collectPayment(
+    BuildContext context,
+    WidgetRef ref,
+    Invoice invoice,
+  ) async {
+    var methods = <String>{};
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('Collect payment'),
+            content: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Open hosted checkout for '
+                    '${formatMoney(invoice.totalAmount)}. '
+                    'Customer selects the final payment method on the page.',
+                  ),
+                  const SizedBox(height: 16),
+                  PaymentMethodPicker(
+                    selected: methods,
+                    onChanged: (next) => setLocal(() => methods = next),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Open checkout'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final result =
+          await ref.read(collectionNotifierProvider.notifier).collectPayment(
+                invoiceId: invoice.id,
+                methods: methods.toList(),
+              );
+      if (!context.mounted) return;
+
+      if (result.alreadyComplete) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invoice already paid'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.invalidate(invoiceProvider(invoice.id));
+        return;
+      }
+
+      final uri = Uri.tryParse(result.pageUrl);
+      if (uri != null && result.pageUrl.isNotEmpty) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Checkout opened (session ${result.sessionRef}). '
+              'Confirm after the customer pays.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Confirm',
+              onPressed: () async {
+                try {
+                  final confirmed = await ref
+                      .read(collectionNotifierProvider.notifier)
+                      .confirmPayment(result.sessionRef);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          confirmed.paid
+                              ? 'Payment confirmed'
+                              : 'Not paid yet',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    ref.invalidate(invoiceProvider(invoice.id));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(friendlyError(e)),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Collect failed: ${friendlyError(e)}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _recordPayment(
     BuildContext context,
     WidgetRef ref,
@@ -406,10 +537,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Record Payment'),
+        title: const Text('Mark paid (manual)'),
         content: Text(
-          'Record full payment of ${formatMoney(invoice.totalAmount)} '
-          'for invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}?',
+          'Manually mark full payment of ${formatMoney(invoice.totalAmount)} '
+          'without hosted checkout? Use only for offline/admin capture.',
         ),
         actions: [
           TextButton(
@@ -418,7 +549,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Record Payment'),
+            child: const Text('Mark paid'),
           ),
         ],
       ),

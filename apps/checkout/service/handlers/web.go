@@ -126,21 +126,28 @@ type WebServer struct {
 	business     *business.CheckoutBusiness
 	renderer     *Renderer
 	registry     *business.MethodRegistry
+	partitions   business.PartitionAllowlists
 	cfg          *config.CheckoutConfig
 	spawnLimiter *rateLimiter
 }
 
 // NewWebServer creates a WebServer with a real clock rate limiter.
+// partitions may be empty (no partition-level method filtering).
 func NewWebServer(
 	biz *business.CheckoutBusiness,
 	renderer *Renderer,
 	registry *business.MethodRegistry,
 	cfg *config.CheckoutConfig,
+	partitions business.PartitionAllowlists,
 ) *WebServer {
+	if partitions == nil {
+		partitions = business.PartitionAllowlists{}
+	}
 	return &WebServer{
 		business:     biz,
 		renderer:     renderer,
 		registry:     registry,
+		partitions:   partitions,
 		cfg:          cfg,
 		spawnLimiter: newRateLimiter(cfg.LinkSpawnPerMinute, nil),
 	}
@@ -309,35 +316,61 @@ func (s *WebServer) guestHintsFromCookie(r *http.Request) business.GuestHints {
 	return hints
 }
 
-// buildMethods returns the method choices for a session, using prefill and optional guest hints.
+// buildMethods returns Link-style method choices for a session:
+// location + partition config + cached last-used preference.
 func (s *WebServer) buildMethods(session *models.CheckoutSession, r *http.Request, cluePhone string) []MethodChoice {
-	restriction := restrictionKeys(session.Methods)
-	available := s.registry.Available(restriction)
-	if len(available) == 0 {
-		return nil
-	}
-
 	clueKey := ""
 	phone := cluePhone
+	guestMethod := ""
 
 	if session.Prefill != nil {
-		clueKey, _ = session.Prefill["clueProvider"].(string)
+		// Prefer last provider key; fall back to lastMethod if it is a registry key.
+		if v, _ := session.Prefill["clueProvider"].(string); v != "" {
+			clueKey = v
+		} else if v, _ := session.Prefill["clueMethod"].(string); v != "" {
+			clueKey = v
+		}
 	}
 
-	// Guest: supplement with cookie hints for method preselect only
-	// (never echo hint phone to HTML — privacy)
+	// Guest device cookie supplies last method + phone locality hints
+	// (never echo raw phone to HTML — privacy).
+	hints := s.guestHintsFromCookie(r)
 	if session.PayerProfileID == "" {
-		hints := s.guestHintsFromCookie(r)
-		if clueKey == "" {
-			clueKey = hints.Method
-		}
+		guestMethod = hints.Method
 		if phone == "" {
 			phone = hints.Phone
 		}
+	} else if phone == "" && hints.Phone != "" {
+		// Recognized payer with no contacts: still use device phone for locality only.
+		phone = hints.Phone
 	}
 
-	selected := business.Preselect(available, clueKey, phone)
-	return methodChoices(available, selected)
+	// Location priority: edge geo headers → profile last country → guest cookie country.
+	country := business.DetectCountryFromHeaders(r.Header.Get)
+	if country == "" && session.Prefill != nil {
+		if c, _ := session.Prefill["country"].(string); c != "" {
+			country = strings.ToUpper(strings.TrimSpace(c))
+		}
+	}
+	if country == "" && hints.Country != "" {
+		country = strings.ToUpper(strings.TrimSpace(hints.Country))
+	}
+
+	filter := business.MethodFilter{
+		Currency:           session.Currency,
+		Phone:              phone,
+		Country:            country,
+		SessionRestriction: restrictionKeys(session.Methods),
+		PartitionAllowlist: s.partitions.ForPartition(session.PartitionID),
+		ClueMethod:         clueKey,
+		GuestMethod:        guestMethod,
+	}
+
+	resolved := s.registry.Resolve(filter)
+	if len(resolved.Available) == 0 {
+		return nil
+	}
+	return methodChoices(resolved.Available, resolved.Selected)
 }
 
 // pageDataFor builds a PageData from a session and request (common fields).
@@ -498,9 +531,17 @@ func (s *WebServer) HandlePay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Success: set guest cookie if phone provided
-	if in.PhoneNumber != "" {
-		hints := business.GuestHints{Phone: in.PhoneNumber, Method: in.MethodKey}
+	// Success: cache device hints (method + optional phone locality) like Link.
+	if in.MethodKey != "" || in.PhoneNumber != "" {
+		country := business.InferCountryFromPhone(in.PhoneNumber)
+		if country == "" {
+			country = business.DetectCountryFromHeaders(r.Header.Get)
+		}
+		hints := business.GuestHints{
+			Phone:   in.PhoneNumber,
+			Method:  in.MethodKey,
+			Country: country,
+		}
 		cookieVal := business.EncodeGuestHints(s.signingSecret(), hints)
 		http.SetCookie(w, &http.Cookie{
 			Name:     "co_hints",
@@ -601,6 +642,15 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	if session.Status == models.SessionStatusFailed {
 		lang := pickLang(r, "")
 		payload["failure_reason"] = T(lang, "failed_title")
+	}
+	// Surface redirect URL for card/redirect payment methods.
+	// Only emit when session is still processing and the URL passes the safe-URL check.
+	if session.Status == models.SessionStatusProcessing && session.Metadata != nil {
+		if redirectURL, ok := session.Metadata["_redirect_url"].(string); ok && redirectURL != "" {
+			if business.IsSafeReturnURL(redirectURL) {
+				payload["redirect_url"] = redirectURL
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, payload)
 }

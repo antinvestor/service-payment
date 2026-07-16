@@ -1,6 +1,6 @@
 # Service-specific configuration
 SERVICE_NAME := payment
-APP_DIRS     := apps/default apps/billing apps/checkout apps/ledger apps/integrations/airtel apps/integrations/jenga-api apps/integrations/mpesa apps/integrations/mtn apps/integrations/pawapay apps/integrations/polar apps/integrations/stripe
+APP_DIRS     := apps/default apps/billing apps/checkout apps/ledger apps/integrations/airtel apps/integrations/jenga-api apps/integrations/mpesa apps/integrations/mtn apps/integrations/pawapay apps/integrations/polar apps/integrations/stripe apps/integrations/flutterwave
 
 # Bootstrap: download shared Makefile.common if missing
 ifeq (,$(wildcard .tmp/Makefile.common))
@@ -36,8 +36,14 @@ proto-generate-checkout: $(BIN)/buf ## Regenerate checkout Go stubs locally
 	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
 	@(cd $(PROTO_DIR) && PATH="$$(go env GOPATH)/bin:$$PATH" buf generate --template buf.gen.checkout.yaml --path payment/checkout)
 
+.PHONY: proto-generate-billing-collection
+proto-generate-billing-collection: $(BIN)/buf ## Regenerate billing collection Go stubs locally
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+	@(cd $(PROTO_DIR) && PATH="$$(go env GOPATH)/bin:$$PATH" buf generate --template buf.gen.billing.collection.yaml --path billing/collection)
+
 # Wire dart generation into the standard proto-generate pipeline.
-proto-generate: proto-generate-dart proto-generate-checkout
+proto-generate: proto-generate-dart proto-generate-checkout proto-generate-billing-collection
 
 format: ## Format Go files (used by pre-commit hook)
 	gofmt -w .

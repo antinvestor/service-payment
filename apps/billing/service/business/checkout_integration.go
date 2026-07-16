@@ -40,10 +40,22 @@ type InvoiceCheckout struct {
 	PageURL    string
 }
 
+// CheckoutOptions customises CreateInvoiceCheckout.
+type CheckoutOptions struct {
+	// ReturnURL overrides the integration-level default return URL when non-empty.
+	ReturnURL string
+	// Source is stored in session metadata (e.g. invoice | subscription).
+	Source string
+	// PayerDisplayName is used for checkout prefill when the invoice has a profile.
+	PayerDisplayName string
+	// Methods restricts payment method keys shown on the hosted page (empty = all).
+	Methods []string
+}
+
 // CheckoutIntegration creates hosted checkout sessions for issued invoices
 // and settles invoices from verified completed sessions.
 type CheckoutIntegration interface {
-	CreateInvoiceCheckout(ctx context.Context, invoiceID string) (*InvoiceCheckout, error)
+	CreateInvoiceCheckout(ctx context.Context, invoiceID string, opts CheckoutOptions) (*InvoiceCheckout, error)
 	SettleFromCheckout(ctx context.Context, sessionRef string) (*models.Invoice, error)
 }
 
@@ -79,6 +91,7 @@ func NewCheckoutIntegration(
 func (c *checkoutIntegration) CreateInvoiceCheckout(
 	ctx context.Context,
 	invoiceID string,
+	opts CheckoutOptions,
 ) (result *InvoiceCheckout, err error) {
 	ctx, span := c.obs.StartSpan(ctx, "CreateInvoiceCheckout")
 	defer func() {
@@ -103,24 +116,38 @@ func (c *checkoutIntegration) CreateInvoiceCheckout(
 		return nil, fmt.Errorf("cannot build checkout amount: %w", err)
 	}
 
+	metadata := map[string]string{
+		"invoiceId":     invoice.GetID(),
+		"invoiceNumber": invoice.InvoiceNumber,
+	}
+	if invoice.SubscriptionID != "" {
+		metadata["subscriptionId"] = invoice.SubscriptionID
+	}
+	if opts.Source != "" {
+		metadata["source"] = opts.Source
+	}
+
 	req := &checkoutv1.CreateCheckoutSessionRequest{
 		Name:     "Invoice " + invoice.InvoiceNumber,
 		OrderRef: invoice.GetID(),
 		Amount:   money,
-		Metadata: map[string]string{
-			"invoiceId":     invoice.GetID(),
-			"invoiceNumber": invoice.InvoiceNumber,
-		},
+		Metadata: metadata,
+		Methods:  opts.Methods,
 	}
 
 	if invoice.ProfileID != "" {
 		req.Payer = &checkoutv1.PayerPrefill{
-			ProfileId: invoice.ProfileID,
+			ProfileId:   invoice.ProfileID,
+			DisplayName: opts.PayerDisplayName,
 		}
 	}
 
-	if c.returnURL != "" {
-		req.ReturnUrl = c.returnURL
+	returnURL := c.returnURL
+	if opts.ReturnURL != "" {
+		returnURL = opts.ReturnURL
+	}
+	if returnURL != "" {
+		req.ReturnUrl = returnURL
 	}
 
 	resp, err := c.checkoutCli.CreateCheckoutSession(ctx, connect.NewRequest(req))

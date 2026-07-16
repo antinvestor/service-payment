@@ -328,7 +328,7 @@ func (ts *CheckoutIntegrationSuite) TestCreateInvoiceCheckout_SessionCreated() {
 		invoice := makeIssuedInvoice(t, ctx, resources, profileID, "100.00")
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		result, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		result, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -400,7 +400,7 @@ func (ts *CheckoutIntegrationSuite) TestCreateInvoiceCheckout_DraftInvoice_NotPa
 		require.Equal(t, models.InvoiceStateDraft, invoice.State)
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		_, checkoutErr := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		_, checkoutErr := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 
 		require.Error(t, checkoutErr)
 		require.ErrorIs(t, checkoutErr, apperrors.ErrInvoiceNotPayable,
@@ -422,7 +422,7 @@ func (ts *CheckoutIntegrationSuite) TestSettleFromCheckout_FullFlow() {
 		invoice := makeIssuedInvoice(t, ctx, resources, profileID, "75.00")
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 		require.NoError(t, err)
 
 		// Drive session to completed: mutate the stored session status directly.
@@ -453,7 +453,7 @@ func (ts *CheckoutIntegrationSuite) TestSettleFromCheckout_Idempotent() {
 		invoice := makeIssuedInvoice(t, ctx, resources, profileID, "50.00")
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 		require.NoError(t, err)
 
 		stored := ch.sessionRepo.sessions[checkout.SessionRef]
@@ -486,7 +486,7 @@ func (ts *CheckoutIntegrationSuite) TestSettleFromCheckout_PendingSession_NotCom
 		invoice := makeIssuedInvoice(t, ctx, resources, profileID, "30.00")
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 		require.NoError(t, err)
 
 		// Leave the session as pending (do NOT drive to completed).
@@ -515,7 +515,7 @@ func (ts *CheckoutIntegrationSuite) TestSettleFromCheckout_AmountMismatch() {
 		invoice := makeIssuedInvoice(t, ctx, resources, profileID, "200.00")
 
 		integ := business.NewCheckoutIntegration(ch.client, resources.InvoiceRepo, resources.InvoiceEngine, "")
-		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID())
+		checkout, err := integ.CreateInvoiceCheckout(ctx, invoice.GetID(), business.CheckoutOptions{})
 		require.NoError(t, err)
 
 		// Mutate the stored session to have a different amount AND mark as completed.

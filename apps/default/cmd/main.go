@@ -17,7 +17,9 @@ package main
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
@@ -129,8 +131,7 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 		frame.WithPermissionRegistration(paymentSD),
 	}
 
-	// Register queue publishers
-
+	// Register queue publishers (default + optional per-route prompt fan-out).
 	promptPublisher := frame.WithRegisterPublisher(
 		cfg.InitiatePromptTopicName,
 		cfg.InitiatePromptTopicURI,
@@ -139,10 +140,11 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 		cfg.PaymentLinkTopicName,
 		cfg.PaymentLinkTopicURI,
 	)
+	serviceOptions = append(serviceOptions, promptPublisher, paymentLinkPublisher)
+	serviceOptions = append(serviceOptions, registerPromptRoutePublishers(ctx, cfg)...)
 
 	// Register event handlers with proper constructors
 	serviceOptions = append(serviceOptions,
-		promptPublisher, paymentLinkPublisher,
 		frame.WithRegisterEvents(
 			events.NewPaymentSave(paymentRepo, evtsMan),
 			events.NewPaymentInQueue(qMan, evtsMan, paymentRepo, routeRepo, profileCli),
@@ -180,6 +182,32 @@ func handleDatabaseMigration(
 		return true
 	}
 	return false
+}
+
+// registerPromptRoutePublishers parses INITIATE_PROMPT_ROUTE_URIS JSON and
+// registers one publisher per route as "prompt.<route>".
+func registerPromptRoutePublishers(ctx context.Context, cfg aconfig.PaymentConfig) []frame.Option {
+	raw := strings.TrimSpace(cfg.InitiatePromptRouteURIs)
+	if raw == "" {
+		return nil
+	}
+	var routes map[string]string
+	if err := json.Unmarshal([]byte(raw), &routes); err != nil {
+		util.Log(ctx).WithError(err).Error("INITIATE_PROMPT_ROUTE_URIS is not valid JSON — ignoring route fan-out")
+		return nil
+	}
+	opts := make([]frame.Option, 0, len(routes))
+	for route, uri := range routes {
+		route = strings.TrimSpace(strings.ToLower(route))
+		uri = strings.TrimSpace(uri)
+		if route == "" || uri == "" {
+			continue
+		}
+		ref := "prompt." + route
+		util.Log(ctx).WithField("route", route).WithField("publisher", ref).Info("registering initiate-prompt route publisher")
+		opts = append(opts, frame.WithRegisterPublisher(ref, uri))
+	}
+	return opts
 }
 
 // setupProfileClient creates and configures the profile service client.

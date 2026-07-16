@@ -1,0 +1,163 @@
+// Copyright 2023-2026 Ant Investor Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package collection.v1;
+
+// Simplified payment collection API for merchants and product apps.
+// Two happy paths:
+//   1. CollectPayment(invoice) → redirect user to page_url → ConfirmPayment(session_ref)
+//   2. StartSubscription(plan) → redirect user to page_url → ConfirmPayment(session_ref)
+// Zero-amount subscriptions skip checkout and activate immediately.
+
+import "buf/validate/validate.proto";
+import "common/v1/permissions.proto";
+
+// CollectionResult is returned when starting collection for an invoice or subscription.
+message CollectionResult {
+  // Hosted checkout page URL. Empty when no payment is required (free / zero total).
+  string page_url = 1;
+  // Checkout session reference. Empty when no payment is required.
+  string session_ref = 2;
+  // Invoice being collected (if any).
+  string invoice_id = 3;
+  // Subscription created or already linked (if any).
+  string subscription_id = 4;
+  // True when payment was not needed and the resource is already settled/active.
+  bool already_complete = 5;
+}
+
+// CollectPaymentRequest starts hosted checkout for an issued invoice.
+message CollectPaymentRequest {
+  string invoice_id = 1 [
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 40
+  ];
+  // Optional override for the post-payment browser return URL.
+  string return_url = 2 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE, (buf.validate.field).string.uri = true];
+  // Optional payment method keys (e.g. mpesa, mtn_momo). Empty = all methods
+  // available for the invoice currency on the hosted checkout page.
+  repeated string methods = 3;
+}
+
+message CollectPaymentResponse {
+  CollectionResult data = 1;
+}
+
+// StartSubscriptionRequest creates a subscription and, when the plan has an
+// upfront flat fee, a checkout session for first payment.
+message StartSubscriptionRequest {
+  string profile_id = 1 [(buf.validate.field).string.min_len = 1];
+  string plan_id = 2 [(buf.validate.field).string.min_len = 1];
+  string catalog_version_id = 3 [(buf.validate.field).string.min_len = 1];
+  string currency = 4 [
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 3
+  ];
+  // Optional override for the post-payment browser return URL.
+  string return_url = 5 [(buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE, (buf.validate.field).string.uri = true];
+  // Optional payer display name used to prefill the checkout page.
+  string payer_display_name = 6 [(buf.validate.field).string.max_len = 120];
+  // Optional payment method keys shown on checkout (empty = all for currency).
+  repeated string methods = 7;
+
+  // External-entity integration (product apps / entitlement systems).
+  // Mirrored onto Subscription.data and included in lifecycle queue events —
+  // same role as payment route destinations for Send/Receive.
+  //
+  // external_entity_id identifies the product resource this subscription
+  // entitles (workspace, membership, seat, device, …).
+  string external_entity_id = 8 [(buf.validate.field).string.max_len = 120];
+  // external_entity_type classifies the entity (e.g. "workspace", "membership").
+  string external_entity_type = 9 [(buf.validate.field).string.max_len = 64];
+  // integration_route_id optionally pins lifecycle delivery to one
+  // IntegrationRoute row (otherwise partition routes + default topic apply).
+  string integration_route_id = 10 [(buf.validate.field).string.max_len = 50];
+  // metadata is free-form product data stored on Subscription.data and
+  // forwarded on lifecycle events (keys reserved by billing are ignored).
+  map<string, string> metadata = 11;
+}
+
+message StartSubscriptionResponse {
+  CollectionResult data = 1;
+}
+
+// ConfirmPaymentRequest settles an invoice (and activates a pending subscription)
+// from a completed checkout session. Safe to call repeatedly (idempotent).
+message ConfirmPaymentRequest {
+  string session_ref = 1 [
+    (buf.validate.field).string.min_len = 8,
+    (buf.validate.field).string.max_len = 64
+  ];
+}
+
+// ConfirmPaymentResponse returns the settled invoice and optional subscription.
+message ConfirmPaymentResponse {
+  string invoice_id = 1;
+  string invoice_state = 2;
+  string subscription_id = 3;
+  string subscription_state = 4;
+  bool paid = 5;
+}
+
+// CancelSubscriptionRequest cancels an active or pending subscription.
+// For PENDING subscriptions still awaiting first payment, any open signup
+// invoice is voided automatically.
+message CancelSubscriptionRequest {
+  string subscription_id = 1 [
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 40
+  ];
+}
+
+message CancelSubscriptionResponse {
+  string subscription_id = 1;
+  string subscription_state = 2;
+  string voided_invoice_id = 3;
+}
+
+// CollectionService is the merchant-facing simplified payment collection API.
+service CollectionService {
+  // CollectPayment opens hosted checkout for an issued invoice.
+  // Redirect the end user to data.page_url, then call ConfirmPayment with data.session_ref.
+  rpc CollectPayment(CollectPaymentRequest) returns (CollectPaymentResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["payment_collect"]
+    };
+  }
+
+  // StartSubscription creates a subscription and opens checkout for any upfront fee.
+  // Redirect the end user to data.page_url when present; otherwise the subscription is already active.
+  rpc StartSubscription(StartSubscriptionRequest) returns (StartSubscriptionResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["subscription_manage"]
+    };
+  }
+
+  // ConfirmPayment captures a completed checkout session into billing.
+  // Source of truth is the checkout session status — never trust browser redirects alone.
+  rpc ConfirmPayment(ConfirmPaymentRequest) returns (ConfirmPaymentResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["payment_collect"]
+    };
+  }
+
+  // CancelSubscription cancels a subscription (and voids unpaid first invoices).
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["subscription_manage"]
+    };
+  }
+}

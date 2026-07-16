@@ -204,6 +204,11 @@ func (model *Prompt) getRecipientAccount() *paymentv1.Account {
 
 func (model *Prompt) ToAPI(message map[string]string) *paymentv1.InitiatePromptRequest {
 	extra := make(data.JSONMap)
+	// Carry persisted prompt extras (currency, success_url, customer_email, …).
+	for k, v := range model.Extra {
+		extra[k] = v
+	}
+	// Tenancy from JWT (via BaseModel.GenID) — integrators read these for webhooks/meta.
 	extra["tenant_id"] = model.TenantID
 	extra["partition_id"] = model.PartitionID
 	extra["access_id"] = model.AccessID

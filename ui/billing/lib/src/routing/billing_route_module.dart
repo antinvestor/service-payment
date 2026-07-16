@@ -8,6 +8,8 @@ import '../screens/catalog_list_screen.dart';
 import '../screens/catalog_detail_screen.dart';
 import '../screens/subscription_list_screen.dart';
 import '../screens/subscription_detail_screen.dart';
+import '../screens/start_subscription_screen.dart';
+import '../screens/payment_return_screen.dart';
 import '../screens/invoice_list_screen.dart';
 import '../screens/invoice_detail_screen.dart';
 import '../screens/usage_events_screen.dart';
@@ -38,6 +40,14 @@ class BillingRouteModule extends RouteModule {
           builder: (context, state) => const SubscriptionListScreen(),
           routes: [
             GoRoute(
+              path: 'start',
+              builder: (context, state) => StartSubscriptionScreen(
+                catalogVersionId: state.uri.queryParameters['catalogVersionId'],
+                planId: state.uri.queryParameters['planId'],
+                currency: state.uri.queryParameters['currency'],
+              ),
+            ),
+            GoRoute(
               path: ':subscriptionId',
               builder: (context, state) => SubscriptionDetailScreen(
                 subscriptionId: state.pathParameters['subscriptionId']!,
@@ -56,6 +66,14 @@ class BillingRouteModule extends RouteModule {
               ),
             ),
           ],
+        ),
+        // Hosted-checkout return landing (session + optional status query).
+        GoRoute(
+          path: '/billing/payment/return',
+          builder: (context, state) => PaymentReturnScreen(
+            sessionRef: state.uri.queryParameters['session'] ?? '',
+            statusHint: state.uri.queryParameters['status'],
+          ),
         ),
         GoRoute(
           path: '/billing/usage',
@@ -141,7 +159,9 @@ class BillingRouteModule extends RouteModule {
   Map<String, Set<String>> get routePermissions => {
         '/billing/catalogs': {'catalog_view'},
         '/billing/subscriptions': {'subscription_view'},
+        '/billing/subscriptions/start': {'subscription_manage'},
         '/billing/invoices': {'invoice_view'},
+        '/billing/payment/return': {'payment_collect'},
         '/billing/usage': {'usage_view'},
         '/billing/runs': {'billing_run_execute'},
         '/billing/credits': {'credit_manage'},
@@ -180,6 +200,11 @@ class BillingRouteModule extends RouteModule {
           PermissionEntry(
             key: 'invoice_manage',
             label: 'Manage Invoices',
+            scope: PermissionScope.action,
+          ),
+          PermissionEntry(
+            key: 'payment_collect',
+            label: 'Collect Payments',
             scope: PermissionScope.action,
           ),
           PermissionEntry(

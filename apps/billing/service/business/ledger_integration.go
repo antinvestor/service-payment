@@ -32,6 +32,13 @@ type LedgerIntegration interface {
 		invoice *models.Invoice,
 		arAccountID, revenueAccountID string,
 	) (string, error)
+	// PostPaymentToLedger records cash collection against AR:
+	// Debit Cash (ASSET), Credit AR (ASSET).
+	PostPaymentToLedger(
+		ctx context.Context,
+		invoice *models.Invoice,
+		cashAccountID, arAccountID string,
+	) (string, error)
 	PostCreditGrantToLedger(
 		ctx context.Context,
 		grant *models.CreditGrant,
@@ -88,6 +95,49 @@ func (l *ledgerIntegration) PostInvoiceToLedger(
 	result, err := l.txnBusiness.Transact(ctx, txn)
 	if err != nil {
 		return "", fmt.Errorf("failed to post invoice to ledger: %w", err)
+	}
+
+	return result.GetID(), nil
+}
+
+// PostPaymentToLedger creates a double-entry transaction: Debit Cash, Credit AR.
+// Idempotent by transaction ID derived from the invoice ID.
+func (l *ledgerIntegration) PostPaymentToLedger(
+	ctx context.Context,
+	invoice *models.Invoice,
+	cashAccountID, arAccountID string,
+) (string, error) {
+	if cashAccountID == "" || arAccountID == "" {
+		return "", nil // ledger accounts not configured — skip silently
+	}
+	txnID := fmt.Sprintf("billing_pay_%s", invoice.GetID())
+	amount := decimalx.DerefOr(invoice.TotalAmount, decimalx.Zero())
+
+	if amount.IsZero() {
+		return "", nil
+	}
+
+	txn := &ledgerModels.Transaction{
+		BaseModel:       data.BaseModel{ID: txnID},
+		Currency:        invoice.Currency,
+		TransactionType: "NORMAL",
+		Entries: []*ledgerModels.TransactionEntry{
+			{
+				AccountID: cashAccountID,
+				Amount:    amount.Ptr(),
+				Credit:    false, // Debit Cash
+			},
+			{
+				AccountID: arAccountID,
+				Amount:    amount.Ptr(),
+				Credit:    true, // Credit AR
+			},
+		},
+	}
+
+	result, err := l.txnBusiness.Transact(ctx, txn)
+	if err != nil {
+		return "", fmt.Errorf("failed to post payment to ledger: %w", err)
 	}
 
 	return result.GetID(), nil

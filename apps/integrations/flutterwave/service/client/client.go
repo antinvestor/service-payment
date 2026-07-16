@@ -72,6 +72,12 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
 	pmType := strings.ToLower(strings.TrimSpace(req.PaymentMethod.Type))
+	if pmType == "" {
+		pmType = "card"
+	}
+	hasEncryptedCard := req != nil && req.PaymentMethod.Card != nil &&
+		strings.TrimSpace(req.PaymentMethod.Card.EncryptedCardNumber) != "" &&
+		strings.TrimSpace(req.PaymentMethod.Card.Nonce) != ""
 
 	// Direct mobile-money charge (STK / push) — orchestrator or classic v3.
 	if pmType == "mobile_money" {
@@ -81,38 +87,74 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 		return c.orchestratorDirectCharge(ctx, creds, req)
 	}
 
-	// Embedded card: encrypted fields present → pure v4 orchestrator (no FW hosted page).
+	// Embedded card (primary): AES-GCM encrypted fields + v4 OAuth orchestrator.
 	// Docs: https://developer.flutterwave.com/docs/payment-orchestrator-flow
-	if pmType == "card" && req.PaymentMethod.Card != nil &&
-		req.PaymentMethod.Card.EncryptedCardNumber != "" &&
-		req.PaymentMethod.Card.Nonce != "" {
-		if IsV3Credentials(creds) {
-			return nil, errors.New("embedded card charges require Flutterwave v4 OAuth credentials")
+	// Docs: https://developer.flutterwave.com/docs/card
+	// Works with pure OAuth client_id/client_secret — no FLWSECK required.
+	if (pmType == "card" || pmType == "hosted" || pmType == "standard") && hasEncryptedCard {
+		if IsV3Credentials(creds) && !hasOAuth(creds) {
+			return nil, errors.New(
+				"embedded card charges need Flutterwave v4 OAuth (FLUTTERWAVE_CLIENT_ID + CLIENT_SECRET); " +
+					"FLWSECK_* alone cannot encrypt-orchestrator charge",
+			)
 		}
+		// Ensure type is card for the API body.
+		req.PaymentMethod.Type = "card"
 		return c.orchestratorDirectCharge(ctx, creds, req)
 	}
 
-	// Opay / USSD / explicit bank_transfer on v4.
+	// Opay / USSD / explicit bank_transfer on v4 OAuth.
 	if pmType == "opay" || pmType == "ussd" || pmType == "bank_transfer" {
-		if !IsV3Credentials(creds) {
+		if hasOAuth(creds) {
 			return c.orchestratorDirectCharge(ctx, creds, req)
+		}
+		if hasStandardSecret(creds) || IsV3Credentials(creds) {
+			// No v3 multipay for these shapes — require OAuth.
+			return nil, fmt.Errorf("payment method %q requires Flutterwave v4 OAuth credentials", pmType)
 		}
 	}
 
-	// Fallback: Flutterwave Standard multipayment page (v3 secret key).
-	// Only when the caller did not supply encrypted card fields (legacy redirect).
-	if hasStandardSecret(creds) || IsV3Credentials(creds) {
+	// Optional legacy: Flutterwave Standard multipay page (needs FLWSECK_*), only when
+	// the caller explicitly requested hosted multipay without encrypted card fields.
+	// Prefer this only when a classic secret is present — never required for OAuth tenants.
+	if (pmType == "hosted" || pmType == "standard" || pmType == "payment_link") &&
+		(hasStandardSecret(creds) || IsV3Credentials(creds)) {
+		return c.createStandardPaymentV3(ctx, creds, req)
+	}
+	if pmType == "card" && !hasEncryptedCard && (hasStandardSecret(creds) || IsV3Credentials(creds)) {
+		// Legacy multipay only as explicit fallback when FLWSECK is configured.
 		return c.createStandardPaymentV3(ctx, creds, req)
 	}
 
-	if pmType == "card" || pmType == "hosted" || pmType == "standard" || pmType == "" {
+	if pmType == "card" || pmType == "hosted" || pmType == "standard" || pmType == "payment_link" {
 		return nil, fmt.Errorf(
-			"embedded card checkout requires encrypted card fields (nonce + AES-GCM) on payment_method.card, " +
-				"or configure FLWSECK_* for legacy Standard hosted page fallback",
+			"card collection requires encrypted card fields from hosted checkout " +
+				"(encrypted_card_number + card_nonce via pay.*/c/{{session}}). " +
+				"Configure CHECKOUT_CARD_ENCRYPTION_KEY / FLUTTERWAVE_ENCRYPTION_KEY and open " +
+				"the pay page so the browser encrypts the card. " +
+				"Pure v4 OAuth does not use FLWSECK multipay",
 		)
 	}
 
 	return nil, fmt.Errorf("unsupported flutterwave payment method type %q", pmType)
+}
+
+// hasOAuth reports v4 client-credentials (UUID-style client id/secret).
+func hasOAuth(c *Credentials) bool {
+	if c == nil {
+		return false
+	}
+	if strings.TrimSpace(c.ClientID) == "" || strings.TrimSpace(c.ClientSecret) == "" {
+		return false
+	}
+	// v3 keys are never valid OAuth client secrets.
+	if strings.HasPrefix(c.ClientSecret, "FLWSECK_") || strings.HasPrefix(c.ClientSecret, "FLWSECK-") {
+		return false
+	}
+	if strings.HasPrefix(c.ClientID, "FLWPUBK_") {
+		return false
+	}
+	return true
 }
 
 // orchestratorDirectCharge is POST /orchestration/direct-charges (v4 OAuth).

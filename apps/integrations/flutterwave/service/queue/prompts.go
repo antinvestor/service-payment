@@ -163,14 +163,40 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		mode = "card"
 	} else if phone != "" {
 		if corridor := resolveMoMoCorridor(phone, currency); corridor != nil {
-			currency = corridor.Currency
-			pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
-			mode = "mobile_money"
+			// Only prefer MoMo when the caller did not force card.
+			forced := strings.ToLower(extraString(prompt.GetExtra(), "payment_method_type"))
+			if forced == "" || forced == "mobile_money" || forced == "momo" {
+				currency = corridor.Currency
+				pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
+				mode = "mobile_money"
+			}
 		}
 	}
 	if pm.Type == "" {
 		pm = h.defaultCollectionMethod(&prompt, currency)
 		mode = pm.Type
+	}
+	// Card without encrypted fields cannot charge on pure v4 OAuth — fail early
+	// with an actionable error (do not ask operators for FLWSECK multipay).
+	if strings.EqualFold(pm.Type, "card") && (pm.Card == nil || pm.Card.EncryptedCardNumber == "") {
+		// Allow legacy multipay only when FLWSECK is actually present.
+		if !client.IsV3Credentials(creds) && !hasStandardSecretCreds(creds) {
+			forced := strings.ToLower(extraString(prompt.GetExtra(), "payment_method_type"))
+			if forced == "hosted" || forced == "standard" || forced == "payment_link" {
+				// explicit multipay request without secret → clear error
+			}
+			h.metrics.QueueFailed(ctx, "prompt", "card_encryption_required")
+			h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+				"error": "card payment requires encrypted card fields from hosted checkout " +
+					"(open pay.stawi.org session and submit the card form; " +
+					"set CHECKOUT_CARD_ENCRYPTION_KEY / FLUTTERWAVE_ENCRYPTION_KEY). " +
+					"v4 OAuth does not use FLWSECK Standard multipay",
+				"entity_type": "prompt",
+				"mode":        "card",
+				"hint":        "use_embedded_checkout",
+			})
+			return nil
+		}
 	}
 
 	customer := client.CustomerInput{
@@ -474,6 +500,17 @@ func (h *promptHandler) defaultCollectionMethod(
 	default:
 		return client.PaymentMethodInput{Type: "card"}
 	}
+}
+
+func hasStandardSecretCreds(c *client.Credentials) bool {
+	if c == nil {
+		return false
+	}
+	sec := c.SecretKey
+	if sec == "" {
+		sec = c.ClientSecret
+	}
+	return strings.HasPrefix(sec, "FLWSECK_") || strings.HasPrefix(sec, "FLWSECK-")
 }
 
 // cardFromExtras builds CardDetails from portable prompt extras.

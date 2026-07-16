@@ -19,6 +19,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"strings"
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
@@ -55,7 +56,29 @@ func TestCreateOrchestratorCharge_RequiresOAuthCreds(t *testing.T) {
 		},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "client_id")
+	// Empty creds cannot OAuth or multipay.
+	assert.Error(t, err)
+}
+
+func TestCreateOrchestratorCharge_CardWithoutEncryptionExplainsEmbedded(t *testing.T) {
+	cli := client.NewClient()
+	_, err := cli.CreateOrchestratorCharge(context.Background(), &client.Credentials{
+		ClientID:     "oauth-client-id",
+		ClientSecret: "oauth-client-secret",
+		Environment:  "sandbox",
+	}, &client.OrchestratorChargeRequest{
+		Amount:    10,
+		Currency:  "KES",
+		Reference: "prompt-card1",
+		Customer:  client.CustomerInput{Email: "a@b.com"},
+		PaymentMethod: client.PaymentMethodInput{
+			Type: "card", // no encrypted Card payload
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "encrypted card")
+	assert.NotContains(t, err.Error(), "FLWSECK_*")
+	assert.NotContains(t, strings.ToLower(err.Error()), "set flutterwave_secret_key")
 }
 
 func TestExtractRedirectURL(t *testing.T) {

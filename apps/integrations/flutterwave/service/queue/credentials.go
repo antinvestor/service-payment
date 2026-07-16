@@ -42,10 +42,11 @@ func (r *credentialResolver) extractCredentials(
 	}
 
 	creds := &client.Credentials{
-		ClientID:      headerOrDefault(headers, config.HeaderClientID, r.cfg.ClientID),
-		ClientSecret:  headerOrDefault(headers, config.HeaderClientSecret, r.cfg.ClientSecret),
-		PublicKey:     firstNonEmpty(r.cfg.PublicKey, r.cfg.ClientID),
-		SecretKey:     firstNonEmpty(r.cfg.SecretKey, r.cfg.ClientSecret),
+		ClientID:     headerOrDefault(headers, config.HeaderClientID, r.cfg.ClientID),
+		ClientSecret: headerOrDefault(headers, config.HeaderClientSecret, r.cfg.ClientSecret),
+		// Do not copy OAuth client_secret into SecretKey — only real FLWSECK_* is classic.
+		PublicKey:     r.cfg.PublicKey,
+		SecretKey:     r.cfg.SecretKey,
 		EncryptionKey: r.cfg.EncryptionKey,
 		WebhookSecret: headerOrDefault(headers, config.HeaderWebhookSecret, r.cfg.WebhookSecret),
 		Environment:   headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
@@ -53,19 +54,32 @@ func (r *credentialResolver) extractCredentials(
 	}
 	// Accept dashboard v3 keys mapped into client_id/client_secret fields.
 	if strings.HasPrefix(creds.ClientID, "FLWPUBK_") {
-		creds.PublicKey = creds.ClientID
+		creds.PublicKey = firstNonEmpty(creds.PublicKey, creds.ClientID)
 	}
-	if strings.HasPrefix(creds.ClientSecret, "FLWSECK_") {
-		creds.SecretKey = creds.ClientSecret
+	if strings.HasPrefix(creds.ClientSecret, "FLWSECK_") || strings.HasPrefix(creds.ClientSecret, "FLWSECK-") {
+		creds.SecretKey = firstNonEmpty(creds.SecretKey, creds.ClientSecret)
+	}
+	// Ignore non-FLWSECK values left in SECRET_KEY (e.g. accidental OAuth paste).
+	if creds.SecretKey != "" &&
+		!strings.HasPrefix(creds.SecretKey, "FLWSECK_") &&
+		!strings.HasPrefix(creds.SecretKey, "FLWSECK-") {
+		creds.SecretKey = ""
 	}
 	if strings.EqualFold(creds.Environment, "production") {
 		creds.APIBaseURL = r.cfg.ProductionAPIBaseURL
 	} else {
 		creds.APIBaseURL = r.cfg.SandboxAPIBaseURL
 	}
+	// Prefer pure v4 OAuth when client_id/secret look like OAuth (not FLW*).
+	if creds.ClientID != "" && creds.ClientSecret != "" &&
+		!strings.HasPrefix(creds.ClientID, "FLWPUBK_") &&
+		!strings.HasPrefix(creds.ClientSecret, "FLWSECK_") &&
+		!strings.HasPrefix(creds.ClientSecret, "FLWSECK-") {
+		return creds, nil
+	}
 	if client.IsV3Credentials(creds) {
 		if creds.SecretKey == "" {
-			return nil, errors.New("missing Flutterwave secret key (FLWSECK_* via FLUTTERWAVE_CLIENT_SECRET or FLUTTERWAVE_SECRET_KEY)")
+			return nil, errors.New("missing Flutterwave secret key (FLWSECK_* via FLUTTERWAVE_SECRET_KEY)")
 		}
 		return creds, nil
 	}

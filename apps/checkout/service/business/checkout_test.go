@@ -1585,10 +1585,11 @@ func TestCreateSession_WithPayer_PrefillExactKeys(t *testing.T) {
 
 	prefill := session.Prefill
 	require.NotNil(t, prefill)
-	// displayName, language, clueProvider, clueMethod, clueContactId, country, email, contacts
-	assert.Len(t, prefill, 8)
+	// Multi-contact prefer: email + phone prefer ids, phone default, contacts list.
 	for _, key := range []string{
-		"displayName", "language", "clueProvider", "clueMethod", "clueContactId", "country", "email", "contacts",
+		"displayName", "language", "clueProvider", "clueMethod", "clueContactId",
+		"clueEmailContactId", "cluePhoneContactId", "country", "email", "emailContactId",
+		"phone", "contacts",
 	} {
 		_, ok := prefill[key]
 		assert.True(t, ok, "missing prefill key %s", key)

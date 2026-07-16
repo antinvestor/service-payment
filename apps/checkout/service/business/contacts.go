@@ -102,23 +102,67 @@ func classifyProfileContact(c *profilev1.ContactObject) contactKind {
 	}
 }
 
-// firstEmailFromContacts returns the first contact that is an email address.
-// Declared EMAIL type + shape, or EMAIL-zero with @ detail; never a phone.
-func firstEmailFromContacts(contacts []*profilev1.ContactObject) string {
+// contactPick is a resolved email or phone contact with id for preference write-back.
+type contactPick struct {
+	ContactID string
+	Detail    string
+}
+
+// pickEmailFromContacts chooses the preferred email contact when preferredID
+// matches an email contact; otherwise the first email-shaped contact.
+func pickEmailFromContacts(contacts []*profilev1.ContactObject, preferredID string) contactPick {
+	var first contactPick
 	for _, c := range contacts {
 		if classifyProfileContact(c) != contactKindEmail {
 			continue
 		}
-		if e := strings.TrimSpace(c.GetDetail()); e != "" {
-			return e
+		detail := strings.TrimSpace(c.GetDetail())
+		if detail == "" {
+			continue
+		}
+		id := c.GetId()
+		if preferredID != "" && id == preferredID {
+			return contactPick{ContactID: id, Detail: detail}
+		}
+		if first.Detail == "" {
+			first = contactPick{ContactID: id, Detail: detail}
 		}
 	}
-	return ""
+	return first
 }
 
-// phoneContactsFromProfile returns MSISDN-shaped contacts for the pay UI chips.
-func phoneContactsFromProfile(contacts []*profilev1.ContactObject) []map[string]any {
-	var out []map[string]any
+// pickPhoneFromContacts chooses the preferred phone contact when preferredID
+// matches a phone contact; otherwise the first phone-shaped contact.
+func pickPhoneFromContacts(contacts []*profilev1.ContactObject, preferredID string) contactPick {
+	var first contactPick
+	for _, c := range contacts {
+		if classifyProfileContact(c) != contactKindPhone {
+			continue
+		}
+		detail := strings.TrimSpace(c.GetDetail())
+		if detail == "" {
+			continue
+		}
+		id := c.GetId()
+		if preferredID != "" && id == preferredID {
+			return contactPick{ContactID: id, Detail: detail}
+		}
+		if first.Detail == "" {
+			first = contactPick{ContactID: id, Detail: detail}
+		}
+	}
+	return first
+}
+
+// firstEmailFromContacts returns the first contact that is an email address.
+func firstEmailFromContacts(contacts []*profilev1.ContactObject) string {
+	return pickEmailFromContacts(contacts, "").Detail
+}
+
+// phoneContactsFromProfile returns phone-shaped contacts for the pay UI chips.
+// preferredID is marked preferred and ordered first when present.
+func phoneContactsFromProfile(contacts []*profilev1.ContactObject, preferredID string) []map[string]any {
+	var preferred, rest []map[string]any
 	for _, c := range contacts {
 		if c == nil {
 			continue
@@ -130,32 +174,45 @@ func phoneContactsFromProfile(contacts []*profilev1.ContactObject) []map[string]
 		if msisdn == "" {
 			continue
 		}
-		out = append(out, map[string]any{
-			"contactId": c.GetId(),
+		id := c.GetId()
+		m := map[string]any{
+			"contactId": id,
 			"msisdn":    msisdn,
-		})
+		}
+		if preferredID != "" && id == preferredID {
+			m["preferred"] = true
+			preferred = append(preferred, m)
+			continue
+		}
+		rest = append(rest, m)
 	}
-	return out
+	return append(preferred, rest...)
 }
 
 // normalizeCallerPhoneContacts keeps only phone-shaped caller contacts.
 // Product may pass a raw identifier that is email or phone in Msisdn field.
-func normalizeCallerPhoneContacts(in []PayerContactInput) []map[string]any {
-	var out []map[string]any
+func normalizeCallerPhoneContacts(in []PayerContactInput, preferredID string) []map[string]any {
+	var preferred, rest []map[string]any
 	for _, c := range in {
 		raw := strings.TrimSpace(c.Msisdn)
 		if raw == "" {
 			continue
 		}
-		// Caller path only has ContactID + Msisdn (no type). Classify by shape.
-		if classifyContactDetail(raw) == contactKindPhone {
-			out = append(out, map[string]any{
-				"contactId": c.ContactID,
-				"msisdn":    raw,
-			})
+		if classifyContactDetail(raw) != contactKindPhone {
+			continue
 		}
+		m := map[string]any{
+			"contactId": c.ContactID,
+			"msisdn":    raw,
+		}
+		if preferredID != "" && c.ContactID == preferredID {
+			m["preferred"] = true
+			preferred = append(preferred, m)
+			continue
+		}
+		rest = append(rest, m)
 	}
-	return out
+	return append(preferred, rest...)
 }
 
 // firstEmailFromCallerContacts extracts an email if product put one in Msisdn/detail.
@@ -167,4 +224,22 @@ func firstEmailFromCallerContacts(in []PayerContactInput) string {
 		}
 	}
 	return ""
+}
+
+// pickEmailFromCallerContacts returns email + id from caller contacts when possible.
+func pickEmailFromCallerContacts(in []PayerContactInput, preferredID string) contactPick {
+	var first contactPick
+	for _, c := range in {
+		raw := strings.TrimSpace(c.Msisdn)
+		if classifyContactDetail(raw) != contactKindEmail {
+			continue
+		}
+		if preferredID != "" && c.ContactID == preferredID {
+			return contactPick{ContactID: c.ContactID, Detail: raw}
+		}
+		if first.Detail == "" {
+			first = contactPick{ContactID: c.ContactID, Detail: raw}
+		}
+	}
+	return first
 }

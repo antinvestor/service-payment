@@ -234,7 +234,8 @@ func buildReturnURL(returnURL, ref, status string) string {
 	return u.String()
 }
 
-// extractContacts builds []ContactChoice and the clue msisdn from prefill.
+// extractContacts builds []ContactChoice and the preferred msisdn from prefill.
+// Preferred phone (last successful payment contact) is selected first when present.
 // The clue msisdn is the raw msisdn for method preselect logic (not for display).
 func extractContacts(prefill map[string]any, clueContactID string) ([]ContactChoice, string) {
 	contactsRaw, hasContacts := prefill["contacts"]
@@ -246,8 +247,19 @@ func extractContacts(prefill map[string]any, clueContactID string) ([]ContactCho
 		return nil, ""
 	}
 
+	// Prefer explicit phone prefer id from prefill when set.
+	if clueContactID == "" {
+		if pid, _ := prefill["cluePhoneContactId"].(string); pid != "" {
+			clueContactID = pid
+		}
+	}
+
 	contacts := make([]ContactChoice, 0, len(list))
 	cluePhone := ""
+	// Also honour prefill.phone when chips exist.
+	if p, _ := prefill["phone"].(string); p != "" {
+		cluePhone = p
+	}
 
 	for _, raw := range list {
 		m, isMap := raw.(map[string]any)
@@ -256,8 +268,13 @@ func extractContacts(prefill map[string]any, clueContactID string) ([]ContactCho
 		}
 		cid, _ := m["contactId"].(string)
 		msisdn, _ := m["msisdn"].(string)
-		contacts = append(contacts, ContactChoice{ContactID: cid, Masked: MaskMsisdn(msisdn)})
-		if cid == clueContactID {
+		preferred, _ := m["preferred"].(bool)
+		contacts = append(contacts, ContactChoice{
+			ContactID: cid,
+			Masked:    MaskMsisdn(msisdn),
+			Preferred: preferred || (clueContactID != "" && cid == clueContactID),
+		})
+		if cid == clueContactID || preferred {
 			cluePhone = msisdn
 		}
 	}

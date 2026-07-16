@@ -99,6 +99,9 @@ body {
   font-size: .9rem;
 }
 
+.contact-option.preferred { font-weight: 600; }
+.pref-tag { color: #2563eb; font-size: .75rem; }
+
 /* Method chips: hide radio, style label as pill */
 .method-chips {
   display: flex;

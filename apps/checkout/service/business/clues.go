@@ -27,13 +27,20 @@ import (
 
 // Clues are the quick-repeat hints stored under the "checkout" key of a
 // profile's properties payload (Stripe Link-style memory).
+//
+// Profiles typically have multiple contacts (email + phones). After a successful
+// payment we record which contact(s) were preferred so the next checkout can
+// preselect them without re-entry.
 type Clues struct {
-	LastMethod    string `json:"lastMethod"`   // registry key or category
-	LastProvider  string `json:"lastProvider"` // preferred registry key (e.g. mpesa)
-	LastContactID string `json:"lastContactId"`
-	LastCurrency  string `json:"lastCurrency"`
-	LastCountry   string `json:"lastCountry"` // ISO 3166-1 alpha-2 when known
-	LastPaidAt    string `json:"lastPaidAt"`
+	LastMethod    string `json:"lastMethod"`    // registry key or category
+	LastProvider  string `json:"lastProvider"`  // preferred registry key (e.g. mpesa)
+	LastContactID string `json:"lastContactId"` // preferred payment contact (usually phone)
+	// Preferred email / phone contact ids when profile has several of each.
+	LastEmailContactID string `json:"lastEmailContactId,omitempty"`
+	LastPhoneContactID string `json:"lastPhoneContactId,omitempty"`
+	LastCurrency       string `json:"lastCurrency"`
+	LastCountry        string `json:"lastCountry"` // ISO 3166-1 alpha-2 when known
+	LastPaidAt         string `json:"lastPaidAt"`
 	// Tokenized instrument for one-click card / subscription renewals.
 	PaymentMethodID    string `json:"paymentMethodId,omitempty"`
 	ProviderCustomerID string `json:"providerCustomerId,omitempty"`
@@ -49,29 +56,47 @@ func CluesFromProperties(props *structpb.Struct) Clues {
 		return Clues{}
 	}
 	f := checkout.GetFields()
-	return Clues{
+	c := Clues{
 		LastMethod:         f["lastMethod"].GetStringValue(),
 		LastProvider:       f["lastProvider"].GetStringValue(),
 		LastContactID:      f["lastContactId"].GetStringValue(),
+		LastEmailContactID: f["lastEmailContactId"].GetStringValue(),
+		LastPhoneContactID: f["lastPhoneContactId"].GetStringValue(),
 		LastCurrency:       f["lastCurrency"].GetStringValue(),
 		LastCountry:        f["lastCountry"].GetStringValue(),
 		LastPaidAt:         f["lastPaidAt"].GetStringValue(),
 		PaymentMethodID:    f["paymentMethodId"].GetStringValue(),
 		ProviderCustomerID: f["providerCustomerId"].GetStringValue(),
 	}
+	// Back-compat: older clues only stored lastContactId — treat as phone prefer.
+	if c.LastPhoneContactID == "" && c.LastContactID != "" {
+		c.LastPhoneContactID = c.LastContactID
+	}
+	return c
 }
 
 // ToProperties renders the clues as a properties patch for profile Update.
 func (c Clues) ToProperties() *structpb.Struct {
+	// Prefer explicit phone prefer id for lastContactId (method preselect).
+	phonePrefer := c.LastPhoneContactID
+	if phonePrefer == "" {
+		phonePrefer = c.LastContactID
+	}
 	checkout := map[string]any{
 		"lastMethod":    c.LastMethod,
 		"lastProvider":  c.LastProvider,
-		"lastContactId": c.LastContactID,
+		"lastContactId": phonePrefer,
 		"lastCurrency":  c.LastCurrency,
 		"lastPaidAt":    c.LastPaidAt,
 	}
 	if c.LastCountry != "" {
 		checkout["lastCountry"] = c.LastCountry
+	}
+	if c.LastEmailContactID != "" {
+		checkout["lastEmailContactId"] = c.LastEmailContactID
+	}
+	if phonePrefer != "" {
+		checkout["lastPhoneContactId"] = phonePrefer
 	}
 	if c.PaymentMethodID != "" {
 		checkout["paymentMethodId"] = c.PaymentMethodID

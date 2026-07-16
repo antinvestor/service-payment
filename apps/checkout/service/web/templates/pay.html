@@ -35,9 +35,10 @@
     <button type="button" id="change" class="link-btn">{{t .Lang "change"}}</button>
     <div id="contact-edit" class="contact-list hidden">
       {{range $i, $c := .Contacts}}
-      <label class="contact-option">
+      <label class="contact-option{{if $c.Preferred}} preferred{{end}}">
+        {{/* Preferred payment phone is ordered first after a successful pay. */}}
         <input type="radio" name="contact_id" value="{{$c.ContactID}}"{{if eq $i 0}} checked{{end}}>
-        {{$c.Masked}}
+        {{$c.Masked}}{{if $c.Preferred}} <span class="pref-tag">★</span>{{end}}
       </label>
       {{end}}
     </div>

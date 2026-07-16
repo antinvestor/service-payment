@@ -82,10 +82,16 @@ func TestFirstEmailAndPhoneSplit(t *testing.T) {
 		{Id: "p2", Type: profilev1.ContactType_MSISDN, Detail: "+254711000000"},
 	}
 	assert.Equal(t, "bob@example.com", firstEmailFromContacts(contacts))
-	phones := phoneContactsFromProfile(contacts)
+	// Prefer p2 as last successful payment phone.
+	phones := phoneContactsFromProfile(contacts, "p2")
 	require.Len(t, phones, 2)
-	assert.Equal(t, "254700000001", phones[0]["msisdn"])
-	assert.Equal(t, "+254711000000", phones[1]["msisdn"])
+	assert.Equal(t, "+254711000000", phones[0]["msisdn"])
+	assert.Equal(t, true, phones[0]["preferred"])
+	assert.Equal(t, "254700000001", phones[1]["msisdn"])
+
+	emailPick := pickEmailFromContacts(contacts, "e1")
+	assert.Equal(t, "e1", emailPick.ContactID)
+	assert.Equal(t, "bob@example.com", emailPick.Detail)
 }
 
 func TestNormalizeCallerContacts(t *testing.T) {
@@ -95,7 +101,23 @@ func TestNormalizeCallerContacts(t *testing.T) {
 		{ContactID: "2", Msisdn: "254712345678"},
 	}
 	assert.Equal(t, "bob@example.com", firstEmailFromCallerContacts(in))
-	phones := normalizeCallerPhoneContacts(in)
+	phones := normalizeCallerPhoneContacts(in, "2")
 	require.Len(t, phones, 1)
 	assert.Equal(t, "254712345678", phones[0]["msisdn"])
+	assert.Equal(t, true, phones[0]["preferred"])
+}
+
+func TestPickPreferredAmongMany(t *testing.T) {
+	t.Parallel()
+	contacts := []*profilev1.ContactObject{
+		{Id: "e-old", Type: profilev1.ContactType_EMAIL, Detail: "old@example.com"},
+		{Id: "e-new", Type: profilev1.ContactType_EMAIL, Detail: "new@example.com"},
+		{Id: "p-old", Type: profilev1.ContactType_MSISDN, Detail: "254700000001"},
+		{Id: "p-new", Type: profilev1.ContactType_MSISDN, Detail: "254711111111"},
+	}
+	em := pickEmailFromContacts(contacts, "e-new")
+	assert.Equal(t, "new@example.com", em.Detail)
+	ph := pickPhoneFromContacts(contacts, "p-new")
+	assert.Equal(t, "254711111111", ph.Detail)
+	assert.Equal(t, "p-new", ph.ContactID)
 }

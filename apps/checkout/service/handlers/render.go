@@ -25,10 +25,12 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/web"
 )
 
-// ContactChoice represents a selectable payer contact.
+// ContactChoice represents a selectable payer contact (phone).
 type ContactChoice struct {
 	ContactID string
 	Masked    string
+	// Preferred is true for the last successfully used payment phone contact.
+	Preferred bool
 }
 
 // MethodChoice represents a payment method option.

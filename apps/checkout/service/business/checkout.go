@@ -335,10 +335,10 @@ func (b *CheckoutBusiness) applyPayer(
 
 	displayName := payer.DisplayName
 	language := payer.Language
-	var clueProvider, clueMethod, clueContactID, clueCountry, email string
+	var clueProvider, clueMethod, clueContactID, clueEmailContactID, cluePhoneContactID, clueCountry string
 	var paymentMethodID, providerCustomerID string
 	var profileContacts []*profilev1.ContactObject
-	email = strings.TrimSpace(payer.Email)
+	email := strings.TrimSpace(payer.Email)
 
 	// Fetch profile if ID provided
 	if payer.ProfileID != "" && b.profileCli != nil {
@@ -368,6 +368,11 @@ func (b *CheckoutBusiness) applyPayer(
 			}
 			clueMethod = clues.LastMethod
 			clueContactID = clues.LastContactID
+			clueEmailContactID = clues.LastEmailContactID
+			cluePhoneContactID = clues.LastPhoneContactID
+			if cluePhoneContactID == "" {
+				cluePhoneContactID = clueContactID
+			}
 			clueCountry = clues.LastCountry
 			paymentMethodID = clues.PaymentMethodID
 			providerCustomerID = clues.ProviderCustomerID
@@ -375,39 +380,88 @@ func (b *CheckoutBusiness) applyPayer(
 		}
 	}
 
-	// Contacts are email or phone. Classify carefully:
-	// ContactType_EMAIL is protobuf zero (0), so unset type + phone detail is common.
-	// Prefer declared type, but correct mislabels by inspecting detail shape.
+	// Profiles have multiple contacts (emails + phones). Classify carefully and
+	// prefer previously successful payment contacts when present.
+	// ContactType_EMAIL is protobuf zero (0) — shape corrects mislabels.
+	emailPick := pickEmailFromCallerContacts(payer.Contacts, clueEmailContactID)
 	if email == "" {
-		// Caller may have stuffed an email into Contacts[].Msisdn (no type field).
-		email = firstEmailFromCallerContacts(payer.Contacts)
+		email = emailPick.Detail
 	}
-	if email == "" {
-		email = firstEmailFromContacts(profileContacts)
+	if emailPick.ContactID == "" || email == "" {
+		emailPick = pickEmailFromContacts(profileContacts, clueEmailContactID)
+		if email == "" {
+			email = emailPick.Detail
+		}
+	}
+	if clueEmailContactID == "" && emailPick.ContactID != "" {
+		clueEmailContactID = emailPick.ContactID
 	}
 
-	// Phone chips: only phone-shaped contacts (never email addresses).
+	// Phone chips + default MSISDN: prefer last successful payment phone contact.
 	var phoneMaps []map[string]any
 	if len(payer.Contacts) > 0 {
-		phoneMaps = normalizeCallerPhoneContacts(payer.Contacts)
+		phoneMaps = normalizeCallerPhoneContacts(payer.Contacts, cluePhoneContactID)
 	}
 	if len(phoneMaps) == 0 {
-		phoneMaps = phoneContactsFromProfile(profileContacts)
+		phoneMaps = phoneContactsFromProfile(profileContacts, cluePhoneContactID)
 	}
+	// Preferred phone detail for locality / masked display.
+	phone := ""
+	phoneContactID := cluePhoneContactID
+	if len(phoneMaps) > 0 {
+		if phoneContactID == "" {
+			if id, _ := phoneMaps[0]["contactId"].(string); id != "" {
+				phoneContactID = id
+			}
+		}
+		// Ensure preferred flag on the chosen phone when we have an id.
+		for i := range phoneMaps {
+			id, _ := phoneMaps[i]["contactId"].(string)
+			if id != "" && id == phoneContactID {
+				phoneMaps[i]["preferred"] = true
+				if m, _ := phoneMaps[i]["msisdn"].(string); m != "" {
+					phone = m
+				}
+				// Move preferred to front.
+				if i > 0 {
+					phoneMaps[0], phoneMaps[i] = phoneMaps[i], phoneMaps[0]
+				}
+				break
+			}
+		}
+		if phone == "" {
+			phone, _ = phoneMaps[0]["msisdn"].(string)
+			phoneContactID, _ = phoneMaps[0]["contactId"].(string)
+		}
+	}
+	if cluePhoneContactID == "" {
+		cluePhoneContactID = phoneContactID
+	}
+	if clueContactID == "" {
+		clueContactID = cluePhoneContactID
+	}
+
 	contacts := make([]any, 0, len(phoneMaps))
 	for _, m := range phoneMaps {
 		contacts = append(contacts, m)
 	}
 
 	prefill := data.JSONMap{
-		"displayName":   displayName,
-		"language":      language,
-		"clueProvider":  clueProvider,
-		"clueMethod":    clueMethod,
-		"clueContactId": clueContactID,
-		"country":       clueCountry,
-		"email":         email,
-		"contacts":      contacts,
+		"displayName":        displayName,
+		"language":           language,
+		"clueProvider":       clueProvider,
+		"clueMethod":         clueMethod,
+		"clueContactId":      clueContactID,
+		"clueEmailContactId": clueEmailContactID,
+		"cluePhoneContactId": cluePhoneContactID,
+		"country":            clueCountry,
+		"email":              email,
+		"emailContactId":     emailPick.ContactID,
+		"phone":              phone,
+		"contacts":           contacts,
+	}
+	if emailPick.ContactID != "" {
+		prefill["emailContactId"] = emailPick.ContactID
 	}
 	if paymentMethodID != "" {
 		prefill["paymentMethodId"] = paymentMethodID
@@ -658,13 +712,28 @@ func (b *CheckoutBusiness) Pay(
 	session.Attempts++
 	session.LastAttemptAt = &now
 
-	// Store internal keys for clue write-back
+	// Store internal keys for clue write-back (preferred payment contacts).
 	if session.Metadata == nil {
 		session.Metadata = make(data.JSONMap)
 	}
 	session.Metadata["_method"] = in.MethodKey
 	if contactID != "" {
 		session.Metadata["_contact_id"] = contactID
+		session.Metadata["_phone_contact_id"] = contactID
+	}
+	// Email contact used for this pay (from prefill preference).
+	if session.Prefill != nil {
+		if eid, _ := session.Prefill["emailContactId"].(string); eid != "" {
+			session.Metadata["_email_contact_id"] = eid
+		} else if eid, _ := session.Prefill["clueEmailContactId"].(string); eid != "" {
+			session.Metadata["_email_contact_id"] = eid
+		}
+		// If card path and no phone selected, still remember preferred phone for next time.
+		if contactID == "" {
+			if pid, _ := session.Prefill["cluePhoneContactId"].(string); pid != "" {
+				session.Metadata["_phone_contact_id"] = pid
+			}
+		}
 	}
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
@@ -1201,20 +1270,34 @@ func (b *CheckoutBusiness) captureProviderExtras(
 // writeClues persists checkout clues to the payer's profile (best-effort).
 // Always stores the method key so the next visit can preselect like Stripe Link,
 // including card/redirect payments that may not have a linked contact.
+//
+// Also marks preferred payment contacts (phone + email) when the profile has
+// multiple contacts so the next checkout reuses them without re-entry.
 func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.CheckoutSession) {
 	if session.PayerProfileID == "" || b.profileCli == nil {
 		return
 	}
 
 	contactID := ""
+	phoneContactID := ""
+	emailContactID := ""
 	methodKey := ""
 	if session.Metadata != nil {
 		if cid, ok := session.Metadata["_contact_id"].(string); ok {
 			contactID = cid
 		}
+		if pid, ok := session.Metadata["_phone_contact_id"].(string); ok {
+			phoneContactID = pid
+		}
+		if eid, ok := session.Metadata["_email_contact_id"].(string); ok {
+			emailContactID = eid
+		}
 		if mk, ok := session.Metadata["_method"].(string); ok {
 			methodKey = mk
 		}
+	}
+	if phoneContactID == "" {
+		phoneContactID = contactID
 	}
 	if methodKey == "" {
 		return
@@ -1228,8 +1311,8 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 
 	// Infer country from the payer MSISDN (not contact ID).
 	msisdn := ""
-	if contactID != "" {
-		msisdn = b.findMsisdnFromPrefill(session, contactID)
+	if phoneContactID != "" {
+		msisdn = b.findMsisdnFromPrefill(session, phoneContactID)
 	}
 	country := InferCountryFromPhone(msisdn)
 	if country == "" && session.Prefill != nil {
@@ -1239,12 +1322,14 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 	}
 
 	clues := Clues{
-		LastMethod:    category,
-		LastProvider:  methodKey,
-		LastContactID: contactID,
-		LastCurrency:  session.Currency,
-		LastCountry:   country,
-		LastPaidAt:    b.now().Format(time.RFC3339),
+		LastMethod:         category,
+		LastProvider:       methodKey,
+		LastContactID:      phoneContactID,
+		LastPhoneContactID: phoneContactID,
+		LastEmailContactID: emailContactID,
+		LastCurrency:       session.Currency,
+		LastCountry:        country,
+		LastPaidAt:         b.now().Format(time.RFC3339),
 	}
 	// Tokenized card for Stripe Link-style reuse and subscription renewals.
 	if session.Metadata != nil {
@@ -1263,7 +1348,14 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 	if err != nil {
 		util.Log(ctx).WithError(err).Warn("could not write checkout clues to profile")
 		b.obs.RecordClueWritebackFailure(ctx)
+		return
 	}
+	util.Log(ctx).
+		WithField("profile_id", session.PayerProfileID).
+		WithField("phone_contact_id", phoneContactID).
+		WithField("email_contact_id", emailContactID).
+		WithField("method", methodKey).
+		Debug("wrote preferred payment contacts to profile clues")
 }
 
 // ---------------------------------------------------------------------------

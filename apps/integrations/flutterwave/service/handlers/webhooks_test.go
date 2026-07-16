@@ -51,22 +51,22 @@ func (s *stubPaymentClient) StatusUpdate(
 type stubFW struct{}
 
 func (f *stubFW) CreateOrchestratorCharge(context.Context, *client.Credentials, *client.OrchestratorChargeRequest) (*client.Charge, error) {
-	return nil, nil
+	return &client.Charge{}, nil
 }
 func (f *stubFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
-	return nil, nil
+	return &client.Charge{}, nil
 }
 func (f *stubFW) CreateTransferRecipient(context.Context, *client.Credentials, *client.TransferRecipientRequest) (string, error) {
 	return "", nil
 }
 func (f *stubFW) CreateTransfer(context.Context, *client.Credentials, map[string]any) (*client.Transfer, error) {
-	return nil, nil
+	return &client.Transfer{}, nil
 }
 func (f *stubFW) CreateDirectTransfer(context.Context, *client.Credentials, *client.DirectTransferRequest) (*client.Transfer, error) {
-	return nil, nil
+	return &client.Transfer{}, nil
 }
 func (f *stubFW) GetTransfer(context.Context, *client.Credentials, string) (*client.Transfer, error) {
-	return nil, nil
+	return &client.Transfer{}, nil
 }
 func (f *stubFW) VerifyWebhookSignature(rawBody []byte, signatureHeader, secretHash string) bool {
 	mac := hmac.New(sha256.New, []byte(secretHash))
@@ -103,7 +103,7 @@ func TestWebhook_ChargeCompleted(t *testing.T) {
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-	req.Header.Set("flutterwave-signature", sign(body, "sekrit"))
+	req.Header.Set("Flutterwave-Signature", sign(body, "sekrit"))
 	rr := httptest.NewRecorder()
 	srv.NewRouterV1().ServeHTTP(rr, req)
 
@@ -132,7 +132,7 @@ func TestWebhook_TransferDisburse(t *testing.T) {
 		},
 	})
 	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-	req.Header.Set("flutterwave-signature", sign(body, "sekrit"))
+	req.Header.Set("Flutterwave-Signature", sign(body, "sekrit"))
 	rr := httptest.NewRecorder()
 	srv.NewRouterV1().ServeHTTP(rr, req)
 
@@ -149,7 +149,7 @@ func TestWebhook_RejectsBadSignature(t *testing.T) {
 	srv := handlers.NewFlutterwaveWebhookServer(pay, fw, cfg)
 
 	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("flutterwave-signature", "wrong")
+	req.Header.Set("Flutterwave-Signature", "wrong")
 	rr := httptest.NewRecorder()
 	srv.NewRouterV1().ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)

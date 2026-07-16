@@ -520,6 +520,7 @@ func (b *CheckoutBusiness) SpawnSession(
 // Pay executes a payment attempt against an existing session.
 //
 //nolint:funlen // Guard chain + observability instrumentation makes this function inherently long; extraction would reduce clarity without reducing complexity.
+//nolint:gocognit // Pay orchestrates method resolve, payer, redirect vs prompt.
 func (b *CheckoutBusiness) Pay(
 	ctx context.Context,
 	ref string,
@@ -690,6 +691,8 @@ func (b *CheckoutBusiness) checkMethodRestriction(
 //
 // Prefill identity (email, name) and return URLs are forwarded in Extra so provider
 // integrations (Flutterwave v4) can build the customer object without re-prompting.
+//
+//nolint:gocognit // Builds prompt extras from prefill, metadata, and success URL.
 func (b *CheckoutBusiness) sendPrompt(
 	ctx context.Context,
 	session *models.CheckoutSession,

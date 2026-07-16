@@ -187,6 +187,8 @@ func (n *subscriptionLifecycleNotifier) Notify(
 }
 
 // resolvePublishers returns queue publisher references for this event.
+//
+//nolint:gocognit // Multi-provider publisher resolution with fallbacks.
 func (n *subscriptionLifecycleNotifier) resolvePublishers(
 	ctx context.Context,
 	evt SubscriptionLifecycleEvent,

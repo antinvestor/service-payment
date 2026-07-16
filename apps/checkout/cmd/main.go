@@ -50,7 +50,7 @@ import (
 // All services in this repo share the same constant value.
 const namespaceTenancyAccess = "tenancy_access"
 
-func main() {
+func main() { //nolint:funlen // service wiring is sequential bootstrap
 	ctx := context.Background()
 
 	cfg, err := config.LoadWithOIDC[aconfig.CheckoutConfig](ctx)

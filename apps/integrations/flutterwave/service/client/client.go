@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -187,6 +188,7 @@ func (c *flutterwaveClient) VerifyWebhookSignature(rawBody []byte, signatureHead
 
 // --- HTTP / OAuth ---
 
+//nolint:funlen,nonamedreturns // HTTP client glue with metrics; retErr captured by defer.
 func (c *flutterwaveClient) doJSON(
 	ctx context.Context,
 	creds *Credentials,
@@ -282,10 +284,10 @@ func (c *flutterwaveClient) doJSON(
 
 func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials) (string, error) {
 	if IsV3Credentials(creds) {
-		return "", fmt.Errorf("v3 secret-key mode does not use OAuth access tokens")
+		return "", errors.New("v3 secret-key mode does not use OAuth access tokens")
 	}
 	if creds == nil || creds.ClientID == "" || creds.ClientSecret == "" {
-		return "", fmt.Errorf("flutterwave client_id and client_secret are required (v4 OAuth)")
+		return "", errors.New("flutterwave client_id and client_secret are required (v4 OAuth)")
 	}
 	key := creds.ClientID + ":" + strings.ToLower(creds.Environment)
 
@@ -326,7 +328,7 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 		return "", fmt.Errorf("decode oauth token: %w", err)
 	}
 	if tok.AccessToken == "" {
-		return "", fmt.Errorf("oauth response missing access_token")
+		return "", errors.New("oauth response missing access_token")
 	}
 	expiresIn := tok.ExpiresIn
 	if expiresIn <= 0 {

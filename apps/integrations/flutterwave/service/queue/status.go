@@ -62,11 +62,11 @@ func formatMoneyAmount(amount interface {
 	GetUnits() int64
 	GetNanos() int32
 	GetCurrencyCode() string
-}) (value string, currency string) {
+}) (string, string) {
 	if amount == nil {
 		return "0", ""
 	}
-	currency = strings.ToUpper(amount.GetCurrencyCode())
+	currency := strings.ToUpper(amount.GetCurrencyCode())
 	units := amount.GetUnits()
 	nanos := amount.GetNanos()
 	// Preserve minor units when present (e.g. 10.50).

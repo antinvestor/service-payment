@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,7 +54,8 @@ func (c *Credentials) secretKey() string {
 	return firstNonEmpty(c.SecretKey, c.ClientSecret)
 }
 
-func (c *Credentials) publicKey() string {
+// PublicKeyValue returns the classic public key when set.
+func (c *Credentials) PublicKeyValue() string {
 	return firstNonEmpty(c.PublicKey, c.ClientID)
 }
 
@@ -146,7 +148,7 @@ func (c *flutterwaveClient) createMoMoChargeV3(
 
 	mm := req.PaymentMethod.MobileMoney
 	if mm == nil {
-		retErr = fmt.Errorf("mobile_money details required")
+		retErr = errors.New("mobile_money details required")
 		return nil, retErr
 	}
 
@@ -378,7 +380,7 @@ func (c *flutterwaveClient) doV3JSON(
 ) error {
 	secret := creds.secretKey()
 	if secret == "" {
-		return fmt.Errorf("flutterwave secret key required")
+		return errors.New("flutterwave secret key required")
 	}
 
 	var body io.Reader

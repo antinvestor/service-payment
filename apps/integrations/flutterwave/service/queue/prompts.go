@@ -229,7 +229,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 func (h *promptHandler) defaultCollectionMethod(
 	prompt *paymentv1.InitiatePromptRequest,
-	currency string,
+	_ string,
 ) client.PaymentMethodInput {
 	methodType := extraString(prompt.GetExtra(), "payment_method_type")
 	if methodType == "" {

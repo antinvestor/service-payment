@@ -106,16 +106,13 @@ func (s *FlutterwaveWebhookServer) HandleWebhook(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// v4: flutterwave-signature = base64(HMAC-SHA256(secret_hash, raw_body))
-	sig := r.Header.Get("flutterwave-signature")
-	if sig == "" {
-		sig = r.Header.Get("Flutterwave-Signature")
-	}
-	// Also accept legacy verif-hash exact match for dashboards still on that mode.
+	// v4: Flutterwave-Signature = base64(HMAC-SHA256(secret_hash, raw_body))
+	// Also accept legacy Verif-Hash exact match for dashboards still on that mode.
+	sig := r.Header.Get("Flutterwave-Signature")
 	if s.webhookSecret != "" {
 		ok := s.fwCli.VerifyWebhookSignature(body, sig, s.webhookSecret)
 		if !ok {
-			verif := r.Header.Get("verif-hash")
+			verif := r.Header.Get("Verif-Hash")
 			if verif == "" || verif != s.webhookSecret {
 				logger.Error("webhook signature verification failed")
 				s.metrics.WebhookRejected(ctx, "flutterwave", "verification_failed")

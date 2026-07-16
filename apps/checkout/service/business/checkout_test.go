@@ -742,6 +742,62 @@ func TestGetSessionByRef_ExpiryFlip(t *testing.T) {
 	assert.Equal(t, models.SessionStatusExpired, sessionRepo.lastUpdate.Status)
 }
 
+// Past-TTL processing session that was already paid must complete, not expire.
+func TestGetSessionByRef_ProcessingPastTTL_Paid_Completes(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Id:     "pay-1",
+			Status: commonv1.STATUS_SUCCESSFUL,
+		}),
+	}
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{}).
+		WithSynchronousClues()
+
+	past := fixedNow().Add(-1 * time.Minute)
+	s := &models.CheckoutSession{
+		Ref:       "paid-stuck",
+		Status:    models.SessionStatusProcessing,
+		PromptID:  "prompt-paid",
+		ExpiresAt: past,
+		Currency:  "KES",
+	}
+	sessionRepo.sessions["paid-stuck"] = s
+
+	got, err := b.GetSessionByRef(context.Background(), "paid-stuck")
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusCompleted, got.Status)
+	assert.Equal(t, "pay-1", got.PaymentID)
+}
+
+// Expired session that was paid while stuck is recovered to completed.
+func TestGetSessionByRef_Expired_Paid_Recovers(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Id:     "pay-2",
+			Status: commonv1.STATUS_SUCCESSFUL,
+		}),
+	}
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{}).
+		WithSynchronousClues()
+
+	s := &models.CheckoutSession{
+		Ref:       "expired-paid",
+		Status:    models.SessionStatusExpired,
+		PromptID:  "prompt-expired-paid",
+		ExpiresAt: fixedNow().Add(-10 * time.Minute),
+		Currency:  "KES",
+	}
+	sessionRepo.sessions["expired-paid"] = s
+
+	got, err := b.GetSessionByRef(context.Background(), "expired-paid")
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusCompleted, got.Status)
+}
+
 // 4b. GetSessionByRef does not expire processing sessions within TTL.
 func TestGetSessionByRef_NoExpiry_WhenNotPast(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()

@@ -500,6 +500,10 @@ func (b *CheckoutBusiness) applyPayer(
 // ---------------------------------------------------------------------------
 
 // GetSessionByRef retrieves a session by ref, flipping status to expired if needed.
+// Processing sessions that already succeeded at the payment provider are completed
+// first (never expire a paid charge as "link expired"). Already-expired sessions
+// with a PromptID are recovered the same way so users who paid while stuck on
+// confirm still land on the success page.
 func (b *CheckoutBusiness) GetSessionByRef(
 	ctx context.Context,
 	ref string,
@@ -509,7 +513,19 @@ func (b *CheckoutBusiness) GetSessionByRef(
 		return nil, fmt.Errorf("get session by ref: %w", err)
 	}
 
-	// Expire sessions that are pending/processing and past expiry
+	// Recover paid-but-stuck / paid-but-expired sessions before showing "gone".
+	if session.PromptID != "" &&
+		(session.Status == models.SessionStatusProcessing ||
+			session.Status == models.SessionStatusExpired) {
+		if refreshed, refreshErr := b.RefreshStatus(ctx, session); refreshErr == nil {
+			session = refreshed
+			if session.Status == models.SessionStatusCompleted {
+				return session, nil
+			}
+		}
+	}
+
+	// Expire unpaid sessions that are pending/processing and past expiry.
 	if (session.Status == models.SessionStatusPending || session.Status == models.SessionStatusProcessing) &&
 		b.now().After(session.ExpiresAt) {
 		session.Status = models.SessionStatusExpired
@@ -1163,11 +1179,19 @@ func (b *CheckoutBusiness) findMsisdnFromPrefill(
 // ---------------------------------------------------------------------------
 
 // RefreshStatus polls the payment service for an update on a processing session.
+// Also recovers expired sessions that still have a PromptID when the provider
+// already reported SUCCESSFUL (paid while the confirm poll was stuck).
 func (b *CheckoutBusiness) RefreshStatus(
 	ctx context.Context,
 	session *models.CheckoutSession,
 ) (*models.CheckoutSession, error) {
-	if session.Status != models.SessionStatusProcessing || session.PromptID == "" {
+	if session.PromptID == "" {
+		return session, nil
+	}
+	switch session.Status {
+	case models.SessionStatusProcessing, models.SessionStatusExpired:
+		// continue
+	default:
 		return session, nil
 	}
 

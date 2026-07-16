@@ -565,8 +565,13 @@ func (s *WebServer) HandlePage(w http.ResponseWriter, r *http.Request) {
 		s.renderPage(w, r, http.StatusOK, "done", data)
 
 	case models.SessionStatusExpired:
-		// Minimal data — nothing sensitive
-		data := PageData{Lang: pickLang(r, ""), AssetVersion: web.AssetVersion}
+		// Safe return URL only — never echo amount/payer on an expired link.
+		// Prefer sending the user back to the product so they can start a new session.
+		data := PageData{
+			Lang:         pickLang(r, ""),
+			AssetVersion: web.AssetVersion,
+			ReturnURL:    buildReturnURL(session.ReturnURL, ref, "expired"),
+		}
 		s.renderPage(w, r, http.StatusOK, "gone", data)
 
 	case models.SessionStatusProcessing:

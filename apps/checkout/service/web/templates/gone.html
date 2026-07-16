@@ -1,5 +1,11 @@
 {{template "layout_top" .}}
 
 <h2>{{t .Lang "gone_title"}}</h2>
+<p class="hint">{{t .Lang "gone_hint"}}</p>
+{{if .ReturnURL}}
+<a href="{{.ReturnURL}}" class="btn-primary return-link">{{t .Lang "gone_return"}}</a>
+{{else}}
+<p class="hint">{{t .Lang "gone_return_hint"}}</p>
+{{end}}
 
 {{template "layout_bottom" .}}

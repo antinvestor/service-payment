@@ -17,6 +17,7 @@ package business_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
@@ -28,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (ts *CollectionSuite) TestSettlementSweeper_SettlesCompletedSession() {
+func (ts *CollectionSuite) TestSettlementProcessor_SettlesCompletedSession() {
 	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := ts.CreateService(t, dep)
 		ch := newCheckoutTestHarness(t)
@@ -48,25 +49,28 @@ func (ts *CollectionSuite) TestSettlementSweeper_SettlesCompletedSession() {
 		require.NotNil(t, stored)
 		stored.Status = checkoutModels.SessionStatusCompleted
 
-		sweeper := business.NewSettlementSweeper(resources.InvoiceRepo, coll, 50)
-		result, err := sweeper.Sweep(ctx)
+		proc := business.NewSettlementProcessor(
+			resources.InvoiceRepo, coll, business.NewSettlementConfigFromEnv(6, "2,5,15"),
+		)
+		result, err := proc.ProcessInvoice(ctx, invoice.GetID())
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.GreaterOrEqual(t, result.Candidates, 1)
-		assert.GreaterOrEqual(t, result.Settled, 1)
+		assert.Equal(t, "settled", result.Action)
+		assert.True(t, result.Paid)
 
 		paid, err := resources.InvoiceEngine.GetInvoice(ctx, invoice.GetID())
 		require.NoError(t, err)
 		assert.Equal(t, models.InvoiceStatePaid, paid.State)
 
-		// Second sweep is a no-op (invoice no longer ISSUED).
-		again, err := sweeper.Sweep(ctx)
+		// Second process is a no-op (already paid).
+		again, err := proc.ProcessInvoice(ctx, invoice.GetID())
 		require.NoError(t, err)
-		assert.Equal(t, 0, again.Settled)
+		assert.Equal(t, "skipped", again.Action)
+		assert.True(t, again.Paid)
 	})
 }
 
-func (ts *CollectionSuite) TestSettlementSweeper_SkipsPendingSession() {
+func (ts *CollectionSuite) TestSettlementProcessor_PendingRearms() {
 	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := ts.CreateService(t, dep)
 		ch := newCheckoutTestHarness(t)
@@ -79,13 +83,17 @@ func (ts *CollectionSuite) TestSettlementSweeper_SkipsPendingSession() {
 
 		opened, err := coll.CollectPayment(ctx, business.CollectPaymentInput{InvoiceID: invoice.GetID()})
 		require.NoError(t, err)
+		require.NotEmpty(t, opened.SessionRef)
 
-		// Leave session pending.
-		_ = opened
-		sweeper := business.NewSettlementSweeper(resources.InvoiceRepo, coll, 50)
-		result, err := sweeper.Sweep(ctx)
+		// Leave session pending — ProcessInvoice should re-arm, not pay.
+		proc := business.NewSettlementProcessor(
+			resources.InvoiceRepo, coll, business.NewSettlementConfigFromEnv(6, "2,5,15"),
+		)
+		result, err := proc.ProcessInvoice(ctx, invoice.GetID())
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, result.Skipped, 1)
+		assert.Equal(t, "pending", result.Action)
+		assert.False(t, result.Paid)
+		assert.NotEmpty(t, result.NextSettleAt)
 
 		still, err := resources.InvoiceEngine.GetInvoice(ctx, invoice.GetID())
 		require.NoError(t, err)
@@ -93,10 +101,34 @@ func (ts *CollectionSuite) TestSettlementSweeper_SkipsPendingSession() {
 	})
 }
 
-func TestSettlementSweeper_NilCollection(t *testing.T) {
-	sweeper := business.NewSettlementSweeper(nil, nil, 10)
-	_, err := sweeper.Sweep(context.Background())
+func TestSettlementProcessor_NilCollection(t *testing.T) {
+	t.Parallel()
+	proc := business.NewSettlementProcessor(nil, nil, business.NewSettlementConfigFromEnv(0, ""))
+	_, err := proc.ProcessInvoice(context.Background(), "inv_1")
 	require.Error(t, err)
+}
+
+func TestSettlementConfig_RescheduleSpread(t *testing.T) {
+	t.Parallel()
+	cfg := business.NewSettlementConfigFromEnv(6, "2,5,15,30")
+	require.Len(t, cfg.RetryDelays, 6) // extended to max
+	base := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC)
+	n0, ok := cfg.NextSettleAt(base, 0)
+	require.True(t, ok)
+	assert.Equal(t, base.Add(2*time.Minute), n0)
+	n1, ok := cfg.NextSettleAt(base, 1)
+	require.True(t, ok)
+	assert.Equal(t, base.Add(5*time.Minute), n1)
+
+	now := base.Add(10 * time.Minute)
+	next, ok := cfg.RescheduleAfterPoll(now, 2) // gap 15-5=10m
+	require.True(t, ok)
+	assert.Equal(t, now.Add(10*time.Minute), next)
+}
+
+func TestTrustageSettleWorkflowName(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "billing.invoice.settle.inv_9", business.TrustageSettleWorkflowName("inv_9"))
 }
 
 func TestPostCashIdempotencyMarker(t *testing.T) {

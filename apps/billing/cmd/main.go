@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
@@ -53,7 +52,6 @@ import (
 	"github.com/pitabwire/frame/v2/datastore/pool"
 	"github.com/pitabwire/frame/v2/security"
 	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
-	"github.com/pitabwire/frame/v2/workerpool"
 	"github.com/pitabwire/util"
 )
 
@@ -166,11 +164,16 @@ func main() {
 		cfg.RenewalDefaultRoute,
 	)
 
-	// Per-subscription Trustage one-shot reminders (preferred over batch sweep).
+	// Per-entity Trustage one-shots (renew per subscription, settle per invoice).
 	var renewalScheduler business.RenewalScheduler = business.NoopRenewalScheduler{}
+	var settlementScheduler business.SettlementScheduler = business.NoopSettlementScheduler{}
+	settlementCfg := business.NewSettlementConfigFromEnv(
+		cfg.SettlementMaxAttempts,
+		cfg.SettlementRetryDelaysMinutesCSV,
+	)
 	trustageCli, trustageErr := setupTrustageClient(ctx, cfg)
 	if trustageErr != nil {
-		log.WithError(trustageErr).Warn("trustage client unavailable — per-sub renew schedules disabled")
+		log.WithError(trustageErr).Warn("trustage client unavailable — per-entity schedules disabled")
 	} else if trustageCli != nil && strings.TrimSpace(cfg.BillingInternalBaseURL) != "" {
 		renewalScheduler = business.NewTrustageRenewalScheduler(trustageCli, business.TrustageSchedulerConfig{
 			BillingBaseURL:        cfg.BillingInternalBaseURL,
@@ -178,10 +181,16 @@ func main() {
 			Renewal:               renewalCfg,
 			SubBiz:                subscriptionBus,
 		})
+		settlementScheduler = business.NewTrustageSettlementScheduler(trustageCli, business.SettlementSchedulerConfig{
+			BillingBaseURL:        cfg.BillingInternalBaseURL,
+			AdminTokenPlaceholder: "${BILLING_INTERNAL_ADMIN_TOKEN}",
+			Settlement:            settlementCfg,
+			InvoiceRepo:           invoiceRepo,
+		})
 		log.WithField("billing_base", cfg.BillingInternalBaseURL).
-			Info("renewal: per-subscription Trustage scheduler enabled")
+			Info("trustage: per-subscription renew + per-invoice settle schedulers enabled")
 	} else {
-		log.Info("renewal: Trustage URL or BILLING_INTERNAL_BASE_URL unset — using noop scheduler")
+		log.Info("trustage: URL or BILLING_INTERNAL_BASE_URL unset — using noop schedulers")
 	}
 
 	billingWorkflow := business.NewBillingWorkflow(
@@ -196,10 +205,14 @@ func main() {
 		checkoutInteg, invoiceEng, invoiceRepo, subscriptionBus,
 		planRepo, componentRepo, billingRunRepo, pricingEng,
 		ledgerInteg, ledgerAccounts,
-		business.CollectionOptions{Instruments: instrumentSrc, Scheduler: renewalScheduler},
+		business.CollectionOptions{
+			Instruments:         instrumentSrc,
+			Scheduler:           renewalScheduler,
+			SettlementScheduler: settlementScheduler,
+		},
 	)
-	settlementSweeper := business.NewSettlementSweeper(
-		invoiceRepo, collectionBiz, cfg.SettlementSweepBatchSize,
+	settlementProcessor := business.NewSettlementProcessor(
+		invoiceRepo, collectionBiz, settlementCfg, settlementScheduler,
 	)
 	renewalSweeper := business.NewRenewalSweeper(
 		subscriptionBus, planRepo, componentRepo,
@@ -224,7 +237,7 @@ func main() {
 	// Trustage / ops internal HTTP (renew + settle) mounted alongside Connect.
 	rootMux := http.NewServeMux()
 	rootMux.Handle("/", connectHandler)
-	mountInternalBillingRoutes(rootMux, &cfg, settlementSweeper, renewalSweeper)
+	mountInternalBillingRoutes(rootMux, &cfg, settlementProcessor, renewalSweeper)
 
 	// Setup HTTP handlers and register permissions with Keto
 	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
@@ -244,10 +257,7 @@ func main() {
 	}
 	service.Init(ctx, serviceOptions...)
 
-	// Settlement sweeper recovers abandoned browser return/confirm paths
-	// (checkout sessions, not subscription rebill).
-	go runSettlementSweeper(ctx, &cfg, settlementSweeper, workMan)
-	// Subscription renewals: per-sub Trustage one-shots only — no bulk ticker.
+	// Renew + settle: per-entity Trustage one-shots only — no bulk tickers.
 
 	// Startup service
 	err = service.Run(ctx, "")
@@ -368,62 +378,14 @@ func setupConnectServer(
 	return mux
 }
 
-// runSettlementSweeper ticks periodically and submits sweep work to the frame workerpool.
-// The raw goroutine is only the scheduler; Frame has no cron primitive.
-func runSettlementSweeper(
-	ctx context.Context,
-	cfg *aconfig.BillingConfig,
-	sweeper business.SettlementSweeper,
-	workMan workerpool.Manager,
-) {
-	intervalSec := cfg.SettlementSweepIntervalSeconds
-	if intervalSec <= 0 {
-		util.Log(ctx).Info("settlement sweeper disabled (interval <= 0)")
-		return
-	}
-	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
-	defer ticker.Stop()
-
-	util.Log(ctx).
-		WithField("interval_seconds", intervalSec).
-		Info("settlement sweeper started")
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
-				result, sweepErr := sweeper.Sweep(jobCtx)
-				if sweepErr != nil {
-					util.Log(jobCtx).WithError(sweepErr).Warn("settlement sweep failed")
-					return nil // do not retry the whole tick via workerpool
-				}
-				if result != nil && (result.Settled > 0 || result.Errors > 0) {
-					util.Log(jobCtx).
-						WithField("candidates", result.Candidates).
-						WithField("settled", result.Settled).
-						WithField("skipped", result.Skipped).
-						WithField("errors", result.Errors).
-						Info("settlement sweep completed")
-				}
-				return nil
-			})
-			if submitErr := workerpool.SubmitJob(ctx, workMan, job); submitErr != nil {
-				util.Log(ctx).WithError(submitErr).Warn("could not submit settlement sweep job")
-			}
-		}
-	}
-}
-
-// mountInternalBillingRoutes exposes Trustage-triggerable endpoints.
-// Renew: POST /_internal/billing/subscriptions/{id}/renew (one subscription only).
-// Settle: POST /_internal/billing/settle (open checkout invoices — not rebill).
+// mountInternalBillingRoutes exposes Trustage-triggerable per-entity endpoints.
+// Renew:  POST /_internal/billing/subscriptions/{id}/renew
+// Settle: POST /_internal/billing/invoices/{id}/settle
 // Auth: X-Admin-Token or Authorization: Bearer <BILLING_INTERNAL_ADMIN_TOKEN>.
 func mountInternalBillingRoutes(
 	mux *http.ServeMux,
 	cfg *aconfig.BillingConfig,
-	settlement business.SettlementSweeper,
+	settlement business.SettlementProcessor,
 	renewal business.RenewalProcessor,
 ) {
 	token := strings.TrimSpace(cfg.InternalAdminToken)
@@ -452,7 +414,7 @@ func mountInternalBillingRoutes(
 		_ = json.NewEncoder(w).Encode(v)
 	}
 
-	// Per-subscription Trustage callback — does NOT scan other subscriptions.
+	// Per-subscription Trustage callback — one subscription only.
 	mux.HandleFunc("POST /_internal/billing/subscriptions/{id}/renew", auth(func(w http.ResponseWriter, r *http.Request) {
 		id := strings.TrimSpace(r.PathValue("id"))
 		if id == "" {
@@ -461,8 +423,6 @@ func mountInternalBillingRoutes(
 		}
 		result, err := renewal.ProcessSubscription(r.Context(), id)
 		if err != nil {
-			// Still return 200 with action when business soft-failed after bookkeeping;
-			// hard errors (missing sub) are 502.
 			if result != nil && result.Action != "" && result.Action != "error" {
 				writeJSON(w, http.StatusOK, result)
 				return
@@ -476,11 +436,23 @@ func mountInternalBillingRoutes(
 		writeJSON(w, http.StatusOK, result)
 	}))
 
-	// Settlement only: completed hosted checkout sessions (not subscription rebill).
-	mux.HandleFunc("POST /_internal/billing/settle", auth(func(w http.ResponseWriter, r *http.Request) {
-		result, err := settlement.Sweep(r.Context())
+	// Per-invoice Trustage callback — one invoice only (no bulk scan).
+	mux.HandleFunc("POST /_internal/billing/invoices/{id}/settle", auth(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSpace(r.PathValue("id"))
+		if id == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invoice id required"})
+			return
+		}
+		result, err := settlement.ProcessInvoice(r.Context(), id)
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			if result != nil && result.Action != "" && result.Action != "error" {
+				writeJSON(w, http.StatusOK, result)
+				return
+			}
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":  err.Error(),
+				"result": result,
+			})
 			return
 		}
 		writeJSON(w, http.StatusOK, result)

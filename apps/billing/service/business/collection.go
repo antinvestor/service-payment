@@ -125,15 +125,17 @@ type collectionBusiness struct {
 	pricing        *PricingEngine
 	ledger         LedgerIntegration
 	ledgerAccounts CollectionLedgerAccounts
-	instruments    InstrumentSource // optional — pins COF on first settle
-	scheduler      RenewalScheduler // optional — per-sub Trustage reminder
+	instruments    InstrumentSource    // optional — pins COF on first settle
+	scheduler      RenewalScheduler    // optional — per-sub Trustage renew
+	settleSched    SettlementScheduler // optional — per-invoice Trustage settle
 	obs            *observability.Metrics
 }
 
 // CollectionOptions are optional deps for NewCollectionBusiness.
 type CollectionOptions struct {
-	Instruments InstrumentSource
-	Scheduler   RenewalScheduler
+	Instruments         InstrumentSource
+	Scheduler           RenewalScheduler
+	SettlementScheduler SettlementScheduler
 }
 
 // NewCollectionBusiness constructs the simplified collection orchestrator.
@@ -156,6 +158,7 @@ func NewCollectionBusiness(
 ) CollectionBusiness {
 	var inst InstrumentSource
 	var sched RenewalScheduler = NoopRenewalScheduler{}
+	var settleSched SettlementScheduler = NoopSettlementScheduler{}
 	for _, o := range optional {
 		switch v := o.(type) {
 		case InstrumentSource:
@@ -166,12 +169,19 @@ func NewCollectionBusiness(
 			if v != nil {
 				sched = v
 			}
+		case SettlementScheduler:
+			if v != nil {
+				settleSched = v
+			}
 		case CollectionOptions:
 			if v.Instruments != nil {
 				inst = v.Instruments
 			}
 			if v.Scheduler != nil {
 				sched = v.Scheduler
+			}
+			if v.SettlementScheduler != nil {
+				settleSched = v.SettlementScheduler
 			}
 		}
 	}
@@ -183,6 +193,7 @@ func NewCollectionBusiness(
 		planRepo:       planRepo,
 		instruments:    inst,
 		scheduler:      sched,
+		settleSched:    settleSched,
 		compRepo:       compRepo,
 		runRepo:        runRepo,
 		pricing:        pricing,
@@ -390,6 +401,10 @@ func (b *collectionBusiness) ConfirmPayment(
 
 	if invoice.State == models.InvoiceStatePaid {
 		b.postCashIfNeeded(ctx, invoice)
+		// Paid → no more settlement polls for this invoice.
+		if b.settleSched != nil {
+			_ = b.settleSched.CancelReminder(ctx, invoice.GetID())
+		}
 	}
 
 	// Subscription activation is best-effort after a successful settle.
@@ -691,7 +706,17 @@ func (b *collectionBusiness) persistCheckoutSession(
 		fresh.Data[InvoiceDataCollectionSource] = source
 	}
 	_, err = b.invoiceRepo.Update(ctx, fresh)
-	return err
+	if err != nil {
+		return err
+	}
+	// Per-invoice Trustage settle one-shot (abandoned browser recovery).
+	if b.settleSched != nil {
+		if sErr := b.settleSched.ScheduleFirst(ctx, fresh); sErr != nil {
+			util.Log(ctx).WithError(sErr).WithField("invoice_id", fresh.GetID()).
+				Warn("could not schedule trustage settlement reminder")
+		}
+	}
+	return nil
 }
 
 // CancelSubscription cancels a subscription.

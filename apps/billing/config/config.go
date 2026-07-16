@@ -29,11 +29,12 @@ type BillingConfig struct {
 	// Example: https://admin.stawi.org/billing/payment/return
 	CheckoutInvoiceReturnURL string `envDefault:"http://localhost:5173/billing/payment/return" env:"CHECKOUT_INVOICE_RETURN_URL"`
 
-	// SettlementSweepIntervalSeconds is how often billing auto-confirms completed
-	// checkout sessions for open invoices (abandoned browser recovery). 0 disables.
-	SettlementSweepIntervalSeconds int `envDefault:"60" env:"BILLING_SETTLEMENT_SWEEP_INTERVAL_SECONDS"`
-	// SettlementSweepBatchSize limits invoices processed per sweep tick.
-	SettlementSweepBatchSize int `envDefault:"50" env:"BILLING_SETTLEMENT_SWEEP_BATCH_SIZE"`
+	// Settlement is per-invoice Trustage one-shots (no bulk scan).
+	// SettlementRetryDelaysMinutesCSV: minutes from checkout open for each poll
+	// attempt (spread out). Default "2,5,15,30,60,120".
+	SettlementRetryDelaysMinutesCSV string `envDefault:"2,5,15,30,60,120" env:"BILLING_SETTLEMENT_RETRY_DELAYS_MINUTES"`
+	// SettlementMaxAttempts caps settle polls; then the Trustage reminder is archived.
+	SettlementMaxAttempts int `envDefault:"6" env:"BILLING_SETTLEMENT_MAX_ATTEMPTS"`
 
 	// Ledger account IDs used when posting invoice issue and payment capture.
 	// Empty values skip the corresponding ledger posts (safe for local dev).

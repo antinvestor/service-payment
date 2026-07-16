@@ -47,4 +47,39 @@ type BillingConfig struct {
 	// Empty URI disables the global default publisher (DB routes still work).
 	SubscriptionLifecycleTopicName string `envDefault:"subscription.lifecycle" env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_NAME"`
 	SubscriptionLifecycleTopicURI  string `env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_URI"`
+
+	// Payment service for server-side COF (card-on-file) renewals — Flutterwave v4
+	// token charges only (payment_method_id + customer_id + recurring=true).
+	PaymentServiceURI                   string `envDefault:"127.0.0.1:7000"                     env:"PAYMENT_SERVICE_URI"`
+	PaymentServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-payment"   env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
+
+	// Profile service — load checkout clues (saved payment_method_id / customer_id).
+	ProfileServiceURI                   string `envDefault:"" env:"PROFILE_SERVICE_URI"`
+	ProfileServiceWorkloadAPITargetPath string `envDefault:"/ns/identity/sa/service-profile" env:"PROFILE_SERVICE_WORKLOAD_API_TARGET_PATH"`
+
+	// RenewalLeadHours start collecting this many hours before period end.
+	// Used when scheduling the per-subscription Trustage one-shot.
+	RenewalLeadHours int `envDefault:"24" env:"BILLING_RENEWAL_LEAD_HOURS"`
+	// RenewalRetryDelaysCSV hours after first due moment for each attempt
+	// (spread out). Example "0,24,72,168" = immediate, +1d, +3d, +7d.
+	// On failure Trustage is re-armed to the next slot for that subscription only.
+	RenewalRetryDelaysCSV string `envDefault:"0,24,72,168" env:"BILLING_RENEWAL_RETRY_DELAYS_HOURS"`
+	// RenewalMaxAttempts caps collection attempts per billing period (includes first).
+	// After exhaustion the per-sub Trustage reminder is archived (past_due).
+	RenewalMaxAttempts int `envDefault:"4" env:"BILLING_RENEWAL_MAX_ATTEMPTS"`
+	// RenewalDefaultRoute is the payment route for COF charges (flutterwave v4 only).
+	RenewalDefaultRoute string `envDefault:"flutterwave" env:"BILLING_RENEWAL_DEFAULT_ROUTE"`
+
+	// InternalAdminToken authenticates Trustage callers of
+	// POST /_internal/billing/subscriptions/{id}/renew and settlement.
+	// Empty disables the HTTP trigger.
+	InternalAdminToken string `env:"BILLING_INTERNAL_ADMIN_TOKEN"`
+
+	// TrustageURL enables per-subscription renew reminders (Create/Activate/Archive workflows).
+	// Empty → NoopRenewalScheduler (no automatic per-sub schedules).
+	TrustageURL                   string `env:"TRUSTAGE_URL"`
+	TrustageWorkloadAPITargetPath string `envDefault:"/ns/platform/sa/service-trustage" env:"TRUSTAGE_WORKLOAD_API_TARGET_PATH"`
+	// BillingInternalBaseURL is the URL Trustage POSTs back to for each sub
+	// (e.g. http://service-payment-billing.finance.svc:80). Required for schedules.
+	BillingInternalBaseURL string `env:"BILLING_INTERNAL_BASE_URL"`
 }

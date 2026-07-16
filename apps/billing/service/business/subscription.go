@@ -43,6 +43,8 @@ type SubscriptionBusiness interface {
 	PatchSubscriptionData(ctx context.Context, id string, patch map[string]any) (*models.Subscription, error)
 	// NotifyBilled emits subscription.billed to external integrators after invoice pay.
 	NotifyBilled(ctx context.Context, sub *models.Subscription, invoiceID string)
+	// NotifyLifecycle emits an arbitrary lifecycle event (payment_failed, past_due, …).
+	NotifyLifecycle(ctx context.Context, eventType string, sub *models.Subscription, invoiceID string)
 }
 
 type subscriptionBusiness struct {
@@ -289,6 +291,16 @@ func (b *subscriptionBusiness) NotifyBilled(
 	invoiceID string,
 ) {
 	b.notifyLifecycle(ctx, models.SubscriptionEventBilled, sub, invoiceID)
+}
+
+// NotifyLifecycle publishes a named lifecycle event (best-effort).
+func (b *subscriptionBusiness) NotifyLifecycle(
+	ctx context.Context,
+	eventType string,
+	sub *models.Subscription,
+	invoiceID string,
+) {
+	b.notifyLifecycle(ctx, eventType, sub, invoiceID)
 }
 
 // PatchSubscriptionData merges patch keys into subscription.Data and saves.

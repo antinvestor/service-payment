@@ -62,6 +62,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/antinvestor/common/v2 v2.0.0 h1:ZGb5Zg3oA7s2sg0fcsnydgoaEnhs//gE8JaMwbV/1sE=
 github.com/antinvestor/common/v2 v2.0.0/go.mod h1:Be91T/fGXdU96sMZFB/usI2TUv711K6FTcj4cS/rltw=
+github.com/antinvestor/service-trustage v0.3.60 h1:oJHIS9pugKzYLmf8hVS5qDQxL0UvCnUwcI0NSSgNBvg=
+github.com/antinvestor/service-trustage v0.3.60/go.mod h1:kI+PCYB3irJid7AWcibq/eNKWavILL2O4j+1Jpf7xX4=
 github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op h1:Z/MZK75wC/NSrkgqeNIa7jexam9uWzhLmFTSCPI/kn0=
 github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op/go.mod h1:FQyySiasQQM8735Ddel3MRojmy4dA1IqCeyJ5jmPMbI=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=

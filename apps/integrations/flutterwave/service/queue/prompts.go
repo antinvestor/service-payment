@@ -239,6 +239,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 }
 
 // handleTokenCharge charges a previously saved payment method (subscription renewals).
+// Flutterwave v4 OAuth only — classic v3 secret-key multipay has no COF path.
 func (h *promptHandler) handleTokenCharge(
 	ctx context.Context,
 	logger *util.LogEntry,
@@ -247,6 +248,29 @@ func (h *promptHandler) handleTokenCharge(
 	promptID, customerID, paymentMethodID string,
 	headers map[string]string,
 ) error {
+	// Refuse classic v3 credentials for silent renewals. Token charges use
+	// POST /charges with payment_method_id (v4). Configure OAuth client_id/secret.
+	if client.IsV3Credentials(creds) && !hasOAuthCreds(creds) {
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error":       "token charge requires Flutterwave v4 OAuth credentials (not v3 secret keys)",
+			"entity_type": "prompt",
+			"api_version": "v4",
+			"mode":        "recurring",
+		})
+		return nil
+	}
+	// Explicit api_version=v3 on extras is rejected for COF.
+	if av := strings.ToLower(extraString(prompt.GetExtra(), "api_version")); av == "v3" {
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error":       "token charge does not support api_version=v3",
+			"entity_type": "prompt",
+			"api_version": "v4",
+		})
+		return nil
+	}
+
 	amountStr, currency := formatMoneyAmount(prompt.GetAmount())
 	if currency == "" {
 		currency = "KES"
@@ -270,7 +294,7 @@ func (h *promptHandler) handleTokenCharge(
 	if redirectURL == "" {
 		redirectURL = extraString(prompt.GetExtra(), "redirect_url")
 	}
-	meta := map[string]string{"prompt_id": promptID, "entity": "prompt", "mode": "recurring"}
+	meta := map[string]string{"prompt_id": promptID, "entity": "prompt", "mode": "recurring", "api_version": "v4"}
 	for _, k := range []string{"session_ref", "invoice_id", "subscription_id"} {
 		if v := extraString(prompt.GetExtra(), k); v != "" {
 			meta[k] = v
@@ -297,13 +321,30 @@ func (h *promptHandler) handleTokenCharge(
 		logger.WithError(err).Error("token charge failed")
 		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
 		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "prompt", "reference": reference,
+			"error": err.Error(), "entity_type": "prompt", "reference": reference, "api_version": "v4",
 		})
 		return nil
 	}
 	h.emitChargeStatus(ctx, logger, promptID, ch, "recurring", reference)
 	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil
+}
+
+// hasOAuthCreds mirrors client.hasOAuth without exporting it — v4 client credentials only.
+func hasOAuthCreds(c *client.Credentials) bool {
+	if c == nil {
+		return false
+	}
+	if strings.TrimSpace(c.ClientID) == "" || strings.TrimSpace(c.ClientSecret) == "" {
+		return false
+	}
+	if strings.HasPrefix(c.ClientSecret, "FLWSECK_") || strings.HasPrefix(c.ClientSecret, "FLWSECK-") {
+		return false
+	}
+	if strings.HasPrefix(c.ClientID, "FLWPUBK_") {
+		return false
+	}
+	return true
 }
 
 // handleAuthorize completes PIN / OTP / AVS on a pending charge.

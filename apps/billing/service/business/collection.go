@@ -125,11 +125,22 @@ type collectionBusiness struct {
 	pricing        *PricingEngine
 	ledger         LedgerIntegration
 	ledgerAccounts CollectionLedgerAccounts
+	instruments    InstrumentSource // optional — pins COF on first settle
+	scheduler      RenewalScheduler // optional — per-sub Trustage reminder
 	obs            *observability.Metrics
+}
+
+// CollectionOptions are optional deps for NewCollectionBusiness.
+type CollectionOptions struct {
+	Instruments InstrumentSource
+	Scheduler   RenewalScheduler
 }
 
 // NewCollectionBusiness constructs the simplified collection orchestrator.
 // ledger and ledgerAccounts may be nil/empty — cash posting is then skipped.
+// instruments may be nil — then ConfirmPayment skips COF pin (renewals fall back to profile).
+//
+// Optional trailing args: InstrumentSource and/or CollectionOptions.
 func NewCollectionBusiness(
 	checkout CheckoutIntegration,
 	invoiceEng InvoiceEngine,
@@ -141,13 +152,37 @@ func NewCollectionBusiness(
 	pricing *PricingEngine,
 	ledger LedgerIntegration,
 	ledgerAccounts CollectionLedgerAccounts,
+	optional ...any,
 ) CollectionBusiness {
+	var inst InstrumentSource
+	var sched RenewalScheduler = NoopRenewalScheduler{}
+	for _, o := range optional {
+		switch v := o.(type) {
+		case InstrumentSource:
+			if v != nil {
+				inst = v
+			}
+		case RenewalScheduler:
+			if v != nil {
+				sched = v
+			}
+		case CollectionOptions:
+			if v.Instruments != nil {
+				inst = v.Instruments
+			}
+			if v.Scheduler != nil {
+				sched = v.Scheduler
+			}
+		}
+	}
 	return &collectionBusiness{
 		checkout:       checkout,
 		invoiceEng:     invoiceEng,
 		invoiceRepo:    invoiceRepo,
 		subBiz:         subBiz,
 		planRepo:       planRepo,
+		instruments:    inst,
+		scheduler:      sched,
 		compRepo:       compRepo,
 		runRepo:        runRepo,
 		pricing:        pricing,
@@ -371,7 +406,15 @@ func (b *collectionBusiness) ConfirmPayment(
 			subState = sub.State
 			// Notify product integrators that this subscription invoice was paid.
 			if invoice.State == models.InvoiceStatePaid {
+				b.bootstrapPeriodAndInstrument(ctx, sub, invoice)
+				// Reload after patch for accurate NotifyBilled data.
+				if fresh, g2 := b.subBiz.GetSubscription(ctx, invoice.SubscriptionID); g2 == nil {
+					sub = fresh
+					subState = sub.State
+				}
 				b.subBiz.NotifyBilled(ctx, sub, invoice.GetID())
+				// First successful pay → schedule per-sub Trustage renew reminder.
+				b.syncRenewalReminder(ctx, sub)
 			}
 		}
 	}
@@ -388,6 +431,50 @@ func (b *collectionBusiness) ConfirmPayment(
 		SubscriptionState: subState,
 		Paid:              invoice.State == models.InvoiceStatePaid,
 	}, nil
+}
+
+// bootstrapPeriodAndInstrument pins currentPeriodEnd and COF instrument after
+// a successful interactive pay so silent renewals need no browser.
+func (b *collectionBusiness) bootstrapPeriodAndInstrument(
+	ctx context.Context,
+	sub *models.Subscription,
+	invoice *models.Invoice,
+) {
+	if sub == nil {
+		return
+	}
+	patch := map[string]any{}
+	// First period end = now + 1 calendar month (matches product monthly plans).
+	if _, has := sub.Data[models.SubDataCurrentPeriodEnd]; !has {
+		pe := time.Now().UTC().AddDate(0, 1, 0)
+		if !sub.BillingAnchor.IsZero() {
+			pe = sub.BillingAnchor.UTC().AddDate(0, 1, 0)
+		}
+		patch[models.SubDataCurrentPeriodEnd] = pe.Format(time.RFC3339)
+	}
+	patch[models.SubDataRenewAttemptCount] = 0
+	if invoice != nil {
+		patch[models.SubDataLastRenewInvoiceID] = invoice.GetID()
+	}
+	// Pin instrument from profile checkout clues when not already on the sub.
+	if instrumentFromData(sub.Data) == nil && b.instruments != nil {
+		if inst, err := b.instruments.ResolveInstrument(ctx, sub); err == nil && inst != nil {
+			patch[models.SubDataPaymentMethodID] = inst.PaymentMethodID
+			patch[models.SubDataProviderCustomerID] = inst.CustomerID
+			if inst.Provider != "" {
+				patch[models.SubDataPaymentProvider] = inst.Provider
+			} else {
+				patch[models.SubDataPaymentProvider] = "flutterwave"
+			}
+		}
+	}
+	if len(patch) == 0 {
+		return
+	}
+	if _, err := b.subBiz.PatchSubscriptionData(ctx, sub.GetID(), patch); err != nil {
+		util.Log(ctx).WithError(err).WithField("subscription_id", sub.GetID()).
+			Warn("could not bootstrap period/instrument after payment")
+	}
 }
 
 // postCashIfNeeded posts Debit Cash / Credit AR once per invoice.
@@ -607,8 +694,10 @@ func (b *collectionBusiness) persistCheckoutSession(
 	return err
 }
 
-// CancelSubscription cancels a subscription. Pending subscriptions still awaiting
-// first payment also have their open signup invoice voided.
+// CancelSubscription cancels a subscription.
+//   - PENDING: hard cancel + void open signup invoice
+//   - ACTIVE: soft cancel (cancel_at_period_end) — access until period end;
+//     RenewalSweeper hard-cancels after period end and emits cancelled
 //
 //nolint:nonamedreturns // named err captured by deferred span-end closure
 func (b *collectionBusiness) CancelSubscription(
@@ -643,26 +732,65 @@ func (b *collectionBusiness) CancelSubscription(
 		}, nil
 	}
 
-	var cancelled *models.Subscription
 	switch sub.State {
 	case models.SubscriptionStatePending:
-		cancelled, err = b.subBiz.CancelPendingSubscription(ctx, subscriptionID)
+		cancelled, cErr := b.subBiz.CancelPendingSubscription(ctx, subscriptionID)
+		if cErr != nil {
+			return nil, cErr
+		}
+		// Never paid — no renew reminder (cancel any stray).
+		if b.scheduler != nil {
+			_ = b.scheduler.CancelReminder(ctx, cancelled.GetID())
+		}
+		return &CancelSubscriptionResult{
+			SubscriptionID:    cancelled.GetID(),
+			SubscriptionState: cancelled.State,
+			VoidedInvoiceID:   voidedInvoiceID,
+		}, nil
 	case models.SubscriptionStateActive:
-		cancelled, err = b.subBiz.CancelSubscription(ctx, subscriptionID)
+		// Soft cancel: keep ACTIVE, skip rebill, finalize after period end.
+		if cancelAtPeriodEnd(sub.Data) {
+			return &CancelSubscriptionResult{
+				SubscriptionID:    sub.GetID(),
+				SubscriptionState: sub.State,
+				VoidedInvoiceID:   voidedInvoiceID,
+			}, nil
+		}
+		pe := currentPeriodEnd(sub)
+		if pe.IsZero() {
+			pe = time.Now().UTC().AddDate(0, 1, 0)
+		}
+		patched, pErr := b.subBiz.PatchSubscriptionData(ctx, subscriptionID, map[string]any{
+			models.SubDataCancelAtPeriodEnd: true,
+			models.SubDataCurrentPeriodEnd:  pe.UTC().Format(time.RFC3339),
+		})
+		if pErr != nil {
+			return nil, pErr
+		}
+		// Lifecycle: product mirrors cancel_at_period_end (still ACTIVE until End).
+		b.subBiz.NotifyLifecycle(ctx, models.SubscriptionEventCancelled, patched, "")
+		// Reschedule Trustage: drop rebill, keep finalize-at-period-end only.
+		b.syncRenewalReminder(ctx, patched)
+		return &CancelSubscriptionResult{
+			SubscriptionID:    patched.GetID(),
+			SubscriptionState: patched.State,
+			VoidedInvoiceID:   voidedInvoiceID,
+		}, nil
 	default:
 		return nil, apperrors.ErrSubscriptionNotActive.Extend(
 			fmt.Sprintf("cannot cancel subscription in state %s", sub.State),
 		)
 	}
-	if err != nil {
-		return nil, err
-	}
+}
 
-	return &CancelSubscriptionResult{
-		SubscriptionID:    cancelled.GetID(),
-		SubscriptionState: cancelled.State,
-		VoidedInvoiceID:   voidedInvoiceID,
-	}, nil
+func (b *collectionBusiness) syncRenewalReminder(ctx context.Context, sub *models.Subscription) {
+	if b.scheduler == nil || sub == nil {
+		return
+	}
+	if err := b.scheduler.SyncReminder(ctx, sub); err != nil {
+		util.Log(ctx).WithError(err).WithField("subscription_id", sub.GetID()).
+			Warn("could not sync trustage renewal reminder")
+	}
 }
 
 func (b *collectionBusiness) voidOpenSignupInvoice(

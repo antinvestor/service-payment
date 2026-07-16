@@ -51,6 +51,25 @@ const (
 	SubDataIntegrationRouteID = "integrationRouteId"
 	// SubDataSignupInvoiceID links the first-charge invoice (existing).
 	SubDataSignupInvoiceID = "signupInvoiceId"
+	// Card-on-file instrument (Flutterwave v4 pmd_* / cus_*) for silent renewals.
+	SubDataPaymentMethodID    = "paymentMethodId"
+	SubDataProviderCustomerID = "providerCustomerId"
+	SubDataPaymentProvider    = "paymentProvider"
+	// CancelAtPeriodEnd mirrors product soft-cancel: skip rebill, expire after EndAt.
+	SubDataCancelAtPeriodEnd = "cancelAtPeriodEnd"
+	// Renewal bookkeeping (JSON-friendly strings / numbers).
+	SubDataCurrentPeriodEnd   = "currentPeriodEnd"   // RFC3339
+	SubDataLastRenewAttemptAt = "lastRenewAttemptAt" // RFC3339
+	SubDataRenewAttemptCount  = "renewAttemptCount"  // int
+	SubDataLastRenewInvoiceID = "lastRenewInvoiceID"
+	SubDataRenewPeriodKey     = "renewPeriodKey" // idempotency: subscription:periodStart
+	// Next Trustage reminder fire time (RFC3339). Derived from period + dunning.
+	SubDataNextRenewAt = "nextRenewAt"
+	// Trustage workflow name for this subscription's renew reminder.
+	SubDataTrustageRenewWorkflow = "trustageRenewWorkflow"
+	// Lifecycle event for failed rebill (product past_due UX).
+	SubscriptionEventPaymentFailed = "subscription.payment_failed"
+	SubscriptionEventPastDue       = "subscription.past_due"
 )
 
 // IntegrationRoute routes billing lifecycle events to external entity queues,

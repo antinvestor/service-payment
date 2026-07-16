@@ -16,7 +16,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
@@ -24,6 +26,8 @@ import (
 
 	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
 	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/common/v2"
@@ -42,6 +46,7 @@ import (
 	// Ledger integration dependencies.
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerRepo "github.com/antinvestor/service-payments/apps/ledger/service/repository"
+	"github.com/antinvestor/service-trustage/gen/go/workflow/v1/workflowv1connect"
 	"github.com/pitabwire/frame/v2"
 	"github.com/pitabwire/frame/v2/config"
 	"github.com/pitabwire/frame/v2/datastore"
@@ -143,6 +148,42 @@ func main() {
 	}
 	checkoutInteg := business.NewCheckoutIntegration(checkoutCli, invoiceRepo, invoiceEng, cfg.CheckoutInvoiceReturnURL)
 
+	// Payment + profile clients for silent COF renewals (Flutterwave v4 token charges).
+	paymentCli, paymentErr := setupPaymentClient(ctx, cfg)
+	if paymentErr != nil {
+		log.WithError(paymentErr).Warn("payment client unavailable — COF renewals disabled until configured")
+	}
+	profileCli, profileErr := setupProfileClient(ctx, cfg)
+	if profileErr != nil {
+		log.WithError(profileErr).Warn("profile client unavailable — instrument pin falls back to subscription data only")
+	}
+	instrumentSrc := business.NewInstrumentSource(profileCli)
+	paymentCollector := business.NewPaymentCollector(paymentCli)
+	renewalCfg := business.NewRenewalConfigFromEnv(
+		cfg.RenewalLeadHours,
+		cfg.RenewalMaxAttempts,
+		cfg.RenewalRetryDelaysCSV,
+		cfg.RenewalDefaultRoute,
+	)
+
+	// Per-subscription Trustage one-shot reminders (preferred over batch sweep).
+	var renewalScheduler business.RenewalScheduler = business.NoopRenewalScheduler{}
+	trustageCli, trustageErr := setupTrustageClient(ctx, cfg)
+	if trustageErr != nil {
+		log.WithError(trustageErr).Warn("trustage client unavailable — per-sub renew schedules disabled")
+	} else if trustageCli != nil && strings.TrimSpace(cfg.BillingInternalBaseURL) != "" {
+		renewalScheduler = business.NewTrustageRenewalScheduler(trustageCli, business.TrustageSchedulerConfig{
+			BillingBaseURL:        cfg.BillingInternalBaseURL,
+			AdminTokenPlaceholder: "${BILLING_INTERNAL_ADMIN_TOKEN}",
+			Renewal:               renewalCfg,
+			SubBiz:                subscriptionBus,
+		})
+		log.WithField("billing_base", cfg.BillingInternalBaseURL).
+			Info("renewal: per-subscription Trustage scheduler enabled")
+	} else {
+		log.Info("renewal: Trustage URL or BILLING_INTERNAL_BASE_URL unset — using noop scheduler")
+	}
+
 	billingWorkflow := business.NewBillingWorkflow(
 		workMan, billingRunRepo, ratedLineRepo, subscriptionBus, catalogBus, componentRepo,
 		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg, checkoutInteg)
@@ -155,9 +196,15 @@ func main() {
 		checkoutInteg, invoiceEng, invoiceRepo, subscriptionBus,
 		planRepo, componentRepo, billingRunRepo, pricingEng,
 		ledgerInteg, ledgerAccounts,
+		business.CollectionOptions{Instruments: instrumentSrc, Scheduler: renewalScheduler},
 	)
 	settlementSweeper := business.NewSettlementSweeper(
 		invoiceRepo, collectionBiz, cfg.SettlementSweepBatchSize,
+	)
+	renewalSweeper := business.NewRenewalSweeper(
+		subscriptionBus, planRepo, componentRepo,
+		billingRunRepo, invoiceRepo, invoiceEng,
+		instrumentSrc, paymentCollector, renewalCfg, renewalScheduler,
 	)
 
 	// Create handlers with injected business layer
@@ -174,12 +221,16 @@ func main() {
 
 	// Setup Connect server with both BillingService and CollectionService
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), billingServer, collectionServer)
+	// Trustage / ops internal HTTP (renew + settle) mounted alongside Connect.
+	rootMux := http.NewServeMux()
+	rootMux.Handle("/", connectHandler)
+	mountInternalBillingRoutes(rootMux, &cfg, settlementSweeper, renewalSweeper)
 
 	// Setup HTTP handlers and register permissions with Keto
 	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
 	collectionSD := collectionv1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
 	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(connectHandler),
+		frame.WithHTTPHandler(rootMux),
 		frame.WithPermissionRegistration(billingSD),
 		frame.WithPermissionRegistration(collectionSD),
 	}
@@ -193,8 +244,10 @@ func main() {
 	}
 	service.Init(ctx, serviceOptions...)
 
-	// Settlement sweeper recovers abandoned browser return/confirm paths.
+	// Settlement sweeper recovers abandoned browser return/confirm paths
+	// (checkout sessions, not subscription rebill).
 	go runSettlementSweeper(ctx, &cfg, settlementSweeper, workMan)
+	// Subscription renewals: per-sub Trustage one-shots only — no bulk ticker.
 
 	// Startup service
 	err = service.Run(ctx, "")
@@ -213,6 +266,51 @@ func setupCheckoutClient(
 		WorkloadAPITargetPath: cfg.CheckoutServiceWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceCheckout,
 	}, checkoutv1connect.NewCheckoutServiceClient)
+}
+
+// setupPaymentClient dials service-payment for InitiatePrompt COF charges.
+func setupPaymentClient(
+	ctx context.Context,
+	cfg aconfig.BillingConfig,
+) (paymentv1connect.PaymentServiceClient, error) {
+	if strings.TrimSpace(cfg.PaymentServiceURI) == "" {
+		return nil, nil
+	}
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.PaymentServiceURI,
+		WorkloadAPITargetPath: cfg.PaymentServiceWorkloadAPITargetPath,
+		ServiceID:             servicecatalog.ServicePayment,
+	}, paymentv1connect.NewPaymentServiceClient)
+}
+
+// setupProfileClient dials profile for checkout instrument clues.
+func setupProfileClient(
+	ctx context.Context,
+	cfg aconfig.BillingConfig,
+) (profilev1connect.ProfileServiceClient, error) {
+	if strings.TrimSpace(cfg.ProfileServiceURI) == "" {
+		return nil, nil
+	}
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.ProfileServiceURI,
+		WorkloadAPITargetPath: cfg.ProfileServiceWorkloadAPITargetPath,
+		ServiceID:             servicecatalog.ServiceProfile,
+	}, profilev1connect.NewProfileServiceClient)
+}
+
+// setupTrustageClient dials Trustage for per-subscription renew workflows.
+func setupTrustageClient(
+	ctx context.Context,
+	cfg aconfig.BillingConfig,
+) (workflowv1connect.WorkflowServiceClient, error) {
+	if strings.TrimSpace(cfg.TrustageURL) == "" {
+		return nil, nil
+	}
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.TrustageURL,
+		WorkloadAPITargetPath: cfg.TrustageWorkloadAPITargetPath,
+		ServiceID:             servicecatalog.ServiceTrustage,
+	}, workflowv1connect.NewWorkflowServiceClient)
 }
 
 // ensureHypertables registers TimescaleDB hypertables idempotently.
@@ -316,4 +414,75 @@ func runSettlementSweeper(
 			}
 		}
 	}
+}
+
+// mountInternalBillingRoutes exposes Trustage-triggerable endpoints.
+// Renew: POST /_internal/billing/subscriptions/{id}/renew (one subscription only).
+// Settle: POST /_internal/billing/settle (open checkout invoices — not rebill).
+// Auth: X-Admin-Token or Authorization: Bearer <BILLING_INTERNAL_ADMIN_TOKEN>.
+func mountInternalBillingRoutes(
+	mux *http.ServeMux,
+	cfg *aconfig.BillingConfig,
+	settlement business.SettlementSweeper,
+	renewal business.RenewalProcessor,
+) {
+	token := strings.TrimSpace(cfg.InternalAdminToken)
+	auth := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if token == "" {
+				http.Error(w, `{"error":"internal_routes_disabled"}`, http.StatusServiceUnavailable)
+				return
+			}
+			got := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+			if got == "" {
+				if authz := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(authz), "bearer ") {
+					got = strings.TrimSpace(authz[7:])
+				}
+			}
+			if got == "" || got != token {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			next(w, r)
+		}
+	}
+	writeJSON := func(w http.ResponseWriter, status int, v any) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(v)
+	}
+
+	// Per-subscription Trustage callback — does NOT scan other subscriptions.
+	mux.HandleFunc("POST /_internal/billing/subscriptions/{id}/renew", auth(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSpace(r.PathValue("id"))
+		if id == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "subscription id required"})
+			return
+		}
+		result, err := renewal.ProcessSubscription(r.Context(), id)
+		if err != nil {
+			// Still return 200 with action when business soft-failed after bookkeeping;
+			// hard errors (missing sub) are 502.
+			if result != nil && result.Action != "" && result.Action != "error" {
+				writeJSON(w, http.StatusOK, result)
+				return
+			}
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":  err.Error(),
+				"result": result,
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}))
+
+	// Settlement only: completed hosted checkout sessions (not subscription rebill).
+	mux.HandleFunc("POST /_internal/billing/settle", auth(func(w http.ResponseWriter, r *http.Request) {
+		result, err := settlement.Sweep(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}))
 }

@@ -742,14 +742,23 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		payload["failure_reason"] = T(lang, "failed_title")
 	}
 	// Surface next steps for embedded card (3DS URL, PIN/OTP) while processing.
+	// Never emit our own pay.* URL as redirect_url — that loops confirm forever.
 	if session.Status == models.SessionStatusProcessing && session.Metadata != nil {
+		publicBase := ""
+		if s.cfg != nil {
+			publicBase = s.cfg.PublicBaseURL
+		}
 		if redirectURL, ok := session.Metadata["_redirect_url"].(string); ok && redirectURL != "" {
-			if business.IsSafeReturnURL(redirectURL) {
+			if business.IsExternalAuthRedirect(redirectURL, publicBase) {
 				payload["redirect_url"] = redirectURL
 			}
 		}
 		if na, ok := session.Metadata["_next_action"].(string); ok && na != "" {
-			payload["next_action"] = na
+			if na == "redirect_url" && payload["redirect_url"] == "" {
+				// No external target — ignore self/empty redirect next_action.
+			} else {
+				payload["next_action"] = na
+			}
 		}
 		if note, ok := session.Metadata["_payment_instruction"].(string); ok && note != "" {
 			payload["payment_instruction"] = note

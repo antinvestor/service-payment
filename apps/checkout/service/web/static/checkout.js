@@ -11,6 +11,12 @@
       fetch(pollURL)
         .then(function (res) { return res.json(); })
         .then(function (data) {
+          // Terminal status always wins — never chase a redirect after completion.
+          if (data.status === 'completed' || data.status === 'failed') {
+            clearInterval(intervalID);
+            finish(data);
+            return;
+          }
           if (data.next_action === 'requires_pin') {
             showAuthStep('auth-pin');
             return;
@@ -19,7 +25,7 @@
             showAuthStep('auth-otp');
             return;
           }
-          if (data.redirect_url) {
+          if (data.redirect_url && isExternalAuthRedirect(data.redirect_url)) {
             // 3DS / external auth — try iframe first, else top-level (banks often block iframe).
             clearInterval(intervalID);
             if (!openAuthFrame(data.redirect_url)) {
@@ -38,9 +44,6 @@
                   .catch(function () {});
               }, 2500);
             }
-          } else if (data.status === 'completed' || data.status === 'failed') {
-            clearInterval(intervalID);
-            finish(data);
           }
         })
         .catch(function () { /* network error — keep polling */ });
@@ -60,6 +63,20 @@
       }
     } else {
       location.reload();
+    }
+  }
+
+  // Ignore redirects back to this checkout host (providers echo success_url).
+  function isExternalAuthRedirect(url) {
+    if (!url) return false;
+    try {
+      var u = new URL(url, window.location.href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+      // Same origin as the confirm page = our pay.* session, not a bank ACS.
+      if (u.origin === window.location.origin) return false;
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 

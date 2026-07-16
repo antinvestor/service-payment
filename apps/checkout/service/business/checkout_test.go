@@ -1828,6 +1828,58 @@ func TestRefreshStatus_CapturesCheckoutURL(t *testing.T) {
 	assert.Equal(t, "https://polar.sh/checkout/abc123", updated.Metadata["_redirect_url"])
 }
 
+func TestIsExternalAuthRedirect(t *testing.T) {
+	t.Parallel()
+	base := "https://pay.stawi.org"
+	assert.True(t, business.IsExternalAuthRedirect("https://acs.bank.example/3ds", base))
+	assert.False(t, business.IsExternalAuthRedirect("https://pay.stawi.org/c/abc", base))
+	assert.False(t, business.IsExternalAuthRedirect("https://pay.stawi.org/c/abc/confirm", base))
+	assert.False(t, business.IsExternalAuthRedirect("javascript:alert(1)", base))
+	assert.False(t, business.IsExternalAuthRedirect("", base))
+	// No public base configured → any safe URL is treated as external.
+	assert.True(t, business.IsExternalAuthRedirect("https://acs.bank.example/3ds", ""))
+}
+
+func TestRefreshStatus_OwnCheckoutURL_NotCapturedAsRedirect(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"checkout_url":      "https://pay.example/c/sess-self",
+		"auth_redirect_url": "https://pay.example/c/sess-self",
+		"next_action":       "redirect_url",
+		"next_action_type":  "redirect_url",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		}),
+	}
+	cfg := defaultConfig()
+	cfg.PublicBaseURL = "https://pay.example"
+	b := newBusiness(cfg, redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+	ctx := context.Background()
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-self",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-self",
+		Currency: "KES",
+	}
+	sessionRepo.sessions["sess-self"] = s
+
+	updated, err := b.RefreshStatus(ctx, s)
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+	if updated.Metadata != nil {
+		assert.Empty(t, updated.Metadata["_redirect_url"], "own pay.* URL must not become 3DS redirect")
+		assert.Empty(t, updated.Metadata["_next_action"], "self redirect_url next_action must be dropped")
+	}
+}
+
 func TestRefreshStatus_CheckoutURL_Unsafe_Ignored(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()

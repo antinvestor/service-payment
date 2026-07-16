@@ -71,6 +71,29 @@ func IsSafeReturnURL(rawURL string) bool {
 	return scheme == "http" || scheme == "https"
 }
 
+// IsExternalAuthRedirect returns true when rawURL is a safe http(s) URL that is
+// NOT our own hosted checkout (pay.*). Providers sometimes echo the success_url
+// we sent them as next_action.redirect_url even after the charge already
+// succeeded; treating that as a 3DS redirect loops the confirm page forever.
+func IsExternalAuthRedirect(rawURL, publicBaseURL string) bool {
+	if !IsSafeReturnURL(rawURL) {
+		return false
+	}
+	if strings.TrimSpace(publicBaseURL) == "" {
+		return true
+	}
+	candidate, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	base, err := url.Parse(strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"))
+	if err != nil || base.Host == "" {
+		return true
+	}
+	// Same host as pay.stawi.org (optionally with /c/... path) is our session, not a bank ACS.
+	return !strings.EqualFold(candidate.Host, base.Host)
+}
+
 // methodCategoryMobileMoney is the clue category written to the payer profile on
 // a successful payment.  The registry models individual providers (e.g. "mpesa",
 // "mtn_momo"), not categories, so the category is hard-coded here today.
@@ -1241,19 +1264,36 @@ func (b *CheckoutBusiness) captureProviderExtras(
 		session.Metadata[key] = val
 		changed = true
 	}
-	// 3DS / legacy hosted URL
+	// 3DS / legacy hosted URL — never store our own pay.* success URL as a
+	// redirect; that freezes the confirm spinner in a self-navigation loop.
+	publicBase := ""
+	if b.cfg != nil {
+		publicBase = b.cfg.PublicBaseURL
+	}
 	if f, ok := extras.GetFields()["checkout_url"]; ok {
 		urlStr := f.GetStringValue()
-		if urlStr != "" && IsSafeReturnURL(urlStr) {
+		if IsExternalAuthRedirect(urlStr, publicBase) {
 			set("_redirect_url", urlStr)
 		}
 	}
 	if f, ok := extras.GetFields()["auth_redirect_url"]; ok {
 		urlStr := f.GetStringValue()
-		if urlStr != "" && IsSafeReturnURL(urlStr) {
+		if IsExternalAuthRedirect(urlStr, publicBase) {
 			set("_redirect_url", urlStr)
 		}
 	}
+	// Resolve whether any redirect URL in extras is an external bank/ACS target.
+	pairedRedirect := ""
+	if f, ok := extras.GetFields()["checkout_url"]; ok {
+		pairedRedirect = f.GetStringValue()
+	}
+	if pairedRedirect == "" {
+		if f, ok := extras.GetFields()["auth_redirect_url"]; ok {
+			pairedRedirect = f.GetStringValue()
+		}
+	}
+	externalRedirect := IsExternalAuthRedirect(pairedRedirect, publicBase)
+
 	for _, k := range []struct{ from, to string }{
 		{"next_action_type", "_next_action"},
 		{"next_action", "_next_action"},
@@ -1263,7 +1303,12 @@ func (b *CheckoutBusiness) captureProviderExtras(
 		{"payment_instruction", "_payment_instruction"},
 	} {
 		if f, ok := extras.GetFields()[k.from]; ok {
-			set(k.to, f.GetStringValue())
+			val := f.GetStringValue()
+			// Drop redirect_url next_action when it only points at our own checkout.
+			if k.to == "_next_action" && val == "redirect_url" && !externalRedirect {
+				continue
+			}
+			set(k.to, val)
 		}
 	}
 	if !changed {

@@ -415,34 +415,6 @@ func (h *promptHandler) emitChargeStatus(
 		extras["payment_method_id"] = pmd
 	}
 
-	na := client.ExtractNextAction(ch)
-	if na.Type != "" {
-		extras["next_action"] = string(na.Type)
-		extras["next_action_type"] = string(na.Type)
-	}
-	if na.RedirectURL != "" {
-		// Checkout reads extras.checkout_url for 3DS / legacy redirect.
-		extras["checkout_url"] = na.RedirectURL
-		extras["auth_redirect_url"] = na.RedirectURL
-	}
-	if na.Note != "" {
-		extras["payment_instruction"] = na.Note
-	}
-	if len(na.Fields) > 0 {
-		fields := make([]any, len(na.Fields))
-		for i, f := range na.Fields {
-			fields[i] = f
-		}
-		extras["avs_fields"] = fields
-	}
-	if ch.NextAction != nil {
-		if t, _ := ch.NextAction["type"].(string); t == "requires_bank_transfer" {
-			if bt, ok := ch.NextAction["requires_bank_transfer"].(map[string]any); ok {
-				extras["bank_transfer"] = bt
-			}
-		}
-	}
-
 	// Terminal statuses from provider on first response.
 	status := commonv1.STATUS_IN_PROCESS
 	switch strings.ToLower(ch.Status) {
@@ -452,8 +424,45 @@ func (h *promptHandler) emitChargeStatus(
 		status = commonv1.STATUS_FAILED
 	}
 
+	// Only surface next_action when the charge still needs payer interaction.
+	// Flutterwave often echoes our success_url as next_action.redirect_url even
+	// after status=succeeded; that would loop pay.stawi.org confirm forever.
+	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
+		na := client.ExtractNextAction(ch)
+		if na.Type != "" {
+			extras["next_action"] = string(na.Type)
+			extras["next_action_type"] = string(na.Type)
+		}
+		if na.RedirectURL != "" {
+			// Checkout reads extras.checkout_url for 3DS / legacy redirect.
+			extras["checkout_url"] = na.RedirectURL
+			extras["auth_redirect_url"] = na.RedirectURL
+		}
+		if na.Note != "" {
+			extras["payment_instruction"] = na.Note
+		}
+		if len(na.Fields) > 0 {
+			fields := make([]any, len(na.Fields))
+			for i, f := range na.Fields {
+				fields[i] = f
+			}
+			extras["avs_fields"] = fields
+		}
+		if ch.NextAction != nil {
+			if t, _ := ch.NextAction["type"].(string); t == "requires_bank_transfer" {
+				if bt, ok := ch.NextAction["requires_bank_transfer"].(map[string]any); ok {
+					extras["bank_transfer"] = bt
+				}
+			}
+		}
+	}
+
+	nextActionLog := ""
+	if v, ok := extras["next_action"].(string); ok {
+		nextActionLog = v
+	}
 	logger.WithField("charge_id", ch.ID).WithField("status", ch.Status).
-		WithField("next_action", na.Type).Debug("charge initiated")
+		WithField("next_action", nextActionLog).Debug("charge initiated")
 	h.emitStatus(ctx, promptID, ch.ID, status, extras)
 }
 

@@ -158,7 +158,7 @@ func TestInitiatePayout(t *testing.T) {
 				_, err := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, err)
 			}))
-			defer func() { _ = server.Close() }()
+			defer server.Close()
 			pawapayCli := client.NewClient()
 			resp, err := pawapayCli.InitiatePayout(context.Background(), testCreds(server.URL), &client.PayoutRequest{
 				PayoutID:    "f4401bd2-1568-4140-bf2d-eb77d2b2b639",
@@ -213,7 +213,7 @@ func TestInitiateDeposit(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.InitiateDeposit(context.Background(), testCreds(server.URL), &client.DepositRequest{
 		DepositID:            "8917c345-4791-4285-a416-62f24b6982db",
@@ -262,7 +262,7 @@ func TestGetDeposit(t *testing.T) {
 				_, err := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, err)
 			}))
-			defer func() { _ = server.Close() }()
+			defer server.Close()
 			pawapayCli := client.NewClient()
 			resp, err := pawapayCli.GetDeposit(
 				context.Background(), testCreds(server.URL), "8917c345-4791-4285-a416-62f24b6982db",
@@ -293,7 +293,7 @@ func TestGetPayoutFailed(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.GetPayout(
 		context.Background(), testCreds(server.URL), "8917c345-4791-4285-a416-62f24b6982db",
@@ -323,7 +323,7 @@ func TestInitiateBulkPayouts(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.InitiateBulkPayouts(context.Background(), testCreds(server.URL), []*client.PayoutRequest{
 		{PayoutID: "a", Amount: "10", Currency: "ZMW", PhoneNumber: "260763456789", Provider: "MTN_MOMO_ZMB"},
@@ -355,7 +355,7 @@ func TestInitiateRefund(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.InitiateRefund(context.Background(), testCreds(server.URL), &client.RefundRequest{
 		RefundID:  "11111111-1568-4140-bf2d-eb77d2b2b639",
@@ -421,7 +421,7 @@ func TestManualActions(t *testing.T) {
 				_, err := w.Write([]byte(`{"status":"ACCEPTED"}`))
 				assert.NoError(t, err)
 			}))
-			defer func() { _ = server.Close() }()
+			defer server.Close()
 			pawapayCli := client.NewClient()
 			resp, err := tt.call(pawapayCli, testCreds(server.URL))
 
@@ -446,7 +446,7 @@ func TestCreatePaymentPageSession(t *testing.T) {
 		_, err := w.Write([]byte(`{"redirectUrl":"https://paywith.pawapay.io/?token=abc"}`))
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.CreatePaymentPageSession(
 		context.Background(),
@@ -476,7 +476,7 @@ func TestPredictProvider(t *testing.T) {
 		_, err := w.Write([]byte(`{"country":"ZMB","provider":"MTN_MOMO_ZMB","phoneNumber":"260763456789"}`))
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.PredictProvider(context.Background(), testCreds(server.URL), "+260 763-456789")
 
@@ -497,7 +497,7 @@ func TestWalletBalances(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.WalletBalances(context.Background(), testCreds(server.URL), "ZMB")
 
@@ -526,7 +526,7 @@ func TestActiveConfiguration(t *testing.T) {
 		}`))
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.ActiveConfiguration(context.Background(), testCreds(server.URL), "ZMB", "DEPOSIT")
 
@@ -553,7 +553,7 @@ func TestAvailability(t *testing.T) {
 		)
 		assert.NoError(t, err)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.Availability(context.Background(), testCreds(server.URL), "", "")
 
@@ -592,7 +592,7 @@ func TestInitiatePayout_WithSigning(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"payoutId":"f4401bd2","status":"ACCEPTED","created":"2020-10-19T11:17:01Z"}`))
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.InitiatePayout(
 		context.Background(),
@@ -620,7 +620,7 @@ func TestInitiatePayout_NoSigning(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"payoutId":"f4401bd2","status":"ACCEPTED","created":"2020-10-19T11:17:01Z"}`))
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	resp, err := pawapayCli.InitiatePayout(
 		context.Background(),
@@ -645,7 +645,7 @@ func TestInitiatePayout_InvalidPEM(t *testing.T) {
 		hitServer = true
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer func() { _ = server.Close() }()
+	defer server.Close()
 	pawapayCli := client.NewClient()
 	_, err := pawapayCli.InitiatePayout(
 		context.Background(),

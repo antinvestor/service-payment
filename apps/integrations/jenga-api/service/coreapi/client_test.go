@@ -86,7 +86,7 @@ func TestGenerateBearerToken(t *testing.T) {
 				_, err := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, err)
 			}))
-			defer func() { _ = server.Close() }()
+			defer server.Close()
 			client := coreapi.New(server.Client())
 			creds := testCreds(server.URL)
 
@@ -175,7 +175,7 @@ func TestInitiateSTKUSSD(t *testing.T) {
 				_, writeErr := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, writeErr)
 			}))
-			defer func() { _ = server.Close() }()
+			defer server.Close()
 			client := coreapi.New(server.Client())
 			creds := testCreds(server.URL)
 

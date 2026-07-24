@@ -243,7 +243,7 @@ func (as *ConnectAPISuite) TestTransactions() {
 	as.WithTestDependencies(as.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx := t.Context()
 		lc, lContainer := as.setupDependencies(t, dep)
-		defer lContainer.Terminate(ctx)
+		defer func() { _ = lContainer.Terminate(ctx) }()
 
 		for _, tt := range testcases {
 			t.Run(tt.name, func(t *testing.T) {
@@ -364,7 +364,7 @@ func (as *ConnectAPISuite) TestClearBalances() {
 	as.WithTestDependencies(as.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx := t.Context()
 		lc, lContainer := as.setupDependencies(t, dep)
-		defer lContainer.Terminate(ctx)
+		defer func() { _ = lContainer.Terminate(ctx) }()
 
 		for _, tt := range testcases {
 			t.Run(tt.name, func(t *testing.T) {

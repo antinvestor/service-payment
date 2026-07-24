@@ -93,8 +93,7 @@ func (c *polarClient) CreateCheckout(
 	if err != nil {
 		return nil, fmt.Errorf("execute checkout request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,

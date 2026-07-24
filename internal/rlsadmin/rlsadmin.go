@@ -45,7 +45,7 @@ func GrantOwnership(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("rlsadmin: open admin db: %w", err)
 	}
-	defer adminDB.Close()
+	defer func() { _ = adminDB.Close() }()
 
 	stmts := []string{
 		`GRANT CREATE ON SCHEMA public TO ` + rlstest.Role,

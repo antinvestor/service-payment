@@ -404,7 +404,7 @@ func (c *flutterwaveClient) doV3JSON(
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("flutterwave v3 http %d: %s", resp.StatusCode, truncate(string(respBody), 512))

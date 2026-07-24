@@ -80,7 +80,7 @@ func TestHandleStkCallback(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"status": "success",
 				})
 			}

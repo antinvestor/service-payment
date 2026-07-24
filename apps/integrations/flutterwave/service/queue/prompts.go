@@ -181,10 +181,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	if strings.EqualFold(pm.Type, "card") && (pm.Card == nil || pm.Card.EncryptedCardNumber == "") {
 		// Allow legacy multipay only when FLWSECK is actually present.
 		if !client.IsV3Credentials(creds) && !hasStandardSecretCreds(creds) {
-			forced := strings.ToLower(extraString(prompt.GetExtra(), "payment_method_type"))
-			if forced == "hosted" || forced == "standard" || forced == "payment_link" {
-				// explicit multipay request without secret → clear error
-			}
+			// Card fields missing and no FLWSECK multipay secret: fail clearly.
 			h.metrics.QueueFailed(ctx, "prompt", "card_encryption_required")
 			h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
 				"error": "card payment requires encrypted card fields from hosted checkout " +

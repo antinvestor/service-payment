@@ -468,34 +468,8 @@ func (h *promptHandler) emitChargeStatus(
 	// Only surface next_action when the charge still needs payer interaction.
 	// Flutterwave often echoes our success_url as next_action.redirect_url even
 	// after status=succeeded; that would loop pay.stawi.org confirm forever.
-	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
-		na := client.ExtractNextAction(ch)
-		if na.Type != "" {
-			extras["next_action"] = string(na.Type)
-			extras["next_action_type"] = string(na.Type)
-		}
-		if na.RedirectURL != "" {
-			// Checkout reads extras.checkout_url for 3DS / legacy redirect.
-			extras["checkout_url"] = na.RedirectURL
-			extras["auth_redirect_url"] = na.RedirectURL
-		}
-		if na.Note != "" {
-			extras["payment_instruction"] = na.Note
-		}
-		if len(na.Fields) > 0 {
-			fields := make([]any, len(na.Fields))
-			for i, f := range na.Fields {
-				fields[i] = f
-			}
-			extras["avs_fields"] = fields
-		}
-		if ch.NextAction != nil {
-			if t, _ := ch.NextAction["type"].(string); t == "requires_bank_transfer" {
-				if bt, ok := ch.NextAction["requires_bank_transfer"].(map[string]any); ok {
-					extras["bank_transfer"] = bt
-				}
-			}
-		}
+	if !isTerminalPaymentStatus(status) {
+		mergeFlutterwaveNextActionExtras(extras, ch)
 	}
 
 	nextActionLog := ""
@@ -608,4 +582,47 @@ func sanitizeRef(s string) string {
 		out = out + "xxxxxx"
 	}
 	return out
+}
+
+func isTerminalPaymentStatus(status commonv1.STATUS) bool {
+	return status == commonv1.STATUS_SUCCESSFUL || status == commonv1.STATUS_FAILED
+}
+
+// mergeFlutterwaveNextActionExtras adds redirect / AVS / bank-transfer hints for
+// non-terminal charges only (caller must gate on status).
+func mergeFlutterwaveNextActionExtras(extras map[string]any, ch *client.Charge) {
+	na := client.ExtractNextAction(ch)
+	if na.Type != "" {
+		extras["next_action"] = string(na.Type)
+		extras["next_action_type"] = string(na.Type)
+	}
+	if na.RedirectURL != "" {
+		// Checkout reads extras.checkout_url for 3DS / legacy redirect.
+		extras["checkout_url"] = na.RedirectURL
+		extras["auth_redirect_url"] = na.RedirectURL
+	}
+	if na.Note != "" {
+		extras["payment_instruction"] = na.Note
+	}
+	if len(na.Fields) > 0 {
+		fields := make([]any, len(na.Fields))
+		for i, f := range na.Fields {
+			fields[i] = f
+		}
+		extras["avs_fields"] = fields
+	}
+	mergeBankTransferExtra(extras, ch)
+}
+
+func mergeBankTransferExtra(extras map[string]any, ch *client.Charge) {
+	if ch.NextAction == nil {
+		return
+	}
+	t, _ := ch.NextAction["type"].(string)
+	if t != "requires_bank_transfer" {
+		return
+	}
+	if bt, ok := ch.NextAction["requires_bank_transfer"].(map[string]any); ok {
+		extras["bank_transfer"] = bt
+	}
 }

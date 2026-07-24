@@ -447,16 +447,6 @@ func methodIsUniversal(m Method) bool {
 	return len(m.Prefixes) == 0 && len(m.Countries) == 0
 }
 
-func methodMatchesLocality(m Method, phone, country string) bool {
-	if phone != "" && methodMatchesPhone(m, phone) {
-		return true
-	}
-	if country != "" && methodMatchesCountry(m, country) {
-		return true
-	}
-	return false
-}
-
 func methodMatchesPhone(m Method, phone string) bool {
 	if phone == "" || len(m.Prefixes) == 0 {
 		return false

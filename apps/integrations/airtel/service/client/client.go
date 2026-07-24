@@ -99,8 +99,7 @@ func (c *airtelClient) generateToken(ctx context.Context, creds *AirtelCredentia
 	if err != nil {
 		return "", fmt.Errorf("execute token request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(respBody))
@@ -172,8 +171,7 @@ func (c *airtelClient) CollectionPush(
 	if err != nil {
 		return nil, fmt.Errorf("execute collection request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,
@@ -241,8 +239,7 @@ func (c *airtelClient) Disburse(
 	if err != nil {
 		return nil, fmt.Errorf("execute disbursement request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,
@@ -288,8 +285,7 @@ func (c *airtelClient) TransactionStatus(
 	if err != nil {
 		return nil, fmt.Errorf("execute status request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("status check failed with status %d: %s", resp.StatusCode, string(respBody))

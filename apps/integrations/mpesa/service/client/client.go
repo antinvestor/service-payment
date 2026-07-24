@@ -90,8 +90,7 @@ func (c *client) generateToken(ctx context.Context, creds *MpesaCredentials) (st
 	if err != nil {
 		return "", fmt.Errorf("execute token request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
@@ -150,8 +149,7 @@ func (c *client) doAuthenticatedPost(
 	if err != nil {
 		return fmt.Errorf("execute %s request: %w", logType, err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,

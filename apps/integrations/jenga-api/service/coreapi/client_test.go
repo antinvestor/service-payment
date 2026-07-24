@@ -86,8 +86,7 @@ func TestGenerateBearerToken(t *testing.T) {
 				_, err := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, err)
 			}))
-			defer server.Close()
-
+			defer func() { _ = server.Close() }()
 			client := coreapi.New(server.Client())
 			creds := testCreds(server.URL)
 
@@ -176,8 +175,7 @@ func TestInitiateSTKUSSD(t *testing.T) {
 				_, writeErr := w.Write([]byte(tt.responseBody))
 				assert.NoError(t, writeErr)
 			}))
-			defer server.Close()
-
+			defer func() { _ = server.Close() }()
 			client := coreapi.New(server.Client())
 			creds := testCreds(server.URL)
 
@@ -200,7 +198,7 @@ func TestGenerateSignature(t *testing.T) {
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "test-private-key")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.WriteString(
 		"-----BEGIN PRIVATE KEY-----\nMIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n-----END PRIVATE KEY-----",

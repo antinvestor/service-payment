@@ -727,8 +727,7 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 		mux := http.NewServeMux()
 		mux.Handle(path, claimsMiddleware)
 		srv := httptest.NewServer(mux)
-		defer srv.Close()
-
+		defer func() { _ = srv.Close() }()
 		client := ledgerv1connect.NewLedgerServiceClient(srv.Client(), srv.URL)
 
 		// Setup: create ledgers, accounts, and a transaction

@@ -410,8 +410,7 @@ func (c *flutterwaveClient) doJSON(
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"http_status": resp.StatusCode,
@@ -437,7 +436,7 @@ func (c *flutterwaveClient) doJSON(
 			if err2 != nil {
 				return fmt.Errorf("retry request: %w", err2)
 			}
-			defer resp2.Body.Close()
+			defer func() { _ = resp2.Body.Close() }()
 			respBody, _ = io.ReadAll(resp2.Body)
 			resp = resp2
 		}
@@ -491,7 +490,7 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 	if err != nil {
 		return "", fmt.Errorf("oauth token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("oauth token http %d: %s", resp.StatusCode, truncate(string(body), 256))

@@ -135,8 +135,7 @@ func (c *client) doRequest(
 	if err != nil {
 		return fmt.Errorf("execute %s request: %w", logType, err)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,

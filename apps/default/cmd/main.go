@@ -44,6 +44,7 @@ import (
 	"github.com/pitabwire/frame/v2/security"
 	"github.com/pitabwire/frame/v2/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -70,6 +71,10 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 		frame.WithConfig(&cfg),
 		frame.WithDatastore(),
 	)
+
+	svc.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
+		return repository.Migrate(ctx, svc.DatastoreManager(), cfg.GetDatabaseMigrationPath())
+	})
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)
 
@@ -83,10 +88,6 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 
 	// Handle database migration if requested
-	if handleDatabaseMigration(ctx, dbManager, cfg) {
-		return
-	}
-
 	// Setup clients
 	profileCli := setupProfileClient(ctx, cfg)
 	ledgerCli := setupLedgerClient(ctx, cfg)
@@ -160,6 +161,13 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 
 	// Initialize the service with all options
 	svc.Init(ctx, serviceOptions...)
+
+	if frame.ShouldRunSetup(&cfg) {
+		if setupErr := svc.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
+		}
+		return
+	}
 
 	// Start the service
 	err = svc.Run(ctx, "")

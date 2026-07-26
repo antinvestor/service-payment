@@ -42,6 +42,7 @@ import (
 	"github.com/pitabwire/frame/v2/security"
 	"github.com/pitabwire/frame/v2/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/setup"
 	"github.com/pitabwire/frame/v2/workerpool"
 	"github.com/pitabwire/util"
 )
@@ -64,6 +65,10 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 	}
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg), frame.WithDatastore())
+
+	svc.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
+		return repository.Migrate(ctx, svc.DatastoreManager(), cfg.GetDatabaseMigrationPath())
+	})
 	defer svc.Stop(ctx)
 
 	log := svc.Log(ctx)
@@ -71,10 +76,6 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 	dbManager := svc.DatastoreManager()
 
 	// Migrate branch — mirrors ledger exactly.
-	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
-		return
-	}
-
 	if cfg.SigningSecret == "" {
 		log.Error("CHECKOUT_SIGNING_SECRET is required")
 		return

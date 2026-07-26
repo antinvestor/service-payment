@@ -37,6 +37,7 @@ import (
 	"github.com/pitabwire/frame/v2/security"
 	"github.com/pitabwire/frame/v2/security/authorizer"
 	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -69,6 +70,10 @@ func main() {
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 	workMan := service.WorkManager()
 
+	service.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
+		return repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
+	})
+
 	// Create repositories with proper dependency injection
 	ledgerRepo := repository.NewLedgerRepository(ctx, dbPool, workMan)
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
@@ -86,11 +91,6 @@ func main() {
 	ledgerServer := handlers.NewLedgerServer(
 		ledgerBusiness, accountBusiness, transactionBusiness, reportBusiness, bookBusiness)
 
-	// Handle database migration if requested
-	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
-		return
-	}
-
 	// Setup Connect server with injected dependencies
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), ledgerServer)
 
@@ -101,6 +101,13 @@ func main() {
 		frame.WithPermissionRegistration(sd),
 	}
 	service.Init(ctx, serviceOptions...)
+
+	if frame.ShouldRunSetup(&cfg) {
+		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			log.WithError(setupErr).Fatal("setup plan failed")
+		}
+		return
+	}
 
 	// Startup service
 	err = service.Run(ctx, "")

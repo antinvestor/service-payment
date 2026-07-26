@@ -52,6 +52,7 @@ import (
 	"github.com/pitabwire/frame/v2/datastore/pool"
 	"github.com/pitabwire/frame/v2/security"
 	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
+	"github.com/pitabwire/frame/v2/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -82,6 +83,9 @@ func main() {
 
 	// Get the default database pool and work manager
 	dbManager := service.DatastoreManager()
+	service.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
+		return repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
+	})
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 
 	// Register hypertables (no-op WARN if timescaledb extension is absent).
@@ -228,10 +232,6 @@ func main() {
 	collectionServer := handlers.NewCollectionServer(collectionBiz)
 
 	// Handle database migration if requested
-	if handleDatabaseMigration(ctx, dbManager, cfg, log) {
-		return
-	}
-
 	// Setup Connect server with both BillingService and CollectionService
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), billingServer, collectionServer)
 	// Trustage / ops internal HTTP (renew + settle) mounted alongside Connect.
@@ -256,6 +256,13 @@ func main() {
 		))
 	}
 	service.Init(ctx, serviceOptions...)
+
+	if frame.ShouldRunSetup(&cfg) {
+		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
+		}
+		return
+	}
 
 	// Renew + settle: per-entity Trustage one-shots only — no bulk tickers.
 

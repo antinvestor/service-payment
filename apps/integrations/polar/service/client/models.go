@@ -20,10 +20,17 @@ type PolarCredentials struct {
 	WebhookSecret  string
 	OrganizationID string
 	Environment    string
+	// BaseURLOverride overrides the default base URL derived from Environment.
+	// Intended for testing only; leave empty in production.
+	BaseURLOverride string
 }
 
 // BaseURL returns the Polar API base URL based on environment.
+// If BaseURLOverride is set it takes precedence (useful in tests).
 func (c *PolarCredentials) BaseURL() string {
+	if c.BaseURLOverride != "" {
+		return c.BaseURLOverride
+	}
 	if c.Environment == "production" {
 		return "https://api.polar.sh"
 	}
@@ -63,4 +70,16 @@ type CheckoutResponse struct {
 type WebhookEvent struct {
 	Type string         `json:"type"`
 	Data map[string]any `json:"data"`
+}
+
+// Subscription represents a Polar subscription object returned by the API.
+// See https://docs.polar.sh/api-reference/subscriptions/get
+type Subscription struct {
+	ID                string         `json:"id"`
+	Status            string         `json:"status"`
+	ProductID         string         `json:"product_id"`
+	CustomerID        string         `json:"customer_id"`
+	CurrentPeriodEnd  string         `json:"current_period_end"`
+	CancelAtPeriodEnd bool           `json:"cancel_at_period_end"`
+	Metadata          map[string]any `json:"metadata"`
 }

@@ -181,6 +181,121 @@ func (c *polarClient) VerifyWebhookSignature(
 	return &event, nil
 }
 
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
+func (c *polarClient) GetSubscription(
+	ctx context.Context,
+	creds *PolarCredentials,
+	subscriptionID string,
+) (_ *Subscription, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "get_subscription")
+	defer func() { done(retErr) }()
+	logger := util.Log(ctx).WithField("type", "polar.get_subscription")
+	defer logger.Release()
+
+	url := creds.BaseURL() + "/v1/subscriptions/" + subscriptionID
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create get subscription request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+creds.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("execute get subscription request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	logger.WithFields(map[string]any{
+		"status":          resp.StatusCode,
+		"subscription_id": subscriptionID,
+	}).Debug("get subscription response")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get subscription failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var sub Subscription
+	if err = json.Unmarshal(respBody, &sub); err != nil {
+		return nil, fmt.Errorf("decode get subscription response: %w", err)
+	}
+
+	return &sub, nil
+}
+
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
+func (c *polarClient) CancelSubscription(
+	ctx context.Context,
+	creds *PolarCredentials,
+	subscriptionID string,
+	atPeriodEnd bool,
+) (_ *Subscription, retErr error) {
+	ctx, done := c.metrics.ObserveProviderCall(ctx, "cancel_subscription")
+	defer func() { done(retErr) }()
+	logger := util.Log(ctx).WithField("type", "polar.cancel_subscription")
+	defer logger.Release()
+
+	var (
+		method string
+		url    string
+		body   []byte
+	)
+
+	if atPeriodEnd {
+		// PATCH /v1/subscriptions/{id} with cancel_at_period_end=true
+		method = http.MethodPatch
+		url = creds.BaseURL() + "/v1/subscriptions/" + subscriptionID
+		var marshalErr error
+		body, marshalErr = json.Marshal(map[string]any{"cancel_at_period_end": true})
+		if marshalErr != nil {
+			return nil, fmt.Errorf("marshal cancel subscription payload: %w", marshalErr)
+		}
+	} else {
+		// DELETE /v1/subscriptions/{id}/revoke for immediate cancellation
+		method = http.MethodDelete
+		url = creds.BaseURL() + "/v1/subscriptions/" + subscriptionID + "/revoke"
+	}
+
+	var bodyReader io.Reader
+	if len(body) > 0 {
+		bodyReader = bytes.NewReader(body)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("create cancel subscription request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+creds.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("execute cancel subscription request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	logger.WithFields(map[string]any{
+		"status":          resp.StatusCode,
+		"subscription_id": subscriptionID,
+		"at_period_end":   atPeriodEnd,
+	}).Debug("cancel subscription response")
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("cancel subscription failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var sub Subscription
+	if err = json.Unmarshal(respBody, &sub); err != nil {
+		return nil, fmt.Errorf("decode cancel subscription response: %w", err)
+	}
+
+	return &sub, nil
+}
+
 func parseTimestamp(ts string) (time.Time, error) {
 	// Standard Webhooks timestamp is Unix epoch seconds
 	var epoch int64

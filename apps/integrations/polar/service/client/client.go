@@ -205,7 +205,7 @@ func (c *polarClient) GetSubscription(
 	if err != nil {
 		return nil, fmt.Errorf("execute get subscription request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{
@@ -275,7 +275,7 @@ func (c *polarClient) CancelSubscription(
 	if err != nil {
 		return nil, fmt.Errorf("execute cancel subscription request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	logger.WithFields(map[string]any{

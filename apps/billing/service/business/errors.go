@@ -59,4 +59,12 @@ var (
 
 	// Billing run errors.
 	ErrBillingRunIDRequired = errors.New("billing run ID is required")
+
+	// Polar subscription errors.
+	ErrPlanNotPolarCollected          = errors.New("plan does not have a polar product ID configured")
+	ErrPolarSubscriptionIDRequired    = errors.New("polar subscription ID is required")
+	ErrPolarSubscriptionNotFound      = errors.New("no billing subscription found for the given polar subscription")
+	ErrPolarMirrorProfileRequired     = errors.New("profile ID is required for polar subscription mirror")
+	ErrPolarMirrorPlanRequired        = errors.New("plan ID is required for polar subscription mirror")
+	ErrPolarMirrorPolarStatusRequired = errors.New("polar status is required for polar subscription mirror")
 )

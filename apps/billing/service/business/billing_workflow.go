@@ -26,6 +26,7 @@ import (
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/frame/v2/workerpool"
+	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 )
 
@@ -117,6 +118,16 @@ func (w *billingWorkflow) RunBilling(
 		return nil, apperrors.ErrSubscriptionNotActive
 	}
 
+	// Guard: polar-collected plans skip internal invoice generation.
+	var plan *models.Plan
+	plan, err = w.catalogBusiness.GetPlan(ctx, sub.PlanID)
+	if err != nil {
+		return nil, fmt.Errorf("RunBilling: load plan for polar-check: %w", err)
+	}
+	if IsPolarCollected(plan) {
+		return w.completePolarRun(ctx, subscriptionID, sub, periodStart, periodEnd)
+	}
+
 	// Create idempotent billing run
 	idempotencyKey := fmt.Sprintf("%s:%s:%s",
 		subscriptionID,
@@ -158,6 +169,52 @@ func (w *billingWorkflow) RunBilling(
 	}
 
 	return run, nil
+}
+
+// completePolarRun creates a COMPLETED billing run for a polar-collected subscription
+// without generating any invoice. It is idempotent via the existing idempotency key.
+func (w *billingWorkflow) completePolarRun(
+	ctx context.Context,
+	subscriptionID string,
+	sub *models.Subscription,
+	periodStart, periodEnd time.Time,
+) (*models.BillingRun, error) {
+	util.Log(ctx).
+		WithField("subscription_id", subscriptionID).
+		WithField("plan_id", sub.PlanID).
+		Info("polar-collected subscription: skipping internal invoice generation")
+
+	idempotencyKey := fmt.Sprintf("%s:%s:%s",
+		subscriptionID,
+		periodStart.Format(time.RFC3339),
+		periodEnd.Format(time.RFC3339))
+
+	now := time.Now()
+	polarRun := &models.BillingRun{
+		SubscriptionID:   subscriptionID,
+		ProfileID:        sub.ProfileID,
+		CatalogVersionID: sub.CatalogVersionID,
+		State:            models.BillingRunStateCompleted,
+		PeriodStart:      periodStart,
+		PeriodEnd:        periodEnd,
+		StartedAt:        &now,
+		CompletedAt:      &now,
+		Idempotency:      idempotencyKey,
+	}
+	polarRun.GenID(ctx)
+
+	if createErr := w.runRepo.Create(ctx, polarRun); createErr != nil {
+		if data.ErrorIsDuplicateKey(createErr) {
+			existing, getErr := w.runRepo.GetByIdempotency(ctx, idempotencyKey)
+			if getErr != nil {
+				return nil, getErr
+			}
+			return existing, nil
+		}
+		return nil, createErr
+	}
+
+	return polarRun, nil
 }
 
 func (w *billingWorkflow) stepMetering(

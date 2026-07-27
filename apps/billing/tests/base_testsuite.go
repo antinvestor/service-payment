@@ -46,16 +46,17 @@ const (
 )
 
 type ServiceResources struct {
-	CatalogBusiness      business.CatalogBusiness
-	SubscriptionBusiness business.SubscriptionBusiness
-	UsageIngestion       business.UsageIngestionBusiness
-	MeteringEngine       business.MeteringEngine
-	PricingEngine        *business.PricingEngine
-	DiscountEngine       business.DiscountEngine
-	CreditEngine         business.CreditEngine
-	InvoiceEngine        business.InvoiceEngine
-	BillingWorkflow      business.BillingWorkflow
-	LedgerIntegration    business.LedgerIntegration
+	CatalogBusiness           business.CatalogBusiness
+	SubscriptionBusiness      business.SubscriptionBusiness
+	PolarSubscriptionBusiness business.PolarSubscriptionBusiness
+	UsageIngestion            business.UsageIngestionBusiness
+	MeteringEngine            business.MeteringEngine
+	PricingEngine             *business.PricingEngine
+	DiscountEngine            business.DiscountEngine
+	CreditEngine              business.CreditEngine
+	InvoiceEngine             business.InvoiceEngine
+	BillingWorkflow           business.BillingWorkflow
+	LedgerIntegration         business.LedgerIntegration
 
 	// Repositories for direct access in tests
 	ComponentRepo  repository.ComponentRepository
@@ -161,6 +162,7 @@ func (bs *BaseTestSuite) CreateService(
 	// Business layers
 	catalogBus := business.NewCatalogBusiness(workMan, catalogVersionRepo, planRepo, componentRepo, tierRepo)
 	subscriptionBus := business.NewSubscriptionBusiness(workMan, subscriptionRepo)
+	polarSubBus := business.NewPolarSubscriptionBusiness(workMan, subscriptionRepo)
 	usageIngestionBus := business.NewUsageIngestionBusiness(workMan, usageEventRepo)
 	meteringEng := business.NewMeteringEngine(workMan, usageEventRepo, meteredUsageRepo)
 	pricingEng := business.NewPricingEngine()
@@ -173,20 +175,21 @@ func (bs *BaseTestSuite) CreateService(
 		meteringEng, pricingEng, discountEng, creditEng, invoiceEng, ledgerInteg, nil)
 
 	resources := &ServiceResources{
-		CatalogBusiness:      catalogBus,
-		SubscriptionBusiness: subscriptionBus,
-		UsageIngestion:       usageIngestionBus,
-		MeteringEngine:       meteringEng,
-		PricingEngine:        pricingEng,
-		DiscountEngine:       discountEng,
-		CreditEngine:         creditEng,
-		InvoiceEngine:        invoiceEng,
-		BillingWorkflow:      billingWorkflow,
-		LedgerIntegration:    ledgerInteg,
-		ComponentRepo:        componentRepo,
-		PlanRepo:             planRepo,
-		BillingRunRepo:       billingRunRepo,
-		InvoiceRepo:          invoiceRepo,
+		CatalogBusiness:           catalogBus,
+		SubscriptionBusiness:      subscriptionBus,
+		PolarSubscriptionBusiness: polarSubBus,
+		UsageIngestion:            usageIngestionBus,
+		MeteringEngine:            meteringEng,
+		PricingEngine:             pricingEng,
+		DiscountEngine:            discountEng,
+		CreditEngine:              creditEng,
+		InvoiceEngine:             invoiceEng,
+		BillingWorkflow:           billingWorkflow,
+		LedgerIntegration:         ledgerInteg,
+		ComponentRepo:             componentRepo,
+		PlanRepo:                  planRepo,
+		BillingRunRepo:            billingRunRepo,
+		InvoiceRepo:               invoiceRepo,
 	}
 
 	// Run both ledger and billing migrations

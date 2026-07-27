@@ -176,22 +176,6 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	}
 }
 
-// handleDatabaseMigration performs database migration if configured to do so.
-func handleDatabaseMigration(
-	ctx context.Context,
-	dbManager datastore.Manager,
-	cfg aconfig.PaymentConfig,
-) bool {
-	if cfg.DoDatabaseMigrate() {
-		err := repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
-		if err != nil {
-			util.Log(ctx).WithError(err).Fatal("main -- Could not migrate successfully")
-		}
-		return true
-	}
-	return false
-}
-
 // registerPromptRoutePublishers parses INITIATE_PROMPT_ROUTE_URIS JSON and
 // registers one publisher per route as "prompt.<route>".
 func registerPromptRoutePublishers(ctx context.Context, cfg aconfig.PaymentConfig) []frame.Option {

@@ -116,23 +116,6 @@ func main() {
 	}
 }
 
-// handleDatabaseMigration performs database migration if configured to do so.
-func handleDatabaseMigration(
-	ctx context.Context,
-	dbManager datastore.Manager,
-	cfg aconfig.LedgerConfig,
-	log *util.LogEntry,
-) bool {
-	if cfg.DoDatabaseMigrate() {
-		err := repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
-		if err != nil {
-			log.WithError(err).Fatal("main -- Could not migrate successfully")
-		}
-		return true
-	}
-	return false
-}
-
 // setupConnectServer initializes and configures the connect server.
 func setupConnectServer(
 	ctx context.Context,

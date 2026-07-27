@@ -142,22 +142,6 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 	}
 }
 
-// handleDatabaseMigration performs database migration when configured and returns true to exit.
-func handleDatabaseMigration(
-	ctx context.Context,
-	dbManager datastore.Manager,
-	cfg aconfig.CheckoutConfig,
-	log *util.LogEntry,
-) bool {
-	if cfg.DoDatabaseMigrate() {
-		if err := repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath()); err != nil {
-			log.WithError(err).Fatal("main -- Could not migrate successfully")
-		}
-		return true
-	}
-	return false
-}
-
 // setupConnectServer wires the interceptor stack:
 // otelconnect → TenancyAccessInterceptor → FunctionAccessInterceptor → DefaultList.
 func setupConnectServer(

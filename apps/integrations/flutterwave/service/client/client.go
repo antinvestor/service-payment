@@ -71,11 +71,14 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	creds *Credentials,
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
+	if req == nil {
+		return nil, fmt.Errorf("orchestrator charge request is required")
+	}
 	pmType := strings.ToLower(strings.TrimSpace(req.PaymentMethod.Type))
 	if pmType == "" {
 		pmType = "card"
 	}
-	hasEncryptedCard := req != nil && req.PaymentMethod.Card != nil &&
+	hasEncryptedCard := req.PaymentMethod.Card != nil &&
 		strings.TrimSpace(req.PaymentMethod.Card.EncryptedCardNumber) != "" &&
 		strings.TrimSpace(req.PaymentMethod.Card.Nonce) != ""
 

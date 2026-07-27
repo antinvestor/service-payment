@@ -339,23 +339,6 @@ func ensureHypertables(ctx context.Context, dbPool pool.Pool) {
 	}
 }
 
-// handleDatabaseMigration performs database migration if configured to do so.
-func handleDatabaseMigration(
-	ctx context.Context,
-	dbManager datastore.Manager,
-	cfg aconfig.BillingConfig,
-	log *util.LogEntry,
-) bool {
-	if cfg.DoDatabaseMigrate() {
-		err := repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
-		if err != nil {
-			log.WithError(err).Fatal("main -- Could not migrate successfully")
-		}
-		return true
-	}
-	return false
-}
-
 // setupConnectServer mounts BillingService and CollectionService on one mux.
 func setupConnectServer(
 	ctx context.Context,

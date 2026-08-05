@@ -14,7 +14,12 @@
 
 package authz
 
-import "github.com/pitabwire/frame/v2/security"
+import (
+	"context"
+
+	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/util"
+)
 
 const (
 	NamespaceLedger        = "service_ledger"
@@ -98,6 +103,33 @@ func BuildServiceAccessTuple(tenancyPath, profileID string) security.RelationTup
 		Relation: RoleService,
 		Subject:  security.SubjectRef{Namespace: NamespaceProfile, ID: profileID},
 	}
+}
+
+// HealServiceTenancyAccess provisions a missing Plane-1 #service tuple when an
+// internal system caller is denied tenancy access. Wire with
+// authorizer.WithOnTenancyAccessDenied(authz.HealServiceTenancyAccess).
+func HealServiceTenancyAccess(
+	ctx context.Context,
+	auth security.Authorizer,
+	tenancyPath, subjectID string,
+) error {
+	fields := map[string]any{
+		"tenant_id":  tenancyPath,
+		"subject_id": subjectID,
+	}
+	claims := security.ClaimsFromContext(ctx)
+	if claims == nil || !claims.IsInternalSystem() {
+		util.Log(ctx).WithFields(fields).Error("PERMISSION DENIED: tenancy access denied")
+		return nil
+	}
+	if err := auth.WriteTuple(ctx, BuildServiceAccessTuple(tenancyPath, subjectID)); err != nil {
+		util.Log(ctx).WithFields(fields).WithError(err).
+			Error("PERMISSION DENIED: self-heal of tenancy service access failed")
+		return err
+	}
+	util.Log(ctx).WithFields(fields).
+		Info("self-healed missing tenancy service tuple for internal caller")
+	return nil
 }
 
 // BuildServiceInheritanceTuples creates bridge tuples that allow service bots

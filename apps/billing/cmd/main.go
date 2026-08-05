@@ -31,6 +31,7 @@ import (
 	"connectrpc.com/otelconnect"
 	apis "github.com/antinvestor/common/v2"
 	"github.com/antinvestor/common/v2/connection"
+	"github.com/antinvestor/common/v2/permissions"
 	"github.com/antinvestor/common/v2/servicecatalog"
 	"github.com/antinvestor/common/v2/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
@@ -51,6 +52,7 @@ import (
 	"github.com/pitabwire/frame/v2/datastore"
 	"github.com/pitabwire/frame/v2/datastore/pool"
 	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v2/security/authorizer"
 	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
 	"github.com/pitabwire/frame/v2/setup"
 	"github.com/pitabwire/util"
@@ -86,6 +88,18 @@ func main() {
 	service.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
 		return repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
 	})
+
+	// Setup Job: migrate + publish service_billing permission manifest only.
+	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
+	if frame.ShouldRunSetup(&cfg) {
+		service.Init(ctx, frame.WithPermissionRegistration(billingSD))
+		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
+		}
+		log.Info("setup plan complete — exiting")
+		return
+	}
+
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 
 	// Register hypertables (no-op WARN if timescaledb extension is absent).
@@ -239,13 +253,9 @@ func main() {
 	rootMux.Handle("/", connectHandler)
 	mountInternalBillingRoutes(rootMux, &cfg, settlementProcessor, renewalSweeper)
 
-	// Setup HTTP handlers and register permissions with Keto
-	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
-	collectionSD := collectionv1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
+	// Runtime: HTTP + queues only — no WithPermissionRegistration.
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(rootMux),
-		frame.WithPermissionRegistration(billingSD),
-		frame.WithPermissionRegistration(collectionSD),
 	}
 	// Global default lifecycle queue (product services subscribe here).
 	// Partition IntegrationRoute rows register additional publishers on demand.
@@ -256,13 +266,6 @@ func main() {
 		))
 	}
 	service.Init(ctx, serviceOptions...)
-
-	if frame.ShouldRunSetup(&cfg) {
-		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
-			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
-		}
-		return
-	}
 
 	// Renew + settle: per-entity Trustage one-shots only — no bulk tickers.
 
@@ -339,7 +342,8 @@ func ensureHypertables(ctx context.Context, dbPool pool.Pool) {
 	}
 }
 
-// setupConnectServer mounts BillingService and CollectionService on one mux.
+// setupConnectServer mounts BillingService and CollectionService on one mux
+// with the standard interceptor chain: Auth → TenancyAccess → FunctionAccess.
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
@@ -351,11 +355,32 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
 	}
 
-	validateInterceptor := securityconnect.NewValidationInterceptor()
+	auth := securityMan.GetAuthorizer(ctx)
 
-	authenticator := securityMan.GetAuthenticator(ctx)
-	authInterceptor := securityconnect.NewAuthInterceptor(authenticator)
-	opts := connect.WithInterceptors(authInterceptor, otelInterceptor, validateInterceptor)
+	// Layer 1: TenancyAccessChecker (Plane 1).
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, "tenancy_access")
+	tenancyAccessInterceptor := securityconnect.NewTenancyAccessInterceptor(tenancyAccessChecker)
+
+	// Layer 2: FunctionAccess from proto method_permissions (billing + collection).
+	billingSD := billingpb.File_v1_billing_proto.Services().ByName("BillingService")
+	collectionSD := collectionv1.File_collection_v1_collection_proto.Services().ByName("CollectionService")
+	procMap := permissions.BuildProcedureMap(billingSD)
+	for k, v := range permissions.BuildProcedureMap(collectionSD) {
+		procMap[k] = v
+	}
+	// Billing owns service_billing; collection RPCs use method_permissions that
+	// resolve against the same functional plane once registered.
+	functionChecker := authorizer.NewFunctionChecker(auth, permissions.ForService(billingSD).Namespace)
+	functionAccessInterceptor := securityconnect.NewFunctionAccessInterceptor(functionChecker, procMap)
+
+	defaultInterceptorList, err := securityconnect.DefaultList(
+		ctx, securityMan.GetAuthenticator(ctx),
+		tenancyAccessInterceptor, functionAccessInterceptor)
+	if err != nil {
+		util.Log(ctx).WithError(err).Fatal("could not create default interceptors")
+	}
+	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+	opts := connect.WithInterceptors(allInterceptors...)
 
 	mux := http.NewServeMux()
 

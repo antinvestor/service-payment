@@ -73,9 +73,19 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 
 	log := svc.Log(ctx)
 
+	// Setup Job: migrate + publish service_checkout permission manifest only.
+	sd := checkoutv1.File_checkout_v1_checkout_proto.Services().ByName("CheckoutService")
+	if frame.ShouldRunSetup(&cfg) {
+		svc.Init(ctx, frame.WithPermissionRegistration(sd))
+		if setupErr := svc.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			log.WithError(setupErr).Fatal("setup plan failed")
+		}
+		log.Info("setup plan complete — exiting")
+		return
+	}
+
 	dbManager := svc.DatastoreManager()
 
-	// Migrate branch — mirrors ledger exactly.
 	if cfg.SigningSecret == "" {
 		log.Error("CHECKOUT_SIGNING_SECRET is required")
 		return
@@ -125,11 +135,8 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 	mux := webServer.NewRouter()
 	mux.Handle("/"+checkoutv1connect.CheckoutServiceName+"/", rpcHandler)
 
-	sd := checkoutv1.File_checkout_v1_checkout_proto.Services().ByName("CheckoutService")
-	svc.Init(ctx,
-		frame.WithHTTPHandler(mux),
-		frame.WithPermissionRegistration(sd),
-	)
+	// Runtime: no WithPermissionRegistration (setup Job owns manifests).
+	svc.Init(ctx, frame.WithHTTPHandler(mux))
 
 	// runSweeper uses a raw goroutine only as a periodic scheduler — Frame exposes
 	// no cron/ticker primitive. Each tick submits the sweep as a frame workerpool
@@ -157,7 +164,22 @@ func setupConnectServer(
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
-	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, namespaceTenancyAccess)
+	// Self-heal missing #service tuples for internal service bots.
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, namespaceTenancyAccess,
+		authorizer.WithOnTenancyAccessDenied(func(ctx context.Context, a security.Authorizer, path, subjectID string) error {
+			claims := security.ClaimsFromContext(ctx)
+			if claims == nil || !claims.IsInternalSystem() {
+				util.Log(ctx).WithFields(map[string]any{"tenant_id": path, "subject_id": subjectID}).
+					Error("PERMISSION DENIED: tenancy access denied")
+				return nil
+			}
+			return a.WriteTuple(ctx, security.RelationTuple{
+				Object:   security.ObjectRef{Namespace: namespaceTenancyAccess, ID: path},
+				Relation: "service",
+				Subject:  security.SubjectRef{Namespace: "profile_user", ID: subjectID},
+			})
+		}),
+	)
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.

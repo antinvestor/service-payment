@@ -78,6 +78,18 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)
 
+	// Setup Job: migrate + publish service_payment permission manifest only.
+	// Exit before wiring downstream clients/queues so the Job stays lean.
+	paymentSD := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
+	if frame.ShouldRunSetup(&cfg) {
+		svc.Init(ctx, frame.WithPermissionRegistration(paymentSD))
+		if setupErr := svc.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
+		}
+		log.Info("setup plan complete — exiting")
+		return
+	}
+
 	sm := svc.SecurityManager()
 	workMan := svc.WorkManager()
 
@@ -87,7 +99,6 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	dbManager := svc.DatastoreManager()
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 
-	// Handle database migration if requested
 	// Setup clients
 	profileCli := setupProfileClient(ctx, cfg)
 	ledgerCli := setupLedgerClient(ctx, cfg)
@@ -122,14 +133,10 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 		tenancyCli,
 	)
 
-	// Register permission manifest for the payment service namespace.
-	paymentSD := paymentpbv1.File_v1_payment_proto.Services().ByName("PaymentService")
-
-	// Setup HTTP handlers
+	// Setup HTTP handlers (runtime — no WithPermissionRegistration).
 	serviceOptions := []frame.Option{
 		frame.WithDatastore(),
 		frame.WithHTTPHandler(connectHandler),
-		frame.WithPermissionRegistration(paymentSD),
 	}
 
 	// Register queue publishers (default + optional per-route prompt fan-out).
@@ -161,13 +168,6 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 
 	// Initialize the service with all options
 	svc.Init(ctx, serviceOptions...)
-
-	if frame.ShouldRunSetup(&cfg) {
-		if setupErr := svc.RunSetupForProcess(ctx, &cfg); setupErr != nil {
-			util.Log(ctx).WithError(setupErr).Fatal("setup plan failed")
-		}
-		return
-	}
 
 	// Start the service
 	err = svc.Run(ctx, "")
@@ -262,7 +262,10 @@ func setupConnectServer(
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
-	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess)
+	// Self-heal missing #service tuples for internal service bots.
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess,
+		authorizer.WithOnTenancyAccessDenied(authz.HealServiceTenancyAccess),
+	)
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(
 		tenancyAccessChecker,
 	)

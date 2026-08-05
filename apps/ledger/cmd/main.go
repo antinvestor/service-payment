@@ -74,6 +74,17 @@ func main() {
 		return repository.Migrate(ctx, dbManager, cfg.GetDatabaseMigrationPath())
 	})
 
+	// Setup Job: migrate + publish service_ledger permission manifest only.
+	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
+	if frame.ShouldRunSetup(&cfg) {
+		service.Init(ctx, frame.WithPermissionRegistration(sd))
+		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
+			log.WithError(setupErr).Fatal("setup plan failed")
+		}
+		log.Info("setup plan complete — exiting")
+		return
+	}
+
 	// Create repositories with proper dependency injection
 	ledgerRepo := repository.NewLedgerRepository(ctx, dbPool, workMan)
 	accountRepo := repository.NewAccountRepository(ctx, dbPool, workMan)
@@ -94,20 +105,11 @@ func main() {
 	// Setup Connect server with injected dependencies
 	connectHandler := setupConnectServer(ctx, service.SecurityManager(), ledgerServer)
 
-	// Setup HTTP handlers and register permissions with Keto
-	sd := ledgerpbv1.File_v1_ledger_proto.Services().ByName("LedgerService")
+	// Runtime: HTTP only — permissions publish on the setup Job path above.
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(connectHandler),
-		frame.WithPermissionRegistration(sd),
 	}
 	service.Init(ctx, serviceOptions...)
-
-	if frame.ShouldRunSetup(&cfg) {
-		if setupErr := service.RunSetupForProcess(ctx, &cfg); setupErr != nil {
-			log.WithError(setupErr).Fatal("setup plan failed")
-		}
-		return
-	}
 
 	// Startup service
 	err = service.Run(ctx, "")
@@ -125,7 +127,10 @@ func setupConnectServer(
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
-	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess)
+	// Self-heal missing #service tuples for internal service bots.
+	tenancyAccessChecker := authorizer.NewTenancyAccessChecker(auth, authz.NamespaceTenancyAccess,
+		authorizer.WithOnTenancyAccessDenied(authz.HealServiceTenancyAccess),
+	)
 	tenancyAccessInterceptor := connectInterceptors.NewTenancyAccessInterceptor(tenancyAccessChecker)
 
 	// Layer 2: FunctionAccessInterceptor enforces per-RPC permissions automatically.

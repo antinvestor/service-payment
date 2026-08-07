@@ -25,11 +25,14 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/web"
 )
 
-// ContactChoice represents a selectable payer contact (phone).
+// ContactChoice represents a selectable payer contact from the profile
+// (email or phone). Free-text contacts are not allowed when profile contacts exist.
 type ContactChoice struct {
 	ContactID string
 	Masked    string
-	// Preferred is true for the last successfully used payment phone contact.
+	// Kind is "email" or "phone" — drives which payment methods are offered.
+	Kind string
+	// Preferred is true for the last successfully used payment contact.
 	Preferred bool
 }
 
@@ -54,10 +57,14 @@ type PageData struct {
 	PayerName     string
 	MaskedPhone   string
 	MaskedEmail   string
-	// NeedEmail is true when profile has no email and card requires one.
+	// NeedEmail is true when profile has no email and card requires one (guests only).
 	NeedEmail bool
-	// NeedName is true when profile has no display name.
+	// NeedName is true when profile has no display name (guests only).
 	NeedName bool
+	// RequireProfileContacts: hide free-text email/phone; only contact chips pay.
+	RequireProfileContacts bool
+	// SelectedContactKind is the default selected contact kind (email|phone).
+	SelectedContactKind string
 	// HasSavedCard enables Link-style "pay with saved card" one-click.
 	HasSavedCard bool
 	// ShowCardForm when selected method is embedded card.
@@ -132,72 +139,84 @@ const minMsisdnDigits = 9
 //nolint:gochecknoglobals // package-level translation table; no mutable state.
 var translations = map[string]map[string]string{
 	"en": {
-		"pay_button":        "Pay",
-		"paying_as":         "Paying as",
-		"change":            "Change",
-		"phone_label":       "Phone number",
-		"email_label":       "Email",
-		"name_label":        "Name",
-		"card_number":       "Card number",
-		"card_expiry":       "Expiry",
-		"card_cvv":          "CVV",
-		"card_pin":          "Card PIN",
-		"card_otp":          "One-time code",
-		"card_secure_hint":  "Card details are encrypted in your browser before they leave this page.",
-		"use_saved_card":    "Pay with your saved card",
-		"continue":          "Continue",
-		"confirm_title":     "Confirm payment",
-		"confirm_hint":      "Complete any bank prompts. You stay on this secure page whenever possible.",
-		"retry":             "Try again",
-		"done_title":        "Payment successful",
-		"redirecting":       "Redirecting you back…",
-		"failed_title":      "Payment failed",
-		"try_again":         "Try again",
-		"gone_title":        "This link has expired",
-		"gone_hint":         "Checkout links expire after a short time for your security. Start payment again from the app to get a fresh link.",
-		"gone_return":       "Back to continue",
-		"gone_return_hint":  "Return to the app and choose Continue to payment for a new secure link.",
-		"amount_label":      "Amount",
-		"too_many_attempts": "Too many attempts — please try later",
-		"cooldown":          "Please wait a moment before retrying",
-		"bad_method":        "Choose a payment method",
-		"amount_required":   "Enter a valid amount",
-		"contact_required":  "Enter your phone number",
-		"redirect_hint":     "Securing your payment…",
+		"pay_button":                 "Pay",
+		"paying_as":                  "Paying as",
+		"change":                     "Change",
+		"phone_label":                "Phone number",
+		"email_label":                "Email",
+		"name_label":                 "Name",
+		"card_number":                "Card number",
+		"card_expiry":                "Expiry",
+		"card_cvv":                   "CVV",
+		"card_pin":                   "Card PIN",
+		"card_otp":                   "One-time code",
+		"card_secure_hint":           "Card details are encrypted in your browser before they leave this page.",
+		"use_saved_card":             "Pay with your saved card",
+		"continue":                   "Continue",
+		"confirm_title":              "Confirm payment",
+		"confirm_hint":               "Complete any bank prompts. You stay on this secure page whenever possible.",
+		"retry":                      "Try again",
+		"done_title":                 "Payment successful",
+		"redirecting":                "Redirecting you back…",
+		"failed_title":               "Payment failed",
+		"try_again":                  "Try again",
+		"gone_title":                 "This link has expired",
+		"gone_hint":                  "Checkout links expire after a short time for your security. Start payment again from the app to get a fresh link.",
+		"gone_return":                "Back to continue",
+		"gone_return_hint":           "Return to the app and choose Continue to payment for a new secure link.",
+		"amount_label":               "Amount",
+		"too_many_attempts":          "Too many attempts — please try later",
+		"cooldown":                   "Please wait a moment before retrying",
+		"bad_method":                 "Choose a payment method",
+		"amount_required":            "Enter a valid amount",
+		"contact_required":           "Select a contact from your profile",
+		"contact_not_on_profile":     "That contact is not on your profile",
+		"method_not_allowed_contact": "That payment method is not available for this contact. Email pays by card; phone can use mobile money or card.",
+		"contact_kind_email":         "Email",
+		"contact_kind_phone":         "Phone",
+		"select_contact":             "Pay with",
+		"no_profile_contacts":        "Add an email or phone to your profile before paying.",
+		"redirect_hint":              "Securing your payment…",
 	},
 	"fr": {
-		"pay_button":        "Payer",
-		"paying_as":         "Payer en tant que",
-		"change":            "Changer",
-		"phone_label":       "Numéro de téléphone",
-		"email_label":       "E-mail",
-		"name_label":        "Nom",
-		"card_number":       "Numéro de carte",
-		"card_expiry":       "Expiration",
-		"card_cvv":          "CVV",
-		"card_pin":          "Code PIN",
-		"card_otp":          "Code à usage unique",
-		"card_secure_hint":  "Les données de carte sont chiffrées dans votre navigateur avant l’envoi.",
-		"use_saved_card":    "Payer avec la carte enregistrée",
-		"continue":          "Continuer",
-		"confirm_title":     "Confirmer le paiement",
-		"confirm_hint":      "Suivez les instructions de votre banque. Vous restez sur cette page sécurisée autant que possible.",
-		"retry":             "Réessayer",
-		"done_title":        "Paiement réussi",
-		"redirecting":       "Vous êtes redirigé…",
-		"failed_title":      "Paiement échoué",
-		"try_again":         "Réessayer",
-		"gone_title":        "Ce lien a expiré",
-		"gone_hint":         "Les liens de paiement expirent rapidement pour votre sécurité. Relancez le paiement depuis l’application pour un nouveau lien.",
-		"gone_return":       "Retour pour continuer",
-		"gone_return_hint":  "Retournez dans l’application et choisissez Continuer vers le paiement pour un nouveau lien sécurisé.",
-		"amount_label":      "Montant",
-		"too_many_attempts": "Trop de tentatives — réessayez plus tard",
-		"cooldown":          "Veuillez patienter avant de réessayer",
-		"bad_method":        "Choisissez un moyen de paiement",
-		"amount_required":   "Saisissez un montant valide",
-		"contact_required":  "Saisissez votre numéro de téléphone",
-		"redirect_hint":     "Sécurisation du paiement…",
+		"pay_button":                 "Payer",
+		"paying_as":                  "Payer en tant que",
+		"change":                     "Changer",
+		"phone_label":                "Numéro de téléphone",
+		"email_label":                "E-mail",
+		"name_label":                 "Nom",
+		"card_number":                "Numéro de carte",
+		"card_expiry":                "Expiration",
+		"card_cvv":                   "CVV",
+		"card_pin":                   "Code PIN",
+		"card_otp":                   "Code à usage unique",
+		"card_secure_hint":           "Les données de carte sont chiffrées dans votre navigateur avant l’envoi.",
+		"use_saved_card":             "Payer avec la carte enregistrée",
+		"continue":                   "Continuer",
+		"confirm_title":              "Confirmer le paiement",
+		"confirm_hint":               "Suivez les instructions de votre banque. Vous restez sur cette page sécurisée autant que possible.",
+		"retry":                      "Réessayer",
+		"done_title":                 "Paiement réussi",
+		"redirecting":                "Vous êtes redirigé…",
+		"failed_title":               "Paiement échoué",
+		"try_again":                  "Réessayer",
+		"gone_title":                 "Ce lien a expiré",
+		"gone_hint":                  "Les liens de paiement expirent rapidement pour votre sécurité. Relancez le paiement depuis l’application pour un nouveau lien.",
+		"gone_return":                "Retour pour continuer",
+		"gone_return_hint":           "Retournez dans l’application et choisissez Continuer vers le paiement pour un nouveau lien sécurisé.",
+		"amount_label":               "Montant",
+		"too_many_attempts":          "Trop de tentatives — réessayez plus tard",
+		"cooldown":                   "Veuillez patienter avant de réessayer",
+		"bad_method":                 "Choisissez un moyen de paiement",
+		"amount_required":            "Saisissez un montant valide",
+		"contact_required":           "Sélectionnez un contact de votre profil",
+		"contact_not_on_profile":     "Ce contact n’est pas sur votre profil",
+		"method_not_allowed_contact": "Ce moyen de paiement n’est pas disponible pour ce contact. L’e-mail paie par carte ; le téléphone accepte mobile money ou carte.",
+		"contact_kind_email":         "E-mail",
+		"contact_kind_phone":         "Téléphone",
+		"select_contact":             "Payer avec",
+		"no_profile_contacts":        "Ajoutez un e-mail ou un téléphone à votre profil avant de payer.",
+		"redirect_hint":              "Sécurisation du paiement…",
 	},
 }
 

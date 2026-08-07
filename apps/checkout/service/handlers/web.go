@@ -246,72 +246,126 @@ func buildReturnURL(returnURL, ref, status string) string {
 	return u.String()
 }
 
-// extractContacts builds []ContactChoice, the preferred msisdn, and all
-// contact MSISDNs (for enabling country phone payment methods).
-// Preferred phone (last successful payment contact) is selected first when present.
-// The clue msisdn is the raw msisdn for method preselect logic (not for display).
-func extractContacts(prefill map[string]any, clueContactID string) ([]ContactChoice, string, []string) {
+// extractContacts builds profile contact chips (email + phone), preferred phone
+// MSISDN for locality, all phone MSISDNs, default selected contact kind, and id.
+func extractContacts(prefill map[string]any, clueContactID string) (
+	contacts []ContactChoice,
+	cluePhone string,
+	allPhones []string,
+	selectedKind string,
+	selectedID string,
+) {
 	contactsRaw, hasContacts := prefill["contacts"]
 	if !hasContacts {
-		// Still surface a single prefill.phone when no contact chips.
 		if p, _ := prefill["phone"].(string); p != "" {
-			return nil, p, []string{p}
+			return nil, p, []string{p}, "phone", ""
 		}
-		return nil, "", nil
+		return nil, "", nil, "", ""
 	}
 	list, isList := contactsRaw.([]any)
 	if !isList {
 		if p, _ := prefill["phone"].(string); p != "" {
-			return nil, p, []string{p}
+			return nil, p, []string{p}, "phone", ""
 		}
-		return nil, "", nil
+		return nil, "", nil, "", ""
 	}
 
-	// Prefer explicit phone prefer id from prefill when set.
 	if clueContactID == "" {
-		if pid, _ := prefill["cluePhoneContactId"].(string); pid != "" {
+		if pid, _ := prefill["clueContactId"].(string); pid != "" {
 			clueContactID = pid
+		} else if pid, _ := prefill["cluePhoneContactId"].(string); pid != "" {
+			clueContactID = pid
+		} else if eid, _ := prefill["clueEmailContactId"].(string); eid != "" {
+			clueContactID = eid
 		}
 	}
 
-	contacts := make([]ContactChoice, 0, len(list))
-	allPhones := make([]string, 0, len(list)+1)
-	cluePhone := ""
-	// Also honour prefill.phone when chips exist.
+	contacts = make([]ContactChoice, 0, len(list))
+	allPhones = make([]string, 0, len(list)+1)
 	if p, _ := prefill["phone"].(string); p != "" {
 		cluePhone = p
 		allPhones = append(allPhones, p)
 	}
 
-	for _, raw := range list {
+	for i, raw := range list {
 		m, isMap := raw.(map[string]any)
 		if !isMap {
 			continue
 		}
 		cid, _ := m["contactId"].(string)
+		detail, _ := m["detail"].(string)
 		msisdn, _ := m["msisdn"].(string)
+		if detail == "" {
+			detail = msisdn
+		}
+		kind, _ := m["kind"].(string)
+		if kind == "" {
+			if strings.Contains(detail, "@") {
+				kind = "email"
+			} else {
+				kind = "phone"
+			}
+		}
 		preferred, _ := m["preferred"].(bool)
-		if msisdn != "" {
+		if kind == "phone" && msisdn != "" {
 			allPhones = append(allPhones, msisdn)
+		} else if kind == "phone" && detail != "" {
+			allPhones = append(allPhones, detail)
+			msisdn = detail
+		}
+		masked := detail
+		if kind == "phone" {
+			masked = MaskMsisdn(msisdn)
+		} else if kind == "email" {
+			masked = maskEmail(detail)
+		}
+		isSel := preferred || (clueContactID != "" && cid == clueContactID)
+		if isSel {
+			selectedKind = kind
+			selectedID = cid
+			if kind == "phone" {
+				cluePhone = msisdn
+			}
+		}
+		// Default first contact if nothing preferred yet.
+		if selectedID == "" && i == 0 {
+			selectedKind = kind
+			selectedID = cid
+			if kind == "phone" {
+				cluePhone = msisdn
+			}
 		}
 		contacts = append(contacts, ContactChoice{
 			ContactID: cid,
-			Masked:    MaskMsisdn(msisdn),
-			Preferred: preferred || (clueContactID != "" && cid == clueContactID),
+			Masked:    masked,
+			Kind:      kind,
+			Preferred: isSel,
 		})
-		if cid == clueContactID || preferred {
-			cluePhone = msisdn
+	}
+
+	if cluePhone == "" {
+		for _, c := range contacts {
+			if c.Kind == "phone" {
+				// find raw phone from list
+				for _, raw := range list {
+					m, _ := raw.(map[string]any)
+					if m == nil {
+						continue
+					}
+					if id, _ := m["contactId"].(string); id == c.ContactID {
+						if msisdn, _ := m["msisdn"].(string); msisdn != "" {
+							cluePhone = msisdn
+						} else if d, _ := m["detail"].(string); d != "" {
+							cluePhone = d
+						}
+					}
+				}
+				break
+			}
 		}
 	}
 
-	// Fallback clue: first contact's phone if the clue contact wasn't found
-	if cluePhone == "" && len(list) > 0 {
-		if m, isMap := list[0].(map[string]any); isMap {
-			cluePhone, _ = m["msisdn"].(string)
-		}
-	}
-
-	return contacts, cluePhone, allPhones
+	return contacts, cluePhone, allPhones, selectedKind, selectedID
 }
 
 // methodChoices builds []MethodChoice from available methods, marking the preselected one.
@@ -369,11 +423,13 @@ func (s *WebServer) guestHintsFromCookie(r *http.Request) business.GuestHints {
 // location + partition config + cached last-used preference.
 // contactPhones enables country phone rails (M-PESA/MoMo) when contacts
 // include MSISDNs — even if the session only requested card.
+// selectedContactKind filters further: email → card only; phone → card + MoMo.
 func (s *WebServer) buildMethods(
 	session *models.CheckoutSession,
 	r *http.Request,
 	cluePhone string,
 	contactPhones []string,
+	selectedContactKind string,
 ) []MethodChoice {
 	clueKey := ""
 	phone := cluePhone
@@ -427,7 +483,18 @@ func (s *WebServer) buildMethods(
 	if len(resolved.Available) == 0 {
 		return nil
 	}
-	return methodChoices(resolved.Available, resolved.Selected)
+	// Email contact → card only; phone keeps card + mobile money.
+	kind := business.ContactKindFromString(selectedContactKind)
+	available := business.FilterMethodsForContactKind(resolved.Available, kind)
+	if len(available) == 0 {
+		return nil
+	}
+	// Re-pick selected if filtered out.
+	selected := resolved.Selected
+	if !business.MethodAllowedForContact(selected, kind) {
+		selected = available[0]
+	}
+	return methodChoices(available, selected)
 }
 
 // pageDataFor builds a PageData from a session and request (common fields).
@@ -465,11 +532,20 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 	cluePhone := ""
 	var contactPhones []string
 	email := ""
+	selectedKind := ""
 	if session.Prefill != nil {
 		clueContactID, _ := session.Prefill["clueContactId"].(string)
 		var contacts []ContactChoice
-		contacts, cluePhone, contactPhones = extractContacts(session.Prefill, clueContactID)
+		var selectedID string
+		contacts, cluePhone, contactPhones, selectedKind, selectedID = extractContacts(session.Prefill, clueContactID)
 		data.Contacts = contacts
+		data.SelectedContactKind = selectedKind
+		if selectedID != "" {
+			// Mark the selected radio in template via Preferred when matching id.
+			for i := range data.Contacts {
+				data.Contacts[i].Preferred = data.Contacts[i].ContactID == selectedID
+			}
+		}
 		if cluePhone != "" {
 			data.MaskedPhone = MaskMsisdn(cluePhone)
 		}
@@ -482,10 +558,16 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 		if pmd, _ := session.Prefill["paymentMethodId"].(string); pmd != "" {
 			data.HasSavedCard = true
 		}
+		if req, _ := session.Prefill["requireProfileContacts"].(bool); req {
+			data.RequireProfileContacts = true
+		} else if session.PayerProfileID != "" {
+			data.RequireProfileContacts = true
+		}
 	}
-	data.NeedEmail = strings.TrimSpace(email) == ""
-	data.NeedName = strings.TrimSpace(data.PayerName) == ""
-	data.Methods = s.buildMethods(session, r, cluePhone, contactPhones)
+	// Free-text email/name only for guests without a profile (anti-forgery).
+	data.NeedEmail = !data.RequireProfileContacts && strings.TrimSpace(email) == ""
+	data.NeedName = !data.RequireProfileContacts && strings.TrimSpace(data.PayerName) == ""
+	data.Methods = s.buildMethods(session, r, cluePhone, contactPhones, selectedKind)
 
 	// Card form when selected method is embedded card and encryption is configured.
 	selectedEmbed := false
@@ -729,6 +811,10 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 
 	case errors.Is(payErr, business.ErrContactRequired):
 		s.reRenderPayWithError(w, r, ref, "contact_required", http.StatusBadRequest)
+	case errors.Is(payErr, business.ErrContactNotOnProfile):
+		s.reRenderPayWithError(w, r, ref, "contact_not_on_profile", http.StatusBadRequest)
+	case errors.Is(payErr, business.ErrMethodNotAllowedForContact):
+		s.reRenderPayWithError(w, r, ref, "method_not_allowed_contact", http.StatusBadRequest)
 		return
 
 	default:

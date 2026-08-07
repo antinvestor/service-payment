@@ -24,6 +24,29 @@
   <div class="amount-display">{{.AmountDisplay}}</div>
   {{end}}
 
+  {{if .RequireProfileContacts}}
+  <div class="payer-info" id="payer-block">
+    <span>{{t .Lang "paying_as"}}
+      {{if .PayerName}}<strong>{{.PayerName}}</strong>{{end}}
+    </span>
+    {{if .Contacts}}
+    <p class="hint" style="margin-top:0.5rem">{{t .Lang "select_contact"}}</p>
+    <div id="contact-list" class="contact-list">
+      {{range $i, $c := .Contacts}}
+      <label class="contact-option{{if $c.Preferred}} preferred{{end}}">
+        <input type="radio" name="contact_id" value="{{$c.ContactID}}"
+               data-kind="{{$c.Kind}}"
+               {{if $c.Preferred}} checked{{else if eq $i 0}} checked{{end}}>
+        <span class="contact-kind">{{if eq $c.Kind "email"}}{{t $.Lang "contact_kind_email"}}{{else}}{{t $.Lang "contact_kind_phone"}}{{end}}</span>
+        {{$c.Masked}}{{if $c.Preferred}} <span class="pref-tag">★</span>{{end}}
+      </label>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="banner error">{{t .Lang "no_profile_contacts"}}</div>
+    {{end}}
+  </div>
+  {{else}}
   {{if or .PayerName .MaskedPhone .MaskedEmail}}
   <div class="payer-info">
     <span>{{t .Lang "paying_as"}}
@@ -31,18 +54,6 @@
       {{if .MaskedEmail}} &middot; {{.MaskedEmail}}{{end}}
       {{if .MaskedPhone}} &middot; {{.MaskedPhone}}{{end}}
     </span>
-    {{if .Contacts}}
-    <button type="button" id="change" class="link-btn">{{t .Lang "change"}}</button>
-    <div id="contact-edit" class="contact-list hidden">
-      {{range $i, $c := .Contacts}}
-      <label class="contact-option{{if $c.Preferred}} preferred{{end}}">
-        {{/* Preferred payment phone is ordered first after a successful pay. */}}
-        <input type="radio" name="contact_id" value="{{$c.ContactID}}"{{if eq $i 0}} checked{{end}}>
-        {{$c.Masked}}{{if $c.Preferred}} <span class="pref-tag">★</span>{{end}}
-      </label>
-      {{end}}
-    </div>
-    {{end}}
   </div>
   {{end}}
 
@@ -65,11 +76,15 @@
     <input id="phone" name="phone" type="text" inputmode="tel" autocomplete="tel">
   </div>
   {{end}}
+  {{end}}
 
   {{if .Methods}}
-  <div class="method-chips">
+  <div class="method-chips" id="method-chips">
     {{range .Methods}}
-    <label class="chip{{if .Selected}} chip-selected{{end}}" data-embed="{{if .Embed}}1{{else}}0{{end}}" data-key="{{.Key}}">
+    <label class="chip{{if .Selected}} chip-selected{{end}}"
+           data-embed="{{if .Embed}}1{{else}}0{{end}}"
+           data-key="{{.Key}}"
+           data-card="{{if or .Embed (eq .Key "card")}}1{{else}}0{{end}}">
       <input type="radio" name="method" value="{{.Key}}"{{if .Selected}} checked{{end}}>
       {{.Name}}
     </label>
@@ -105,7 +120,7 @@
     <p class="hint secure-hint">{{t .Lang "card_secure_hint"}}</p>
   </div>
 
-  <button type="submit" class="btn-primary" id="pay-btn">
+  <button type="submit" class="btn-primary" id="pay-btn"{{if and .RequireProfileContacts (not .Contacts)}} disabled{{end}}>
     {{t .Lang "pay_button"}}{{if not .Variable}} {{.AmountDisplay}}{{end}}
   </button>
 </form>

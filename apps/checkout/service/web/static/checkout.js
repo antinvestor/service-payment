@@ -104,27 +104,54 @@
     }
   }
 
-  // --- change-contact toggle ---
-  var changeBtn = document.getElementById('change');
-  var contactEdit = document.getElementById('contact-edit');
-  if (changeBtn && contactEdit) {
-    changeBtn.addEventListener('click', function () {
-      contactEdit.classList.toggle('hidden');
-    });
-  }
-
-  // --- method chips: show/hide card fields ---
+  // --- contact switch: email → card only; phone → card + mobile money ---
+  var contactRadios = document.querySelectorAll('input[name="contact_id"]');
   var chips = document.querySelectorAll('.chip');
   var cardFields = document.getElementById('card-fields');
   var phoneField = document.getElementById('phone-field');
   var useSaved = document.getElementById('use-saved');
 
+  function selectedContactKind() {
+    for (var i = 0; i < contactRadios.length; i++) {
+      if (contactRadios[i].checked) {
+        return (contactRadios[i].getAttribute('data-kind') || '').toLowerCase();
+      }
+    }
+    return '';
+  }
+
   function selectedChip() {
     for (var i = 0; i < chips.length; i++) {
       var radio = chips[i].querySelector('input[type="radio"]');
-      if (radio && radio.checked) return chips[i];
+      if (radio && radio.checked && chips[i].style.display !== 'none') return chips[i];
     }
     return null;
+  }
+
+  function filterMethodsForContact() {
+    var kind = selectedContactKind();
+    var firstVisible = null;
+    var anyCheckedVisible = false;
+    chips.forEach(function (chip) {
+      var isCard = chip.getAttribute('data-card') === '1' ||
+        chip.getAttribute('data-embed') === '1' ||
+        chip.getAttribute('data-key') === 'card';
+      // Email contact: card only. Phone (or unknown): all chips.
+      var allow = kind !== 'email' || isCard;
+      chip.style.display = allow ? '' : 'none';
+      var radio = chip.querySelector('input[type="radio"]');
+      if (!allow && radio) {
+        radio.checked = false;
+      }
+      if (allow && radio) {
+        if (!firstVisible) firstVisible = radio;
+        if (radio.checked) anyCheckedVisible = true;
+      }
+    });
+    if (!anyCheckedVisible && firstVisible) {
+      firstVisible.checked = true;
+    }
+    syncMethodUI();
   }
 
   function syncMethodUI() {
@@ -138,11 +165,14 @@
       cardFields.classList.toggle('hidden', !showCard);
     }
     if (phoneField && key) {
-      // Phone only required for MoMo-style methods.
+      // Guest free-text phone only for MoMo-style methods (profile path has no free-text).
       phoneField.classList.toggle('hidden', embed || key === 'card');
     }
   }
 
+  contactRadios.forEach(function (r) {
+    r.addEventListener('change', filterMethodsForContact);
+  });
   chips.forEach(function (chip) {
     var radio = chip.querySelector('input[type="radio"]');
     if (!radio) return;
@@ -151,7 +181,7 @@
   if (useSaved) {
     useSaved.addEventListener('change', syncMethodUI);
   }
-  syncMethodUI();
+  filterMethodsForContact();
 
   // --- card encryption on submit (AES-GCM, Flutterwave v4) ---
   var form = document.getElementById('pay-form');

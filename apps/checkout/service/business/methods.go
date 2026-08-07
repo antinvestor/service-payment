@@ -151,6 +151,41 @@ func (r *MethodRegistry) Get(key string) (Method, bool) {
 	return Method{}, false
 }
 
+// IsCardMethod reports whether the method is card (embedded or hosted card).
+func IsCardMethod(m Method) bool {
+	return m.IsEmbedded() || strings.EqualFold(m.Key, "card")
+}
+
+// FilterMethodsForContactKind enforces product rule:
+//   - email contact → card only
+//   - phone contact → mobile money and/or card (whatever is already available)
+//   - unknown → no change
+func FilterMethodsForContactKind(methods []Method, kind contactKind) []Method {
+	if kind == contactKindUnknown || len(methods) == 0 {
+		return methods
+	}
+	if kind == contactKindEmail {
+		var out []Method
+		for _, m := range methods {
+			if IsCardMethod(m) {
+				out = append(out, m)
+			}
+		}
+		return out
+	}
+	// phone: keep all resolved methods (card + local MoMo rails).
+	return methods
+}
+
+// MethodAllowedForContact reports whether method may charge with the given contact kind.
+func MethodAllowedForContact(m Method, kind contactKind) bool {
+	if kind == contactKindEmail {
+		return IsCardMethod(m)
+	}
+	// phone or unknown: any method in the catalog resolution is fine.
+	return true
+}
+
 // Available is a thin wrapper kept for backward-compatible call sites/tests.
 // Prefer Resolve for full Link-style selection.
 func (r *MethodRegistry) Available(restriction []string, currency ...string) []Method {

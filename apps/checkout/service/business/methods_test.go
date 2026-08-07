@@ -300,3 +300,15 @@ func methodKeys(methods []business.Method) []string {
 	}
 	return out
 }
+
+func TestFilterMethodsForContactKind(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(testMethodsJSON)
+	require.NoError(t, err)
+	all := reg.Available(nil)
+	emailOnly := business.FilterMethodsForContactKind(all, business.ContactKindFromString("email"))
+	for _, m := range emailOnly {
+		assert.True(t, business.IsCardMethod(m), m.Key)
+	}
+	phoneAll := business.FilterMethodsForContactKind(all, business.ContactKindFromString("phone"))
+	assert.Len(t, phoneAll, len(all))
+}

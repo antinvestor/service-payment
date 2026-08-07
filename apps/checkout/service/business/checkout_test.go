@@ -516,10 +516,14 @@ func TestCreateSession_WithPayer_ProfileContactsFallback(t *testing.T) {
 	require.NoError(t, err)
 
 	contacts := session.Prefill["contacts"].([]any)
-	require.Len(t, contacts, 1, "only MSISDN contacts included")
-	c0 := contacts[0].(map[string]any)
-	assert.Equal(t, "c1", c0["contactId"])
-	assert.Equal(t, "254700000001", c0["msisdn"])
+	require.Len(t, contacts, 2, "email + phone profile contacts for payer selection")
+	kinds := map[string]string{}
+	for _, raw := range contacts {
+		m := raw.(map[string]any)
+		kinds[m["contactId"].(string)] = m["kind"].(string)
+	}
+	assert.Equal(t, "phone", kinds["c1"])
+	assert.Equal(t, "email", kinds["c2"])
 	// Email is resolved from the EMAIL contact, not properties.
 	assert.Equal(t, "bob@example.com", session.Prefill["email"])
 }
@@ -1461,17 +1465,92 @@ func TestPay_RecognizedPayer_UnknownContactID_NoPhone_Error(t *testing.T) {
 	}
 	sessionRepo.sessions["sess-recog-nomsisdn"] = s
 
-	// ContactID that is NOT in prefill, and no PhoneNumber provided
+	// ContactID that is NOT in prefill — forgery must fail closed.
 	in := business.PayInput{
 		MethodKey: "mpesa",
 		ContactID: "cid-unknown", // not in prefill
-		// PhoneNumber: ""         // no fallback
 	}
 	_, err := b.Pay(ctx, "sess-recog-nomsisdn", in)
 	require.Error(t, err)
-	require.ErrorIs(t, err, business.ErrContactRequired)
-	// No prompt should have been sent
-	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called when msisdn is empty")
+	require.ErrorIs(t, err, business.ErrContactNotOnProfile)
+	assert.Nil(t, payCli.lastPrompt, "InitiatePrompt must not be called for forged contact")
+}
+
+// Email contact may only pay by card; MoMo must be rejected.
+func TestPay_EmailContact_RejectsMobileMoney(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+	future := fixedNow().Add(20 * time.Minute)
+	sessionRepo.sessions["sess-email"] = &models.CheckoutSession{
+		Ref:            "sess-email",
+		Status:         models.SessionStatusPending,
+		ExpiresAt:      future,
+		Amount:         "10.00",
+		Currency:       "USD",
+		AmountOption:   models.AmountOptionFixed,
+		PayerProfileID: "profile-xyz",
+		Prefill: map[string]any{
+			"requireProfileContacts": true,
+			"contacts": []any{
+				map[string]any{"contactId": "em1", "detail": "bob@example.com", "kind": "email"},
+				map[string]any{"contactId": "ph1", "detail": "254700000001", "msisdn": "254700000001", "kind": "phone"},
+			},
+		},
+	}
+	_, err := b.Pay(ctx, "sess-email", business.PayInput{
+		MethodKey: "mpesa",
+		ContactID: "em1",
+	})
+	require.ErrorIs(t, err, business.ErrMethodNotAllowedForContact)
+	assert.Nil(t, payCli.lastPrompt)
+}
+
+// Phone contact may use mobile money when method is allowed.
+func TestPay_PhoneContact_AllowsMobileMoney(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+	payCli := &fakePaymentClient{}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		payCli,
+		&fakeProfileClient{},
+	)
+	ctx := context.Background()
+	future := fixedNow().Add(20 * time.Minute)
+	sessionRepo.sessions["sess-phone"] = &models.CheckoutSession{
+		Ref:            "sess-phone",
+		Status:         models.SessionStatusPending,
+		ExpiresAt:      future,
+		Amount:         "10.00",
+		Currency:       "KES",
+		AmountOption:   models.AmountOptionFixed,
+		PayerProfileID: "profile-xyz",
+		Prefill: map[string]any{
+			"requireProfileContacts": true,
+			"contacts": []any{
+				map[string]any{"contactId": "ph1", "detail": "254700000001", "msisdn": "254700000001", "kind": "phone"},
+			},
+		},
+	}
+	_, err := b.Pay(ctx, "sess-phone", business.PayInput{
+		MethodKey: "mpesa",
+		ContactID: "ph1",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, payCli.lastPrompt)
 }
 
 // ---------------------------------------------------------------------------

@@ -46,7 +46,12 @@ var (
 	ErrUnknownMethod   = errors.New("unknown payment method")
 	ErrLinkUnusable    = errors.New("checkout link is not usable")
 	ErrAmountRequired  = errors.New("an amount is required for this payment")
-	ErrContactRequired = errors.New("a phone contact is required to pay")
+	ErrContactRequired = errors.New("a profile contact is required to pay")
+	// ErrContactNotOnProfile is returned when the payer picks a contact_id that is
+	// not on the profile prefill list (forgery / stale form).
+	ErrContactNotOnProfile = errors.New("selected contact is not on the payer profile")
+	// ErrMethodNotAllowedForContact is returned when e.g. MoMo is chosen with an email contact.
+	ErrMethodNotAllowedForContact = errors.New("payment method is not allowed for the selected contact")
 )
 
 // Ref length constants.
@@ -428,52 +433,79 @@ func (b *CheckoutBusiness) applyPayer(
 		clueEmailContactID = emailPick.ContactID
 	}
 
-	// Phone chips + default MSISDN: prefer last successful payment phone contact.
-	var phoneMaps []map[string]any
-	if len(payer.Contacts) > 0 {
-		phoneMaps = normalizeCallerPhoneContacts(payer.Contacts, cluePhoneContactID)
+	// Unified profile contacts (email + phone) — only these may pay when profile_id is set.
+	// Prefer last successful payment contact; fall back to phone then email.
+	contactMaps := unifiedProfileContacts(
+		profileContacts,
+		clueEmailContactID,
+		cluePhoneContactID,
+		clueContactID,
+	)
+	// If product passed explicit contacts and profile was empty, keep phone-shaped
+	// caller contacts only when they carry real contact IDs (never free-text).
+	if len(contactMaps) == 0 && len(payer.Contacts) > 0 {
+		for _, c := range payer.Contacts {
+			raw := strings.TrimSpace(c.Msisdn)
+			if raw == "" || strings.TrimSpace(c.ContactID) == "" {
+				continue
+			}
+			kind := classifyContactDetail(raw)
+			if kind != contactKindEmail && kind != contactKindPhone {
+				continue
+			}
+			m := map[string]any{
+				"contactId": c.ContactID,
+				"detail":    raw,
+				"kind":      contactKindString(kind),
+			}
+			if kind == contactKindPhone {
+				m["msisdn"] = raw
+			}
+			contactMaps = append(contactMaps, m)
+		}
 	}
-	if len(phoneMaps) == 0 {
-		phoneMaps = phoneContactsFromProfile(profileContacts, cluePhoneContactID)
-	}
+
 	// Preferred phone detail for locality / masked display.
 	phone := ""
 	phoneContactID := cluePhoneContactID
-	if len(phoneMaps) > 0 {
-		if phoneContactID == "" {
-			if id, _ := phoneMaps[0]["contactId"].(string); id != "" {
-				phoneContactID = id
-			}
+	for _, m := range contactMaps {
+		if parseContactKind(fmtString(m["kind"])) != contactKindPhone {
+			continue
 		}
-		// Ensure preferred flag on the chosen phone when we have an id.
-		for i := range phoneMaps {
-			id, _ := phoneMaps[i]["contactId"].(string)
-			if id != "" && id == phoneContactID {
-				phoneMaps[i]["preferred"] = true
-				if m, _ := phoneMaps[i]["msisdn"].(string); m != "" {
-					phone = m
-				}
-				// Move preferred to front.
-				if i > 0 {
-					phoneMaps[0], phoneMaps[i] = phoneMaps[i], phoneMaps[0]
-				}
-				break
-			}
+		id, _ := m["contactId"].(string)
+		msisdn, _ := m["msisdn"].(string)
+		if msisdn == "" {
+			msisdn, _ = m["detail"].(string)
+		}
+		if phoneContactID != "" && id == phoneContactID {
+			phone = msisdn
+			break
 		}
 		if phone == "" {
-			phone, _ = phoneMaps[0]["msisdn"].(string)
-			phoneContactID, _ = phoneMaps[0]["contactId"].(string)
+			phone = msisdn
+			if phoneContactID == "" {
+				phoneContactID = id
+			}
 		}
 	}
 	if cluePhoneContactID == "" {
 		cluePhoneContactID = phoneContactID
 	}
+	// Default selected contact for UI: last used, else first phone, else first email.
 	if clueContactID == "" {
-		clueContactID = cluePhoneContactID
+		if cluePhoneContactID != "" {
+			clueContactID = cluePhoneContactID
+		} else if clueEmailContactID != "" {
+			clueContactID = clueEmailContactID
+		} else if len(contactMaps) > 0 {
+			if id, _ := contactMaps[0]["contactId"].(string); id != "" {
+				clueContactID = id
+			}
+		}
 	}
 
-	contacts := make([]any, 0, len(phoneMaps))
-	for _, m := range phoneMaps {
+	contacts := make([]any, 0, len(contactMaps))
+	for _, m := range contactMaps {
 		contacts = append(contacts, m)
 	}
 
@@ -493,6 +525,9 @@ func (b *CheckoutBusiness) applyPayer(
 		// nameSource is "profile" when au_name (or legacy profile keys) filled
 		// displayName; "caller" when only the merchant/product label was used.
 		"nameSource": nameSource,
+		// requireProfileContacts: profile-bound payers never type free-text email/phone
+		// (anti-forgery). Empty contacts → pay UI blocks until profile has email/phone.
+		"requireProfileContacts": payer.ProfileID != "",
 	}
 	if emailPick.ContactID != "" {
 		prefill["emailContactId"] = emailPick.ContactID
@@ -758,21 +793,24 @@ func (b *CheckoutBusiness) Pay(
 		return nil, err
 	}
 
-	// Resolve msisdn and contactRef.
-	// Embedded card and redirect methods do not require phone — profile contacts
-	// are still resolved so we never re-ask for data we already store.
-	var msisdn, contactID string
-	if !method.Redirect && !method.IsEmbedded() {
-		var payerErr error
-		msisdn, contactID, payerErr = b.resolvePayer(session, in)
-		if payerErr != nil {
+	// Profile-bound contact: only contacts on the payer profile may pay.
+	// Email contact → card only; phone contact → MoMo and/or card.
+	resolved, payerErr := b.resolvePayContact(session, in, method)
+	if payerErr != nil {
+		if errors.Is(payerErr, ErrContactNotOnProfile) {
+			b.obs.RecordPayFailure(ctx, "contact_not_on_profile")
+		} else if errors.Is(payerErr, ErrMethodNotAllowedForContact) {
+			b.obs.RecordPayFailure(ctx, "method_not_allowed_for_contact")
+		} else {
 			b.obs.RecordPayFailure(ctx, "contact_required")
-			err = payerErr
-			return nil, err
 		}
-	} else {
-		// Best-effort profile phone for card / redirect rails (optional).
-		msisdn, contactID = b.resolvePayerOptional(session, in)
+		err = payerErr
+		return nil, err
+	}
+	msisdn, contactID := resolved.Phone, resolved.ContactID
+	// Inject resolved email into input for provider customer (profile email only).
+	if resolved.Email != "" && strings.TrimSpace(in.Email) == "" {
+		in.Email = resolved.Email
 	}
 
 	// Embedded card must include encrypted fields or a saved payment method.
@@ -801,17 +839,23 @@ func (b *CheckoutBusiness) Pay(
 	session.Metadata["_method"] = in.MethodKey
 	if contactID != "" {
 		session.Metadata["_contact_id"] = contactID
+	}
+	if resolved.Kind == contactKindPhone && contactID != "" {
 		session.Metadata["_phone_contact_id"] = contactID
 	}
-	// Email contact used for this pay (from prefill preference).
-	if session.Prefill != nil {
+	if resolved.Kind == contactKindEmail && contactID != "" {
+		session.Metadata["_email_contact_id"] = contactID
+	} else if resolved.EmailContactID != "" {
+		session.Metadata["_email_contact_id"] = resolved.EmailContactID
+	} else if session.Prefill != nil {
 		if eid, _ := session.Prefill["emailContactId"].(string); eid != "" {
 			session.Metadata["_email_contact_id"] = eid
 		} else if eid, _ := session.Prefill["clueEmailContactId"].(string); eid != "" {
 			session.Metadata["_email_contact_id"] = eid
 		}
-		// If card path and no phone selected, still remember preferred phone for next time.
-		if contactID == "" {
+	}
+	if resolved.Kind != contactKindPhone {
+		if session.Prefill != nil {
 			if pid, _ := session.Prefill["cluePhoneContactId"].(string); pid != "" {
 				session.Metadata["_phone_contact_id"] = pid
 			}
@@ -1110,53 +1154,94 @@ func (b *CheckoutBusiness) Authorize(
 	return session, nil
 }
 
-// resolvePayer returns (msisdn, contactID) from the PayInput.
-// contactID is non-empty only for recognized payers.
-func (b *CheckoutBusiness) resolvePayer(
-	session *models.CheckoutSession,
-	in PayInput,
-) (string, string, error) {
-	msisdn, contactID := b.resolvePayerOptional(session, in)
-	if msisdn == "" {
-		return "", "", ErrContactRequired
-	}
-	return msisdn, contactID, nil
+// payContactResolved is the profile contact (+ companion email) used for a charge.
+type payContactResolved struct {
+	ContactID      string
+	Kind           contactKind
+	Phone          string // MSISDN when kind is phone
+	Email          string // email used for card rails (selected email contact or profile email)
+	EmailContactID string
 }
 
-// resolvePayerOptional is like resolvePayer but never errors — used for redirect
-// methods where phone is helpful but not mandatory.
-func (b *CheckoutBusiness) resolvePayerOptional(
+// resolvePayContact enforces profile-bound payment:
+//   - With profile_id + prefill contacts: contact_id must be one of them (no free-text forgery).
+//   - Email contact → method must be card; Phone contact → card or MoMo.
+//   - Guests (no profile) may still type phone for MoMo-only paths.
+func (b *CheckoutBusiness) resolvePayContact(
 	session *models.CheckoutSession,
 	in PayInput,
-) (string, string) {
-	// Explicit contact from form (recognized payer).
-	if session.PayerProfileID != "" && in.ContactID != "" {
-		msisdn := b.findMsisdnFromPrefill(session, in.ContactID)
-		if msisdn == "" {
-			msisdn = strings.TrimSpace(in.PhoneNumber)
-		}
-		// Caller chose a specific contact: do not silently substitute another.
-		return msisdn, in.ContactID
-	}
+	method Method,
+) (payContactResolved, error) {
+	requireProfile := session.PayerProfileID != "" &&
+		session.Prefill != nil &&
+		prefillHasContacts(session.Prefill)
 
-	// Guest typed phone.
-	if phone := strings.TrimSpace(in.PhoneNumber); phone != "" {
-		return phone, ""
-	}
-
-	// Auto-pick from profile prefill only when no contact was selected:
-	// clue contact, else first MSISDN (zero re-entry path).
-	if session.PayerProfileID != "" && session.Prefill != nil {
-		if clueID, _ := session.Prefill["clueContactId"].(string); clueID != "" {
-			if msisdn := b.findMsisdnFromPrefill(session, clueID); msisdn != "" {
-				return msisdn, clueID
+	if requireProfile {
+		cid := strings.TrimSpace(in.ContactID)
+		if cid == "" {
+			// Default to prefill preferred contact when form omitted radio (single contact).
+			if v, _ := session.Prefill["clueContactId"].(string); v != "" {
+				cid = v
 			}
 		}
-		if msisdn, contactID := b.firstPrefillContact(session); msisdn != "" {
-			return msisdn, contactID
+		if cid == "" {
+			return payContactResolved{}, ErrContactRequired
 		}
+		pc, ok := findPrefillContact(session.Prefill, cid)
+		if !ok {
+			return payContactResolved{}, ErrContactNotOnProfile
+		}
+		if !MethodAllowedForContact(method, pc.Kind) {
+			return payContactResolved{}, ErrMethodNotAllowedForContact
+		}
+		out := payContactResolved{ContactID: pc.ContactID, Kind: pc.Kind}
+		switch pc.Kind {
+		case contactKindPhone:
+			out.Phone = pc.Detail
+			// Companion email from profile for card customer object.
+			if em, ok := firstPrefillContactOfKind(session.Prefill, contactKindEmail); ok {
+				out.Email = em.Detail
+				out.EmailContactID = em.ContactID
+			} else if v, _ := session.Prefill["email"].(string); strings.TrimSpace(v) != "" {
+				out.Email = strings.TrimSpace(v)
+			}
+		case contactKindEmail:
+			out.Email = pc.Detail
+			out.EmailContactID = pc.ContactID
+		}
+		// MoMo / non-card requires a phone contact.
+		if !IsCardMethod(method) && out.Phone == "" {
+			return payContactResolved{}, ErrContactRequired
+		}
+		return out, nil
 	}
-	return "", ""
+
+	// Guest / no profile contacts: phone free-text only for non-card rails.
+	if !IsCardMethod(method) {
+		phone := strings.TrimSpace(in.PhoneNumber)
+		if phone == "" {
+			return payContactResolved{}, ErrContactRequired
+		}
+		return payContactResolved{Phone: phone, Kind: contactKindPhone}, nil
+	}
+	// Guest card: optional free-text email (no profile to bind).
+	email := strings.TrimSpace(in.Email)
+	if email == "" {
+		email = strings.TrimSpace(in.GuestEmail)
+	}
+	return payContactResolved{Email: email, Kind: contactKindEmail}, nil
+}
+
+func prefillHasContacts(prefill map[string]any) bool {
+	if prefill == nil {
+		return false
+	}
+	raw, ok := prefill["contacts"]
+	if !ok {
+		return false
+	}
+	list, ok := raw.([]any)
+	return ok && len(list) > 0
 }
 
 // firstPrefillContact returns the first MSISDN contact from session prefill.

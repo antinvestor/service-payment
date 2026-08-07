@@ -243,3 +243,172 @@ func pickEmailFromCallerContacts(in []PayerContactInput, preferredID string) con
 	}
 	return first
 }
+
+// contactKindString is the stable wire value for prefill/UI (email|phone).
+func contactKindString(k contactKind) string {
+	switch k {
+	case contactKindEmail:
+		return "email"
+	case contactKindPhone:
+		return "phone"
+	default:
+		return ""
+	}
+}
+
+// parseContactKind maps wire values back to contactKind.
+func parseContactKind(s string) contactKind {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "email":
+		return contactKindEmail
+	case "phone", "msisdn":
+		return contactKindPhone
+	default:
+		return contactKindUnknown
+	}
+}
+
+// ContactKindFromString exposes kind parsing for handlers / method filtering.
+func ContactKindFromString(s string) contactKind {
+	return parseContactKind(s)
+}
+
+// unifiedProfileContacts builds the pay UI contact list from profile contacts
+// only (email + phone). preferredIDs order preferred chips first.
+// Products must not inject free-text payers when a profile is attached —
+// only these contacts may charge.
+func unifiedProfileContacts(
+	contacts []*profilev1.ContactObject,
+	preferredEmailID, preferredPhoneID, preferredAnyID string,
+) []map[string]any {
+	var preferred, rest []map[string]any
+	for _, c := range contacts {
+		if c == nil {
+			continue
+		}
+		kind := classifyProfileContact(c)
+		if kind != contactKindEmail && kind != contactKindPhone {
+			continue
+		}
+		detail := strings.TrimSpace(c.GetDetail())
+		if detail == "" {
+			continue
+		}
+		id := c.GetId()
+		m := map[string]any{
+			"contactId": id,
+			"detail":    detail,
+			"kind":      contactKindString(kind),
+		}
+		if kind == contactKindPhone {
+			m["msisdn"] = detail
+		}
+		isPref := false
+		if kind == contactKindEmail && preferredEmailID != "" && id == preferredEmailID {
+			isPref = true
+		}
+		if kind == contactKindPhone && preferredPhoneID != "" && id == preferredPhoneID {
+			isPref = true
+		}
+		if preferredAnyID != "" && id == preferredAnyID {
+			isPref = true
+		}
+		if isPref {
+			m["preferred"] = true
+			preferred = append(preferred, m)
+			continue
+		}
+		rest = append(rest, m)
+	}
+	return append(preferred, rest...)
+}
+
+// prefillContact is a resolved entry from session prefill contacts[].
+type prefillContact struct {
+	ContactID string
+	Detail    string
+	Kind      contactKind
+}
+
+// findPrefillContact looks up contactID in session prefill contacts.
+func findPrefillContact(prefill map[string]any, contactID string) (prefillContact, bool) {
+	if prefill == nil || strings.TrimSpace(contactID) == "" {
+		return prefillContact{}, false
+	}
+	contactsRaw, ok := prefill["contacts"]
+	if !ok {
+		return prefillContact{}, false
+	}
+	list, ok := contactsRaw.([]any)
+	if !ok {
+		return prefillContact{}, false
+	}
+	for _, raw := range list {
+		m, isMap := raw.(map[string]any)
+		if !isMap {
+			continue
+		}
+		cid, _ := m["contactId"].(string)
+		if cid == "" || cid != contactID {
+			continue
+		}
+		detail, _ := m["detail"].(string)
+		if detail == "" {
+			detail, _ = m["msisdn"].(string)
+		}
+		detail = strings.TrimSpace(detail)
+		if detail == "" {
+			continue
+		}
+		kind := parseContactKind(fmtString(m["kind"]))
+		if kind == contactKindUnknown {
+			kind = classifyContactDetail(detail)
+		}
+		return prefillContact{ContactID: cid, Detail: detail, Kind: kind}, true
+	}
+	return prefillContact{}, false
+}
+
+func fmtString(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+// firstPrefillContactOfKind returns the first prefill contact matching kind.
+func firstPrefillContactOfKind(prefill map[string]any, kind contactKind) (prefillContact, bool) {
+	if prefill == nil {
+		return prefillContact{}, false
+	}
+	contactsRaw, ok := prefill["contacts"]
+	if !ok {
+		return prefillContact{}, false
+	}
+	list, ok := contactsRaw.([]any)
+	if !ok {
+		return prefillContact{}, false
+	}
+	for _, raw := range list {
+		m, isMap := raw.(map[string]any)
+		if !isMap {
+			continue
+		}
+		detail, _ := m["detail"].(string)
+		if detail == "" {
+			detail, _ = m["msisdn"].(string)
+		}
+		detail = strings.TrimSpace(detail)
+		if detail == "" {
+			continue
+		}
+		k := parseContactKind(fmtString(m["kind"]))
+		if k == contactKindUnknown {
+			k = classifyContactDetail(detail)
+		}
+		if k != kind {
+			continue
+		}
+		cid, _ := m["contactId"].(string)
+		return prefillContact{ContactID: cid, Detail: detail, Kind: k}, true
+	}
+	return prefillContact{}, false
+}

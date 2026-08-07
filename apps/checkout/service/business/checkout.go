@@ -413,6 +413,12 @@ func (b *CheckoutBusiness) applyPayer(
 			paymentMethodID = clues.PaymentMethodID
 			providerCustomerID = clues.ProviderCustomerID
 			profileContacts = profile.GetContacts()
+			// Many users have au_name but no Contact rows yet (provider login
+			// sets name without linking email). Ensure payable contacts from
+			// authenticated product hints (OIDC email/phone) via AddContact.
+			if len(profileContacts) == 0 {
+				profileContacts = b.ensureProfileContacts(ctx, payer.ProfileID, payer, profileProps)
+			}
 		}
 	}
 
@@ -1469,6 +1475,134 @@ func (b *CheckoutBusiness) captureProviderExtras(
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
 		util.Log(ctx).WithError(updateErr).Warn("could not persist provider extras on session")
 	}
+}
+
+// ensureProfileContacts attaches email/phone onto the profile when GetById
+// returned a profile with au_name but zero Contact rows (common after OAuth
+// name-only sync). Sources: product payer.Email/Phone, then profile property
+// email keys. Uses AddContact so pay binds a real contact_id.
+//
+// If AddContact is denied (missing contact_manage) or re-fetch is empty, still
+// returns session-scoped synthetic contacts from the same authenticated product
+// hints so the pay page is not stuck. Those IDs are only valid for this session
+// prefill (resolvePayContact checks prefill, not a second profile read).
+func (b *CheckoutBusiness) ensureProfileContacts(
+	ctx context.Context,
+	profileID string,
+	payer *PayerInput,
+	props *structpb.Struct,
+) []*profilev1.ContactObject {
+	email, phone := payerContactHints(payer, props)
+	if email == "" && phone == "" {
+		return nil
+	}
+
+	added := false
+	if b.profileCli != nil && strings.TrimSpace(profileID) != "" {
+		if email != "" {
+			if _, err := b.profileCli.AddContact(ctx, connect.NewRequest(&profilev1.AddContactRequest{
+				Id:      profileID,
+				Contact: email,
+			})); err != nil {
+				util.Log(ctx).WithError(err).WithField("profile_id", profileID).
+					Warn("checkout: could not AddContact email for pay prefill")
+			} else {
+				added = true
+				util.Log(ctx).WithField("profile_id", profileID).
+					Info("checkout: ensured email contact on profile for pay")
+			}
+		}
+		if phone != "" {
+			if _, err := b.profileCli.AddContact(ctx, connect.NewRequest(&profilev1.AddContactRequest{
+				Id:      profileID,
+				Contact: phone,
+			})); err != nil {
+				util.Log(ctx).WithError(err).WithField("profile_id", profileID).
+					Warn("checkout: could not AddContact phone for pay prefill")
+			} else {
+				added = true
+				util.Log(ctx).WithField("profile_id", profileID).
+					Info("checkout: ensured phone contact on profile for pay")
+			}
+		}
+		if added {
+			resp, err := b.profileCli.GetById(ctx, connect.NewRequest(&profilev1.GetByIdRequest{Id: profileID}))
+			if err == nil && resp.Msg.GetData() != nil {
+				if contacts := resp.Msg.GetData().GetContacts(); len(contacts) > 0 {
+					return contacts
+				}
+			}
+			util.Log(ctx).WithError(err).WithField("profile_id", profileID).
+				Warn("checkout: could not re-fetch profile after AddContact; using session seed")
+		}
+	}
+
+	// Session-only seed (product/OIDC hints — never free-text on the pay form).
+	return syntheticContactsFromHints(email, phone)
+}
+
+// payerContactHints resolves email/phone from product payer + profile properties.
+func payerContactHints(payer *PayerInput, props *structpb.Struct) (email, phone string) {
+	if payer != nil {
+		email = strings.TrimSpace(payer.Email)
+		for _, c := range payer.Contacts {
+			raw := strings.TrimSpace(c.Msisdn)
+			if classifyContactDetail(raw) == contactKindPhone {
+				phone = raw
+				break
+			}
+		}
+	}
+	if email == "" {
+		email = emailFromProfileProperties(props)
+	}
+	if email != "" && classifyContactDetail(email) != contactKindEmail {
+		email = ""
+	}
+	return email, phone
+}
+
+// syntheticContactsFromHints builds temporary ContactObjects for session prefill
+// when the profile has no Contact rows yet. IDs are namespaced so they cannot be
+// confused with real profile contact primary keys.
+func syntheticContactsFromHints(email, phone string) []*profilev1.ContactObject {
+	var out []*profilev1.ContactObject
+	if email != "" {
+		out = append(out, &profilev1.ContactObject{
+			Id:     "session:email:" + email,
+			Type:   profilev1.ContactType_EMAIL,
+			Detail: email,
+		})
+	}
+	if phone != "" {
+		out = append(out, &profilev1.ContactObject{
+			Id:     "session:phone:" + phone,
+			Type:   profilev1.ContactType_MSISDN,
+			Detail: phone,
+		})
+	}
+	return out
+}
+
+func emailFromProfileProperties(props *structpb.Struct) string {
+	if props == nil {
+		return ""
+	}
+	fields := props.GetFields()
+	if fields == nil {
+		return ""
+	}
+	for _, key := range []string{"email", "au_email", "contact_email", "mail"} {
+		v, ok := fields[key]
+		if !ok || v == nil {
+			continue
+		}
+		s := strings.TrimSpace(v.GetStringValue())
+		if classifyContactDetail(s) == contactKindEmail {
+			return s
+		}
+	}
+	return ""
 }
 
 // writeClues persists checkout clues to the payer's profile (best-effort).

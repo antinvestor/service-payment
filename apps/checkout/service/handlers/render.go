@@ -176,6 +176,7 @@ var translations = map[string]map[string]string{
 		"contact_kind_phone":         "Phone",
 		"select_contact":             "Pay with",
 		"no_profile_contacts":        "Add an email or phone to your profile before paying.",
+		"no_profile_contacts_help":   "Return to the app, make sure you are signed in with an email or phone, then start payment again.",
 		"redirect_hint":              "Securing your payment…",
 	},
 	"fr": {
@@ -216,6 +217,7 @@ var translations = map[string]map[string]string{
 		"contact_kind_phone":         "Téléphone",
 		"select_contact":             "Payer avec",
 		"no_profile_contacts":        "Ajoutez un e-mail ou un téléphone à votre profil avant de payer.",
+		"no_profile_contacts_help":   "Revenez dans l’application, connectez-vous avec un e-mail ou un téléphone, puis relancez le paiement.",
 		"redirect_hint":              "Sécurisation du paiement…",
 	},
 }

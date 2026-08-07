@@ -78,6 +78,8 @@
   {{end}}
   {{end}}
 
+  {{/* Profile-bound payers without contacts cannot charge — hide rails/card. */}}
+  {{if or (not .RequireProfileContacts) .Contacts}}
   {{if .Methods}}
   <div class="method-chips" id="method-chips">
     {{range .Methods}}
@@ -120,9 +122,12 @@
     <p class="hint secure-hint">{{t .Lang "card_secure_hint"}}</p>
   </div>
 
-  <button type="submit" class="btn-primary" id="pay-btn"{{if and .RequireProfileContacts (not .Contacts)}} disabled{{end}}>
+  <button type="submit" class="btn-primary" id="pay-btn">
     {{t .Lang "pay_button"}}{{if not .Variable}} {{.AmountDisplay}}{{end}}
   </button>
+  {{else}}
+  <p class="hint" style="margin-top:1rem">{{t .Lang "no_profile_contacts_help"}}</p>
+  {{end}}
 </form>
 
 {{template "layout_bottom" .}}

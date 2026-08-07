@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -198,10 +199,13 @@ func (f *fakePaymentClient) Status(
 
 type fakeProfileClient struct {
 	profilev1connect.ProfileServiceClient
-	profile   *profilev1.ProfileObject
-	getErr    error
-	updateReq *profilev1.UpdateRequest
-	updateErr error
+	profile      *profilev1.ProfileObject
+	getErr       error
+	updateReq    *profilev1.UpdateRequest
+	updateErr    error
+	addContacts  []string
+	addContactN  int
+	addContactEr error
 }
 
 //nolint:revive,staticcheck // Method name matches the generated proto interface (buf.build protobuf naming).
@@ -224,6 +228,35 @@ func (f *fakeProfileClient) Update(
 		return nil, f.updateErr
 	}
 	return connect.NewResponse(&profilev1.UpdateResponse{}), nil
+}
+
+// AddContact appends a contact to the in-memory profile (email or MSISDN by shape).
+func (f *fakeProfileClient) AddContact(
+	_ context.Context,
+	req *connect.Request[profilev1.AddContactRequest],
+) (*connect.Response[profilev1.AddContactResponse], error) {
+	f.addContactN++
+	detail := ""
+	if req != nil && req.Msg != nil {
+		detail = req.Msg.GetContact()
+	}
+	f.addContacts = append(f.addContacts, detail)
+	if f.addContactEr != nil {
+		return nil, f.addContactEr
+	}
+	if f.profile == nil {
+		f.profile = &profilev1.ProfileObject{}
+	}
+	kind := profilev1.ContactType_EMAIL
+	if !strings.Contains(detail, "@") {
+		kind = profilev1.ContactType_MSISDN
+	}
+	f.profile.Contacts = append(f.profile.Contacts, &profilev1.ContactObject{
+		Id:     fmt.Sprintf("ensured-%d", f.addContactN),
+		Type:   kind,
+		Detail: detail,
+	})
+	return connect.NewResponse(&profilev1.AddContactResponse{Data: f.profile}), nil
 }
 
 // ---------------------------------------------------------------------------
@@ -477,6 +510,135 @@ func TestCreateSession_WithPayer_LegacyNameThenCaller(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Only Caller", session2.Prefill["displayName"])
 	assert.Equal(t, "caller", session2.Prefill["nameSource"])
+}
+
+// 2c0. Profile with au_name but zero Contact rows: seed email via AddContact.
+func TestCreateSession_EnsuresEmailContactWhenProfileHasNone(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	props, err := structpb.NewStruct(map[string]any{business.ProfilePropName: "Peter"})
+	require.NoError(t, err)
+	profCli := &fakeProfileClient{
+		profile: &profilev1.ProfileObject{
+			Id:         "prof-peter",
+			Properties: props,
+			// No Contacts — matches OAuth name-only profiles in production.
+		},
+	}
+	b := newBusiness(
+		defaultConfig(),
+		defaultRegistry(),
+		sessionRepo,
+		linkRepo,
+		&fakePaymentClient{},
+		profCli,
+	)
+
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name:     "Stawi starter",
+		Amount:   "10.00",
+		Currency: "USD",
+		Payer: &business.PayerInput{
+			ProfileID:   "prof-peter",
+			DisplayName: "ignored",
+			Email:       "peter@example.com", // product/OIDC seed
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, profCli.addContactN, "must AddContact email when profile has none")
+	require.Equal(t, []string{"peter@example.com"}, profCli.addContacts)
+
+	contacts, ok := session.Prefill["contacts"].([]any)
+	require.True(t, ok)
+	require.Len(t, contacts, 1, "ensured email must appear as payable contact")
+	c0, ok := contacts[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "email", c0["kind"])
+	assert.Equal(t, "peter@example.com", c0["detail"])
+	assert.Equal(t, "ensured-1", c0["contactId"])
+	assert.Equal(t, "peter@example.com", session.Prefill["email"])
+	assert.Equal(t, "Peter", session.Prefill["displayName"])
+	assert.Equal(t, true, session.Prefill["requireProfileContacts"])
+}
+
+// 2c0b. No OIDC email and empty contacts → still empty (UI blocks free-text).
+func TestCreateSession_NoEnsureWithoutEmailHint(t *testing.T) {
+	props, err := structpb.NewStruct(map[string]any{business.ProfilePropName: "Peter"})
+	require.NoError(t, err)
+	profCli := &fakeProfileClient{
+		profile: &profilev1.ProfileObject{Id: "p1", Properties: props},
+	}
+	b := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli,
+	)
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "X", Amount: "10.00", Currency: "USD",
+		Payer: &business.PayerInput{ProfileID: "p1"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, profCli.addContactN)
+	contacts, _ := session.Prefill["contacts"].([]any)
+	assert.Empty(t, contacts)
+	assert.Equal(t, true, session.Prefill["requireProfileContacts"])
+}
+
+// 2c0b2. AddContact denied → still seed session contacts from OIDC email.
+func TestCreateSession_SessionSeedWhenAddContactFails(t *testing.T) {
+	props, err := structpb.NewStruct(map[string]any{business.ProfilePropName: "Peter"})
+	require.NoError(t, err)
+	profCli := &fakeProfileClient{
+		profile:      &profilev1.ProfileObject{Id: "p1", Properties: props},
+		addContactEr: errors.New("permission denied: contact_manage"),
+	}
+	b := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli,
+	)
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "X", Amount: "10.00", Currency: "USD",
+		Payer: &business.PayerInput{
+			ProfileID: "p1",
+			Email:     "peter@example.com",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, profCli.addContactN)
+	contacts := session.Prefill["contacts"].([]any)
+	require.Len(t, contacts, 1)
+	c0 := contacts[0].(map[string]any)
+	assert.Equal(t, "email", c0["kind"])
+	assert.Equal(t, "peter@example.com", c0["detail"])
+	assert.Equal(t, "session:email:peter@example.com", c0["contactId"])
+}
+
+// 2c0c. Email from profile property when payer.Email empty.
+func TestCreateSession_EnsuresEmailFromProfileProperties(t *testing.T) {
+	props, err := structpb.NewStruct(map[string]any{
+		business.ProfilePropName: "Peter",
+		"au_email":               "from-props@stawi.org",
+	})
+	require.NoError(t, err)
+	profCli := &fakeProfileClient{
+		profile: &profilev1.ProfileObject{Id: "p1", Properties: props},
+	}
+	b := newBusiness(
+		defaultConfig(), defaultRegistry(),
+		newFakeSessionRepo(), newFakeLinkRepo(),
+		&fakePaymentClient{}, profCli,
+	)
+	session, err := b.CreateSession(context.Background(), business.CreateSessionInput{
+		Name: "X", Amount: "10.00", Currency: "USD",
+		Payer: &business.PayerInput{ProfileID: "p1"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, profCli.addContactN)
+	require.Equal(t, []string{"from-props@stawi.org"}, profCli.addContacts)
+	contacts := session.Prefill["contacts"].([]any)
+	require.Len(t, contacts, 1)
 }
 
 // 2c. Profile contacts used when caller provides none.

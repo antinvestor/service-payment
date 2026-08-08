@@ -314,9 +314,10 @@ func extractContacts(prefill map[string]any, clueContactID string) (
 			msisdn = detail
 		}
 		masked := detail
-		if kind == "phone" {
+		switch kind {
+		case "phone":
 			masked = MaskMsisdn(msisdn)
-		} else if kind == "email" {
+		case "email":
 			masked = maskEmail(detail)
 		}
 		isSel := preferred || (clueContactID != "" && cid == clueContactID)

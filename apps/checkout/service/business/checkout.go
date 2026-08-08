@@ -1244,33 +1244,6 @@ func prefillHasContacts(prefill map[string]any) bool {
 	return ok && len(list) > 0
 }
 
-// firstPrefillContact returns the first MSISDN contact from session prefill.
-func (b *CheckoutBusiness) firstPrefillContact(session *models.CheckoutSession) (msisdn, contactID string) {
-	if session.Prefill == nil {
-		return "", ""
-	}
-	contactsRaw, ok := session.Prefill["contacts"]
-	if !ok {
-		return "", ""
-	}
-	contacts, ok := contactsRaw.([]any)
-	if !ok {
-		return "", ""
-	}
-	for _, raw := range contacts {
-		c, isMap := raw.(map[string]any)
-		if !isMap {
-			continue
-		}
-		phone, _ := c["msisdn"].(string)
-		cid, _ := c["contactId"].(string)
-		if strings.TrimSpace(phone) != "" {
-			return strings.TrimSpace(phone), cid
-		}
-	}
-	return "", ""
-}
-
 // findMsisdnFromPrefill looks up a msisdn for contactID in session prefill contacts.
 func (b *CheckoutBusiness) findMsisdnFromPrefill(
 	session *models.CheckoutSession,

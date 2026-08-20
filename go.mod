@@ -31,7 +31,7 @@ require (
 	github.com/pitabwire/util/decimalx v0.7.2
 	github.com/pitabwire/util/moneyx v0.9.0
 	github.com/rs/xid v1.6.0
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	go.opentelemetry.io/otel v1.45.0

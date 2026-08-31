@@ -1,6 +1,6 @@
 module github.com/antinvestor/service-payments
 
-go 1.26
+go 1.26.0
 
 toolchain go1.26.1
 
@@ -20,13 +20,13 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.1
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/common/v2 v2.0.4
+	github.com/antinvestor/common/v2 v2.0.6
 	github.com/antinvestor/service-trustage v0.4.5
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.55.0
-	github.com/pitabwire/frame/v2 v2.1.4
+	github.com/pitabwire/frame/v2 v2.1.7
 	github.com/pitabwire/util v0.9.1
 	github.com/pitabwire/util/decimalx v0.7.2
 	github.com/pitabwire/util/moneyx v0.9.0
@@ -113,7 +113,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0 // indirect
 	github.com/panjf2000/ants/v2 v2.12.1 // indirect
-	github.com/pitabwire/natspubsub v0.8.4 // indirect
+	github.com/pitabwire/natspubsub v0.8.5 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect

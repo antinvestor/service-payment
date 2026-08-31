@@ -17,7 +17,7 @@ require (
 	buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.20.0-20260709214326-f637cc57d60d.1
 	buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.12-20260709214326-f637cc57d60d.1
 	buf.build/gen/go/antinvestor/tenancy/connectrpc/go v1.20.0-20260709203041-c02aadb0111f.1
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.1
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/common/v2 v2.0.4

@@ -33,13 +33,11 @@ import (
 	"github.com/antinvestor/common/v2/connection"
 	"github.com/antinvestor/common/v2/permissions"
 	"github.com/antinvestor/common/v2/servicecatalog"
-	"github.com/antinvestor/common/v2/timescale"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
 	collectionv1 "github.com/antinvestor/service-payments/apps/billing/gen/collection/v1"
 	"github.com/antinvestor/service-payments/apps/billing/gen/collection/v1/collectionv1connect"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
-	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 
@@ -50,7 +48,6 @@ import (
 	"github.com/pitabwire/frame/v2"
 	"github.com/pitabwire/frame/v2/config"
 	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/datastore/pool"
 	"github.com/pitabwire/frame/v2/security"
 	"github.com/pitabwire/frame/v2/security/authorizer"
 	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
@@ -101,9 +98,6 @@ func main() {
 	}
 
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
-
-	// Register hypertables (no-op WARN if timescaledb extension is absent).
-	ensureHypertables(ctx, dbPool)
 	workMan := service.WorkManager()
 
 	// Create billing repositories (15 repos, bottom-up)
@@ -331,15 +325,6 @@ func setupTrustageClient(
 		WorkloadAPITargetPath: cfg.TrustageWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceTrustage,
 	}, workflowv1connect.NewWorkflowServiceClient)
-}
-
-// ensureHypertables registers TimescaleDB hypertables idempotently.
-// Errors are logged as warnings so the service continues when TimescaleDB
-// is not yet available.
-func ensureHypertables(ctx context.Context, dbPool pool.Pool) {
-	if tsErr := timescale.Ensure(ctx, dbPool.DB(ctx, false), models.Hypertables()); tsErr != nil {
-		util.Log(ctx).WithError(tsErr).Warn("timescale hypertable setup skipped — will retry after cluster migration")
-	}
 }
 
 // setupConnectServer mounts BillingService and CollectionService on one mux

@@ -60,8 +60,8 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
-github.com/antinvestor/common/v2 v2.0.5 h1:POmhOz6FUNhGPDl9NwvI/K7D5lrIMfuy6vLfnDgXlW8=
-github.com/antinvestor/common/v2 v2.0.5/go.mod h1:V1On2jfKsMUbMv3LdAD33sMmLAO1WX7PNREWoJ6lSTE=
+github.com/antinvestor/common/v2 v2.0.7 h1:c+vQxi3gaVbxqhOy5Svi4LSMx2WgtOuJmV2d8mHpy0w=
+github.com/antinvestor/common/v2 v2.0.7/go.mod h1:V1On2jfKsMUbMv3LdAD33sMmLAO1WX7PNREWoJ6lSTE=
 github.com/antinvestor/service-trustage v0.4.5 h1:oGLM6tOfNg2HkdZSQ2Ma7VEJOWduYuYe3BSJMa9IiXg=
 github.com/antinvestor/service-trustage v0.4.5/go.mod h1:ROJRb2WTmyx9JoP3DhWSgfqbb5Rr07+T2D4Ft3ZsjfA=
 github.com/antithesishq/antithesis-sdk-go v0.7.2-default-no-op h1:p2zFsAzvhIpFya8AIOHIbWf7NGvO34QpLGclyf7nXj8=

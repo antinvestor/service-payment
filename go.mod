@@ -20,7 +20,7 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.1
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/otelconnect v0.9.0
-	github.com/antinvestor/common/v2 v2.0.6
+	github.com/antinvestor/common/v2 v2.0.7
 	github.com/antinvestor/service-trustage v0.4.5
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0

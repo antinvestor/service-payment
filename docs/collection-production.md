@@ -74,6 +74,27 @@ Docs: [developer.flutterwave.com](https://developer.flutterwave.com/docs/getting
 
 Checkout default card route is **`flutterwave`**. Webhook: `POST /webhook/flutterwave`.
 
+### Yellow Card (`apps/integrations/yellowcard`)
+
+See [yellowcard-integration.md](./yellowcard-integration.md) for full setup.
+Docs: [docs.yellowcard.engineering](https://docs.yellowcard.engineering/).
+
+| Variable | Purpose |
+|----------|---------|
+| `YELLOWCARD_API_KEY` | Partner API key (Treasury Portal) |
+| `YELLOWCARD_SECRET_KEY` | HMAC secret for `YcHmacV1` request signing and webhooks |
+| `YELLOWCARD_WEBHOOK_SECRET` | Optional override for `X-YC-Signature` verification |
+| `YELLOWCARD_ENVIRONMENT` | `sandbox` or `production` |
+| `YELLOWCARD_COUNTRY` / `YELLOWCARD_CURRENCY` | Defaults when the MSISDN gives no corridor |
+| `YELLOWCARD_CHANNEL_TYPE` | Force `momo` or `bank`; empty = auto |
+| `YELLOWCARD_DEFAULT_REDIRECT_URL` | Return URL for payment-link channels (ZA, CI) |
+| `QUEUE_YELLOWCARD_PROMPT_URI` | Must be the `yellowcard` entry in `INITIATE_PROMPT_ROUTE_URIS` |
+| `QUEUE_YELLOWCARD_PAYMENT_URI` | Must match payment `Route.URI` for mode `tx` (sends) |
+
+Checkout method key `yellowcard` (route `yellowcard`). Webhooks:
+`POST /webhook/yellowcard/receives`, `POST /webhook/yellowcard/sends` with
+`?tenant_id=…&partition_id=…`. Production needs Yellow Card IP allow-listing.
+
 Flutter UI uses the same return path via `--dart-define=CHECKOUT_RETURN_URL=…`
 and `--dart-define=BILLING_URL=…`.
 

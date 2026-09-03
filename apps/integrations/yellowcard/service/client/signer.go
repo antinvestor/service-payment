@@ -50,7 +50,7 @@ func SignatureMessage(timestamp, path, method string, body []byte) string {
 // the YcHmacV1 scheme: "YcHmacV1 {apiKey}:{base64(HMAC-SHA256(secret, message))}".
 func SignRequest(req *http.Request, rawBody []byte, apiKey, secret string, now time.Time) {
 	ts := now.UTC().Format(timestampLayout)
-	sig := hmacBase64(secret, []byte(SignatureMessage(ts, req.URL.Path, req.Method, rawBody)))
+	sig := hmacBase64(secret, []byte(SignatureMessage(ts, req.URL.EscapedPath(), req.Method, rawBody)))
 	req.Header.Set(HeaderTimestamp, ts)
 	req.Header.Set("Authorization", authScheme+" "+apiKey+":"+sig)
 }

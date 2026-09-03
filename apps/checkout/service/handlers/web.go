@@ -592,8 +592,28 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 		if note, _ := session.Metadata["_payment_instruction"].(string); note != "" {
 			data.PaymentInstruction = note
 		}
+		data.BankTransfer = bankTransferFromMetadata(session.Metadata)
 	}
 	return data
+}
+
+// bankTransferFromMetadata reads the portable bank transfer details captured
+// from provider status extras. Nil when no account number is known.
+func bankTransferFromMetadata(meta map[string]any) *BankTransferDetails {
+	get := func(key string) string {
+		v, _ := meta[key].(string)
+		return v
+	}
+	if get("_bank_account_number") == "" {
+		return nil
+	}
+	return &BankTransferDetails{
+		BankName:      get("_bank_name"),
+		AccountNumber: get("_bank_account_number"),
+		AccountName:   get("_bank_account_name"),
+		Reference:     get("_payment_reference"),
+		ExpiresAt:     get("_payment_expires_at"),
+	}
 }
 
 // maskEmail shows first char + domain for Link-style identity strip.
@@ -866,7 +886,7 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	payload := map[string]string{
+	payload := map[string]any{
 		"status": session.Status,
 	}
 	if session.Status == models.SessionStatusFailed {
@@ -886,7 +906,7 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if na, ok := session.Metadata["_next_action"].(string); ok && na != "" {
-			if na == "redirect_url" && payload["redirect_url"] == "" {
+			if na == "redirect_url" && payload["redirect_url"] == nil {
 				// No external target — ignore self/empty redirect next_action.
 			} else {
 				payload["next_action"] = na
@@ -894,6 +914,15 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		if note, ok := session.Metadata["_payment_instruction"].(string); ok && note != "" {
 			payload["payment_instruction"] = note
+		}
+		if bt := bankTransferFromMetadata(session.Metadata); bt != nil {
+			payload["bank_transfer"] = map[string]string{
+				"bank_name":      bt.BankName,
+				"account_number": bt.AccountNumber,
+				"account_name":   bt.AccountName,
+				"reference":      bt.Reference,
+				"expires_at":     bt.ExpiresAt,
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, payload)

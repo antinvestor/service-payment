@@ -240,6 +240,16 @@ func TestInferCountryFromPhone(t *testing.T) {
 	assert.Equal(t, "KE", business.InferCountryFromPhone("+254712345678"))
 	assert.Equal(t, "UG", business.InferCountryFromPhone("256700000000"))
 	assert.Equal(t, "", business.InferCountryFromPhone(""))
+
+	// Yellow Card receive corridors.
+	for phone, want := range map[string]string{
+		"+267712345678": "BW", "+22997000000": "BJ", "+237670000000": "CM", "+2250700000000": "CI",
+		"+265991000000": "MW", "+22890000000": "TG", "+24106000000": "GA", "+242060000000": "CG",
+		"+221770000000": "SN", "+22370000000": "ML", "+22670000000": "BF", "+27821234567": "ZA",
+		"+2348012345678": "NG", "+260971234567": "ZM", "+250781234567": "RW",
+	} {
+		assert.Equal(t, want, business.InferCountryFromPhone(phone), phone)
+	}
 }
 
 func TestResolve_PhoneContactsEnableLocalMethodDespiteSessionCardOnly(t *testing.T) {

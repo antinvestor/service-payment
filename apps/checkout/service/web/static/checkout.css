@@ -227,6 +227,28 @@ h2 { margin-bottom: .75rem; }
   border: 1px solid #bfdbfe;
 }
 
+/* Bank transfer details (push payments) */
+.bank-transfer {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  margin-bottom: 1rem;
+  background: #fff;
+}
+.bank-transfer h3 { font-size: 1rem; margin: 0 0 .5rem; }
+.bank-transfer dl { margin: 0; }
+.bank-transfer dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .3rem 0;
+  border-top: 1px solid #f3f4f6;
+  font-size: .9rem;
+}
+.bank-transfer dt { color: #6b7280; }
+.bank-transfer dd { margin: 0; font-weight: 600; text-align: right; word-break: break-all; }
+.bank-transfer .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 .auth-frame-wrap {
   margin: 1rem 0;
   border-radius: 8px;

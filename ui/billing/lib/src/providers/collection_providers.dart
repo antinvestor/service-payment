@@ -22,6 +22,7 @@ const knownPaymentMethods = <String, String>{
   'mtn_momo': 'MTN MoMo',
   'airtel_money': 'Airtel Money',
   'pawapay': 'Mobile Money (pawaPay)',
+  'yellowcard': 'Mobile Money / Bank (Yellow Card)',
   'flutterwave': 'Flutterwave',
   'card': 'Card (Flutterwave)',
 };

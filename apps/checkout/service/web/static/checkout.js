@@ -17,6 +17,8 @@
             finish(data);
             return;
           }
+          showInstruction(data.payment_instruction);
+          showBankTransfer(data.bank_transfer);
           if (data.next_action === 'requires_pin') {
             showAuthStep('auth-pin');
             return;
@@ -78,6 +80,38 @@
     } catch (e) {
       return false;
     }
+  }
+
+  // Provider instructions (mobile money approval, bank transfer details)
+  // may arrive after the confirm page rendered; surface them without a reload.
+  function showInstruction(text) {
+    var el = document.getElementById('payment-instruction');
+    if (!el || !text) return;
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.remove('hidden');
+  }
+
+  function showBankTransfer(bt) {
+    var wrap = document.getElementById('bank-transfer');
+    if (!wrap || !bt || !bt.account_number) return;
+    var fields = {
+      'bt-bank': bt.bank_name,
+      'bt-account': bt.account_number,
+      'bt-name': bt.account_name,
+      'bt-ref': bt.reference,
+      'bt-expires': bt.expires_at
+    };
+    Object.keys(fields).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var value = fields[id] || '';
+      if (el.textContent !== value) el.textContent = value;
+      var row = el.parentElement;
+      if (row) row.classList.toggle('hidden', value === '');
+    });
+    wrap.classList.remove('hidden');
+    var spin = document.querySelector('.spinner');
+    if (spin) spin.classList.add('hidden');
   }
 
   function showAuthStep(id) {

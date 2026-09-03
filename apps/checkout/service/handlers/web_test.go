@@ -556,6 +556,54 @@ func TestHandleStatus_CompletedSession(t *testing.T) {
 	assert.NotContains(t, payload, "failure_reason", "failure_reason field must be absent")
 }
 
+// 8a. GET /c/{ref}/status processing session with bank details → bank_transfer object.
+func TestHandleStatus_ProcessingSession_BankTransfer(t *testing.T) {
+	h := newHarness(t)
+	s := &models.CheckoutSession{
+		Ref:       "sess-bank-status",
+		Status:    models.SessionStatusProcessing,
+		Currency:  "NGN",
+		ExpiresAt: fixedNow().Add(30 * time.Minute),
+		Metadata: map[string]any{
+			"_payment_instruction": "Transfer exactly NGN 9,758",
+			"_bank_name":           "PAGA",
+			"_bank_account_number": "01234567890",
+			"_bank_account_name":   "Ken Adams",
+			"_payment_reference":   "JJ8094861",
+			"_payment_expires_at":  "2030-01-01T04:00:00Z",
+		},
+	}
+	h.sessionRepo.sessions["sess-bank-status"] = s
+
+	req := httptest.NewRequest(http.MethodGet, "/c/sess-bank-status/status", nil)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	assert.Equal(t, "processing", payload["status"])
+	assert.Equal(t, "Transfer exactly NGN 9,758", payload["payment_instruction"])
+	bt, ok := payload["bank_transfer"].(map[string]any)
+	require.True(t, ok, "bank_transfer object expected")
+	assert.Equal(t, "PAGA", bt["bank_name"])
+	assert.Equal(t, "01234567890", bt["account_number"])
+	assert.Equal(t, "Ken Adams", bt["account_name"])
+	assert.Equal(t, "JJ8094861", bt["reference"])
+	assert.Equal(t, "2030-01-01T04:00:00Z", bt["expires_at"])
+
+	// The confirm page renders the same details server-side.
+	req = httptest.NewRequest(http.MethodGet, "/c/sess-bank-status", nil)
+	rec = httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	assert.Contains(t, body, "01234567890")
+	assert.Contains(t, body, "Ken Adams")
+	assert.Contains(t, body, "JJ8094861")
+	assert.Contains(t, body, `id="bank-transfer" class="bank-transfer"`)
+}
+
 // 8b. GET /c/{ref}/status unknown → 404 JSON.
 func TestHandleStatus_Unknown_404JSON(t *testing.T) {
 	h := newHarness(t)

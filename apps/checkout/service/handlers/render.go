@@ -45,6 +45,16 @@ type MethodChoice struct {
 	Redirect bool
 }
 
+// BankTransferDetails are the account details shown on the confirm page for
+// push-payment rails (Yellow Card bank receives, Flutterwave bank transfer).
+type BankTransferDetails struct {
+	BankName      string
+	AccountNumber string
+	AccountName   string
+	Reference     string
+	ExpiresAt     string
+}
+
 // PageData holds all values needed to render any checkout page.
 type PageData struct {
 	Lang          string
@@ -85,6 +95,9 @@ type PageData struct {
 	NextAction string
 	// PaymentInstruction for bank transfer notes.
 	PaymentInstruction string
+	// BankTransfer holds account details the payer must transfer into
+	// (portable bank_* status extras from the provider adapter).
+	BankTransfer *BankTransferDetails
 	// AssetVersion cache-busts /static/* URLs (see web.AssetVersion).
 	AssetVersion string
 }
@@ -155,6 +168,12 @@ var translations = map[string]map[string]string{
 		"continue":                   "Continue",
 		"confirm_title":              "Confirm payment",
 		"confirm_hint":               "Complete any bank prompts. You stay on this secure page whenever possible.",
+		"bank_transfer_title":        "Transfer to this account",
+		"bank_name":                  "Bank",
+		"bank_account_number":        "Account number",
+		"bank_account_name":          "Account name",
+		"bank_reference":             "Reference",
+		"bank_expires":               "Pay before",
 		"retry":                      "Try again",
 		"done_title":                 "Payment successful",
 		"redirecting":                "Redirecting you back…",
@@ -195,6 +214,12 @@ var translations = map[string]map[string]string{
 		"continue":                   "Continuer",
 		"confirm_title":              "Confirmer le paiement",
 		"confirm_hint":               "Suivez les instructions de votre banque. Vous restez sur cette page sécurisée autant que possible.",
+		"bank_transfer_title":        "Virement vers ce compte",
+		"bank_name":                  "Banque",
+		"bank_account_number":        "Numéro de compte",
+		"bank_account_name":          "Titulaire du compte",
+		"bank_reference":             "Référence",
+		"bank_expires":               "Payer avant",
 		"retry":                      "Réessayer",
 		"done_title":                 "Paiement réussi",
 		"redirecting":                "Vous êtes redirigé…",

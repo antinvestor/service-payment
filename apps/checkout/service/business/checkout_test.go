@@ -2041,6 +2041,51 @@ func TestRefreshStatus_CapturesCheckoutURL(t *testing.T) {
 	assert.Equal(t, "https://polar.sh/checkout/abc123", updated.Metadata["_redirect_url"])
 }
 
+func TestRefreshStatus_CapturesBankTransferExtras(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"entity_type":         "prompt",
+		"payment_instruction": "Transfer exactly NGN 9,758 to PAGA account 01234567890",
+		"bank_name":           "PAGA",
+		"bank_account_number": "01234567890",
+		"bank_account_name":   "Ken Adams",
+		"payment_reference":   "JJ8094861",
+		"payment_expires_at":  "2030-01-01T04:00:00Z",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		}),
+	}
+	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-bank",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-yc",
+		Currency: "NGN",
+	}
+	sessionRepo.sessions["sess-bank"] = s
+
+	updated, err := b.RefreshStatus(context.Background(), s)
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+	require.NotNil(t, updated.Metadata)
+	assert.Equal(t, "PAGA", updated.Metadata["_bank_name"])
+	assert.Equal(t, "01234567890", updated.Metadata["_bank_account_number"])
+	assert.Equal(t, "Ken Adams", updated.Metadata["_bank_account_name"])
+	assert.Equal(t, "JJ8094861", updated.Metadata["_payment_reference"])
+	assert.Equal(t, "2030-01-01T04:00:00Z", updated.Metadata["_payment_expires_at"])
+	assert.Contains(t, updated.Metadata["_payment_instruction"], "01234567890")
+	_, hasRedirect := updated.Metadata["_redirect_url"]
+	assert.False(t, hasRedirect)
+}
+
 func TestIsExternalAuthRedirect(t *testing.T) {
 	t.Parallel()
 	base := "https://pay.stawi.org"

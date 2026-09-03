@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"net/url"
 	"strings"
 	"time"
@@ -1426,6 +1427,11 @@ func (b *CheckoutBusiness) captureProviderExtras(
 		{"payment_method_id", "_payment_method_id"},
 		{"customer_id", "_customer_id"},
 		{"payment_instruction", "_payment_instruction"},
+		{collection.ExtraBankName, "_bank_name"},
+		{collection.ExtraBankAccountNumber, "_bank_account_number"},
+		{collection.ExtraBankAccountName, "_bank_account_name"},
+		{collection.ExtraPaymentReference, "_payment_reference"},
+		{collection.ExtraPaymentExpiresAt, "_payment_expires_at"},
 	} {
 		if f, ok := extras.GetFields()[k.from]; ok {
 			val := f.GetStringValue()

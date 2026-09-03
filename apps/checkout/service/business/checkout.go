@@ -33,6 +33,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/antinvestor/service-payments/apps/checkout/service/observability"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/frame/v3/workerpool"
 	"github.com/pitabwire/util"
@@ -1677,6 +1678,11 @@ func (b *CheckoutBusiness) captureProviderExtras(
 		{"payment_method_id", "_payment_method_id"},
 		{"customer_id", "_customer_id"},
 		{"payment_instruction", "_payment_instruction"},
+		{collection.ExtraBankName, "_bank_name"},
+		{collection.ExtraBankAccountNumber, "_bank_account_number"},
+		{collection.ExtraBankAccountName, "_bank_account_name"},
+		{collection.ExtraPaymentReference, "_payment_reference"},
+		{collection.ExtraPaymentExpiresAt, "_payment_expires_at"},
 	} {
 		if f, ok := extras.GetFields()[k.from]; ok {
 			val := f.GetStringValue()

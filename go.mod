@@ -7,7 +7,7 @@ toolchain go1.26.1
 require (
 	buf.build/gen/go/antinvestor/billing/connectrpc/go v1.20.0-20260724181839-0e2c2227cb2e.1
 	buf.build/gen/go/antinvestor/billing/protocolbuffers/go v1.36.12-20260831184824-2d250ff001da.1
-	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.12-20260509050709-3f270876dbf3.1
+	buf.build/gen/go/antinvestor/common/protocolbuffers/go v1.36.12-20260509050709-3f270876dbf3.2
 	buf.build/gen/go/antinvestor/ledger/connectrpc/go v1.20.0-20260709214338-fcdd6e08a283.1
 	buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.12-20260831184824-b59f37b34aa1.1
 	buf.build/gen/go/antinvestor/payment/connectrpc/go v1.20.0-20260709214338-d7f951ea5a6e.1
@@ -45,7 +45,7 @@ require (
 
 require (
 	buf.build/gen/go/antinvestor/tenancy/protocolbuffers/go v1.36.12-20260831112830-2b2240b00a45.1 // indirect
-	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.12-20230414000709-087bc8072ce4.1 // indirect
+	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.12-20230414000709-087bc8072ce4.2 // indirect
 	buf.build/go/protovalidate v1.4.0 // indirect
 	cel.dev/cel-go v0.32.0 // indirect
 	cel.dev/expr v0.25.3 // indirect

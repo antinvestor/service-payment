@@ -21,7 +21,7 @@ require (
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/otelconnect v0.9.0
 	github.com/antinvestor/common/v2 v2.0.7
-	github.com/antinvestor/service-trustage v0.4.8
+	github.com/antinvestor/service-trustage v0.4.9
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/lib/pq v1.12.3

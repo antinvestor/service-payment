@@ -23,7 +23,7 @@ require (
 	github.com/antinvestor/common/v2 v2.0.7
 	github.com/antinvestor/service-trustage v0.4.9
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.56.0
 	github.com/pitabwire/frame/v2 v2.1.8

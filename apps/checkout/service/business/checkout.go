@@ -52,6 +52,10 @@ var (
 	ErrContactNotOnProfile = errors.New("selected contact is not on the payer profile")
 	// ErrMethodNotAllowedForContact is returned when e.g. MoMo is chosen with an email contact.
 	ErrMethodNotAllowedForContact = errors.New("payment method is not allowed for the selected contact")
+	// ErrMethodCurrencyUnsupported is returned when the chosen method cannot
+	// collect the session currency. It wraps ErrUnknownMethod so callers that
+	// map "bad method" keep working.
+	ErrMethodCurrencyUnsupported = fmt.Errorf("%w: method does not support the session currency", ErrUnknownMethod)
 )
 
 // Ref length constants.
@@ -885,7 +889,8 @@ func (b *CheckoutBusiness) Pay(
 	return session, nil
 }
 
-// resolveMethod validates that the method key exists and is allowed by the session.
+// resolveMethod validates that the method key exists, is allowed by the
+// session, and supports the session currency.
 func (b *CheckoutBusiness) resolveMethod(
 	session *models.CheckoutSession,
 	methodKey string,
@@ -896,6 +901,11 @@ func (b *CheckoutBusiness) resolveMethod(
 	}
 	if err := b.checkMethodRestriction(session, methodKey); err != nil {
 		return Method{}, err
+	}
+	// Same currency rule the pay page uses to list methods (Resolve), so a
+	// crafted POST cannot push e.g. a USD session through a KES-only rail.
+	if !MethodAcceptsCurrency(method, session.Currency) {
+		return Method{}, fmt.Errorf("%w: %s cannot collect %s", ErrMethodCurrencyUnsupported, methodKey, session.Currency)
 	}
 	return method, nil
 }

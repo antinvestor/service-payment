@@ -236,7 +236,7 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 		if len(allow) > 0 && !containsFold(allow, m.Key) {
 			continue
 		}
-		if currency != "" && len(m.Currencies) > 0 && !methodSupportsCurrency(m, currency) {
+		if !MethodAcceptsCurrency(m, currency) {
 			continue
 		}
 		// When locality is known, drop methods that declare a locality and do
@@ -314,7 +314,7 @@ func phoneLocalMethodKeys(
 		if !methodMatchesAnyLocality(m, phones, country) {
 			continue
 		}
-		if currency != "" && len(m.Currencies) > 0 && !methodSupportsCurrency(m, currency) {
+		if !MethodAcceptsCurrency(m, currency) {
 			continue
 		}
 		if len(partitionAllow) > 0 && !containsFold(partitionAllow, m.Key) {
@@ -467,6 +467,17 @@ func findMethod(methods []Method, key string) (Method, bool) {
 		}
 	}
 	return Method{}, false
+}
+
+// MethodAcceptsCurrency is the currency rule shared by the pay page and Pay:
+// a method with a currency list only accepts those currencies; a method with
+// no list, or a session with no currency, is unrestricted.
+func MethodAcceptsCurrency(m Method, currency string) bool {
+	currency = strings.TrimSpace(currency)
+	if currency == "" || len(m.Currencies) == 0 {
+		return true
+	}
+	return methodSupportsCurrency(m, currency)
 }
 
 func methodSupportsCurrency(m Method, currency string) bool {

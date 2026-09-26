@@ -1173,6 +1173,17 @@ func TestPay_Guards(t *testing.T) {
 			wantErr: business.ErrUnknownMethod,
 		},
 		{
+			name: "method does not support session currency → ErrMethodCurrencyUnsupported",
+			session: makeSession(
+				models.SessionStatusPending,
+				0,
+				nil,
+				func(s *models.CheckoutSession) { s.Currency = "USD" },
+			),
+			in:      business.PayInput{MethodKey: "mpesa", PhoneNumber: "254700000001"},
+			wantErr: business.ErrMethodCurrencyUnsupported,
+		},
+		{
 			name: "variable without amount → ErrAmountRequired",
 			session: makeSession(
 				models.SessionStatusPending,
@@ -1215,6 +1226,66 @@ func TestPay_Guards(t *testing.T) {
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 			}
+		})
+	}
+}
+
+// Pay enforces the same currency rule the pay page uses to list methods.
+func TestPay_MethodCurrency(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(`[
+		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
+		{"key":"mtn_momo","name":"MTN MoMo","route":"mtn","prefixes":["256"],"currencies":["UGX"]},
+		{"key":"card","name":"Card","route":"flutterwave","redirect":true}
+	]`)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		currency string
+		method   string
+		wantErr  error
+	}{
+		{name: "KES session with KES-only method", currency: "KES", method: "mpesa"},
+		{name: "currency match is case-insensitive", currency: "kes", method: "mpesa"},
+		{name: "USD session with KES-only method", currency: "USD", method: "mpesa", wantErr: business.ErrMethodCurrencyUnsupported},
+		{name: "KES session with UGX-only method", currency: "KES", method: "mtn_momo", wantErr: business.ErrMethodCurrencyUnsupported},
+		{name: "method without currency list accepts any currency", currency: "USD", method: "card"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionRepo := newFakeSessionRepo()
+			payCli := &fakePaymentClient{}
+			b := newBusiness(defaultConfig(), reg, sessionRepo, newFakeLinkRepo(), payCli, &fakeProfileClient{})
+			sessionRepo.sessions["sess-cur"] = &models.CheckoutSession{
+				Ref:          "sess-cur",
+				Status:       models.SessionStatusPending,
+				ExpiresAt:    fixedNow().Add(20 * time.Minute),
+				Amount:       "10.00",
+				Currency:     tt.currency,
+				AmountOption: models.AmountOptionFixed,
+			}
+
+			_, err := b.Pay(context.Background(), "sess-cur", business.PayInput{
+				MethodKey:   tt.method,
+				PhoneNumber: "254700000001",
+			})
+
+			// Page and Pay must agree on whether the method is offered.
+			offered := false
+			for _, m := range reg.Available(nil, tt.currency) {
+				offered = offered || m.Key == tt.method
+			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorIs(t, err, business.ErrUnknownMethod, "maps to the page's bad_method error")
+				assert.Nil(t, payCli.lastPrompt, "no prompt may be sent")
+				assert.Equal(t, 0, sessionRepo.sessions["sess-cur"].Attempts, "rejected before the attempt is counted")
+				assert.False(t, offered, "page must not offer a method Pay rejects")
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, payCli.lastPrompt)
+			assert.True(t, offered, "page must offer a method Pay accepts")
 		})
 	}
 }
@@ -1496,7 +1567,7 @@ func TestPay_EmailContact_RejectsMobileMoney(t *testing.T) {
 		Status:         models.SessionStatusPending,
 		ExpiresAt:      future,
 		Amount:         "10.00",
-		Currency:       "USD",
+		Currency:       "KES",
 		AmountOption:   models.AmountOptionFixed,
 		PayerProfileID: "profile-xyz",
 		Prefill: map[string]any{

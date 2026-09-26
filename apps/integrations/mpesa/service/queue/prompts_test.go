@@ -16,17 +16,20 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
+	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 	frameEvents "github.com/pitabwire/frame/v2/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestSTKCallbackURL(t *testing.T) {
@@ -115,7 +118,7 @@ func TestPromptHandler_STKPush(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			evts := &recordingEvents{}
 			mp := &recordingMpesa{}
-			h := NewPromptHandler(evts, mp, nil, cfg)
+			h := NewPromptHandler(evts, mp, nil, cfg, nil)
 
 			payload, err := proto.Marshal(&paymentv1.InitiatePromptRequest{
 				Id:        "prompt-1",
@@ -144,6 +147,76 @@ func TestPromptHandler_STKPush(t *testing.T) {
 			assert.Equal(t, "ws_CO_1", extras[client.ExtraCheckoutRequestID].GetStringValue())
 			assert.Equal(t, "100", extras[client.ExtraRequestedAmount].GetStringValue())
 			assert.Equal(t, "prompt", extras["entity_type"].GetStringValue())
+		})
+	}
+}
+
+type stubStatusReader struct {
+	extras map[string]any
+	err    error
+}
+
+func (s *stubStatusReader) Status(
+	_ context.Context,
+	req *connect.Request[commonv1.StatusRequest],
+) (*connect.Response[commonv1.StatusResponse], error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	extras, err := structpb.NewStruct(s.extras)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&commonv1.StatusResponse{Id: req.Msg.GetId(), Extras: extras}), nil
+}
+
+func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
+	cfg := &config.MpesaConfig{
+		ConsumerKey: "k", ConsumerSecret: "s", Shortcode: "174379", Passkey: "pk",
+		CallbackURL: "https://hooks.example.com",
+	}
+	tests := []struct {
+		name       string
+		reader     *stubStatusReader
+		wantPushed bool
+	}{
+		{
+			name:   "already pushed: redelivery is skipped",
+			reader: &stubStatusReader{extras: map[string]any{"entity_type": "prompt", client.ExtraCheckoutRequestID: "ws_CO_first"}},
+		},
+		{
+			name:       "only queued: push",
+			reader:     &stubStatusReader{extras: map[string]any{"transaction_ref": "tx-1"}},
+			wantPushed: true,
+		},
+		{
+			name:       "no status yet: push",
+			reader:     &stubStatusReader{err: connect.NewError(connect.CodeUnknown, errors.New("record not found"))},
+			wantPushed: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evts := &recordingEvents{}
+			mp := &recordingMpesa{}
+			h := NewPromptHandler(evts, mp, nil, cfg, tt.reader)
+
+			payload, err := proto.Marshal(&paymentv1.InitiatePromptRequest{
+				Id:        "prompt-1",
+				Recipient: &commonv1.ContactLink{ContactId: "254700000001"},
+				Amount:    &commonv1.Money{CurrencyCode: "KES", Units: 100},
+			})
+			require.NoError(t, err)
+			require.NoError(t, h.Handle(t.Context(), map[string]string{}, payload))
+
+			if !tt.wantPushed {
+				assert.Empty(t, mp.pushed)
+				assert.Empty(t, evts.emitted, "the existing binding must not be overwritten")
+				return
+			}
+			assert.Len(t, mp.pushed, 1)
+			require.Len(t, evts.emitted, 1)
+			assert.Equal(t, commonv1.STATUS_IN_PROCESS, evts.emitted[0].GetStatus())
 		})
 	}
 }

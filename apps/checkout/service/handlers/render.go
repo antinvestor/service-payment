@@ -167,7 +167,7 @@ var translations = map[string]map[string]string{
 		"amount_label":               "Amount",
 		"too_many_attempts":          "Too many attempts — please try later",
 		"cooldown":                   "Please wait a moment before retrying",
-		"payment_in_progress":        "A payment is already in progress — check your phone to approve it",
+		"payment_in_progress":        "A payment is already in progress. Approve it on your phone or card, or wait a few minutes and try again.",
 		"bad_method":                 "Choose a payment method",
 		"amount_required":            "Enter a valid amount",
 		"contact_required":           "Select a contact from your profile",

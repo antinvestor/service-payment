@@ -63,7 +63,7 @@ var (
 	ErrMethodAmountUnsupported = fmt.Errorf("%w: method cannot charge a fractional amount", ErrUnknownMethod)
 	// ErrPaymentInProgress is returned when a new attempt is made while the
 	// previous prompt may still be completed by the payer.
-	ErrPaymentInProgress = errors.New("a payment is already in progress, check your phone")
+	ErrPaymentInProgress = errors.New("a payment is already in progress; complete or wait for it before trying again")
 )
 
 // Ref length constants.

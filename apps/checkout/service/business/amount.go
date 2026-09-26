@@ -25,6 +25,7 @@ import (
 
 const (
 	nanosPerCent     = 10_000_000
+	centsPerUnit     = 100
 	maxDecimalDigits = 2
 	int32Max         = 1<<31 - 1
 )
@@ -80,17 +81,44 @@ func MoneyFromAmount(amount, currency string) (*commonv1.Money, error) {
 
 // FormatMoney renders Money for display, always with two decimal places.
 func FormatMoney(m *commonv1.Money) string {
-	cents := (int64(m.GetNanos()) + nanosPerCent/2) / nanosPerCent
-	return fmt.Sprintf("%s %d.%02d", m.GetCurrencyCode(), m.GetUnits(), cents)
+	neg, units, cents := splitCents(m)
+	sign := ""
+	if neg {
+		sign = "-"
+	}
+	return fmt.Sprintf("%s %s%d.%02d", m.GetCurrencyCode(), sign, units, cents)
 }
 
 // AmountString renders Money as a bare decimal string without trailing zeros.
 func AmountString(m *commonv1.Money) string {
-	cents := (int64(m.GetNanos()) + nanosPerCent/2) / nanosPerCent
-	if cents == 0 {
-		return strconv.FormatInt(m.GetUnits(), 10)
+	neg, units, cents := splitCents(m)
+	sign := ""
+	if neg {
+		sign = "-"
 	}
-	s := fmt.Sprintf("%d.%02d", m.GetUnits(), cents)
-	s = strings.TrimRight(s, "0")
-	return strings.TrimSuffix(s, ".")
+	if cents == 0 {
+		return sign + strconv.FormatInt(units, 10)
+	}
+	s := fmt.Sprintf("%s%d.%02d", sign, units, cents)
+	return strings.TrimRight(s, "0")
+}
+
+// splitCents rounds Money to the nearest cent (half away from zero) and
+// returns its sign, whole units and cents. Rounding is done on the total so a
+// carry (e.g. 0.995 -> 1.00) moves into the units instead of producing a
+// three-digit cents value.
+func splitCents(m *commonv1.Money) (bool, int64, int64) {
+	nanos := int64(m.GetNanos())
+	roundedNanoCents := nanos / nanosPerCent
+	if rem := nanos % nanosPerCent; rem >= nanosPerCent/2 {
+		roundedNanoCents++
+	} else if rem <= -nanosPerCent/2 {
+		roundedNanoCents--
+	}
+	total := m.GetUnits()*centsPerUnit + roundedNanoCents
+	neg := total < 0
+	if neg {
+		total = -total
+	}
+	return neg, total / centsPerUnit, total % centsPerUnit
 }

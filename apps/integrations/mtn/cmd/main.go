@@ -63,7 +63,9 @@ func main() {
 
 	mtnCli := client.NewClient()
 
-	webhookServer := handlers.NewMtnWebhookServer(paymentCli)
+	webhookServer := handlers.NewMtnWebhookServer(
+		paymentCli, mtnCli, queue.NewCredentialResolver(settingsCli, &cfg),
+	)
 	paymentWorker := queue.NewPaymentHandler(eventsMan, mtnCli, settingsCli, &cfg)
 	promptWorker := queue.NewPromptHandler(eventsMan, mtnCli, settingsCli, &cfg)
 

@@ -122,10 +122,8 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	logger.WithField("reference_id", referenceID).Debug("requestToPay initiated")
 
 	h.metrics.QueueProcessed(ctx, "prompt")
-	emitStatus(ctx, h.eventsMan, promptID, referenceID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"reference_id": referenceID,
-		"entity_type":  "prompt",
-	})
+	emitStatus(ctx, h.eventsMan, promptID, referenceID, commonv1.STATUS_IN_PROCESS,
+		requestExtras("prompt", referenceID, amount, currency, headers))
 
 	return nil
 }

@@ -124,3 +124,17 @@ type CallbackBody struct {
 		Message string `json:"message"`
 	} `json:"reason"`
 }
+
+// Status extras shared between the queue workers and the callback handler.
+const (
+	// ExtraReferenceID is the X-Reference-Id the request was issued with; the
+	// only handle MTN's status API accepts.
+	ExtraReferenceID = "reference_id"
+	// ExtraRequestedAmount is the amount sent to MTN.
+	ExtraRequestedAmount = "requested_amount"
+	// ExtraRequestedCurrency is the currency sent to MTN.
+	ExtraRequestedCurrency = "requested_currency"
+	// ExtraCredentialsConnection is the settings key the credentials came
+	// from (a key name, never a secret).
+	ExtraCredentialsConnection = "credentials_connection"
+)

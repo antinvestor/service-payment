@@ -206,7 +206,7 @@ func (s *AirtelWebhookServer) query(
 	stored data.JSONMap,
 ) (*airtelTxn, error) {
 	if s.airtelCli == nil || s.resolveCreds == nil {
-		return nil, errors.New("Airtel status query not configured")
+		return nil, errors.New("airtel status query not configured")
 	}
 	creds, err := s.resolveCreds(ctx, stored.GetString(client.ExtraCredentialsConnection))
 	if err != nil {

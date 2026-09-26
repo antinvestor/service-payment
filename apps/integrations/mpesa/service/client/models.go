@@ -14,6 +14,12 @@
 
 package client
 
+import (
+	"encoding/base64"
+	"encoding/json"
+	"time"
+)
+
 // MpesaCredentials holds the per-request credentials for M-Pesa API calls.
 // These can be resolved from queue message headers or fall back to config.
 type MpesaCredentials struct {
@@ -169,4 +175,76 @@ type B2CCallbackBody struct {
 			ResultParameter []CallbackItem `json:"ResultParameter"`
 		} `json:"ResultParameters"`
 	} `json:"Result"`
+}
+
+// Keys shared between the STK push worker and the STK callback handler.
+const (
+	// CallbackParamPromptID is the callback URL query parameter carrying the
+	// payment-service prompt id the STK push was issued for.
+	CallbackParamPromptID = "prompt_id"
+	// ExtraCheckoutRequestID binds a prompt status to its Daraja CheckoutRequestID.
+	ExtraCheckoutRequestID = "checkout_request_id"
+	// ExtraRequestedAmount is the amount sent to Daraja in the STK push.
+	ExtraRequestedAmount = "requested_amount"
+	// ExtraCredentialsConnection is the settings key the STK push credentials
+	// were resolved from (a key name, never a secret).
+	ExtraCredentialsConnection = "credentials_connection"
+)
+
+// STKPassword builds the Lipa Na M-Pesa password: base64(shortcode+passkey+timestamp).
+func STKPassword(shortcode, passkey, timestamp string) string {
+	return base64.StdEncoding.EncodeToString([]byte(shortcode + passkey + timestamp))
+}
+
+// STKQueryRequest is the Daraja STK Push Query payload.
+type STKQueryRequest struct {
+	BusinessShortCode string `json:"BusinessShortCode"`
+	Password          string `json:"Password"`
+	Timestamp         string `json:"Timestamp"`
+	CheckoutRequestID string `json:"CheckoutRequestID"`
+}
+
+// NewSTKQueryRequest builds a query for checkoutRequestID signed with creds at now.
+func NewSTKQueryRequest(creds *MpesaCredentials, checkoutRequestID string, now time.Time) *STKQueryRequest {
+	timestamp := now.Format("20060102150405")
+	return &STKQueryRequest{
+		BusinessShortCode: creds.Shortcode,
+		Password:          STKPassword(creds.Shortcode, creds.Passkey, timestamp),
+		Timestamp:         timestamp,
+		CheckoutRequestID: checkoutRequestID,
+	}
+}
+
+// STKQueryResponse is the Daraja STK Push Query response. ResultCode is "0"
+// only when the customer completed the payment.
+type STKQueryResponse struct {
+	ResponseCode        FlexString `json:"ResponseCode"`
+	ResponseDescription string     `json:"ResponseDescription"`
+	MerchantRequestID   string     `json:"MerchantRequestID"`
+	CheckoutRequestID   string     `json:"CheckoutRequestID"`
+	ResultCode          FlexString `json:"ResultCode"`
+	ResultDesc          string     `json:"ResultDesc"`
+}
+
+// FlexString decodes a JSON string or number into a string (Daraja returns
+// result codes as either depending on the endpoint and environment).
+type FlexString string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *FlexString) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		*f = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*f = FlexString(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*f = FlexString(n.String())
+	return nil
 }

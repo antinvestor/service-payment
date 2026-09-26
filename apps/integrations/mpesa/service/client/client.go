@@ -193,6 +193,21 @@ func (c *client) STKPush(ctx context.Context, creds *MpesaCredentials, req *STKP
 	return &stkResp, nil
 }
 
+func (c *client) STKPushQuery(
+	ctx context.Context,
+	creds *MpesaCredentials,
+	req *STKQueryRequest,
+) (*STKQueryResponse, error) {
+	var queryResp STKQueryResponse
+	err := c.doAuthenticatedPost(
+		ctx, creds, "/mpesa/stkpushquery/v1/query", req, &queryResp, "stk push query",
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &queryResp, nil
+}
+
 func (c *client) B2CPayment(ctx context.Context, creds *MpesaCredentials, req *B2CRequest) (*B2CResponse, error) {
 	payload := b2cPayload{
 		OriginatorConversationID: req.OriginatorConversationID,

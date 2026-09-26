@@ -16,7 +16,8 @@ package queue
 
 import (
 	"context"
-	"encoding/base64"
+	"net/url"
+	"strings"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -84,12 +85,22 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		phoneNumber = prompt.GetSource().GetContactId()
 	}
 
+	// Daraja only charges KES; pushing a USD amount as KES would let a
+	// session complete for the wrong currency.
+	if cur := strings.ToUpper(strings.TrimSpace(prompt.GetAmount().GetCurrencyCode())); cur != "" && cur != mpesaCurrency {
+		logger.WithField("currency", cur).Error("unsupported prompt currency for M-Pesa")
+		h.metrics.QueueFailed(ctx, "prompt", "unsupported_currency")
+		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+			"error":       "M-Pesa only supports " + mpesaCurrency + ", got " + cur,
+			"entity_type": "prompt",
+		})
+		return nil
+	}
+
 	amount := formatMoneyAmount(prompt.GetAmount())
 
 	timestamp := time.Now().Format("20060102150405")
-	password := base64.StdEncoding.EncodeToString(
-		[]byte(creds.Shortcode + creds.Passkey + timestamp),
-	)
+	password := client.STKPassword(creds.Shortcode, creds.Passkey, timestamp)
 
 	accountRef := promptID
 	if prompt.GetExtra() != nil {
@@ -98,7 +109,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		}
 	}
 
-	callbackURL := appendTenantParams(creds.CallbackURL+"/webhook/mpesa/stk", headers)
+	callbackURL := stkCallbackURL(creds.CallbackURL, headers, promptID)
 
 	stkReq := &client.STKPushRequest{
 		BusinessShortCode: creds.Shortcode,
@@ -127,14 +138,43 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 
 	logger.WithField("checkout_request_id", resp.CheckoutRequestID).Debug("STK push initiated")
 
-	h.emitStatus(ctx, promptID, resp.CheckoutRequestID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"merchant_request_id": resp.MerchantRequestID,
-		"checkout_request_id": resp.CheckoutRequestID,
-		"response_code":       resp.ResponseCode,
-		"customer_message":    resp.CustomerMessage,
-		"entity_type":         "prompt",
-	})
+	// checkout_request_id binds this prompt to the Daraja request so the STK
+	// callback can prove it belongs here; requested_amount and the credential
+	// connection let it verify amount and re-query Daraja.
+	inProcessExtras := map[string]any{
+		"merchant_request_id":         resp.MerchantRequestID,
+		client.ExtraCheckoutRequestID: resp.CheckoutRequestID,
+		client.ExtraRequestedAmount:   amount,
+		"response_code":               resp.ResponseCode,
+		"customer_message":            resp.CustomerMessage,
+		"entity_type":                 "prompt",
+	}
+	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
+		inProcessExtras[client.ExtraCredentialsConnection] = connection
+	}
+	h.emitStatus(ctx, promptID, resp.CheckoutRequestID, commonv1.STATUS_IN_PROCESS, inProcessExtras)
 
 	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil
+}
+
+// mpesaCurrency is the only currency Daraja STK Push collects.
+const mpesaCurrency = "KES"
+
+// stkCallbackURL builds the STK callback URL: tenant params plus the prompt id,
+// so the callback can record the final status under the prompt the checkout
+// polls rather than under Daraja's CheckoutRequestID.
+func stkCallbackURL(base string, headers map[string]string, promptID string) string {
+	callbackURL := appendTenantParams(base+"/webhook/mpesa/stk", headers)
+	if promptID == "" {
+		return callbackURL
+	}
+	u, err := url.Parse(callbackURL)
+	if err != nil {
+		return callbackURL
+	}
+	q := u.Query()
+	q.Set(client.CallbackParamPromptID, promptID)
+	u.RawQuery = q.Encode()
+	return u.String()
 }

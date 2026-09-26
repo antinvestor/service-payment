@@ -105,3 +105,31 @@ func headerOrDefault(headers map[string]string, key, fallback string) string {
 	}
 	return fallback
 }
+
+// CredentialResolver resolves M-Pesa credentials outside the queue workers
+// (e.g. to re-query Daraja from a callback) using the same rules: settings
+// connection when known, otherwise the service configuration.
+type CredentialResolver struct {
+	credentialResolver
+}
+
+// NewCredentialResolver creates a CredentialResolver.
+func NewCredentialResolver(
+	settingsCli settingsv1connect.SettingsServiceClient,
+	cfg *config.MpesaConfig,
+) *CredentialResolver {
+	return &CredentialResolver{credentialResolver{settingsCli: settingsCli, cfg: cfg}}
+}
+
+// Resolve returns credentials for a settings connection key, or the configured
+// defaults when connection is empty.
+func (r *CredentialResolver) Resolve(ctx context.Context, connection string) (*client.MpesaCredentials, error) {
+	headers := map[string]string{}
+	if connection != "" {
+		if r.settingsCli == nil {
+			return nil, errors.New("settings client unavailable for credential connection lookup")
+		}
+		headers[config.HeaderConnectionCredentials] = connection
+	}
+	return r.extractCredentials(ctx, headers)
+}

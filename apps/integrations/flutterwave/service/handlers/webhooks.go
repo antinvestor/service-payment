@@ -17,6 +17,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -213,7 +214,14 @@ func (s *FlutterwaveWebhookServer) handleChargeCompleted(
 			return s.applyCharge(ctx, logger, ch)
 		}
 	}
-	// Fallback: map from webhook body (v3 uses tx_ref; v4 uses reference).
+	// Without a webhook secret the body is unauthenticated: anyone could POST
+	// charge.completed for a prompt. Only an API-verified charge may change
+	// the prompt status then; fail so Flutterwave retries once the API
+	// verification succeeds.
+	if s.webhookSecret == "" {
+		return errors.New("unsigned charge webhook could not be verified with the Flutterwave API")
+	}
+	// Fallback: map from the signed webhook body (v3 uses tx_ref; v4 uses reference).
 	statusStr, _ := event.Data["status"].(string)
 	ref := firstNonEmpty(anyToString(event.Data["reference"]), anyToString(event.Data["tx_ref"]))
 	meta := extractMeta(event.Data)

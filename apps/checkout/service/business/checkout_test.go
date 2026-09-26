@@ -1290,6 +1290,68 @@ func TestPay_MethodCurrency(t *testing.T) {
 	}
 }
 
+// Whole-units rails (M-Pesa, MTN, Airtel) round to integers in their
+// integrations, so Pay and the page must refuse fractional amounts for them.
+func TestPay_MethodAmount(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(`[
+		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
+		{"key":"card","name":"Card","route":"flutterwave","redirect":true},
+		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true}
+	]`)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		option  string
+		amount  string // session amount (fixed) or payer amount (variable)
+		method  string
+		wantErr error
+	}{
+		{name: "fixed whole amount via mpesa", option: models.AmountOptionFixed, amount: "100.00", method: "mpesa"},
+		{name: "fixed fractional amount via mpesa", option: models.AmountOptionFixed, amount: "100.40", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "variable fractional amount via mpesa", option: models.AmountOptionVariable, amount: "75.50", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "fractional amount via card", option: models.AmountOptionFixed, amount: "100.40", method: "card"},
+		{name: "configured whole_amounts flag", option: models.AmountOptionFixed, amount: "1.5", method: "custom_whole", wantErr: business.ErrMethodAmountUnsupported},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionRepo := newFakeSessionRepo()
+			payCli := &fakePaymentClient{}
+			b := newBusiness(defaultConfig(), reg, sessionRepo, newFakeLinkRepo(), payCli, &fakeProfileClient{})
+			sess := &models.CheckoutSession{
+				Ref:          "sess-amt",
+				Status:       models.SessionStatusPending,
+				ExpiresAt:    fixedNow().Add(20 * time.Minute),
+				Currency:     "KES",
+				AmountOption: tt.option,
+			}
+			in := business.PayInput{MethodKey: tt.method, PhoneNumber: "254700000001"}
+			if tt.option == models.AmountOptionFixed {
+				sess.Amount = tt.amount
+			} else {
+				in.Amount = tt.amount
+			}
+			sessionRepo.sessions["sess-amt"] = sess
+
+			_, err := b.Pay(context.Background(), "sess-amt", in)
+
+			offered := false
+			for _, m := range reg.Resolve(business.MethodFilter{Currency: "KES", Amount: tt.amount}).Available {
+				offered = offered || m.Key == tt.method
+			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorIs(t, err, business.ErrUnknownMethod)
+				assert.Nil(t, payCli.lastPrompt, "no prompt may be sent")
+				assert.False(t, offered, "page must not offer a method Pay rejects")
+				return
+			}
+			require.NoError(t, err)
+			assert.True(t, offered, "page must offer a method Pay accepts")
+		})
+	}
+}
+
 // 7b. After cooldown, retry is allowed.
 func TestPay_AfterCooldown_Allowed(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
@@ -1708,18 +1770,18 @@ func TestPay_Variable_ValidAmount_StoresAndPrompts(t *testing.T) {
 	updated, err := b.Pay(ctx, "sess-variable", business.PayInput{
 		MethodKey:   "mpesa",
 		PhoneNumber: "254712345678",
-		Amount:      "75.50",
+		Amount:      "75",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 
 	// Session amount stored as supplied string
-	assert.Equal(t, "75.50", updated.Amount)
+	assert.Equal(t, "75", updated.Amount)
 
 	// Prompt Money: units=75, nanos=500_000_000
 	require.NotNil(t, payCli.lastPrompt)
 	assert.Equal(t, int64(75), payCli.lastPrompt.GetAmount().GetUnits())
-	assert.Equal(t, int32(500_000_000), payCli.lastPrompt.GetAmount().GetNanos())
+	assert.Equal(t, int32(0), payCli.lastPrompt.GetAmount().GetNanos())
 	assert.Equal(t, "KES", payCli.lastPrompt.GetAmount().GetCurrencyCode())
 }
 

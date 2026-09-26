@@ -38,7 +38,15 @@ type Method struct {
 	Countries  []string `json:"countries"`
 	Redirect   bool     `json:"redirect"`
 	Embed      bool     `json:"embed"` // card form on pay.stawi.org
+	// WholeAmounts marks rails that can only charge whole currency units.
+	// Routes in wholeAmountRoutes are always treated this way.
+	WholeAmounts bool `json:"whole_amounts"`
 }
+
+// wholeAmountRoutes are payment routes whose integrations round the charge to
+// whole units (the M-Pesa, MTN and Airtel workers send integer amounts), so a
+// fractional amount would silently be charged as a different amount.
+var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true}
 
 // IsEmbedded reports whether this method collects payment details on our domain.
 func (m Method) IsEmbedded() bool {
@@ -73,6 +81,7 @@ type MethodRegistry struct {
 // Partition allowlist and currency still apply.
 type MethodFilter struct {
 	Currency           string
+	Amount             string   // decimal session amount; "" when not yet known (variable)
 	Phone              string   // E.164 or national digits (primary / preferred)
 	Phones             []string // all contact MSISDNs (preferred first when possible)
 	Country            string   // ISO 3166-1 alpha-2
@@ -236,7 +245,7 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 		if len(allow) > 0 && !containsFold(allow, m.Key) {
 			continue
 		}
-		if !MethodAcceptsCurrency(m, currency) {
+		if !MethodAcceptsCurrency(m, currency) || !MethodAcceptsAmount(m, f.Amount) {
 			continue
 		}
 		// When locality is known, drop methods that declare a locality and do
@@ -254,7 +263,7 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 			if len(allow) > 0 && !containsFold(allow, m.Key) {
 				continue
 			}
-			if currency != "" && len(m.Currencies) > 0 && !methodSupportsCurrency(m, currency) {
+			if !MethodAcceptsCurrency(m, currency) || !MethodAcceptsAmount(m, f.Amount) {
 				continue
 			}
 			available = append(available, m)
@@ -478,6 +487,25 @@ func MethodAcceptsCurrency(m Method, currency string) bool {
 		return true
 	}
 	return methodSupportsCurrency(m, currency)
+}
+
+// RequiresWholeAmount reports whether the method can only charge whole units.
+func (m Method) RequiresWholeAmount() bool {
+	return m.WholeAmounts || wholeAmountRoutes[strings.ToLower(strings.TrimSpace(m.Route))]
+}
+
+// MethodAcceptsAmount is the amount rule shared by the pay page and Pay: a
+// whole-units rail cannot collect an amount with a fractional part. An empty
+// or unparsable amount is not restricted here (Pay validates amounts).
+func MethodAcceptsAmount(m Method, amount string) bool {
+	if !m.RequiresWholeAmount() || strings.TrimSpace(amount) == "" {
+		return true
+	}
+	_, nanos, err := ParseAmount(amount)
+	if err != nil {
+		return true
+	}
+	return nanos == 0
 }
 
 func methodSupportsCurrency(m Method, currency string) bool {

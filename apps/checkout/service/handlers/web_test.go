@@ -856,3 +856,32 @@ func TestHandlePage_CompletedSession_JavascriptReturnURL_NoRefresh(t *testing.T)
 		"page must not emit a meta refresh redirect",
 	)
 }
+
+// The page hides whole-units rails for fractional amounts, matching Pay.
+func TestHandlePage_FractionalAmount_HidesWholeUnitRails(t *testing.T) {
+	tests := []struct {
+		amount    string
+		wantMpesa bool
+	}{
+		{amount: "50.00", wantMpesa: true},
+		{amount: "50.40", wantMpesa: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.amount, func(t *testing.T) {
+			h := newHarness(t)
+			h.addGuestPendingSession("sess-frac")
+			h.sessionRepo.sessions["sess-frac"].Amount = tt.amount
+
+			req := httptest.NewRequest(http.MethodGet, "/c/sess-frac", nil)
+			rec := httptest.NewRecorder()
+			h.router.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			if tt.wantMpesa {
+				assert.Contains(t, rec.Body.String(), `value="mpesa"`)
+			} else {
+				assert.NotContains(t, rec.Body.String(), `value="mpesa"`)
+			}
+		})
+	}
+}

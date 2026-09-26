@@ -469,8 +469,13 @@ func (s *WebServer) buildMethods(
 		country = strings.ToUpper(strings.TrimSpace(hints.Country))
 	}
 
+	amount := ""
+	if session.AmountOption != models.AmountOptionVariable {
+		amount = session.Amount
+	}
 	filter := business.MethodFilter{
 		Currency:           session.Currency,
+		Amount:             amount,
 		Phone:              phone,
 		Phones:             contactPhones,
 		Country:            country,

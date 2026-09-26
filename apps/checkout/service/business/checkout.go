@@ -56,6 +56,9 @@ var (
 	// collect the session currency. It wraps ErrUnknownMethod so callers that
 	// map "bad method" keep working.
 	ErrMethodCurrencyUnsupported = fmt.Errorf("%w: method does not support the session currency", ErrUnknownMethod)
+	// ErrMethodAmountUnsupported is returned when a whole-units rail (M-Pesa,
+	// MTN, Airtel) is chosen for an amount with a fractional part.
+	ErrMethodAmountUnsupported = fmt.Errorf("%w: method cannot charge a fractional amount", ErrUnknownMethod)
 )
 
 // Ref length constants.
@@ -906,6 +909,10 @@ func (b *CheckoutBusiness) resolveMethod(
 	// crafted POST cannot push e.g. a USD session through a KES-only rail.
 	if !MethodAcceptsCurrency(method, session.Currency) {
 		return Method{}, fmt.Errorf("%w: %s cannot collect %s", ErrMethodCurrencyUnsupported, methodKey, session.Currency)
+	}
+	// Same amount rule as the page: never let a rail round the charge.
+	if !MethodAcceptsAmount(method, session.Amount) {
+		return Method{}, fmt.Errorf("%w: %s cannot charge %s", ErrMethodAmountUnsupported, methodKey, session.Amount)
 	}
 	return method, nil
 }

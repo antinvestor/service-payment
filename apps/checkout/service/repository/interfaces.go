@@ -16,6 +16,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/pitabwire/frame/v2/datastore"
@@ -28,6 +29,11 @@ type SessionRepository interface {
 	// GetByOrderRef returns the newest session for a product order_ref (e.g. chk_*).
 	GetByOrderRef(ctx context.Context, orderRef string) (*models.CheckoutSession, error)
 	ListByStatus(ctx context.Context, status string, limit int) ([]*models.CheckoutSession, error)
+	// ListUnexpiredWithPrompt returns sessions in status that have a prompt
+	// and expire after now, least recently modified first.
+	ListUnexpiredWithPrompt(
+		ctx context.Context, status string, now time.Time, limit int,
+	) ([]*models.CheckoutSession, error)
 }
 
 // LinkRepository manages CheckoutLink persistence.

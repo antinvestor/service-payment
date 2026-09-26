@@ -18,7 +18,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +61,9 @@ var (
 	// ErrMethodAmountUnsupported is returned when a whole-units rail (M-Pesa,
 	// MTN, Airtel) is chosen for an amount with a fractional part.
 	ErrMethodAmountUnsupported = fmt.Errorf("%w: method cannot charge a fractional amount", ErrUnknownMethod)
+	// ErrPaymentInProgress is returned when a new attempt is made while the
+	// previous prompt may still be completed by the payer.
+	ErrPaymentInProgress = errors.New("a payment is already in progress, check your phone")
 )
 
 // Ref length constants.
@@ -762,6 +767,28 @@ func (b *CheckoutBusiness) Pay(
 		return nil, err
 	}
 
+	// A previous prompt may still complete: settle it before starting another,
+	// otherwise a late success is never credited and the payer is charged twice.
+	if session.PromptID != "" &&
+		(session.Status == models.SessionStatusProcessing || session.Status == models.SessionStatusFailed) {
+		refreshed, refreshErr := b.RefreshStatus(ctx, session)
+		if refreshErr != nil {
+			err = refreshErr
+			return nil, err
+		}
+		session = refreshed
+		if session.Status == models.SessionStatusCompleted {
+			b.obs.RecordPayFailure(ctx, "session_gone")
+			err = ErrSessionGone
+			return nil, err
+		}
+		if session.Status == models.SessionStatusProcessing && b.promptStillLive(session) {
+			b.obs.RecordPayFailure(ctx, "payment_in_progress")
+			err = ErrPaymentInProgress
+			return nil, err
+		}
+	}
+
 	// Max attempts check
 	if session.Attempts >= b.cfg.MaxAttempts {
 		b.obs.RecordPayFailure(ctx, "too_many_attempts")
@@ -883,6 +910,7 @@ func (b *CheckoutBusiness) Pay(
 	}
 
 	session.PromptID = promptID
+	recordPromptID(session, promptID)
 	session.Status = models.SessionStatusProcessing
 
 	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
@@ -1296,90 +1324,297 @@ func (b *CheckoutBusiness) findMsisdnFromPrefill(
 // RefreshStatus
 // ---------------------------------------------------------------------------
 
-// RefreshStatus polls the payment service for an update on a processing session.
-// Also recovers expired sessions that still have a PromptID when the provider
-// already reported SUCCESSFUL (paid while the confirm poll was stuck).
+// RefreshStatus polls the payment service for every prompt issued for the
+// session (earlier attempts included), so a late success on any attempt
+// completes it. A SUCCESSFUL prompt whose reported amount or currency differs
+// from the session is never accepted.
+//
+// Processing, failed and expired sessions are refreshed: only a verified
+// success changes a failed or expired session; a processing session also
+// moves to failed when its current prompt fails.
 func (b *CheckoutBusiness) RefreshStatus(
 	ctx context.Context,
 	session *models.CheckoutSession,
 ) (*models.CheckoutSession, error) {
-	if session.PromptID == "" {
+	promptIDs := sessionPromptIDs(session)
+	if len(promptIDs) == 0 {
 		return session, nil
 	}
 	switch session.Status {
-	case models.SessionStatusProcessing, models.SessionStatusExpired:
+	case models.SessionStatusProcessing, models.SessionStatusExpired, models.SessionStatusFailed:
 		// continue
 	default:
 		return session, nil
 	}
 
-	// Status rows are keyed by (entity_id, entity_type). InitiatePrompt writes
-	// entity_type=prompt; omitting it queries entity_type='' and always 404s
-	// ("record not found") even after Flutterwave reports SUCCESSFUL.
+	var current *commonv1.StatusResponse
+	currentMismatch := false
+	for _, promptID := range promptIDs {
+		resp, ok := b.pollPrompt(ctx, promptID)
+		if !ok {
+			continue
+		}
+		if resp.GetStatus() == commonv1.STATUS_SUCCESSFUL {
+			if reason := paidAmountMismatch(session, resp.GetExtras()); reason != "" {
+				util.Log(ctx).WithFields(map[string]any{
+					"session_ref": session.Ref,
+					"prompt_id":   promptID,
+					"reason":      reason,
+				}).Error("payment reported SUCCESSFUL with a different amount or currency — not completing session")
+				if promptID == session.PromptID {
+					currentMismatch = true
+				}
+				continue
+			}
+			return b.completeSession(ctx, session, promptID, resp)
+		}
+		if promptID == session.PromptID {
+			current = resp
+		}
+	}
+
+	if session.Status != models.SessionStatusProcessing {
+		return session, nil
+	}
+	if currentMismatch {
+		session.Metadata = ensureMetadata(session.Metadata)
+		session.Metadata["_amount_mismatch_prompt"] = session.PromptID
+		return b.failSession(ctx, session)
+	}
+	if current == nil {
+		return session, nil
+	}
+	if current.GetStatus() == commonv1.STATUS_FAILED {
+		return b.failSession(ctx, session)
+	}
+	// Capture provider next steps (3DS URL, PIN/OTP, charge/token ids) while processing.
+	b.captureProviderExtras(ctx, session, current.GetExtras())
+	return session, nil
+}
+
+// pollPrompt reads a prompt's latest status. Status rows are keyed by
+// (entity_id, entity_type); InitiatePrompt writes entity_type=prompt, and
+// omitting it queries entity_type=” and always 404s.
+func (b *CheckoutBusiness) pollPrompt(ctx context.Context, promptID string) (*commonv1.StatusResponse, bool) {
 	statusExtras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
 	resp, err := b.paymentCli.Status(
 		ctx,
 		connect.NewRequest(&commonv1.StatusRequest{
-			Id:     session.PromptID,
+			Id:     promptID,
 			Extras: statusExtras,
 		}),
 	)
 	if err != nil {
 		util.Log(ctx).
 			WithError(err).
+			WithField("prompt_id", promptID).
 			Warn("payment status poll transport error — staying processing")
-		return session, nil
+		return nil, false
 	}
+	return resp.Msg, true
+}
 
-	status := resp.Msg.GetStatus()
+// completeSession marks the session completed by promptID.
+func (b *CheckoutBusiness) completeSession(
+	ctx context.Context,
+	session *models.CheckoutSession,
+	promptID string,
+	resp *commonv1.StatusResponse,
+) (*models.CheckoutSession, error) {
+	// Persist tokenized instrument for Link-style reuse / subscription renewals.
+	b.captureProviderExtras(ctx, session, resp.GetExtras())
 
-	// Capture provider next steps (3DS URL, PIN/OTP, charge/token ids) while processing.
-	if status != commonv1.STATUS_SUCCESSFUL && status != commonv1.STATUS_FAILED {
-		b.captureProviderExtras(ctx, session, resp.Msg.GetExtras())
-	} else if status == commonv1.STATUS_SUCCESSFUL {
-		// Persist tokenized instrument for Link-style reuse / subscription renewals.
-		b.captureProviderExtras(ctx, session, resp.Msg.GetExtras())
+	session.Status = models.SessionStatusCompleted
+	session.PromptID = promptID
+	session.PaymentID = resp.GetId()
+	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
+		return nil, fmt.Errorf("update session completed: %w", updateErr)
 	}
-
-	//nolint:exhaustive // Only terminal statuses need action; all others leave session unchanged.
-	switch status {
-	case commonv1.STATUS_SUCCESSFUL:
-		session.Status = models.SessionStatusCompleted
-		session.PaymentID = resp.Msg.GetId()
-		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-			return nil, fmt.Errorf("update session completed: %w", updateErr)
+	b.obs.RecordOutcomeCompleted(ctx)
+	// writeClues is best-effort hint persistence. Loss is tolerable, so the
+	// frame workerpool (not a durable queue) is the right tier of the async
+	// decision tree: bounded parallel, survives nothing. Raw goroutines are
+	// forbidden by repo Go patterns; when workMan is nil (tests) or cluesSync
+	// is set (WithSynchronousClues), we fall back to synchronous execution.
+	if b.cluesSync || b.workMan == nil {
+		// Synchronous path: FOR TESTS ONLY (cluesSync via WithSynchronousClues,
+		// or nil workMan when constructed without one).
+		b.writeClues(ctx, session)
+	} else {
+		snapshot := *session // shallow copy — capture values before submission to avoid racing on caller's pointer
+		job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
+			clueCtx, cancel := context.WithTimeout(context.WithoutCancel(jobCtx), clueWriteTimeoutSec*time.Second)
+			defer cancel()
+			b.writeClues(clueCtx, &snapshot)
+			return nil
+		})
+		if submitErr := workerpool.SubmitJob(ctx, b.workMan, job); submitErr != nil {
+			util.Log(ctx).WithError(submitErr).Warn("could not submit clue write-back job")
 		}
-		b.obs.RecordOutcomeCompleted(ctx)
-		// writeClues is best-effort hint persistence. Loss is tolerable, so the
-		// frame workerpool (not a durable queue) is the right tier of the async
-		// decision tree: bounded parallel, survives nothing. Raw goroutines are
-		// forbidden by repo Go patterns; when workMan is nil (tests) or cluesSync
-		// is set (WithSynchronousClues), we fall back to synchronous execution.
-		if b.cluesSync || b.workMan == nil {
-			// Synchronous path: FOR TESTS ONLY (cluesSync via WithSynchronousClues,
-			// or nil workMan when constructed without one).
-			b.writeClues(ctx, session)
-		} else {
-			snapshot := *session // shallow copy — capture values before submission to avoid racing on caller's pointer
-			job := workerpool.NewJob(func(jobCtx context.Context, _ workerpool.JobResultPipe[any]) error {
-				clueCtx, cancel := context.WithTimeout(context.WithoutCancel(jobCtx), clueWriteTimeoutSec*time.Second)
-				defer cancel()
-				b.writeClues(clueCtx, &snapshot)
-				return nil
-			})
-			if submitErr := workerpool.SubmitJob(ctx, b.workMan, job); submitErr != nil {
-				util.Log(ctx).WithError(submitErr).Warn("could not submit clue write-back job")
-			}
-		}
-
-	case commonv1.STATUS_FAILED:
-		session.Status = models.SessionStatusFailed
-		if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
-			return nil, fmt.Errorf("update session failed: %w", updateErr)
-		}
-		b.obs.RecordOutcomeFailed(ctx)
 	}
 	return session, nil
+}
+
+// failSession marks a processing session failed (still payable via retry).
+func (b *CheckoutBusiness) failSession(
+	ctx context.Context,
+	session *models.CheckoutSession,
+) (*models.CheckoutSession, error) {
+	session.Status = models.SessionStatusFailed
+	if _, updateErr := b.sessionRepo.Update(ctx, session); updateErr != nil {
+		return nil, fmt.Errorf("update session failed: %w", updateErr)
+	}
+	b.obs.RecordOutcomeFailed(ctx)
+	return session, nil
+}
+
+// promptStillLive reports whether the session's current prompt was sent less
+// than the configured prompt timeout ago.
+func (b *CheckoutBusiness) promptStillLive(session *models.CheckoutSession) bool {
+	if session.LastAttemptAt == nil {
+		return false
+	}
+	timeout := defaultPromptTimeout
+	if b.cfg != nil && b.cfg.PromptTimeoutSeconds > 0 {
+		timeout = time.Duration(b.cfg.PromptTimeoutSeconds) * time.Second
+	}
+	return b.now().Before(session.LastAttemptAt.Add(timeout))
+}
+
+// defaultPromptTimeout applies when CHECKOUT_PROMPT_TIMEOUT_SECONDS is unset.
+const defaultPromptTimeout = 3 * time.Minute
+
+// metaPromptIDs is the internal metadata key listing every prompt issued for
+// the session, oldest first.
+const metaPromptIDs = "_prompt_ids"
+
+// recordPromptID appends promptID to the session's prompt history.
+func recordPromptID(session *models.CheckoutSession, promptID string) {
+	if promptID == "" {
+		return
+	}
+	session.Metadata = ensureMetadata(session.Metadata)
+	ids := promptIDHistory(session.Metadata)
+	for _, id := range ids {
+		if id == promptID {
+			return
+		}
+	}
+	list := make([]any, 0, len(ids)+1)
+	for _, id := range ids {
+		list = append(list, id)
+	}
+	session.Metadata[metaPromptIDs] = append(list, promptID)
+}
+
+// sessionPromptIDs returns every prompt issued for the session, including the
+// current PromptID (sessions created before the history existed only have it).
+func sessionPromptIDs(session *models.CheckoutSession) []string {
+	ids := promptIDHistory(session.Metadata)
+	if session.PromptID != "" {
+		found := false
+		for _, id := range ids {
+			found = found || id == session.PromptID
+		}
+		if !found {
+			ids = append(ids, session.PromptID)
+		}
+	}
+	return ids
+}
+
+func promptIDHistory(meta data.JSONMap) []string {
+	var ids []string
+	switch list := meta[metaPromptIDs].(type) {
+	case []any:
+		for _, v := range list {
+			if id, ok := v.(string); ok && id != "" {
+				ids = append(ids, id)
+			}
+		}
+	case []string:
+		for _, id := range list {
+			if id != "" {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return ids
+}
+
+func ensureMetadata(meta data.JSONMap) data.JSONMap {
+	if meta == nil {
+		return make(data.JSONMap)
+	}
+	return meta
+}
+
+// paidAmountMismatch compares the amount/currency a SUCCESSFUL prompt status
+// reports with the session. Providers record them under different keys:
+// M-Pesa "Amount" (callback) and "requested_amount", Flutterwave and MTN
+// "amount"/"currency" (confirmed by their APIs), Airtel "requested_amount"/
+// "requested_currency". Returns "" when they match or nothing is reported.
+func paidAmountMismatch(session *models.CheckoutSession, extras *structpb.Struct) string {
+	fields := extras.GetFields()
+	if cur := firstStringField(fields, "currency", "requested_currency"); cur != "" &&
+		session.Currency != "" && !strings.EqualFold(cur, session.Currency) {
+		return fmt.Sprintf("paid currency %s, session currency %s", cur, session.Currency)
+	}
+	var paid *structpb.Value
+	for _, key := range []string{"Amount", "amount", "requested_amount"} {
+		if v, ok := fields[key]; ok {
+			paid = v
+			break
+		}
+	}
+	if paid == nil || strings.TrimSpace(session.Amount) == "" {
+		return ""
+	}
+	wantUnits, wantNanos, err := ParseAmount(session.Amount)
+	if err != nil {
+		return fmt.Sprintf("session amount %q unparsable", session.Amount)
+	}
+	wantCents := wantUnits*centsPerUnit + int64(wantNanos)/nanosPerCent
+	gotCents, ok := valueToCents(paid)
+	if !ok {
+		return fmt.Sprintf("paid amount %v unparsable", paid.AsInterface())
+	}
+	if gotCents != wantCents {
+		return fmt.Sprintf("paid amount %v, session amount %s", paid.AsInterface(), session.Amount)
+	}
+	return ""
+}
+
+func firstStringField(fields map[string]*structpb.Value, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := fields[key]; ok {
+			if s := strings.TrimSpace(v.GetStringValue()); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+// valueToCents converts a numeric or decimal-string status value to cents.
+func valueToCents(v *structpb.Value) (int64, bool) {
+	var f float64
+	switch k := v.GetKind().(type) {
+	case *structpb.Value_NumberValue:
+		f = k.NumberValue
+	case *structpb.Value_StringValue:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(k.StringValue), 64)
+		if err != nil {
+			return 0, false
+		}
+		f = parsed
+	default:
+		return 0, false
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, false
+	}
+	return int64(math.Round(f * centsPerUnit)), true
 }
 
 // captureProviderExtras persists portable provider fields on the session:
@@ -1572,6 +1807,21 @@ func (b *CheckoutBusiness) SweepProcessing(ctx context.Context) error {
 		firstErr = fmt.Errorf("list processing sessions: %w", err)
 	} else {
 		for _, s := range processing {
+			if _, refreshErr := b.RefreshStatus(ctx, s); refreshErr != nil && firstErr == nil {
+				firstErr = refreshErr
+			}
+		}
+	}
+
+	// Failed sessions stay payable until they expire and may still have an
+	// earlier prompt that completes late; keep polling those prompts.
+	failed, failedErr := b.sessionRepo.ListUnexpiredWithPrompt(ctx, models.SessionStatusFailed, b.now(), sweepBatch)
+	if failedErr != nil {
+		if firstErr == nil {
+			firstErr = fmt.Errorf("list failed sessions: %w", failedErr)
+		}
+	} else {
+		for _, s := range failed {
 			if _, refreshErr := b.RefreshStatus(ctx, s); refreshErr != nil && firstErr == nil {
 				firstErr = refreshErr
 			}

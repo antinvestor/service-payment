@@ -101,6 +101,21 @@ func (f *fakeSessionRepo) GetByOrderRef(_ context.Context, orderRef string) (*mo
 	return nil, fmt.Errorf("session order_ref %q: %w", orderRef, gorm.ErrRecordNotFound)
 }
 
+func (f *fakeSessionRepo) ListUnexpiredWithPrompt(
+	_ context.Context,
+	status string,
+	now time.Time,
+	limit int,
+) ([]*models.CheckoutSession, error) {
+	var out []*models.CheckoutSession
+	for _, s := range f.byStatus[status] {
+		if s.PromptID != "" && s.ExpiresAt.After(now) && len(out) < limit {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeSessionRepo) ListByStatus(
 	_ context.Context,
 	status string,
@@ -163,6 +178,9 @@ type fakePaymentClient struct {
 	statusResp *connect.Response[commonv1.StatusResponse]
 	statusErr  error
 	lastPrompt *paymentv1.InitiatePromptRequest
+	// statusByID, when set, answers Status per prompt id (IN_PROCESS if absent).
+	statusByID map[string]*commonv1.StatusResponse
+	polled     []string
 }
 
 func (f *fakePaymentClient) InitiatePrompt(
@@ -183,10 +201,17 @@ func (f *fakePaymentClient) InitiatePrompt(
 
 func (f *fakePaymentClient) Status(
 	_ context.Context,
-	_ *connect.Request[commonv1.StatusRequest],
+	req *connect.Request[commonv1.StatusRequest],
 ) (*connect.Response[commonv1.StatusResponse], error) {
+	f.polled = append(f.polled, req.Msg.GetId())
 	if f.statusErr != nil {
 		return nil, f.statusErr
+	}
+	if f.statusByID != nil {
+		if st, ok := f.statusByID[req.Msg.GetId()]; ok {
+			return connect.NewResponse(st), nil
+		}
+		return connect.NewResponse(&commonv1.StatusResponse{Id: req.Msg.GetId(), Status: commonv1.STATUS_IN_PROCESS}), nil
 	}
 	if f.statusResp != nil {
 		return f.statusResp, nil

@@ -44,6 +44,10 @@ type CheckoutConfig struct {
 	AttemptCooldownSeconds int `envDefault:"20" env:"CHECKOUT_ATTEMPT_COOLDOWN_SECONDS"`
 	LinkSpawnPerMinute     int `envDefault:"10" env:"CHECKOUT_LINK_SPAWN_PER_MINUTE"`
 	SweepIntervalSeconds   int `envDefault:"60" env:"CHECKOUT_SWEEP_INTERVAL_SECONDS"`
+	// PromptTimeoutSeconds is how long a sent prompt (STK/USSD push, card
+	// charge) is considered live: a new attempt on a processing session is
+	// refused until it elapses, so the payer is not charged twice.
+	PromptTimeoutSeconds int `envDefault:"180" env:"CHECKOUT_PROMPT_TIMEOUT_SECONDS"`
 
 	// MethodsJSON is the global method catalog. Each method may declare
 	// currencies, MSISDN prefixes (locality), and ISO countries.

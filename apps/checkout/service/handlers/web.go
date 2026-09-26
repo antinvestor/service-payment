@@ -807,6 +807,10 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 		s.reRenderPayWithError(w, r, ref, "cooldown", http.StatusTooManyRequests)
 		return
 
+	case errors.Is(payErr, business.ErrPaymentInProgress):
+		s.reRenderPayWithError(w, r, ref, "payment_in_progress", http.StatusConflict)
+		return
+
 	case errors.Is(payErr, business.ErrUnknownMethod):
 		s.reRenderPayWithError(w, r, ref, "bad_method", http.StatusBadRequest)
 		return

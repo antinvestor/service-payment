@@ -117,12 +117,12 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	externalID := resp.Data.Transaction.ID
 	logger.WithField("transaction_id", externalID).Debug("collection push initiated")
 
-	h.emitStatus(ctx, promptID, externalID, commonv1.STATUS_IN_PROCESS, map[string]any{
+	h.emitStatus(ctx, promptID, externalID, commonv1.STATUS_IN_PROCESS, withRequestBinding(map[string]any{
 		"transaction_id": externalID,
 		"status_code":    resp.Status.Code,
 		"message":        resp.Status.Message,
 		"entity_type":    "prompt",
-	})
+	}, amount, currency, headers))
 
 	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil

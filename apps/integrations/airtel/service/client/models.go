@@ -165,3 +165,17 @@ type DisbursementCallbackBody struct {
 		} `json:"airtel_money_id"`
 	} `json:"transaction"`
 }
+
+// Status extras shared between the queue workers and the callback handler.
+const (
+	// ExtraTransactionID is Airtel's transaction id returned when the
+	// request was accepted; its presence shows we issued the request.
+	ExtraTransactionID = "transaction_id"
+	// ExtraRequestedAmount is the amount sent to Airtel.
+	ExtraRequestedAmount = "requested_amount"
+	// ExtraRequestedCurrency is the currency sent to Airtel.
+	ExtraRequestedCurrency = "requested_currency"
+	// ExtraCredentialsConnection is the settings key the credentials came
+	// from (a key name, never a secret).
+	ExtraCredentialsConnection = "credentials_connection"
+)

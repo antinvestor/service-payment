@@ -26,4 +26,7 @@ type AirtelClient interface {
 
 	// TransactionStatus checks the status of a transaction
 	TransactionStatus(ctx context.Context, creds *AirtelCredentials, transactionID string) (*StatusResponse, error)
+
+	// DisbursementStatus checks the status of a disbursement
+	DisbursementStatus(ctx context.Context, creds *AirtelCredentials, transactionID string) (*StatusResponse, error)
 }

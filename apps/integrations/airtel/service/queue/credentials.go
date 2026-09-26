@@ -97,3 +97,34 @@ func (cr *credentialResolver) credentialsFromSettings(
 		Environment:  credMap[config.HeaderEnvironment],
 	}, nil
 }
+
+// withRequestBinding adds what the callback handler needs to re-query Airtel:
+// the requested amount/currency and the credential connection key.
+func withRequestBinding(extras map[string]any, amount, currency string, headers map[string]string) map[string]any {
+	extras[client.ExtraRequestedAmount] = amount
+	extras[client.ExtraRequestedCurrency] = currency
+	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
+		extras[client.ExtraCredentialsConnection] = connection
+	}
+	return extras
+}
+
+// NewCredentialResolver returns a resolver for credentials outside the queue
+// workers (e.g. to re-query Airtel from a callback): the settings connection
+// when known, otherwise the service configuration.
+func NewCredentialResolver(
+	settingsCli settingsClient,
+	cfg *config.AirtelConfig,
+) func(ctx context.Context, connection string) (*client.AirtelCredentials, error) {
+	cr := &credentialResolver{settingsCli: settingsCli, cfg: cfg}
+	return func(ctx context.Context, connection string) (*client.AirtelCredentials, error) {
+		headers := map[string]string{}
+		if connection != "" {
+			if cr.settingsCli == nil {
+				return nil, errors.New("settings client unavailable for credential connection lookup")
+			}
+			headers[config.HeaderConnectionCredentials] = connection
+		}
+		return cr.extractCredentials(ctx, headers)
+	}
+}

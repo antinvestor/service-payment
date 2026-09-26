@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -258,21 +259,38 @@ func (c *airtelClient) Disburse(
 	return &disbResp, nil
 }
 
-//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
+// TransactionStatus queries a collection by our transaction id.
 func (c *airtelClient) TransactionStatus(
 	ctx context.Context,
 	creds *AirtelCredentials,
 	transactionID string,
+) (*StatusResponse, error) {
+	return c.getStatus(ctx, creds, "transaction_status", "/standard/v1/payments/"+url.PathEscape(transactionID))
+}
+
+// DisbursementStatus queries a disbursement by our transaction id.
+func (c *airtelClient) DisbursementStatus(
+	ctx context.Context,
+	creds *AirtelCredentials,
+	transactionID string,
+) (*StatusResponse, error) {
+	return c.getStatus(ctx, creds, "disbursement_status", "/standard/v1/disbursements/"+url.PathEscape(transactionID))
+}
+
+//nolint:nonamedreturns // named retErr captured by deferred metrics done callback
+func (c *airtelClient) getStatus(
+	ctx context.Context,
+	creds *AirtelCredentials,
+	metricName, path string,
 ) (_ *StatusResponse, retErr error) {
-	ctx, done := c.metrics.ObserveProviderCall(ctx, "transaction_status")
+	ctx, done := c.metrics.ObserveProviderCall(ctx, metricName)
 	defer func() { done(retErr) }()
 	token, err := c.generateToken(ctx, creds)
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/standard/v1/payments/%s", creds.BaseURL(), transactionID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, creds.BaseURL()+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create status request: %w", err)
 	}

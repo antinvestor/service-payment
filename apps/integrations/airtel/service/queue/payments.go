@@ -115,13 +115,13 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	externalID := resp.Data.Transaction.ID
 	logger.WithField("transaction_id", externalID).Debug("disbursement initiated")
 
-	h.emitStatus(ctx, paymentID, externalID, commonv1.STATUS_IN_PROCESS, map[string]any{
+	h.emitStatus(ctx, paymentID, externalID, commonv1.STATUS_IN_PROCESS, withRequestBinding(map[string]any{
 		"transaction_id": externalID,
 		"reference_id":   resp.Data.Transaction.ReferenceID,
 		"status_code":    resp.Status.Code,
 		"message":        resp.Status.Message,
 		"entity_type":    "payment",
-	})
+	}, amount, currency, headers))
 
 	h.metrics.QueueProcessed(ctx, "payment")
 	return nil

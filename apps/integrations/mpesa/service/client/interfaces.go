@@ -21,6 +21,10 @@ type MpesaClient interface {
 	// STKPush initiates an STK Push (Lipa Na M-Pesa) request to the customer's phone
 	STKPush(ctx context.Context, creds *MpesaCredentials, req *STKPushRequest) (*STKPushResponse, error)
 
+	// STKPushQuery asks Daraja for the authoritative result of an STK Push
+	// identified by its CheckoutRequestID.
+	STKPushQuery(ctx context.Context, creds *MpesaCredentials, req *STKQueryRequest) (*STKQueryResponse, error)
+
 	// B2CPayment initiates a Business-to-Customer payment (disbursement)
 	B2CPayment(ctx context.Context, creds *MpesaCredentials, req *B2CRequest) (*B2CResponse, error)
 }

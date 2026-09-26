@@ -101,6 +101,21 @@ func (f *fakeSessionRepo) GetByOrderRef(_ context.Context, orderRef string) (*mo
 	return nil, fmt.Errorf("session order_ref %q: %w", orderRef, gorm.ErrRecordNotFound)
 }
 
+func (f *fakeSessionRepo) ListUnexpiredWithPrompt(
+	_ context.Context,
+	status string,
+	now time.Time,
+	limit int,
+) ([]*models.CheckoutSession, error) {
+	var out []*models.CheckoutSession
+	for _, s := range f.byStatus[status] {
+		if s.PromptID != "" && s.ExpiresAt.After(now) && len(out) < limit {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeSessionRepo) ListByStatus(
 	_ context.Context,
 	status string,
@@ -163,6 +178,9 @@ type fakePaymentClient struct {
 	statusResp *connect.Response[commonv1.StatusResponse]
 	statusErr  error
 	lastPrompt *paymentv1.InitiatePromptRequest
+	// statusByID, when set, answers Status per prompt id (IN_PROCESS if absent).
+	statusByID map[string]*commonv1.StatusResponse
+	polled     []string
 }
 
 func (f *fakePaymentClient) InitiatePrompt(
@@ -183,10 +201,17 @@ func (f *fakePaymentClient) InitiatePrompt(
 
 func (f *fakePaymentClient) Status(
 	_ context.Context,
-	_ *connect.Request[commonv1.StatusRequest],
+	req *connect.Request[commonv1.StatusRequest],
 ) (*connect.Response[commonv1.StatusResponse], error) {
+	f.polled = append(f.polled, req.Msg.GetId())
 	if f.statusErr != nil {
 		return nil, f.statusErr
+	}
+	if f.statusByID != nil {
+		if st, ok := f.statusByID[req.Msg.GetId()]; ok {
+			return connect.NewResponse(st), nil
+		}
+		return connect.NewResponse(&commonv1.StatusResponse{Id: req.Msg.GetId(), Status: commonv1.STATUS_IN_PROCESS}), nil
 	}
 	if f.statusResp != nil {
 		return f.statusResp, nil
@@ -1173,6 +1198,17 @@ func TestPay_Guards(t *testing.T) {
 			wantErr: business.ErrUnknownMethod,
 		},
 		{
+			name: "method does not support session currency → ErrMethodCurrencyUnsupported",
+			session: makeSession(
+				models.SessionStatusPending,
+				0,
+				nil,
+				func(s *models.CheckoutSession) { s.Currency = "USD" },
+			),
+			in:      business.PayInput{MethodKey: "mpesa", PhoneNumber: "254700000001"},
+			wantErr: business.ErrMethodCurrencyUnsupported,
+		},
+		{
 			name: "variable without amount → ErrAmountRequired",
 			session: makeSession(
 				models.SessionStatusPending,
@@ -1215,6 +1251,128 @@ func TestPay_Guards(t *testing.T) {
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 			}
+		})
+	}
+}
+
+// Pay enforces the same currency rule the pay page uses to list methods.
+func TestPay_MethodCurrency(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(`[
+		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
+		{"key":"mtn_momo","name":"MTN MoMo","route":"mtn","prefixes":["256"],"currencies":["UGX"]},
+		{"key":"card","name":"Card","route":"flutterwave","redirect":true}
+	]`)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		currency string
+		method   string
+		wantErr  error
+	}{
+		{name: "KES session with KES-only method", currency: "KES", method: "mpesa"},
+		{name: "currency match is case-insensitive", currency: "kes", method: "mpesa"},
+		{name: "USD session with KES-only method", currency: "USD", method: "mpesa", wantErr: business.ErrMethodCurrencyUnsupported},
+		{name: "KES session with UGX-only method", currency: "KES", method: "mtn_momo", wantErr: business.ErrMethodCurrencyUnsupported},
+		{name: "method without currency list accepts any currency", currency: "USD", method: "card"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionRepo := newFakeSessionRepo()
+			payCli := &fakePaymentClient{}
+			b := newBusiness(defaultConfig(), reg, sessionRepo, newFakeLinkRepo(), payCli, &fakeProfileClient{})
+			sessionRepo.sessions["sess-cur"] = &models.CheckoutSession{
+				Ref:          "sess-cur",
+				Status:       models.SessionStatusPending,
+				ExpiresAt:    fixedNow().Add(20 * time.Minute),
+				Amount:       "10.00",
+				Currency:     tt.currency,
+				AmountOption: models.AmountOptionFixed,
+			}
+
+			_, err := b.Pay(context.Background(), "sess-cur", business.PayInput{
+				MethodKey:   tt.method,
+				PhoneNumber: "254700000001",
+			})
+
+			// Page and Pay must agree on whether the method is offered.
+			offered := false
+			for _, m := range reg.Available(nil, tt.currency) {
+				offered = offered || m.Key == tt.method
+			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorIs(t, err, business.ErrUnknownMethod, "maps to the page's bad_method error")
+				assert.Nil(t, payCli.lastPrompt, "no prompt may be sent")
+				assert.Equal(t, 0, sessionRepo.sessions["sess-cur"].Attempts, "rejected before the attempt is counted")
+				assert.False(t, offered, "page must not offer a method Pay rejects")
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, payCli.lastPrompt)
+			assert.True(t, offered, "page must offer a method Pay accepts")
+		})
+	}
+}
+
+// Whole-units rails (M-Pesa, MTN, Airtel) round to integers in their
+// integrations, so Pay and the page must refuse fractional amounts for them.
+func TestPay_MethodAmount(t *testing.T) {
+	reg, err := business.ParseMethodRegistry(`[
+		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
+		{"key":"card","name":"Card","route":"flutterwave","redirect":true},
+		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true}
+	]`)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		option  string
+		amount  string // session amount (fixed) or payer amount (variable)
+		method  string
+		wantErr error
+	}{
+		{name: "fixed whole amount via mpesa", option: models.AmountOptionFixed, amount: "100.00", method: "mpesa"},
+		{name: "fixed fractional amount via mpesa", option: models.AmountOptionFixed, amount: "100.40", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "variable fractional amount via mpesa", option: models.AmountOptionVariable, amount: "75.50", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "fractional amount via card", option: models.AmountOptionFixed, amount: "100.40", method: "card"},
+		{name: "configured whole_amounts flag", option: models.AmountOptionFixed, amount: "1.5", method: "custom_whole", wantErr: business.ErrMethodAmountUnsupported},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionRepo := newFakeSessionRepo()
+			payCli := &fakePaymentClient{}
+			b := newBusiness(defaultConfig(), reg, sessionRepo, newFakeLinkRepo(), payCli, &fakeProfileClient{})
+			sess := &models.CheckoutSession{
+				Ref:          "sess-amt",
+				Status:       models.SessionStatusPending,
+				ExpiresAt:    fixedNow().Add(20 * time.Minute),
+				Currency:     "KES",
+				AmountOption: tt.option,
+			}
+			in := business.PayInput{MethodKey: tt.method, PhoneNumber: "254700000001"}
+			if tt.option == models.AmountOptionFixed {
+				sess.Amount = tt.amount
+			} else {
+				in.Amount = tt.amount
+			}
+			sessionRepo.sessions["sess-amt"] = sess
+
+			_, err := b.Pay(context.Background(), "sess-amt", in)
+
+			offered := false
+			for _, m := range reg.Resolve(business.MethodFilter{Currency: "KES", Amount: tt.amount}).Available {
+				offered = offered || m.Key == tt.method
+			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorIs(t, err, business.ErrUnknownMethod)
+				assert.Nil(t, payCli.lastPrompt, "no prompt may be sent")
+				assert.False(t, offered, "page must not offer a method Pay rejects")
+				return
+			}
+			require.NoError(t, err)
+			assert.True(t, offered, "page must offer a method Pay accepts")
 		})
 	}
 }
@@ -1496,7 +1654,7 @@ func TestPay_EmailContact_RejectsMobileMoney(t *testing.T) {
 		Status:         models.SessionStatusPending,
 		ExpiresAt:      future,
 		Amount:         "10.00",
-		Currency:       "USD",
+		Currency:       "KES",
 		AmountOption:   models.AmountOptionFixed,
 		PayerProfileID: "profile-xyz",
 		Prefill: map[string]any{
@@ -1637,18 +1795,18 @@ func TestPay_Variable_ValidAmount_StoresAndPrompts(t *testing.T) {
 	updated, err := b.Pay(ctx, "sess-variable", business.PayInput{
 		MethodKey:   "mpesa",
 		PhoneNumber: "254712345678",
-		Amount:      "75.50",
+		Amount:      "75",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 
 	// Session amount stored as supplied string
-	assert.Equal(t, "75.50", updated.Amount)
+	assert.Equal(t, "75", updated.Amount)
 
 	// Prompt Money: units=75, nanos=500_000_000
 	require.NotNil(t, payCli.lastPrompt)
 	assert.Equal(t, int64(75), payCli.lastPrompt.GetAmount().GetUnits())
-	assert.Equal(t, int32(500_000_000), payCli.lastPrompt.GetAmount().GetNanos())
+	assert.Equal(t, int32(0), payCli.lastPrompt.GetAmount().GetNanos())
 	assert.Equal(t, "KES", payCli.lastPrompt.GetAmount().GetCurrencyCode())
 }
 

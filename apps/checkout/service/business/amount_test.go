@@ -65,13 +65,49 @@ func TestMoneyFromAmount(t *testing.T) {
 }
 
 func TestFormatMoney(t *testing.T) {
-	assert.Equal(t, "KES 123.45",
-		business.FormatMoney(&commonv1.Money{CurrencyCode: "KES", Units: 123, Nanos: 450000000}))
-	assert.Equal(t, "KES 150.00",
-		business.FormatMoney(&commonv1.Money{CurrencyCode: "KES", Units: 150}))
+	tests := []struct {
+		name  string
+		money *commonv1.Money
+		want  string
+	}{
+		{name: "two decimals", money: &commonv1.Money{CurrencyCode: "KES", Units: 123, Nanos: 450000000}, want: "KES 123.45"},
+		{name: "whole", money: &commonv1.Money{CurrencyCode: "KES", Units: 150}, want: "KES 150.00"},
+		{name: "sub-cent carries into units", money: &commonv1.Money{CurrencyCode: "KES", Units: 10, Nanos: 995000000}, want: "KES 11.00"},
+		{name: "sub-cent rounds down", money: &commonv1.Money{CurrencyCode: "KES", Units: 10, Nanos: 994999999}, want: "KES 10.99"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, business.FormatMoney(tt.money))
+		})
+	}
 }
 
 func TestAmountString(t *testing.T) {
-	assert.Equal(t, "123.45", business.AmountString(&commonv1.Money{Units: 123, Nanos: 450000000}))
-	assert.Equal(t, "150", business.AmountString(&commonv1.Money{Units: 150}))
+	tests := []struct {
+		name  string
+		money *commonv1.Money
+		want  string
+	}{
+		{name: "two decimals", money: &commonv1.Money{Units: 123, Nanos: 450000000}, want: "123.45"},
+		{name: "whole", money: &commonv1.Money{Units: 150}, want: "150"},
+		{name: "one decimal", money: &commonv1.Money{Units: 12, Nanos: 500000000}, want: "12.5"},
+		{name: "cents only", money: &commonv1.Money{Units: 0, Nanos: 50000000}, want: "0.05"},
+		{name: "0.995 carries to 1", money: &commonv1.Money{Units: 0, Nanos: 995000000}, want: "1"},
+		{name: "9.995 carries to 10", money: &commonv1.Money{Units: 9, Nanos: 995000000}, want: "10"},
+		{name: "12.345 rounds half up", money: &commonv1.Money{Units: 12, Nanos: 345000000}, want: "12.35"},
+		{name: "12.3449 rounds down", money: &commonv1.Money{Units: 12, Nanos: 344900000}, want: "12.34"},
+		{name: "12.999999999 carries", money: &commonv1.Money{Units: 12, Nanos: 999999999}, want: "13"},
+		{name: "below half a cent is zero", money: &commonv1.Money{Units: 0, Nanos: 4999999}, want: "0"},
+		{name: "negative", money: &commonv1.Money{Units: -1, Nanos: -995000000}, want: "-2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := business.AmountString(tt.money)
+			assert.Equal(t, tt.want, got)
+			if tt.money.GetUnits() >= 0 && tt.want != "0" {
+				_, _, err := business.ParseAmount(got)
+				require.NoError(t, err, "AmountString output must round-trip through ParseAmount")
+			}
+		})
+	}
 }

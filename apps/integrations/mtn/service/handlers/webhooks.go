@@ -17,7 +17,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
@@ -29,17 +34,34 @@ import (
 	"github.com/pitabwire/util"
 )
 
+// CredentialsResolver resolves MTN credentials for a settings connection key
+// (empty = service defaults). Used to re-query transaction status.
+type CredentialsResolver func(ctx context.Context, connection string) (*client.MtnCredentials, error)
+
 // MtnWebhookServer handles MTN MoMo callback webhooks.
+//
+// MTN callbacks are not signed, so the body is only used to identify the
+// entity (externalId). The recorded status, amount and currency always come
+// from MTN's status API, queried with the reference id stored when the
+// request was issued.
 type MtnWebhookServer struct {
-	paymentCli paymentv1connect.PaymentServiceClient
-	metrics    *integrationobs.Metrics
+	paymentCli   paymentv1connect.PaymentServiceClient
+	mtnCli       client.MtnClient
+	resolveCreds CredentialsResolver
+	metrics      *integrationobs.Metrics
 }
 
 // NewMtnWebhookServer creates a new webhook server.
-func NewMtnWebhookServer(paymentCli paymentv1connect.PaymentServiceClient) *MtnWebhookServer {
+func NewMtnWebhookServer(
+	paymentCli paymentv1connect.PaymentServiceClient,
+	mtnCli client.MtnClient,
+	resolveCreds CredentialsResolver,
+) *MtnWebhookServer {
 	return &MtnWebhookServer{
-		paymentCli: paymentCli,
-		metrics:    integrationobs.NewMetrics("mtn"),
+		paymentCli:   paymentCli,
+		mtnCli:       mtnCli,
+		resolveCreds: resolveCreds,
+		metrics:      integrationobs.NewMetrics("mtn"),
 	}
 }
 
@@ -63,6 +85,15 @@ func (s *MtnWebhookServer) HandleDisbursementCallback(w http.ResponseWriter, r *
 	s.handleCallback(w, r, "mtn.webhook.disbursement", "payment")
 }
 
+// errNotBound means the callback does not match a request we issued.
+var errNotBound = errors.New("callback does not match an issued request")
+
+// confirmed is MTN's authoritative view of a request.
+type confirmed struct {
+	status, amount, currency, externalID, financialTxID string
+	reasonCode, reasonMessage                           string
+}
+
 // handleCallback is the shared logic for processing MTN MoMo callback webhooks.
 func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request, logType, entityType string) {
 	ctx := injectTenantFromQuery(r.Context(), r)
@@ -77,37 +108,73 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	logger = logger.WithField("external_id", callback.ExternalID)
+	entityID := strings.TrimSpace(callback.ExternalID)
+	logger = logger.WithField("external_id", entityID)
+	if entityID == "" {
+		s.metrics.WebhookRejected(ctx, entityType, "missing_external_id")
+		http.Error(w, "missing externalId", http.StatusBadRequest)
+		return
+	}
 
-	status := mapMtnStatus(callback.Status)
+	stored, err := s.loadRequest(ctx, entityID, entityType)
+	if err != nil {
+		s.reject(ctx, w, logger, entityType, err)
+		return
+	}
+
+	conf, err := s.query(ctx, entityType, stored)
+	if err != nil {
+		s.reject(ctx, w, logger, entityType, err)
+		return
+	}
+	if conf.externalID != "" && conf.externalID != entityID {
+		s.reject(ctx, w, logger, entityType,
+			fmt.Errorf("%w: MTN reports externalId %q", errNotBound, conf.externalID))
+		return
+	}
+
+	status := mapMtnStatus(conf.status)
+	extras := data.JSONMap{
+		"financial_transaction_id":        conf.financialTxID,
+		"external_id":                     entityID,
+		"amount":                          conf.amount,
+		"currency":                        conf.currency,
+		"mtn_status":                      conf.status,
+		"verification":                    "status_query",
+		"entity_type":                     entityType,
+		client.ExtraReferenceID:           stored.GetString(client.ExtraReferenceID),
+		client.ExtraRequestedAmount:       stored.GetString(client.ExtraRequestedAmount),
+		client.ExtraRequestedCurrency:     stored.GetString(client.ExtraRequestedCurrency),
+		client.ExtraCredentialsConnection: stored.GetString(client.ExtraCredentialsConnection),
+	}
+	if conf.reasonCode != "" || conf.reasonMessage != "" {
+		extras["reason_code"] = conf.reasonCode
+		extras["reason_message"] = conf.reasonMessage
+	}
+	if status == commonv1.STATUS_SUCCESSFUL && !matchesRequest(stored, conf) {
+		logger.WithFields(map[string]any{
+			"requested_amount": stored.GetString(client.ExtraRequestedAmount),
+			"confirmed_amount": conf.amount,
+			"confirmed_ccy":    conf.currency,
+		}).Error("MTN confirmed a different amount or currency than requested")
+		status = commonv1.STATUS_FAILED
+		extras["verification"] = "amount_mismatch"
+	}
+
 	state := commonv1.STATE_ACTIVE
 	if status == commonv1.STATUS_FAILED {
 		state = commonv1.STATE_INACTIVE
 	}
 
-	extras := data.JSONMap{
-		"financial_transaction_id": callback.FinancialTransactionID,
-		"external_id":              callback.ExternalID,
-		"amount":                   callback.Amount,
-		"currency":                 callback.Currency,
-		"mtn_status":               callback.Status,
-		"entity_type":              entityType,
-	}
-
-	if callback.Reason != nil {
-		extras["reason_code"] = callback.Reason.Code
-		extras["reason_message"] = callback.Reason.Message
-	}
-
 	statusReq := &commonv1.StatusUpdateRequest{
-		Id:         callback.ExternalID,
+		Id:         entityID,
 		State:      state,
 		Status:     status,
-		ExternalId: callback.FinancialTransactionID,
+		ExternalId: conf.financialTxID,
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err = s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		s.metrics.WebhookRejected(ctx, entityType, "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -116,6 +183,99 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusOK)
 }
+
+// reject answers without recording anything: 409 when the callback does not
+// match an issued request, otherwise 503 so MTN retries.
+func (s *MtnWebhookServer) reject(
+	ctx context.Context,
+	w http.ResponseWriter,
+	logger *util.LogEntry,
+	entityType string,
+	err error,
+) {
+	if errors.Is(err, errNotBound) {
+		logger.WithError(err).Warn("MTN callback rejected")
+		s.metrics.WebhookRejected(ctx, entityType, "not_bound")
+		http.Error(w, "callback does not match request", http.StatusConflict)
+		return
+	}
+	logger.WithError(err).Error("could not verify MTN callback")
+	s.metrics.WebhookRejected(ctx, entityType, "verification_error")
+	http.Error(w, "could not verify callback", http.StatusServiceUnavailable)
+}
+
+// loadRequest reads the entity's latest status, which carries the reference id
+// the request was issued with (the workers set it, and this handler carries it
+// forward on every status it writes).
+func (s *MtnWebhookServer) loadRequest(ctx context.Context, entityID, entityType string) (data.JSONMap, error) {
+	reqExtras := data.JSONMap{"entity_type": entityType}
+	resp, err := s.paymentCli.Status(ctx, connect.NewRequest(&commonv1.StatusRequest{
+		Id:     entityID,
+		Extras: reqExtras.ToProtoStruct(),
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("load %s status: %w", entityType, err)
+	}
+	var stored data.JSONMap
+	stored = stored.FromProtoStruct(resp.Msg.GetExtras())
+	if stored.GetString(client.ExtraReferenceID) == "" {
+		return nil, fmt.Errorf("%w: no MTN reference id recorded", errNotBound)
+	}
+	return stored, nil
+}
+
+// query asks MTN for the request's current state.
+func (s *MtnWebhookServer) query(ctx context.Context, entityType string, stored data.JSONMap) (*confirmed, error) {
+	if s.mtnCli == nil || s.resolveCreds == nil {
+		return nil, errors.New("MTN status query not configured")
+	}
+	creds, err := s.resolveCreds(ctx, stored.GetString(client.ExtraCredentialsConnection))
+	if err != nil {
+		return nil, fmt.Errorf("resolve credentials: %w", err)
+	}
+	referenceID := stored.GetString(client.ExtraReferenceID)
+	if entityType == "payment" {
+		st, qErr := s.mtnCli.GetTransferStatus(ctx, creds, referenceID)
+		if qErr != nil {
+			return nil, fmt.Errorf("transfer status query: %w", qErr)
+		}
+		c := &confirmed{status: st.Status, amount: st.Amount, currency: st.Currency,
+			externalID: st.ExternalID, financialTxID: st.FinancialTransactionID}
+		if st.Reason != nil {
+			c.reasonCode, c.reasonMessage = st.Reason.Code, st.Reason.Message
+		}
+		return c, nil
+	}
+	st, err := s.mtnCli.GetRequestToPayStatus(ctx, creds, referenceID)
+	if err != nil {
+		return nil, fmt.Errorf("requestToPay status query: %w", err)
+	}
+	c := &confirmed{status: st.Status, amount: st.Amount, currency: st.Currency,
+		externalID: st.ExternalID, financialTxID: st.FinancialTransactionID}
+	if st.Reason != nil {
+		c.reasonCode, c.reasonMessage = st.Reason.Code, st.Reason.Message
+	}
+	return c, nil
+}
+
+// matchesRequest checks MTN's confirmed amount/currency against what was sent.
+// Requests issued before the amount was recorded have nothing to compare.
+func matchesRequest(stored data.JSONMap, conf *confirmed) bool {
+	if want := stored.GetString(client.ExtraRequestedCurrency); want != "" &&
+		!strings.EqualFold(want, conf.currency) {
+		return false
+	}
+	want := stored.GetString(client.ExtraRequestedAmount)
+	if want == "" {
+		return true
+	}
+	x, errA := strconv.ParseFloat(strings.TrimSpace(want), 64)
+	y, errB := strconv.ParseFloat(strings.TrimSpace(conf.amount), 64)
+	return errA == nil && errB == nil && math.Abs(x-y) < amountTolerance
+}
+
+// amountTolerance absorbs decimal formatting differences ("100" vs "100.00").
+const amountTolerance = 0.005
 
 // mapMtnStatus maps MTN MoMo status strings to internal status enum.
 func mapMtnStatus(mtnStatus string) commonv1.STATUS {

@@ -121,10 +121,8 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	logger.WithField("reference_id", referenceID).Debug("transfer initiated")
 
 	h.metrics.QueueProcessed(ctx, "payment")
-	emitStatus(ctx, h.eventsMan, paymentID, referenceID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"reference_id": referenceID,
-		"entity_type":  "payment",
-	})
+	emitStatus(ctx, h.eventsMan, paymentID, referenceID, commonv1.STATUS_IN_PROCESS,
+		requestExtras("payment", referenceID, amount, currency, headers))
 
 	return nil
 }

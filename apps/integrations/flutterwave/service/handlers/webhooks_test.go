@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -165,4 +166,73 @@ func TestWebhook_RejectsBadSignature(t *testing.T) {
 	rr := httptest.NewRecorder()
 	srv.NewRouterV1().ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+type failingGetChargeFW struct{ stubFW }
+
+func (f *failingGetChargeFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
+	return nil, errors.New("charge not found")
+}
+
+func TestWebhook_UnsignedChargeNeverTrustsBody(t *testing.T) {
+	body, _ := json.Marshal(map[string]any{
+		"type": "charge.completed",
+		"data": map[string]any{
+			"id":        "chg_forged",
+			"reference": "prompt-xyz",
+			"status":    "succeeded",
+			"meta":      map[string]any{"prompt_id": "xyz"},
+		},
+	})
+
+	tests := []struct {
+		name string
+		cfg  *config.FlutterwaveConfig
+	}{
+		{name: "no secret and no API credentials", cfg: &config.FlutterwaveConfig{}},
+		{name: "no secret and API verification fails", cfg: &config.FlutterwaveConfig{ClientID: "id", ClientSecret: "secret"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pay := &stubPaymentClient{}
+			srv := handlers.NewFlutterwaveWebhookServer(pay, &failingGetChargeFW{}, tt.cfg)
+
+			req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
+			rr := httptest.NewRecorder()
+			srv.NewRouterV1().ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusInternalServerError, rr.Code)
+			assert.Nil(t, pay.last, "an unverified body must not update the prompt")
+		})
+	}
+}
+
+type verifiedChargeFW struct{ stubFW }
+
+func (f *verifiedChargeFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
+	return &client.Charge{
+		ID:        "chg_real",
+		Reference: "prompt-xyz",
+		Status:    "succeeded",
+		Meta:      map[string]any{"prompt_id": "xyz"},
+	}, nil
+}
+
+func TestWebhook_UnsignedChargeUsesVerifiedCharge(t *testing.T) {
+	pay := &stubPaymentClient{}
+	srv := handlers.NewFlutterwaveWebhookServer(pay, &verifiedChargeFW{},
+		&config.FlutterwaveConfig{ClientID: "id", ClientSecret: "secret"})
+
+	body, _ := json.Marshal(map[string]any{
+		"type": "charge.completed",
+		"data": map[string]any{"id": "chg_real", "status": "failed"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	srv.NewRouterV1().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	require.NotNil(t, pay.last)
+	assert.Equal(t, "xyz", pay.last.GetId())
+	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, pay.last.GetStatus(), "status comes from the API, not the body")
 }

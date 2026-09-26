@@ -63,7 +63,9 @@ func main() {
 
 	airtelCli := client.NewClient()
 
-	webhookServer := handlers.NewAirtelWebhookServer(paymentCli)
+	webhookServer := handlers.NewAirtelWebhookServer(
+		paymentCli, airtelCli, queue.NewCredentialResolver(settingsCli, &cfg),
+	)
 	paymentWorker := queue.NewPaymentHandler(eventsMan, airtelCli, settingsCli, &cfg)
 	promptWorker := queue.NewPromptHandler(eventsMan, airtelCli, settingsCli, &cfg)
 

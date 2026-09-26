@@ -67,6 +67,40 @@ func (rs *RepositorySuite) TestSessionSaveAndGetByRef() {
 	})
 }
 
+func (rs *RepositorySuite) TestListUnexpiredWithPrompt() {
+	rs.WithTestDependencies(rs.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := rs.CreateService(t, dep)
+		sessionRepo := resources.SessionRepository
+		now := time.Now()
+
+		mk := func(status, promptID string, expiresAt time.Time) *models.CheckoutSession {
+			s := &models.CheckoutSession{
+				Ref:       util.RandomAlphaNumericString(32),
+				Name:      "order",
+				Amount:    "10",
+				Currency:  "KES",
+				Status:    status,
+				PromptID:  promptID,
+				ExpiresAt: expiresAt,
+			}
+			require.NoError(t, sessionRepo.Create(ctx, s))
+			return s
+		}
+		live := mk(models.SessionStatusFailed, "p-live", now.Add(10*time.Minute))
+		mk(models.SessionStatusFailed, "p-expired", now.Add(-10*time.Minute))
+		mk(models.SessionStatusFailed, "", now.Add(10*time.Minute))
+		mk(models.SessionStatusProcessing, "p-processing", now.Add(10*time.Minute))
+
+		got, err := sessionRepo.ListUnexpiredWithPrompt(ctx, models.SessionStatusFailed, now, 50)
+		require.NoError(t, err)
+		refs := make([]string, 0, len(got))
+		for _, s := range got {
+			refs = append(refs, s.Ref)
+		}
+		assert.Equal(t, []string{live.Ref}, refs)
+	})
+}
+
 func (rs *RepositorySuite) TestLinkSaveAndGetByRef() {
 	rs.WithTestDependencies(rs.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := rs.CreateService(t, dep)

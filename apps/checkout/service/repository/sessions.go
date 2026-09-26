@@ -17,6 +17,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/pitabwire/frame/v2/datastore"
@@ -69,6 +70,21 @@ func (r *sessionRepository) GetByOrderRef(ctx context.Context, orderRef string) 
 
 // ListByStatus returns sessions matching the given status, ordered by
 // modified_at ascending (oldest first), using a replica read.
+func (r *sessionRepository) ListUnexpiredWithPrompt(
+	ctx context.Context, status string, now time.Time, limit int,
+) ([]*models.CheckoutSession, error) {
+	var sessions []*models.CheckoutSession
+	err := r.Pool().DB(ctx, true).
+		Where("status = ? AND prompt_id <> '' AND expires_at > ? AND deleted_at IS NULL", status, now).
+		Order("modified_at ASC").
+		Limit(limit).
+		Find(&sessions).Error
+	if err != nil {
+		return nil, fmt.Errorf("list unexpired checkout sessions with prompt: %w", err)
+	}
+	return sessions, nil
+}
+
 func (r *sessionRepository) ListByStatus(
 	ctx context.Context, status string, limit int,
 ) ([]*models.CheckoutSession, error) {

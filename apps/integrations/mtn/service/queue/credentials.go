@@ -116,3 +116,38 @@ func emitStatus(
 		util.Log(ctx).WithError(err).Warn("could not emit status update")
 	}
 }
+
+// requestExtras is what the callback handler needs to re-query MTN and check
+// the amount: the reference id, the amount/currency sent and the credential
+// connection key.
+func requestExtras(entityType, referenceID, amount, currency string, headers map[string]string) map[string]any {
+	extras := map[string]any{
+		client.ExtraReferenceID:       referenceID,
+		client.ExtraRequestedAmount:   amount,
+		client.ExtraRequestedCurrency: currency,
+		"entity_type":                 entityType,
+	}
+	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
+		extras[client.ExtraCredentialsConnection] = connection
+	}
+	return extras
+}
+
+// NewCredentialResolver returns a resolver for credentials outside the queue
+// workers (e.g. to re-query MTN from a callback): the settings connection
+// when known, otherwise the service configuration.
+func NewCredentialResolver(
+	settingsCli settingsv1connect.SettingsServiceClient,
+	cfg *config.MtnConfig,
+) func(ctx context.Context, connection string) (*client.MtnCredentials, error) {
+	return func(ctx context.Context, connection string) (*client.MtnCredentials, error) {
+		headers := map[string]string{}
+		if connection != "" {
+			if settingsCli == nil {
+				return nil, errors.New("settings client unavailable for credential connection lookup")
+			}
+			headers[config.HeaderConnectionCredentials] = connection
+		}
+		return extractCredentials(ctx, headers, settingsCli, cfg)
+	}
+}

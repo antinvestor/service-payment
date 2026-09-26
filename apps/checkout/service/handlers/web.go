@@ -469,8 +469,13 @@ func (s *WebServer) buildMethods(
 		country = strings.ToUpper(strings.TrimSpace(hints.Country))
 	}
 
+	amount := ""
+	if session.AmountOption != models.AmountOptionVariable {
+		amount = session.Amount
+	}
 	filter := business.MethodFilter{
 		Currency:           session.Currency,
+		Amount:             amount,
 		Phone:              phone,
 		Phones:             contactPhones,
 		Country:            country,
@@ -800,6 +805,10 @@ func (s *WebServer) handlePayError(w http.ResponseWriter, r *http.Request, ref s
 
 	case errors.Is(payErr, business.ErrCooldown):
 		s.reRenderPayWithError(w, r, ref, "cooldown", http.StatusTooManyRequests)
+		return
+
+	case errors.Is(payErr, business.ErrPaymentInProgress):
+		s.reRenderPayWithError(w, r, ref, "payment_in_progress", http.StatusConflict)
 		return
 
 	case errors.Is(payErr, business.ErrUnknownMethod):

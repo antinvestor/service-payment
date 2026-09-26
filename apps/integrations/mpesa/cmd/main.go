@@ -63,9 +63,11 @@ func main() {
 
 	mpesaCli := client.NewClient()
 
-	webhookServer := handlers.NewMpesaWebhookServer(paymentCli)
+	webhookServer := handlers.NewMpesaWebhookServer(
+		paymentCli, mpesaCli, queue.NewCredentialResolver(settingsCli, &cfg).Resolve,
+	)
 	paymentWorker := queue.NewPaymentHandler(eventsMan, mpesaCli, settingsCli, &cfg)
-	promptWorker := queue.NewPromptHandler(eventsMan, mpesaCli, settingsCli, &cfg)
+	promptWorker := queue.NewPromptHandler(eventsMan, mpesaCli, settingsCli, &cfg, paymentCli)
 
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouterV1()),

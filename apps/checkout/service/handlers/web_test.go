@@ -104,6 +104,21 @@ func (f *fakeSessionRepo) GetByOrderRef(_ context.Context, orderRef string) (*mo
 	return nil, fmt.Errorf("session order_ref %q: %w", orderRef, gorm.ErrRecordNotFound)
 }
 
+func (f *fakeSessionRepo) ListUnexpiredWithPrompt(
+	_ context.Context,
+	status string,
+	now time.Time,
+	limit int,
+) ([]*models.CheckoutSession, error) {
+	var out []*models.CheckoutSession
+	for _, s := range f.byStatus[status] {
+		if s.PromptID != "" && s.ExpiresAt.After(now) && len(out) < limit {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeSessionRepo) ListByStatus(
 	_ context.Context,
 	status string,
@@ -855,4 +870,66 @@ func TestHandlePage_CompletedSession_JavascriptReturnURL_NoRefresh(t *testing.T)
 		`http-equiv="refresh"`,
 		"page must not emit a meta refresh redirect",
 	)
+}
+
+// The page hides whole-units rails for fractional amounts, matching Pay.
+func TestHandlePage_FractionalAmount_HidesWholeUnitRails(t *testing.T) {
+	tests := []struct {
+		amount    string
+		wantMpesa bool
+	}{
+		{amount: "50.00", wantMpesa: true},
+		{amount: "50.40", wantMpesa: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.amount, func(t *testing.T) {
+			h := newHarness(t)
+			h.addGuestPendingSession("sess-frac")
+			h.sessionRepo.sessions["sess-frac"].Amount = tt.amount
+
+			req := httptest.NewRequest(http.MethodGet, "/c/sess-frac", nil)
+			rec := httptest.NewRecorder()
+			h.router.ServeHTTP(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			if tt.wantMpesa {
+				assert.Contains(t, rec.Body.String(), `value="mpesa"`)
+			} else {
+				assert.NotContains(t, rec.Body.String(), `value="mpesa"`)
+			}
+		})
+	}
+}
+
+// A second Pay while the previous prompt is still live is refused with a
+// message telling the payer to check their phone.
+func TestHandlePay_PaymentInProgress_409(t *testing.T) {
+	h := newHarness(t)
+	sent := fixedNow().Add(-30 * time.Second)
+	h.sessionRepo.sessions["sess-busy"] = &models.CheckoutSession{
+		Ref:           "sess-busy",
+		Name:          "Test Merchant",
+		Amount:        "100.00",
+		Currency:      "KES",
+		AmountOption:  models.AmountOptionFixed,
+		Status:        models.SessionStatusProcessing,
+		PromptID:      "prompt-live",
+		Attempts:      1,
+		LastAttemptAt: &sent,
+		ExpiresAt:     fixedNow().Add(30 * time.Minute),
+	}
+
+	form := url.Values{
+		"csrf":   {validCSRF("sess-busy")},
+		"method": {"mpesa"},
+		"phone":  {"254712345678"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/c/sess-busy/pay", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), "already in progress")
+	assert.Equal(t, 1, h.sessionRepo.sessions["sess-busy"].Attempts)
 }

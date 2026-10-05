@@ -12,10 +12,10 @@ buf.build/gen/go/antinvestor/payment/connectrpc/go v1.21.0-20260831184824-a4a7e9
 buf.build/gen/go/antinvestor/payment/connectrpc/go v1.21.0-20260831184824-a4a7e9defafa.1/go.mod h1:1TFx6UeSdLBGngJuGn7Yo9yloa+9agmXYfDf62uGkDc=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20260831184824-a4a7e9defafa.2 h1:P+jq3JQygoRJQjMEPuOsfHlH5zub8N0d7TCTMCfD06E=
 buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20260831184824-a4a7e9defafa.2/go.mod h1:HaflZxT334AlAe/vJuzkzc84fwOaLbFoavgFuW/lbE8=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.21.0-20260831194050-82ad359a5ea0.1 h1:I61NA28Vv/h49Q3C1T3SACUSiMls+SEzqrBIFPeEyNs=
-buf.build/gen/go/antinvestor/profile/connectrpc/go v1.21.0-20260831194050-82ad359a5ea0.1/go.mod h1:9pWFnMfTvyyoRLQGuoUez4TPCVNG9AxJYjdZf6SsrW4=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.12-20260831194050-82ad359a5ea0.2 h1:+glqVZ7nE9bp6wv8Q90ct/E4NRSSKzanAuTxpmQI5zs=
-buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.12-20260831194050-82ad359a5ea0.2/go.mod h1:8BNvNKOJjHF5YmU2ZqMkV5F/N/JgsE6U1PM1CB8iFss=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.21.0-20260929162659-4d1f01e9606a.1 h1:fWjeouyCugBvgUKcW83XpSUQJ55FwQ73VrIsxU2yAq8=
+buf.build/gen/go/antinvestor/profile/connectrpc/go v1.21.0-20260929162659-4d1f01e9606a.1/go.mod h1:F7Q81YoYOMEZytqHrircHFn/HaG3yKxtCqpTegmgoG8=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.12-20260929162659-4d1f01e9606a.2 h1:wrqLjOuY/06ijpbcHMwwFEcmgrR4sUjXITHHXUNeXX4=
+buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.12-20260929162659-4d1f01e9606a.2/go.mod h1:8BNvNKOJjHF5YmU2ZqMkV5F/N/JgsE6U1PM1CB8iFss=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.21.0-20260831194050-1ad01a14931e.1 h1:hZJ02X+HJMO14Zxa1x1y0M+j5G2rKHZpapoSg1x5sss=
 buf.build/gen/go/antinvestor/settingz/connectrpc/go v1.21.0-20260831194050-1ad01a14931e.1/go.mod h1:AGs6sKVwMKBMC4z3bVUKFX/PIkOwiRkx98xEjNLuPOg=
 buf.build/gen/go/antinvestor/settingz/protocolbuffers/go v1.36.12-20260831194050-1ad01a14931e.2 h1:bDE0hpYMGlgL62FVNc334L1z0+OTeK5msdS7MsdQEYo=

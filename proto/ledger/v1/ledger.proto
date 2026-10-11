@@ -201,8 +201,9 @@ message TransactionEntry {
 // Must contain balanced entries (sum of debits = sum of credits).
 message Transaction {
   string id = 1; // Unique transaction reference/ID
-  // The three-letter currency code defined in ISO 4217.
-  string currency_code = 2; // Currency code for all entries (ISO 4217)
+  // Asset code shared by every entry and their accounts: an ISO 4217 code
+  // (USD, UGX) or a token symbol (USDC), 3-10 uppercase letters or digits.
+  string currency_code = 2;
   string transacted_at = 3; // Transaction timestamp (RFC3339)
   google.protobuf.Struct data = 4; // Additional transaction metadata (description, source, etc.)
   repeated TransactionEntry entries = 5; // Transaction entries (must be balanced)
@@ -230,7 +231,7 @@ message Book {
   string name = 2; // Display name (e.g. "Village Group A", "Member Jane Doe")
   string type = 3; // Conventional type ("platform"/"group"/"customer"/"merchant"/"agent"/"branch")
   string parent_id = 4; // Optional parent book for hierarchical scope
-  string currency = 5; // Default currency for this book (ISO 4217)
+  string currency = 5; // Default asset code for this book (ISO 4217 code or token symbol)
   google.protobuf.Struct data = 6; // Additional metadata
 }
 
@@ -325,7 +326,11 @@ message CreateAccountRequest {
     (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
   ]; // Optional Unique account reference/number
   string ledger_id = 3; // Ledger this account belongs to
-  string currency = 4; // Current cleared balance
+  // Asset the account holds: an ISO 4217 code (USD, UGX) or a token symbol
+  // (USDC, USDT, EURC), 3-10 letters or digits, stored upper-cased. The
+  // ledger keeps 9 fractional digits for every asset and never derives minor
+  // units from the code.
+  string currency = 4;
   google.protobuf.Struct data = 5; // Additional account metadata (owner, description, etc.)
 }
 
@@ -362,7 +367,7 @@ message CreateTransactionRequest {
     (buf.validate.field).string.max_len = 40,
     (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
   ]; // Unique transaction reference/ID
-  string currency = 2; // Currency code for all entries (ISO 4217)
+  string currency = 2; // Asset code for all entries; must equal each account's currency
   string transacted_at = 3; // Transaction timestamp (RFC3339)
   google.protobuf.Struct data = 4; // Additional transaction metadata (description, source, etc.)
   repeated TransactionEntry entries = 5; // Transaction entries (must be balanced)
@@ -424,7 +429,7 @@ message CreateBookRequest {
   string name = 2; // Display name
   string type = 3; // Conventional type ("platform"/"group"/"customer"/...)
   string parent_id = 4; // Optional parent book for hierarchical scope
-  string currency = 5; // Default currency for this book (ISO 4217)
+  string currency = 5; // Default asset code for this book (ISO 4217 code or token symbol)
   google.protobuf.Struct data = 6; // Additional metadata
 }
 
@@ -453,7 +458,7 @@ message ListBooksByTypeResponse {
 // -----------------------------------------------------
 
 message GetTrialBalanceRequest {
-  string currency = 1; // Optional ISO 4217 filter
+  string currency = 1; // Optional asset code filter
   string ledger_id = 2; // Optional scope to one chart-of-accounts subtree
   // ledger_type is a case-sensitive string filter ("ASSET", "LIABILITY",
   // "INCOME", "EXPENSE", "CAPITAL"). Empty means "no filter". A string is

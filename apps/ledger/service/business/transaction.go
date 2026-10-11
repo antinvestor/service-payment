@@ -273,20 +273,29 @@ func (b *transactionBusiness) ReverseTransaction(
 	reversalTxn.GenID(ctx)
 	reversalTxn.ID = fmt.Sprintf("%s_REVERSAL", originalTxn.ID)
 
-	// Build reversal entries by flipping the Credit flag while keeping the
-	// original stored amount. preProcessTransactionEntries applies DEADCLIC
-	// sign rules based on the Credit flag and account type. Since the credit
-	// flag is flipped, preProcess negates the amount, producing the
-	// offsetting entry that zeroes out the original's balance impact.
+	// Build reversal entries by flipping the Credit flag and posting the
+	// amount the caller originally supplied. Stored amounts carry the
+	// DEADCLIC sign (negative when the entry opposes the account's normal
+	// balance), so the supplied amount is recovered by undoing that rule.
+	// preProcessTransactionEntries then signs the flipped entry against the
+	// account, storing exactly the negation of the original row.
 	//
-	// Do NOT also negate the amount here — that would double-negate (once
-	// explicit, once via preProcess), restoring the original positive value
-	// and making the reversal ineffective.
+	// Reusing the stored amount directly is wrong for entries stored
+	// negative (e.g. a credit to an asset account): the reversal would fail
+	// the zero-sum check or post on the same side as the original.
+	originalAccounts, err := b.accountRepo.ListMetaByID(ctx, entryAccountIDs(originalTxn.Entries)...)
+	if err != nil {
+		return nil, apperrors.ErrSystemFailure.Override(err)
+	}
 	for _, entry := range originalTxn.Entries {
+		supplied := decimalx.DerefOr(entry.Amount, decimalx.Zero())
+		if account, ok := originalAccounts[entry.AccountID]; ok && signFlips(account, entry.Credit) {
+			supplied = supplied.Neg()
+		}
 		reversalTxn.Entries = append(reversalTxn.Entries, &models.TransactionEntry{
 			BaseModel: data.BaseModel{ID: reversalEntryID(entry.ID)},
 			AccountID: entry.AccountID,
-			Amount:    entry.Amount,
+			Amount:    &supplied,
 			Credit:    !entry.Credit,
 		})
 	}
@@ -790,24 +799,45 @@ func (b *transactionBusiness) preProcessTransactionEntries(
 		// to keep entries tied to their posting destination explicitly.
 		line.Currency = account.Currency
 
-		normalSide := account.NormalBalance
-		if normalSide == "" {
-			normalSide = models.NormalBalanceFromLedgerType(account.LedgerType)
-		}
-		if normalSide == "" || normalSide == models.NormalBalanceNone {
-			// Memo or unclassified — store as supplied, no sign flip.
-			continue
-		}
-
-		entrySide := models.NormalBalanceDebit
-		if line.Credit {
-			entrySide = models.NormalBalanceCredit
-		}
-		if entrySide != normalSide {
+		if signFlips(account, line.Credit) {
 			neg := decimalx.DerefOr(line.Amount, decimalx.Zero()).Neg()
 			line.Amount = &neg
 		}
 	}
+}
+
+// signFlips reports whether an entry on the given side of account is stored
+// with its supplied amount negated: true when the side opposes the account's
+// normal balance. Memo accounts (normal_balance='none') and unclassified
+// accounts store amounts as supplied.
+func signFlips(account *models.Account, credit bool) bool {
+	normalSide := account.NormalBalance
+	if normalSide == "" {
+		normalSide = models.NormalBalanceFromLedgerType(account.LedgerType)
+	}
+	if normalSide == "" || normalSide == models.NormalBalanceNone {
+		return false
+	}
+
+	entrySide := models.NormalBalanceDebit
+	if credit {
+		entrySide = models.NormalBalanceCredit
+	}
+	return entrySide != normalSide
+}
+
+// entryAccountIDs returns the distinct account ids referenced by entries.
+func entryAccountIDs(entries []*models.TransactionEntry) []string {
+	seen := make(map[string]struct{}, len(entries))
+	ids := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if _, ok := seen[entry.AccountID]; ok {
+			continue
+		}
+		seen[entry.AccountID] = struct{}{}
+		ids = append(ids, entry.AccountID)
+	}
+	return ids
 }
 
 // processClearanceUpdate drives the pending → posted transition: sets

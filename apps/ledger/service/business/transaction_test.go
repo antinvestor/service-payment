@@ -466,6 +466,61 @@ func (ts *TransactionBusinessSuite) TestMaxLengthIDsPostRetryAndReverse() {
 	})
 }
 
+// TestReverseTransactionCreditToDebitNormalAccount reverses a posting whose
+// stored entries include a negative amount (a credit to an asset account).
+// The reversal must post the offsetting entries and restore both balances.
+func (ts *TransactionBusinessSuite) TestReverseTransactionCreditToDebitNormalAccount() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		_, err := resources.LedgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id: "test-expense-ledger", Type: ledgerv1.LedgerType_EXPENSE,
+		})
+		require.NoError(t, err)
+		_, err = resources.AccountBusiness.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id: "expense-account", LedgerId: "test-expense-ledger", Currency: "USD",
+		})
+		require.NoError(t, err)
+
+		original, err := resources.TransactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "pay-expense",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "expense-account", Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+				{AccountId: "asset-account", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		})
+		require.NoError(t, err)
+
+		asset, err := resources.AccountBusiness.GetAccount(ctx, "asset-account")
+		require.NoError(t, err)
+		assert.Equal(t, int64(-100), asset.GetBalance().GetUnits())
+
+		reversal, err := resources.TransactionBusiness.ReverseTransaction(
+			ctx, &ledgerv1.ReverseTransactionRequest{Id: original.GetId()})
+		require.NoError(t, err)
+
+		stored := map[string]int64{}
+		for _, e := range original.GetEntries() {
+			stored[e.GetAccountId()] = e.GetAmount().GetUnits()
+		}
+		for _, e := range reversal.GetEntries() {
+			assert.Equal(t, -stored[e.GetAccountId()], e.GetAmount().GetUnits(),
+				"reversal entry for %s must store the negation of the original", e.GetAccountId())
+		}
+
+		for _, id := range []string{"asset-account", "expense-account"} {
+			acc, accErr := resources.AccountBusiness.GetAccount(ctx, id)
+			require.NoError(t, accErr)
+			assert.True(t, acc.GetBalance().GetUnits() == 0 && acc.GetBalance().GetNanos() == 0,
+				"%s balance must be restored after reversal", id)
+		}
+	})
+}
+
 func (ts *TransactionBusinessSuite) TestGetTransaction() {
 	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := ts.CreateService(t, dep)

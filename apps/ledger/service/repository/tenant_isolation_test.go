@@ -96,6 +96,34 @@ func (ls *LedgersSuite) TestAccountTenantIsolation() {
 	})
 }
 
+// TestBookTenantIsolation verifies books are isolated per tenant, which
+// requires the books table to keep the RLS policy frame installs on it.
+func (ls *LedgersSuite) TestBookTenantIsolation() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ls.CreateService(t, dep)
+
+		bookRepo := resources.BookRepository
+
+		ctxA := ls.WithAuthClaims(ctx, "tenant-a", "partition-a", util.IDString())
+		ctxB := ls.WithAuthClaims(ctx, "tenant-b", "partition-b", util.IDString())
+
+		book := &models.Book{Name: "Group A", Type: models.BookTypeGroup}
+		book.GenID(ctxA)
+		require.NoError(t, bookRepo.Create(ctxA, book))
+
+		got, err := bookRepo.GetByID(ctxA, book.ID)
+		require.NoError(t, err)
+		require.Equal(t, book.ID, got.ID)
+
+		_, err = bookRepo.GetByID(ctxB, book.ID)
+		require.Error(t, err, "tenant B must not read tenant A's book")
+
+		listed, err := bookRepo.ListByType(ctxB, models.BookTypeGroup)
+		require.NoError(t, err)
+		require.Empty(t, listed, "tenant B must not list tenant A's books")
+	})
+}
+
 func collectLedgers(ctx context.Context, t *testing.T, repo repository.LedgerRepository) []*models.Ledger {
 	t.Helper()
 

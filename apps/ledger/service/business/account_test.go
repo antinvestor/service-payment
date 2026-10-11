@@ -17,6 +17,7 @@ package business_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -91,18 +92,76 @@ func (as *AccountBusinessSuite) TestCreateAccountWithInvalidCurrency() {
 		ctx, _, resources := as.CreateService(t, dep)
 		as.setupFixtures(ctx, resources)
 
-		accountBusiness := resources.AccountBusiness
+		for i, code := range []string{"", "US", "US$", "US D", "USDC-ETH", "TOOLONGCODE"} {
+			account, err := resources.AccountBusiness.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+				Id:       fmt.Sprintf("invalid-account-%d", i),
+				LedgerId: as.ledger.ID,
+				Currency: code,
+			})
+			require.Error(t, err, "currency %q should be rejected", code)
+			assert.Nil(t, account)
+			assert.Contains(t, err.Error(), "currency is invalid")
+		}
+	})
+}
 
-		createAccountReq := &ledgerv1.CreateAccountRequest{
-			Id:       "invalid-account",
-			LedgerId: as.ledger.ID,
-			Currency: "INVALID", // Invalid currency code
+// TestCreateAccountWithTokenCurrency holds token assets (non-ISO 4217
+// codes) and posts a balanced transfer between them.
+func (as *AccountBusinessSuite) TestCreateAccountWithTokenCurrency() {
+	as.WithTestDependencies(as.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := as.CreateService(t, dep)
+		as.setupFixtures(ctx, resources)
+
+		_, err := resources.LedgerBusiness.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id: "token-liabilities", Type: ledgerv1.LedgerType_LIABILITY,
+		})
+		require.NoError(t, err)
+
+		for _, tc := range []struct{ id, ledgerID, currency, want string }{
+			{"usdc-float", as.ledger.ID, "USDC", "USDC"},
+			{"usdc-member", "token-liabilities", "usdc", "USDC"},
+			{"usdt-float", as.ledger.ID, "USDT", "USDT"},
+			{"eurc-float", as.ledger.ID, "EURC", "EURC"},
+		} {
+			account, createErr := resources.AccountBusiness.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+				Id: tc.id, LedgerId: tc.ledgerID, Currency: tc.currency,
+			})
+			require.NoError(t, createErr, "currency %q", tc.currency)
+			assert.Equal(t, tc.want, account.GetBalance().GetCurrencyCode())
 		}
 
-		account, err := accountBusiness.CreateAccount(ctx, createAccountReq)
-		require.Error(t, err, "Should fail with invalid currency")
-		assert.Nil(t, account, "Account should not be created")
-		assert.Contains(t, err.Error(), "currency is invalid", "Error should mention currency validation")
+		_, err = resources.TransactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "usdc-deposit",
+			Currency: "USDC",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "usdc-float", Amount: &commonv1.Money{CurrencyCode: "USDC", Units: 12, Nanos: 345_678_000}},
+				{
+					AccountId: "usdc-member", Credit: true,
+					Amount: &commonv1.Money{CurrencyCode: "USDC", Units: 12, Nanos: 345_678_000},
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		member, err := resources.AccountBusiness.GetAccount(ctx, "usdc-member")
+		require.NoError(t, err)
+		assert.Equal(t, "USDC", member.GetBalance().GetCurrencyCode())
+		assert.Equal(t, int64(12), member.GetBalance().GetUnits())
+		assert.Equal(t, int32(345_678_000), member.GetBalance().GetNanos())
+
+		_, err = resources.TransactionBusiness.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "usdc-usdt-mix",
+			Currency: "USDC",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "usdt-float", Amount: &commonv1.Money{CurrencyCode: "USDC", Units: 1}},
+				{AccountId: "usdc-member", Credit: true, Amount: &commonv1.Money{CurrencyCode: "USDC", Units: 1}},
+			},
+		})
+		require.Error(t, err, "tokens are distinct currencies and cannot be mixed in one posting")
 	})
 }
 

@@ -16,6 +16,8 @@ package business
 
 import (
 	"context"
+	"regexp"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
@@ -26,8 +28,22 @@ import (
 	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/frame/v2/workerpool"
 	"github.com/pitabwire/util/decimalx"
-	"golang.org/x/text/currency"
 )
+
+// currencyCodePattern bounds an account's asset code: 3 to 10 uppercase
+// letters or digits. ISO 4217 codes (USD, UGX) and token symbols (USDC,
+// USDT, EURC) both fit. The ledger never derives minor units from the code —
+// amounts are stored as numeric(29,9) and exchanged as common.v1.Money
+// (units + nanos) — so any code is safe to hold. The upper bound is the
+// width of the currency columns.
+var currencyCodePattern = regexp.MustCompile(`^[A-Z0-9]{3,10}$`)
+
+// normalizeCurrencyCode upper-cases code and reports whether it is a valid
+// asset code.
+func normalizeCurrencyCode(code string) (string, bool) {
+	normalized := strings.ToUpper(code)
+	return normalized, currencyCodePattern.MatchString(normalized)
+}
 
 // AccountBusiness defines the business interface for account operations.
 type AccountBusiness interface {
@@ -70,9 +86,8 @@ func (b *accountBusiness) CreateAccount(
 	var err error
 	defer func() { b.metrics.EndSpan(ctx, span, err) }()
 
-	// Validate and normalize currency
-	currencyUnit, parseErr := currency.ParseISO(req.GetCurrency())
-	if parseErr != nil {
+	currencyCode, ok := normalizeCurrencyCode(req.GetCurrency())
+	if !ok {
 		err = ErrAccountCurrencyInvalid
 		return nil, err
 	}
@@ -101,7 +116,7 @@ func (b *accountBusiness) CreateAccount(
 		AccountType:   accountType,
 		NormalBalance: normalBalance,
 		BookID:        ledger.BookID,
-		Currency:      req.GetCurrency(),
+		Currency:      currencyCode,
 		Balance:       zero.Ptr(),
 		Data:          req.GetData().AsMap(),
 	}
@@ -111,7 +126,6 @@ func (b *accountBusiness) CreateAccount(
 		accountModel.ID = req.GetId()
 	}
 
-	accountModel.Currency = currencyUnit.String()
 	// Create the account through repository
 	err = b.accountRepo.Create(ctx, accountModel)
 	if err != nil {

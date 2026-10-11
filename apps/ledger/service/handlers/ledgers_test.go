@@ -616,7 +616,7 @@ func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 			Msg: &ledgerv1.CreateAccountRequest{
 				Id:       "handler-bad-curr-acc",
 				LedgerId: "handler-bad-curr-ledger",
-				Currency: "INVALID",
+				Currency: "US$",
 			},
 		})
 		require.Error(t, err)
@@ -694,7 +694,7 @@ func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 
 		// CreateAccount error path — invalid currency
 		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "bad", Currency: "INVALID"},
+			Msg: &ledgerv1.CreateAccountRequest{Id: "bad", Currency: "US$"},
 		})
 		require.Error(t, err)
 	})

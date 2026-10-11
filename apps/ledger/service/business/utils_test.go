@@ -16,6 +16,7 @@ package business
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
@@ -153,4 +154,45 @@ func TestContainsSameElements_NegativeAmount(t *testing.T) {
 	e2[0].ID = "e1"
 
 	assert.True(t, containsSameElements(e1, e2))
+}
+
+func TestPostingEntryID_ReadableWhenItFits(t *testing.T) {
+	assert.Equal(t, "txn-1_acc-1_0", postingEntryID("txn-1", "acc-1", 0))
+	assert.Equal(t, "txn-1_acc-1_0_REVERSAL", reversalEntryID("txn-1_acc-1_0"))
+}
+
+func TestPostingEntryID_MaxLengthIDsFitColumn(t *testing.T) {
+	txnID := strings.Repeat("t", 40)
+	accountID := strings.Repeat("a", 40)
+
+	seen := map[string]struct{}{}
+	for i := range 1000 {
+		id := postingEntryID(txnID, accountID, i)
+		assert.LessOrEqual(t, len(id), maxEntryIDLength)
+		assert.NotContains(t, id, "_", "derived ids never contain the readable separator")
+		assert.Equal(t, id, postingEntryID(txnID, accountID, i), "derivation must be deterministic")
+		seen[id] = struct{}{}
+
+		rev := reversalEntryID(id)
+		assert.LessOrEqual(t, len(rev), maxEntryIDLength)
+		assert.NotEqual(t, id, rev)
+		seen[rev] = struct{}{}
+	}
+	assert.Len(t, seen, 2000, "entry ids must be unique per (transaction, account, index)")
+
+	assert.NotEqual(t,
+		postingEntryID(txnID, accountID, 0),
+		postingEntryID(txnID, strings.Repeat("b", 40), 0))
+	assert.NotEqual(t,
+		postingEntryID(txnID, accountID, 0),
+		postingEntryID(strings.Repeat("u", 40), accountID, 0))
+}
+
+func TestReversalEntryID_LongReadableOriginal(t *testing.T) {
+	// A readable original id at the column limit gains a suffix that would
+	// overflow, so the reversal id is derived.
+	original := strings.Repeat("x", maxEntryIDLength)
+	rev := reversalEntryID(original)
+	assert.Len(t, rev, len(entryIDHashPrefix)+entryIDHashLength)
+	assert.Equal(t, rev, reversalEntryID(original))
 }

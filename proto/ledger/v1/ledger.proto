@@ -191,7 +191,13 @@ message TransactionEntry {
   string account_id = 3; // Account reference for this entry
   string transaction_id = 4; // Transaction reference this entry belongs to
   string transacted_at = 5; // Transaction timestamp (RFC3339)
-  common.v1.Money amount = 7; // Amount for this entry
+  // Amount for this entry. On create, supply a positive amount; the side is
+  // carried by `credit`. On read, the amount is signed by its effect on the
+  // account's balance: positive when the entry's side matches the account's
+  // normal balance (debit on ASSET/EXPENSE, credit on LIABILITY/INCOME/
+  // CAPITAL), negative when it opposes it. So a credit to an asset account
+  // reads back with credit = true and a negative amount.
+  common.v1.Money amount = 7;
   bool credit = 8; // True if credit, false if debit
   common.v1.Money acc_balance = 9; // Account balance after this entry
   string cleared_at = 11; // When this entry was cleared (RFC3339)
@@ -201,8 +207,9 @@ message TransactionEntry {
 // Must contain balanced entries (sum of debits = sum of credits).
 message Transaction {
   string id = 1; // Unique transaction reference/ID
-  // The three-letter currency code defined in ISO 4217.
-  string currency_code = 2; // Currency code for all entries (ISO 4217)
+  // Asset code shared by every entry and their accounts: an ISO 4217 code
+  // (USD, UGX) or a token symbol (USDC), 3-10 uppercase letters or digits.
+  string currency_code = 2;
   string transacted_at = 3; // Transaction timestamp (RFC3339)
   google.protobuf.Struct data = 4; // Additional transaction metadata (description, source, etc.)
   repeated TransactionEntry entries = 5; // Transaction entries (must be balanced)
@@ -230,7 +237,7 @@ message Book {
   string name = 2; // Display name (e.g. "Village Group A", "Member Jane Doe")
   string type = 3; // Conventional type ("platform"/"group"/"customer"/"merchant"/"agent"/"branch")
   string parent_id = 4; // Optional parent book for hierarchical scope
-  string currency = 5; // Default currency for this book (ISO 4217)
+  string currency = 5; // Default asset code for this book (ISO 4217 code or token symbol)
   google.protobuf.Struct data = 6; // Additional metadata
 }
 
@@ -262,9 +269,16 @@ message StatementEntry {
   string transaction_id = 2;
   string transacted_at = 3; // RFC3339
   TransactionType transaction_type = 4;
+  // Signed effect of the entry on the account's balance: positive when the
+  // entry's side matches the account's normal balance, negative when it
+  // opposes it. On a debit-normal account (ASSET, EXPENSE) a credit carries
+  // credit = true and a negative amount; on a credit-normal account
+  // (LIABILITY, INCOME, CAPITAL) a credit carries a positive amount and a
+  // debit a negative one. running_balance is the opening balance plus the
+  // sum of these amounts; use credit for the side and |amount| for the size.
   common.v1.Money amount = 5;
-  bool credit = 6;
-  common.v1.Money running_balance = 7;
+  bool credit = 6; // True if the entry is a credit, false if a debit
+  common.v1.Money running_balance = 7; // Account balance after this entry
   google.protobuf.Struct transaction_data = 8;
   string cleared_at = 9; // RFC3339
 }
@@ -325,7 +339,11 @@ message CreateAccountRequest {
     (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
   ]; // Optional Unique account reference/number
   string ledger_id = 3; // Ledger this account belongs to
-  string currency = 4; // Current cleared balance
+  // Asset the account holds: an ISO 4217 code (USD, UGX) or a token symbol
+  // (USDC, USDT, EURC), 3-10 letters or digits, stored upper-cased. The
+  // ledger keeps 9 fractional digits for every asset and never derives minor
+  // units from the code.
+  string currency = 4;
   google.protobuf.Struct data = 5; // Additional account metadata (owner, description, etc.)
 }
 
@@ -362,7 +380,7 @@ message CreateTransactionRequest {
     (buf.validate.field).string.max_len = 40,
     (buf.validate.field).string.pattern = "[0-9a-z_-]{3,40}"
   ]; // Unique transaction reference/ID
-  string currency = 2; // Currency code for all entries (ISO 4217)
+  string currency = 2; // Asset code for all entries; must equal each account's currency
   string transacted_at = 3; // Transaction timestamp (RFC3339)
   google.protobuf.Struct data = 4; // Additional transaction metadata (description, source, etc.)
   repeated TransactionEntry entries = 5; // Transaction entries (must be balanced)
@@ -424,7 +442,7 @@ message CreateBookRequest {
   string name = 2; // Display name
   string type = 3; // Conventional type ("platform"/"group"/"customer"/...)
   string parent_id = 4; // Optional parent book for hierarchical scope
-  string currency = 5; // Default currency for this book (ISO 4217)
+  string currency = 5; // Default asset code for this book (ISO 4217 code or token symbol)
   google.protobuf.Struct data = 6; // Additional metadata
 }
 
@@ -453,7 +471,7 @@ message ListBooksByTypeResponse {
 // -----------------------------------------------------
 
 message GetTrialBalanceRequest {
-  string currency = 1; // Optional ISO 4217 filter
+  string currency = 1; // Optional asset code filter
   string ledger_id = 2; // Optional scope to one chart-of-accounts subtree
   // ledger_type is a case-sensitive string filter ("ASSET", "LIABILITY",
   // "INCOME", "EXPENSE", "CAPITAL"). Empty means "no filter". A string is
@@ -481,10 +499,10 @@ message GetAccountStatementRequest {
 message GetAccountStatementResponse {
   string account_id = 1;
   string currency = 2;
-  common.v1.Money opening_balance = 3;
-  common.v1.Money closing_balance = 4;
-  common.v1.Money total_debits = 5;
-  common.v1.Money total_credits = 6;
+  common.v1.Money opening_balance = 3; // Balance before the first entry in range
+  common.v1.Money closing_balance = 4; // opening_balance plus the signed entry amounts
+  common.v1.Money total_debits = 5; // Sum of |amount| over debit entries (non-negative)
+  common.v1.Money total_credits = 6; // Sum of |amount| over credit entries (non-negative)
   repeated StatementEntry entries = 7;
 }
 

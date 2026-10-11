@@ -45,6 +45,7 @@ func ToConnectError(err error) error {
 	case apperrors.ErrorCodeUnspecifiedID,
 		apperrors.ErrorCodeUnspecifiedReference,
 		apperrors.ErrorCodeBadDataSupplied,
+		apperrors.ErrorCodeBookIDInvalid,
 		apperrors.ErrorCodeTransactionEntryHasZeroAmount,
 		apperrors.ErrorCodeTransactionHasNonZeroSum,
 		apperrors.ErrorCodeTransactionHasInvalidDrCrEntry,
@@ -54,6 +55,7 @@ func ToConnectError(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, appErr)
 
 	case apperrors.ErrorCodeLedgerNotFound,
+		apperrors.ErrorCodeBookNotFound,
 		apperrors.ErrorCodeAccountNotFound,
 		apperrors.ErrorCodeAccountsNotFound,
 		apperrors.ErrorCodeTransactionNotFound,
@@ -62,6 +64,7 @@ func ToConnectError(err error) error {
 		return connect.NewError(connect.CodeNotFound, appErr)
 
 	case apperrors.ErrorCodeAccountWithReferenceExists,
+		apperrors.ErrorCodeBookIDTaken,
 		apperrors.ErrorCodeTransactionAlreadyExists,
 		apperrors.ErrorCodeTransactionIsConflicting:
 		return connect.NewError(connect.CodeAlreadyExists, appErr)

@@ -16,12 +16,14 @@ package business_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
+	"github.com/antinvestor/service-payments/pkg/apperrors"
 	_ "github.com/lib/pq"
 	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/frame/v2/frametests/definition"
@@ -54,15 +56,15 @@ type orgGroupIndividual struct {
 func (rs *BookHierarchySuite) seedHierarchy(
 	ctx context.Context, res *tests.ServiceResources,
 ) orgGroupIndividual {
-	org, err := res.BookBusiness.CreateBook(ctx,
+	org, err := res.BookBusiness.CreateBook(ctx, "",
 		"Stawi Organization", models.BookTypePlatform, "UGX", nil, nil)
 	rs.Require().NoError(err)
 
-	group, err := res.BookBusiness.CreateBook(ctx,
+	group, err := res.BookBusiness.CreateBook(ctx, "",
 		"Village Group A", models.BookTypeGroup, "UGX", &org.ID, nil)
 	rs.Require().NoError(err)
 
-	member, err := res.BookBusiness.CreateBook(ctx,
+	member, err := res.BookBusiness.CreateBook(ctx, "",
 		"Member Jane Doe", models.BookTypeCustomer, "UGX", &group.ID, nil)
 	rs.Require().NoError(err)
 
@@ -92,6 +94,76 @@ func (rs *BookHierarchySuite) TestCreateBookAndHierarchyTraversal() {
 		ids, err = res.BookBusiness.ListDescendantIDs(ctx, h.MemberID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{h.MemberID}, ids)
+	})
+}
+
+// TestCreateBookHonoursCallerID proves a caller-supplied id names the book,
+// that repeating the same create returns the existing book, that a create
+// reusing the id with different attributes is refused, and that ids outside
+// the proto's format are rejected.
+func (rs *BookHierarchySuite) TestCreateBookHonoursCallerID() {
+	rs.WithTestDependencies(rs.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, _, res := rs.CreateService(t, depOpt)
+
+		parent, err := res.BookBusiness.CreateBook(ctx, "",
+			"Org", models.BookTypePlatform, "UGX", nil, nil)
+		require.NoError(t, err)
+
+		const roomID = "d3k1room9xq0abcdefgh"
+		meta := data.JSONMap{"room_id": roomID}
+		book, err := res.BookBusiness.CreateBook(ctx, roomID,
+			"Stawi room", models.BookTypeGroup, "UGX", &parent.ID, meta)
+		require.NoError(t, err)
+		require.Equal(t, roomID, book.ID)
+
+		got, err := res.BookBusiness.GetBook(ctx, roomID)
+		require.NoError(t, err)
+		assert.Equal(t, "Stawi room", got.Name)
+		assert.Equal(t, parent.ID, *got.ParentID)
+
+		again, err := res.BookBusiness.CreateBook(ctx, roomID,
+			"Stawi room", models.BookTypeGroup, "UGX", &parent.ID, meta)
+		require.NoError(t, err, "repeating the same create is idempotent")
+		assert.Equal(t, roomID, again.ID)
+
+		books, err := res.BookBusiness.ListBooksByType(ctx, models.BookTypeGroup)
+		require.NoError(t, err)
+		require.Len(t, books, 1, "the repeated create must not add a second book")
+
+		conflicts := map[string]func() error{
+			"name": func() error {
+				_, cErr := res.BookBusiness.CreateBook(ctx, roomID,
+					"Other room", models.BookTypeGroup, "UGX", &parent.ID, meta)
+				return cErr
+			},
+			"type": func() error {
+				_, cErr := res.BookBusiness.CreateBook(ctx, roomID,
+					"Stawi room", models.BookTypeMerchant, "UGX", &parent.ID, meta)
+				return cErr
+			},
+			"currency": func() error {
+				_, cErr := res.BookBusiness.CreateBook(ctx, roomID,
+					"Stawi room", models.BookTypeGroup, "KES", &parent.ID, meta)
+				return cErr
+			},
+			"parent": func() error {
+				_, cErr := res.BookBusiness.CreateBook(ctx, roomID,
+					"Stawi room", models.BookTypeGroup, "UGX", nil, meta)
+				return cErr
+			},
+		}
+		for attr, create := range conflicts {
+			require.ErrorIs(t, create(), apperrors.ErrBookIDTaken, "differing %s must conflict", attr)
+		}
+
+		for _, bad := range []string{"ab", "Upper-Case", "has space", "has/slash", strings.Repeat("a", 41)} {
+			_, err = res.BookBusiness.CreateBook(ctx, bad,
+				"Bad", models.BookTypeGroup, "UGX", nil, nil)
+			require.ErrorIs(t, err, apperrors.ErrBookIDInvalid, "id %q must be rejected", bad)
+		}
+
+		_, err = res.BookBusiness.GetBook(ctx, "no-such-book")
+		require.ErrorIs(t, err, apperrors.ErrBookNotFound)
 	})
 }
 
@@ -129,10 +201,10 @@ func (rs *BookHierarchySuite) TestCrossBookPostingIsRejected() {
 	rs.WithTestDependencies(rs.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
 		ctx, _, res := rs.CreateService(t, depOpt)
 
-		bookA, err := res.BookBusiness.CreateBook(ctx,
+		bookA, err := res.BookBusiness.CreateBook(ctx, "",
 			"Group A", models.BookTypeGroup, "UGX", nil, nil)
 		require.NoError(t, err)
-		bookB, err := res.BookBusiness.CreateBook(ctx,
+		bookB, err := res.BookBusiness.CreateBook(ctx, "",
 			"Group B", models.BookTypeGroup, "UGX", nil, nil)
 		require.NoError(t, err)
 

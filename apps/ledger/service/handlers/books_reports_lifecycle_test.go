@@ -15,6 +15,7 @@
 package handlers_test
 
 import (
+	"context"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -86,6 +87,68 @@ func (s *LedgerHandlersTestSuite) TestCreateAndGetBookHandler() {
 		require.NoError(t, err)
 		require.Len(t, listed.Msg.GetData(), 1)
 		assert.Equal(t, "Group A", listed.Msg.GetData()[0].GetName())
+	})
+}
+
+// TestCreateBookWithCallerIDHandler proves the handler keeps a caller-
+// supplied book id, answers a repeated create with the same book, maps a
+// conflicting reuse to AlreadyExists and an unknown book to NotFound, and
+// refuses an id another tenant already holds.
+func (s *LedgerHandlersTestSuite) TestCreateBookWithCallerIDHandler() {
+	s.WithTestDependencies(s.T(), func(t *testing.T, depOpt *definition.DependencyOption) {
+		ctx, svc, resources := s.CreateService(t, depOpt)
+
+		tenantID := util.IDString()
+		partitionID := util.IDString()
+		profileID := util.IDString()
+		tenantCtx := s.WithAuthClaims(ctx, tenantID, partitionID, profileID)
+		s.SeedTenantRole(tenantCtx, svc, tenantID, partitionID, profileID, authz.RoleOwner)
+
+		ledgerServer := handlers.NewLedgerServer(
+			resources.LedgerBusiness,
+			resources.AccountBusiness,
+			resources.TransactionBusiness,
+			resources.ReportBusiness,
+			resources.BookBusiness,
+		)
+
+		const roomID = "room-0123456789abcdef"
+		create := func(c context.Context, name string) (*connect.Response[ledgerv1.CreateBookResponse], error) {
+			return ledgerServer.CreateBook(c, &connect.Request[ledgerv1.CreateBookRequest]{
+				Msg: &ledgerv1.CreateBookRequest{Id: roomID, Name: name, Type: "group", Currency: "UGX"},
+			})
+		}
+
+		first, err := create(tenantCtx, "Room")
+		require.NoError(t, err)
+		assert.Equal(t, roomID, first.Msg.GetData().GetId())
+
+		again, err := create(tenantCtx, "Room")
+		require.NoError(t, err)
+		assert.Equal(t, roomID, again.Msg.GetData().GetId())
+
+		_, err = create(tenantCtx, "Renamed")
+		assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
+
+		_, err = ledgerServer.GetBook(tenantCtx, &connect.Request[ledgerv1.GetBookRequest]{
+			Msg: &ledgerv1.GetBookRequest{Id: "missing-book"},
+		})
+		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+
+		_, err = ledgerServer.CreateBook(tenantCtx, &connect.Request[ledgerv1.CreateBookRequest]{
+			Msg: &ledgerv1.CreateBookRequest{Id: "Not Valid", Name: "Room", Type: "group"},
+		})
+		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+
+		otherTenant := util.IDString()
+		otherPartition := util.IDString()
+		otherProfile := util.IDString()
+		otherCtx := s.WithAuthClaims(ctx, otherTenant, otherPartition, otherProfile)
+		s.SeedTenantRole(otherCtx, svc, otherTenant, otherPartition, otherProfile, authz.RoleOwner)
+
+		_, err = create(otherCtx, "Room")
+		assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err),
+			"another tenant cannot claim or read a book id that is already taken")
 	})
 }
 

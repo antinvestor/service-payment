@@ -404,6 +404,68 @@ func (ts *TransactionBusinessSuite) TestReverseTransaction() {
 	})
 }
 
+// TestMaxLengthIDsPostRetryAndReverse posts with the longest transaction and
+// account ids the API accepts. The readable entry id would be
+// <txn>_<account>_<i> (83 chars), wider than the entry id column, so the
+// ledger must derive a bounded id that is stable across a retry and a
+// reversal.
+func (ts *TransactionBusinessSuite) TestMaxLengthIDsPostRetryAndReverse() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ts.setupFixtures(ctx, resources)
+
+		debitAccountID := strings.Repeat("d", 40)
+		creditAccountID := strings.Repeat("c", 40)
+		for id, ledgerID := range map[string]string{
+			debitAccountID:  ts.assetLedger.ID,
+			creditAccountID: ts.incomeLedger.ID,
+		} {
+			_, err := resources.AccountBusiness.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+				Id: id, LedgerId: ledgerID, Currency: "USD",
+			})
+			require.NoError(t, err)
+		}
+
+		req := &ledgerv1.CreateTransactionRequest{
+			Id:       strings.Repeat("t", 40),
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: debitAccountID, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 70}},
+				{AccountId: debitAccountID, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 30}},
+				{AccountId: creditAccountID, Credit: true, Amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}},
+			},
+		}
+
+		first, err := resources.TransactionBusiness.CreateTransaction(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, first.GetEntries(), 3)
+		entryIDs := map[string]struct{}{}
+		for _, e := range first.GetEntries() {
+			assert.LessOrEqual(t, len(e.GetId()), 50)
+			entryIDs[e.GetId()] = struct{}{}
+		}
+		assert.Len(t, entryIDs, 3, "split entries for one account keep distinct ids")
+
+		retried, err := resources.TransactionBusiness.CreateTransaction(ctx, req)
+		require.NoError(t, err, "a retry with max-length ids must resolve to the stored posting")
+		require.Len(t, retried.GetEntries(), 3)
+		for _, e := range retried.GetEntries() {
+			assert.Contains(t, entryIDs, e.GetId())
+		}
+
+		reversal, err := resources.TransactionBusiness.ReverseTransaction(
+			ctx, &ledgerv1.ReverseTransactionRequest{Id: first.GetId()})
+		require.NoError(t, err)
+		require.Len(t, reversal.GetEntries(), 3)
+		for _, e := range reversal.GetEntries() {
+			assert.LessOrEqual(t, len(e.GetId()), 50)
+			assert.NotContains(t, entryIDs, e.GetId())
+		}
+	})
+}
+
 func (ts *TransactionBusinessSuite) TestGetTransaction() {
 	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := ts.CreateService(t, dep)

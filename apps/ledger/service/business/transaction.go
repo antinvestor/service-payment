@@ -284,7 +284,7 @@ func (b *transactionBusiness) ReverseTransaction(
 	// and making the reversal ineffective.
 	for _, entry := range originalTxn.Entries {
 		reversalTxn.Entries = append(reversalTxn.Entries, &models.TransactionEntry{
-			BaseModel: data.BaseModel{ID: fmt.Sprintf("%s_REVERSAL", entry.ID)},
+			BaseModel: data.BaseModel{ID: reversalEntryID(entry.ID)},
 			AccountID: entry.AccountID,
 			Amount:    entry.Amount,
 			Credit:    !entry.Credit,
@@ -387,7 +387,7 @@ func (b *transactionBusiness) transactAsReversal(
 
 	for i, entry := range transaction.Entries {
 		if entry.ID == "" {
-			entry.ID = fmt.Sprintf("%s_%s_%d", transaction.GetID(), entry.AccountID, i)
+			entry.ID = postingEntryID(transaction.GetID(), entry.AccountID, i)
 		}
 		entry.TransactionID = transaction.GetID()
 	}
@@ -619,7 +619,7 @@ func (b *transactionBusiness) Transact(
 	// (e.g., split transactions).
 	for i, entry := range transaction.Entries {
 		if entry.ID == "" {
-			entry.ID = fmt.Sprintf("%s_%s_%d", transaction.GetID(), entry.AccountID, i)
+			entry.ID = postingEntryID(transaction.GetID(), entry.AccountID, i)
 		}
 		entry.TransactionID = transaction.GetID()
 	}

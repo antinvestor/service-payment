@@ -15,6 +15,9 @@
 package business
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"sort"
 
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
@@ -23,6 +26,44 @@ import (
 
 // DefaultTimestampLayout is the timestamp layout followed in Ledger.
 const DefaultTimestampLayout = "2006-01-02T15:04:05.999999999"
+
+// maxEntryIDLength is the width of transaction_entries.id, which comes from
+// frame's data.BaseModel (varchar(50)). The framework's AutoMigrate owns that
+// column, so entry ids are kept inside it rather than widening it.
+const maxEntryIDLength = 50
+
+// entryIDHashPrefix marks a derived entry id. Readable ids always contain an
+// underscore separator and hashed ids never do, so the two forms cannot
+// collide.
+const entryIDHashPrefix = "e"
+
+// entryIDHashLength is the number of hex characters (160 bits) of the
+// SHA-256 digest kept in a derived entry id.
+const entryIDHashLength = 40
+
+// boundedEntryID returns readable unchanged when it fits the entry id column,
+// and otherwise a fixed-length id derived from it. The result depends only on
+// readable, so a retried posting produces the same entry ids and ids already
+// stored in readable form are unchanged.
+func boundedEntryID(readable string) string {
+	if len(readable) <= maxEntryIDLength {
+		return readable
+	}
+	sum := sha256.Sum256([]byte(readable))
+	return entryIDHashPrefix + hex.EncodeToString(sum[:])[:entryIDHashLength]
+}
+
+// postingEntryID is the deterministic id of the index-th entry (after
+// canonical sorting) of a transaction for an account.
+func postingEntryID(transactionID, accountID string, index int) string {
+	return boundedEntryID(fmt.Sprintf("%s_%s_%d", transactionID, accountID, index))
+}
+
+// reversalEntryID is the deterministic id of the entry that reverses
+// originalEntryID.
+func reversalEntryID(originalEntryID string) string {
+	return boundedEntryID(originalEntryID + "_REVERSAL")
+}
 
 // OrderedEntries implements sort.Interface for []*TransactionEntry based on
 // the AccountID and Amount fields.

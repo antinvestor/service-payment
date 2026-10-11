@@ -27,15 +27,19 @@ const (
 	NamespaceProfile       = "profile_user"
 )
 
+// Permissions of the service_ledger namespace. They mirror the
+// LedgerService service_permissions manifest in proto/ledger/v1/ledger.proto,
+// which also generates the namespace's OPL.
 const (
-	PermissionLedgerManage       = "ledger_manage"
-	PermissionLedgerView         = "ledger_view"
-	PermissionAccountManage      = "account_manage"
-	PermissionAccountView        = "account_view"
-	PermissionTransactionCreate  = "transaction_create"
-	PermissionTransactionReverse = "transaction_reverse"
-	PermissionTransactionUpdate  = "transaction_update"
-	PermissionTransactionView    = "transaction_view"
+	PermissionLedgerView        = "ledger_view"
+	PermissionLedgerManage      = "ledger_manage"
+	PermissionAccountView       = "account_view"
+	PermissionAccountManage     = "account_manage"
+	PermissionTransactionView   = "transaction_view"
+	PermissionTransactionManage = "transaction_manage"
+	PermissionBookView          = "book_view"
+	PermissionBookManage        = "book_manage"
+	PermissionReportView        = "report_view"
 )
 
 const (
@@ -52,38 +56,31 @@ func GrantedRelation(permission string) string {
 	return "granted_" + permission
 }
 
-// RolePermissions returns the permissions granted by each role.
+// RolePermissions returns the permissions granted by each role, following
+// the manifest's role bindings.
 func RolePermissions() map[string][]string {
+	all := []string{
+		PermissionLedgerView, PermissionLedgerManage,
+		PermissionAccountView, PermissionAccountManage,
+		PermissionTransactionView, PermissionTransactionManage,
+		PermissionBookView, PermissionBookManage,
+		PermissionReportView,
+	}
+	readOnly := []string{
+		PermissionLedgerView, PermissionAccountView, PermissionTransactionView,
+		PermissionBookView, PermissionReportView,
+	}
 	return map[string][]string{
-		RoleOwner: {
-			PermissionLedgerManage, PermissionLedgerView,
-			PermissionAccountManage, PermissionAccountView,
-			PermissionTransactionCreate, PermissionTransactionReverse,
-			PermissionTransactionUpdate, PermissionTransactionView,
-		},
-		RoleAdmin: {
-			PermissionLedgerManage, PermissionLedgerView,
-			PermissionAccountManage, PermissionAccountView,
-			PermissionTransactionCreate, PermissionTransactionReverse,
-			PermissionTransactionUpdate, PermissionTransactionView,
-		},
+		RoleOwner: all,
+		RoleAdmin: all,
 		RoleOperator: {
-			PermissionLedgerView,
-			PermissionAccountManage, PermissionAccountView,
-			PermissionTransactionCreate, PermissionTransactionView,
+			PermissionLedgerView, PermissionAccountView,
+			PermissionTransactionView, PermissionTransactionManage,
+			PermissionBookView, PermissionReportView,
 		},
-		RoleViewer: {
-			PermissionLedgerView, PermissionAccountView, PermissionTransactionView,
-		},
-		RoleMember: {
-			PermissionLedgerView, PermissionAccountView, PermissionTransactionView,
-		},
-		RoleService: {
-			PermissionLedgerManage, PermissionLedgerView,
-			PermissionAccountManage, PermissionAccountView,
-			PermissionTransactionCreate, PermissionTransactionReverse,
-			PermissionTransactionUpdate, PermissionTransactionView,
-		},
+		RoleViewer:  readOnly,
+		RoleMember:  readOnly,
+		RoleService: all,
 	}
 }
 

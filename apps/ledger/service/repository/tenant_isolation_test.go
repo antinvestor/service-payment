@@ -21,6 +21,7 @@ import (
 	models "github.com/antinvestor/service-payments/apps/ledger/service/models"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
 	_ "github.com/lib/pq"
+	"github.com/pitabwire/frame/v2/data"
 	"github.com/pitabwire/frame/v2/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/require"
@@ -121,6 +122,43 @@ func (ls *LedgersSuite) TestBookTenantIsolation() {
 		listed, err := bookRepo.ListByType(ctxB, models.BookTypeGroup)
 		require.NoError(t, err)
 		require.Empty(t, listed, "tenant B must not list tenant A's books")
+
+		// Tenant B cannot attach its records to tenant A's book.
+		foreignBook := book.ID
+		lg := &models.Ledger{Type: models.LedgerTypeAsset, BookID: &foreignBook}
+		require.Error(t, resources.LedgerRepository.Create(ctxB, lg),
+			"tenant B must not reference tenant A's book")
+
+		// The same id is free in tenant B's own tenancy.
+		mine := &models.Book{BaseModel: data.BaseModel{ID: book.ID}, Name: "Group B", Type: models.BookTypeGroup}
+		mine.GenID(ctxB)
+		require.NoError(t, bookRepo.Create(ctxB, mine))
+
+		got, err = bookRepo.GetByID(ctxA, book.ID)
+		require.NoError(t, err)
+		require.Equal(t, "Group A", got.Name)
+		got, err = bookRepo.GetByID(ctxB, book.ID)
+		require.NoError(t, err)
+		require.Equal(t, "Group B", got.Name)
+	})
+}
+
+// TestMigrationRerunKeepsBookTenancyKey verifies a second migration run, as
+// every deploy does, leaves book ids scoped to the tenancy: AutoMigrate must
+// not restore a global key on books.
+func (ls *LedgersSuite) TestMigrationRerunKeepsBookTenancyKey() {
+	ls.WithTestDependencies(ls.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, svc, resources := ls.CreateService(t, dep)
+
+		require.NoError(t, repository.Migrate(ctx, svc.DatastoreManager(), "../../migrations/0001"))
+
+		ctxA := ls.WithAuthClaims(ctx, "tenant-a", "partition-a", util.IDString())
+		ctxB := ls.WithAuthClaims(ctx, "tenant-b", "partition-b", util.IDString())
+		for _, c := range []context.Context{ctxA, ctxB} {
+			book := &models.Book{BaseModel: data.BaseModel{ID: "shared-book-id"}, Name: "Group", Type: models.BookTypeGroup}
+			book.GenID(c)
+			require.NoError(t, resources.BookRepository.Create(c, book))
+		}
 	})
 }
 

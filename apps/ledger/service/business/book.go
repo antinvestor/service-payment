@@ -45,7 +45,9 @@ type BookBusiness interface {
 	// CreateBook opens a book. A non-empty id names it, otherwise one is
 	// generated. Creating a book whose id already exists returns that book
 	// when name, type, parent and currency match, and ErrBookIDTaken when
-	// they do not.
+	// they do not. Ids are unique within the caller's tenancy (tenant and
+	// partition), so another tenancy's books neither block nor answer for
+	// an id.
 	CreateBook(
 		ctx context.Context,
 		id, name, bookType, currency string,
@@ -133,8 +135,8 @@ func (b *bookBusiness) CreateBook(
 			err = apperrors.ErrSystemFailure.Override(err)
 			return nil, err
 		}
-		// A concurrent create won the id, or the id belongs to a book
-		// outside the caller's scope (which reads as taken).
+		// Ids are unique per tenancy, so the conflicting row is the
+		// caller's own: a concurrent create won the insert race.
 		var existing *models.Book
 		existing, err = b.findBook(ctx, id)
 		if err != nil {

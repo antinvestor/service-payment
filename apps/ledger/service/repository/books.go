@@ -86,13 +86,15 @@ func (b *bookRepository) ListDescendantIDs(
 
 	const query = `
 WITH RECURSIVE descendants AS (
-    SELECT id, parent_id
+    SELECT id, parent_id, tenant_id, partition_id
     FROM books
     WHERE id = ? AND deleted_at IS NULL
     UNION ALL
-    SELECT child.id, child.parent_id
+    SELECT child.id, child.parent_id, child.tenant_id, child.partition_id
     FROM books child
     JOIN descendants d ON child.parent_id = d.id
+        AND child.tenant_id = d.tenant_id
+        AND child.partition_id = d.partition_id
     WHERE child.deleted_at IS NULL
 )
 SELECT id FROM descendants

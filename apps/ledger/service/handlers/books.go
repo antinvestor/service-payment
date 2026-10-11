@@ -26,6 +26,8 @@ import (
 // Books represent platform/group/customer/merchant/agent/branch entities
 // whose entries balance independently. Optional parent_id supports
 // organisation → groups → members hierarchies for consolidated reporting.
+// A caller-supplied id names the book (an id is generated when omitted), and
+// repeating the same create returns the existing book.
 func (ledgerSrv *LedgerServer) CreateBook(
 	ctx context.Context,
 	req *connect.Request[ledgerv1.CreateBookRequest],
@@ -42,6 +44,7 @@ func (ledgerSrv *LedgerServer) CreateBook(
 	}
 
 	created, err := ledgerSrv.Book.CreateBook(ctx,
+		req.Msg.GetId(),
 		req.Msg.GetName(),
 		req.Msg.GetType(),
 		req.Msg.GetCurrency(),
@@ -52,9 +55,6 @@ func (ledgerSrv *LedgerServer) CreateBook(
 		return nil, ToConnectError(err)
 	}
 
-	// Honour the caller-supplied ID when one was provided; the model
-	// already minted an xid if not. We re-fetch to ensure the returned
-	// payload mirrors what is persisted.
 	return connect.NewResponse(&ledgerv1.CreateBookResponse{Data: created.ToAPI()}), nil
 }
 

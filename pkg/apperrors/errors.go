@@ -29,6 +29,9 @@ const (
 
 	// Ledger error codes (11-20).
 	ErrorCodeLedgerNotFound = 11
+	ErrorCodeBookNotFound   = 12
+	ErrorCodeBookIDInvalid  = 13
+	ErrorCodeBookIDTaken    = 14
 
 	// Account error codes (21-30).
 	ErrorCodeAccountNotFound            = 21
@@ -152,6 +155,16 @@ var (
 	ErrBadDataSupplied      = NewApplicationError(ErrorCodeBadDataSupplied, "Invalid data format was supplied")
 
 	ErrLedgerNotFound = NewApplicationError(ErrorCodeLedgerNotFound, "Ledger with reference/id not found")
+
+	ErrBookNotFound  = NewApplicationError(ErrorCodeBookNotFound, "Book with id not found")
+	ErrBookIDInvalid = NewApplicationError(
+		ErrorCodeBookIDInvalid,
+		"Book id must be 3 to 40 characters of lowercase letters, digits, '_' or '-'",
+	)
+	ErrBookIDTaken = NewApplicationError(
+		ErrorCodeBookIDTaken,
+		"Book id is already in use by a book with different attributes",
+	)
 
 	ErrAccountNotFound  = NewApplicationError(ErrorCodeAccountNotFound, "Account with reference/id not found")
 	ErrAccountsNotFound = NewApplicationError(

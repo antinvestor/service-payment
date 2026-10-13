@@ -16,16 +16,11 @@ class PricingModelBadge extends StatelessWidget {
 
   static (String, Color, IconData?) _modelInfo(PricingModel model) {
     return switch (model) {
-      PricingModel.FLAT =>
-        ('Flat', Colors.blue, Icons.horizontal_rule),
-      PricingModel.PER_UNIT =>
-        ('Per Unit', Colors.teal, Icons.straighten),
-      PricingModel.TIERED =>
-        ('Tiered', Colors.purple, Icons.stacked_bar_chart),
-      PricingModel.VOLUME =>
-        ('Volume', Colors.indigo, Icons.bar_chart),
-      PricingModel.STAIRSTEP =>
-        ('Stairstep', Colors.orange, Icons.stairs),
+      PricingModel.FLAT => ('Flat', Colors.blue, Icons.horizontal_rule),
+      PricingModel.PER_UNIT => ('Per Unit', Colors.teal, Icons.straighten),
+      PricingModel.TIERED => ('Tiered', Colors.purple, Icons.stacked_bar_chart),
+      PricingModel.VOLUME => ('Volume', Colors.indigo, Icons.bar_chart),
+      PricingModel.STAIRSTEP => ('Stairstep', Colors.orange, Icons.stairs),
       _ => ('Unknown', Colors.grey, null),
     };
   }

@@ -116,10 +116,7 @@ class _PaymentReturnScreenState extends ConsumerState<PaymentReturnScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _confirm,
-            child: const Text('Retry confirm'),
-          ),
+          FilledButton(onPressed: _confirm, child: const Text('Retry confirm')),
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => context.go('/billing/invoices'),
@@ -148,8 +145,7 @@ class _PaymentReturnScreenState extends ConsumerState<PaymentReturnScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (result.invoiceId.isNotEmpty)
-          Text('Invoice: ${result.invoiceId}'),
+        if (result.invoiceId.isNotEmpty) Text('Invoice: ${result.invoiceId}'),
         if (result.invoiceState.isNotEmpty)
           Text('Invoice state: ${result.invoiceState}'),
         if (result.subscriptionId.isNotEmpty) ...[
@@ -166,7 +162,8 @@ class _PaymentReturnScreenState extends ConsumerState<PaymentReturnScreen> {
           )
         else if (result.invoiceId.isNotEmpty)
           FilledButton(
-            onPressed: () => context.go('/billing/invoices/${result.invoiceId}'),
+            onPressed: () =>
+                context.go('/billing/invoices/${result.invoiceId}'),
             child: const Text('View invoice'),
           ),
         const SizedBox(height: 8),

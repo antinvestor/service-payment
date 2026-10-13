@@ -16,16 +16,11 @@ class InvoiceStateBadge extends StatelessWidget {
 
   static (String, Color, IconData?) _stateInfo(InvoiceState state) {
     return switch (state) {
-      InvoiceState.INVOICE_DRAFT =>
-        ('Draft', Colors.blue, Icons.edit_note),
-      InvoiceState.INVOICE_ISSUED =>
-        ('Issued', Colors.amber, Icons.send),
-      InvoiceState.INVOICE_PAID =>
-        ('Paid', Colors.green, Icons.check_circle),
-      InvoiceState.INVOICE_VOIDED =>
-        ('Voided', Colors.grey, Icons.block),
-      InvoiceState.INVOICE_OVERDUE =>
-        ('Overdue', Colors.red, Icons.warning),
+      InvoiceState.INVOICE_DRAFT => ('Draft', Colors.blue, Icons.edit_note),
+      InvoiceState.INVOICE_ISSUED => ('Issued', Colors.amber, Icons.send),
+      InvoiceState.INVOICE_PAID => ('Paid', Colors.green, Icons.check_circle),
+      InvoiceState.INVOICE_VOIDED => ('Voided', Colors.grey, Icons.block),
+      InvoiceState.INVOICE_OVERDUE => ('Overdue', Colors.red, Icons.warning),
       _ => ('Unknown', Colors.grey, null),
     };
   }

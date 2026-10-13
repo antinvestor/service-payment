@@ -6,15 +6,14 @@ import 'payment_transport_provider.dart';
 
 /// Search payments by query string (payment links are a subset of payments).
 /// SearchResponse has `repeated Payment data`, not a separate links field.
-final paymentLinkSearchProvider =
-    FutureProvider.family<List<Payment>, String>((ref, query) async {
+final paymentLinkSearchProvider = FutureProvider.family<List<Payment>, String>((
+  ref,
+  query,
+) async {
   final client = ref.watch(paymentServiceClientProvider);
   final request = SearchRequest()..query = query;
   final stream = client.search(request);
-  return collectStream<SearchResponse, Payment>(
-    stream,
-    extract: (r) => r.data,
-  );
+  return collectStream<SearchResponse, Payment>(stream, extract: (r) => r.data);
 });
 
 /// Notifier for payment link mutations.
@@ -22,8 +21,7 @@ class PaymentLinkNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  PaymentServiceClient get _client =>
-      ref.read(paymentServiceClientProvider);
+  PaymentServiceClient get _client => ref.read(paymentServiceClientProvider);
 
   /// CreatePaymentLink returns StatusResponse (via CreatePaymentLinkResponse.data).
   Future<StatusResponse> create(CreatePaymentLinkRequest request) async {
@@ -41,4 +39,5 @@ class PaymentLinkNotifier extends Notifier<AsyncValue<void>> {
 
 final paymentLinkNotifierProvider =
     NotifierProvider<PaymentLinkNotifier, AsyncValue<void>>(
-        PaymentLinkNotifier.new);
+      PaymentLinkNotifier.new,
+    );

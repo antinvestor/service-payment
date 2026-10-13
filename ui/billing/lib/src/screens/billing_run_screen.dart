@@ -68,14 +68,12 @@ class _BillingRunScreenState extends ConsumerState<BillingRunScreen> {
                     FormFieldCard(
                       label: 'Subscription ID',
                       isRequired: true,
-                      description:
-                          'The subscription to bill.',
+                      description: 'The subscription to bill.',
                       child: TextField(
                         controller: _subscriptionIdController,
                         decoration: const InputDecoration(
                           hintText: 'Enter subscription ID',
-                          prefixIcon:
-                              Icon(Icons.subscriptions, size: 20),
+                          prefixIcon: Icon(Icons.subscriptions, size: 20),
                         ),
                       ),
                     ),
@@ -130,8 +128,7 @@ class _BillingRunScreenState extends ConsumerState<BillingRunScreen> {
                           const SizedBox(width: 12),
                           FilledButton.tonal(
                             onPressed: () {
-                              final id =
-                                  _billingRunIdController.text.trim();
+                              final id = _billingRunIdController.text.trim();
                               if (id.isNotEmpty) {
                                 setState(() => _activeBillingRunId = id);
                               }
@@ -192,8 +189,7 @@ class _BillingRunScreenState extends ConsumerState<BillingRunScreen> {
 
     try {
       final notifier = ref.read(billingRunNotifierProvider.notifier);
-      final request = RunBillingRequest()
-        ..subscriptionId = subscriptionId;
+      final request = RunBillingRequest()..subscriptionId = subscriptionId;
       final billingRun = await notifier.runBilling(request);
       if (mounted) {
         setState(() => _activeBillingRunId = billingRun.id);
@@ -265,8 +261,7 @@ class _BillingRunPipeline extends ConsumerWidget {
     ThemeData theme,
     BillingRun billingRun,
   ) {
-    final currentIndex =
-        billingRunPipelineStages.indexOf(billingRun.state);
+    final currentIndex = billingRunPipelineStages.indexOf(billingRun.state);
     final isFailed = billingRun.state == BillingRunState.BILLING_RUN_FAILED;
 
     return Card(
@@ -335,8 +330,9 @@ class _BillingRunPipeline extends ConsumerWidget {
                       child: Text(
                         billingRunStateLabel(stage),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight:
-                              isCurrent ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isCurrent
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: isPending
                               ? theme.colorScheme.onSurfaceVariant
                               : null,
@@ -344,11 +340,7 @@ class _BillingRunPipeline extends ConsumerWidget {
                       ),
                     ),
                     if (isCompleted)
-                      Icon(
-                        Icons.done,
-                        size: 16,
-                        color: Colors.green,
-                      ),
+                      Icon(Icons.done, size: 16, color: Colors.green),
                   ],
                 ),
               );

@@ -102,8 +102,7 @@ class _PaymentReceiveScreenState extends ConsumerState<PaymentReceiveScreen> {
                             ),
                             decoration: const InputDecoration(
                               hintText: '0.00',
-                              prefixIcon:
-                                  Icon(Icons.attach_money, size: 20),
+                              prefixIcon: Icon(Icons.attach_money, size: 20),
                             ),
                             validator: validateAmount,
                           ),
@@ -228,8 +227,9 @@ class _PaymentReceiveScreenState extends ConsumerState<PaymentReceiveScreen> {
 
               // Submit button
               FilledButton.icon(
-                onPressed:
-                    _submitting || mutationState.isLoading ? null : _receive,
+                onPressed: _submitting || mutationState.isLoading
+                    ? null
+                    : _receive,
                 icon: _submitting
                     ? const SizedBox(
                         width: 16,

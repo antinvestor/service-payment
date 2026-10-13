@@ -18,8 +18,7 @@ class _UsageEventsScreenState extends ConsumerState<UsageEventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncEvents =
-        ref.watch(usageEventSearchProvider(_searchQuery));
+    final asyncEvents = ref.watch(usageEventSearchProvider(_searchQuery));
 
     return asyncEvents.when(
       loading: () => _buildTable(items: const []),
@@ -63,8 +62,7 @@ class _UsageEventsScreenState extends ConsumerState<UsageEventsScreen> {
         event.subscriptionId,
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount usage events as $format');
+        debugPrint('AUDIT: Exported $rowCount usage events as $format');
       },
     );
   }

@@ -7,18 +7,20 @@ import 'billing_transport_provider.dart';
 /// Search catalog versions by query string.
 final catalogVersionSearchProvider =
     FutureProvider.family<List<CatalogVersion>, String>((ref, query) async {
-  final client = ref.watch(billingServiceClientProvider);
-  final request = SearchRequest()..query = query;
-  final stream = client.searchCatalogVersions(request);
-  return collectStream<SearchCatalogVersionsResponse, CatalogVersion>(
-    stream,
-    extract: (r) => r.data,
-  );
-});
+      final client = ref.watch(billingServiceClientProvider);
+      final request = SearchRequest()..query = query;
+      final stream = client.searchCatalogVersions(request);
+      return collectStream<SearchCatalogVersionsResponse, CatalogVersion>(
+        stream,
+        extract: (r) => r.data,
+      );
+    });
 
 /// Get a single catalog version by ID.
-final catalogVersionProvider =
-    FutureProvider.family<CatalogVersion, String>((ref, id) async {
+final catalogVersionProvider = FutureProvider.family<CatalogVersion, String>((
+  ref,
+  id,
+) async {
   final client = ref.watch(billingServiceClientProvider);
   final request = GetCatalogVersionRequest()..id = id;
   final response = await client.getCatalogVersion(request);
@@ -30,8 +32,7 @@ class CatalogNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  BillingServiceClient get _client =>
-      ref.read(billingServiceClientProvider);
+  BillingServiceClient get _client => ref.read(billingServiceClientProvider);
 
   Future<CatalogVersion> create(CreateCatalogVersionRequest request) async {
     state = const AsyncValue.loading();

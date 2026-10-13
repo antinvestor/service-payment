@@ -56,23 +56,33 @@ class _PaymentSearchScreenState extends ConsumerState<PaymentSearchScreen> {
         cells: [
           DataCell(Text(_truncate(payment.id, 12))),
           DataCell(Text(payment.route)),
-          DataCell(Text(payment.source.detail.isNotEmpty
-              ? payment.source.detail
-              : payment.source.profileName)),
-          DataCell(Text(payment.recipient.detail.isNotEmpty
-              ? payment.recipient.detail
-              : payment.recipient.profileName)),
+          DataCell(
+            Text(
+              payment.source.detail.isNotEmpty
+                  ? payment.source.detail
+                  : payment.source.profileName,
+            ),
+          ),
+          DataCell(
+            Text(
+              payment.recipient.detail.isNotEmpty
+                  ? payment.recipient.detail
+                  : payment.recipient.profileName,
+            ),
+          ),
           DataCell(Text(formatMoney(payment.amount))),
           DataCell(Text(payment.status.name)),
-          DataCell(Text(payment.dateCreated.isNotEmpty
-              ? _formatDate(payment.dateCreated)
-              : '')),
+          DataCell(
+            Text(
+              payment.dateCreated.isNotEmpty
+                  ? _formatDate(payment.dateCreated)
+                  : '',
+            ),
+          ),
         ],
       ),
-      onRowNavigate: (payment) => context.go(
-        '/payments/detail/${payment.id}',
-        extra: payment,
-      ),
+      onRowNavigate: (payment) =>
+          context.go('/payments/detail/${payment.id}', extra: payment),
       exportRow: (payment) => [
         payment.id,
         payment.route,
@@ -87,8 +97,7 @@ class _PaymentSearchScreenState extends ConsumerState<PaymentSearchScreen> {
         payment.dateCreated,
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount payments as $format');
+        debugPrint('AUDIT: Exported $rowCount payments as $format');
       },
     );
   }

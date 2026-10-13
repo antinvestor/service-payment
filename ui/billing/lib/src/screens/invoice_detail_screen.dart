@@ -16,10 +16,7 @@ import '../widgets/payment_method_picker.dart';
 /// Screen showing details for a single invoice with amounts, lines,
 /// and actions (issue, void, record payment).
 class InvoiceDetailScreen extends ConsumerWidget {
-  const InvoiceDetailScreen({
-    super.key,
-    required this.invoiceId,
-  });
+  const InvoiceDetailScreen({super.key, required this.invoiceId});
 
   final String invoiceId;
 
@@ -39,14 +36,16 @@ class InvoiceDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
               FilledButton.tonal(
-                onPressed: () =>
-                    ref.invalidate(invoiceProvider(invoiceId)),
+                onPressed: () => ref.invalidate(invoiceProvider(invoiceId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -65,9 +64,8 @@ class InvoiceDetailScreen extends ConsumerWidget {
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => context.canPop()
-            ? context.pop()
-            : context.go('/billing/invoices'),
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/billing/invoices'),
       ),
       title: Text(
         title,
@@ -104,8 +102,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () =>
-                ref.invalidate(invoiceProvider(invoiceId)),
+            onPressed: () => ref.invalidate(invoiceProvider(invoiceId)),
           ),
         ],
       ),
@@ -169,21 +166,37 @@ class InvoiceDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _metadataRow(theme, 'ID', invoice.id,
-                        copyable: true, context: context),
-                    if (invoice.invoiceNumber.isNotEmpty)
-                      _metadataRow(
-                          theme, 'Number', invoice.invoiceNumber),
-                    _metadataRow(theme, 'Subtotal',
-                        formatMoney(invoice.subtotalAmount)),
-                    if (invoice.hasDiscountAmount())
-                      _metadataRow(theme, 'Discount',
-                          formatMoney(invoice.discountAmount)),
-                    if (invoice.hasCreditAmount())
-                      _metadataRow(theme, 'Credit',
-                          formatMoney(invoice.creditAmount)),
                     _metadataRow(
-                        theme, 'Total', formatMoney(invoice.totalAmount)),
+                      theme,
+                      'ID',
+                      invoice.id,
+                      copyable: true,
+                      context: context,
+                    ),
+                    if (invoice.invoiceNumber.isNotEmpty)
+                      _metadataRow(theme, 'Number', invoice.invoiceNumber),
+                    _metadataRow(
+                      theme,
+                      'Subtotal',
+                      formatMoney(invoice.subtotalAmount),
+                    ),
+                    if (invoice.hasDiscountAmount())
+                      _metadataRow(
+                        theme,
+                        'Discount',
+                        formatMoney(invoice.discountAmount),
+                      ),
+                    if (invoice.hasCreditAmount())
+                      _metadataRow(
+                        theme,
+                        'Credit',
+                        formatMoney(invoice.creditAmount),
+                      ),
+                    _metadataRow(
+                      theme,
+                      'Total',
+                      formatMoney(invoice.totalAmount),
+                    ),
                     if (invoice.hasDueAt())
                       _metadataRow(
                         theme,
@@ -225,8 +238,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
                     children: [
                       const InvoiceLineHeader(),
                       const Divider(height: 16),
-                      ...invoice.lines
-                          .map((line) => InvoiceLineTile(line: line)),
+                      ...invoice.lines.map(
+                        (line) => InvoiceLineTile(line: line),
+                      ),
                     ],
                   ),
                 ),
@@ -295,11 +309,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
     if (actions.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: actions,
-    );
+    return Wrap(spacing: 12, runSpacing: 12, children: actions);
   }
 
   Future<void> _issueInvoice(
@@ -311,7 +321,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Issue Invoice'),
-        content: Text('Issue invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}?'),
+        content: Text(
+          'Issue invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -361,7 +373,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Void Invoice'),
-        content: Text('Void invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}? This cannot be undone.'),
+        content: Text(
+          'Void invoice ${invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : _truncate(invoice.id, 16)}? This cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -452,11 +466,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      final result =
-          await ref.read(collectionNotifierProvider.notifier).collectPayment(
-                invoiceId: invoice.id,
-                methods: methods.toList(),
-              );
+      final result = await ref
+          .read(collectionNotifierProvider.notifier)
+          .collectPayment(invoiceId: invoice.id, methods: methods.toList());
       if (!context.mounted) return;
 
       if (result.alreadyComplete) {
@@ -493,9 +505,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          confirmed.paid
-                              ? 'Payment confirmed'
-                              : 'Not paid yet',
+                          confirmed.paid ? 'Payment confirmed' : 'Not paid yet',
                         ),
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -559,8 +569,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
 
     try {
       final notifier = ref.read(invoiceNotifierProvider.notifier);
-      final request = RecordPaymentRequest()
-        ..id = invoice.id;
+      final request = RecordPaymentRequest()..id = invoice.id;
       await notifier.recordPayment(request);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

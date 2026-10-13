@@ -41,12 +41,17 @@ class PaymentDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
               FilledButton.tonal(
-                onPressed: () => ref.invalidate(paymentSearchProvider(paymentId)),
+                onPressed: () =>
+                    ref.invalidate(paymentSearchProvider(paymentId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -116,8 +121,7 @@ class PaymentDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () =>
-                ref.invalidate(paymentSearchProvider(payment.id)),
+            onPressed: () => ref.invalidate(paymentSearchProvider(payment.id)),
           ),
         ],
       ),
@@ -186,29 +190,41 @@ class PaymentDetailScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Details section
-            _sectionCard(
-              theme,
-              'Payment Details',
-              [
-                _metadataRow(theme, 'ID', payment.id, copyable: true, context: context),
-                _metadataRow(theme, 'Transaction ID', payment.transactionId,
-                    copyable: true, context: context),
-                _metadataRow(theme, 'Reference ID', payment.referenceId,
-                    copyable: true, context: context),
-                _metadataRow(theme, 'Route', payment.route),
+            _sectionCard(theme, 'Payment Details', [
+              _metadataRow(
+                theme,
+                'ID',
+                payment.id,
+                copyable: true,
+                context: context,
+              ),
+              _metadataRow(
+                theme,
+                'Transaction ID',
+                payment.transactionId,
+                copyable: true,
+                context: context,
+              ),
+              _metadataRow(
+                theme,
+                'Reference ID',
+                payment.referenceId,
+                copyable: true,
+                context: context,
+              ),
+              _metadataRow(theme, 'Route', payment.route),
+              _metadataRow(
+                theme,
+                'Direction',
+                isOutbound ? 'Outbound' : 'Inbound',
+              ),
+              if (payment.hasDateCreated())
                 _metadataRow(
                   theme,
-                  'Direction',
-                  isOutbound ? 'Outbound' : 'Inbound',
+                  'Date Created',
+                  _formatTimestamp(payment.dateCreated),
                 ),
-                if (payment.hasDateCreated())
-                  _metadataRow(
-                    theme,
-                    'Date Created',
-                    _formatTimestamp(payment.dateCreated),
-                  ),
-              ],
-            ),
+            ]),
             const SizedBox(height: 16),
 
             // Source account
@@ -257,11 +273,7 @@ class PaymentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _sectionCard(
-    ThemeData theme,
-    String title,
-    List<Widget> children,
-  ) {
+  Widget _sectionCard(ThemeData theme, String title, List<Widget> children) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(

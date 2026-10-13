@@ -52,22 +52,26 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
         selected: selected,
         onSelectChanged: (_) => onSelect(),
         cells: [
-          DataCell(Text(link.source.profileName.isNotEmpty
-              ? link.source.profileName
-              : link.id)),
+          DataCell(
+            Text(
+              link.source.profileName.isNotEmpty
+                  ? link.source.profileName
+                  : link.id,
+            ),
+          ),
           DataCell(Text(formatMoney(link.amount))),
           DataCell(Text(link.amount.currencyCode)),
           DataCell(Text(link.route.isNotEmpty ? link.route : '')),
-          DataCell(Text(link.dateCreated.isNotEmpty
-              ? _formatDate(link.dateCreated)
-              : '')),
+          DataCell(
+            Text(
+              link.dateCreated.isNotEmpty ? _formatDate(link.dateCreated) : '',
+            ),
+          ),
           DataCell(Text(link.referenceId)),
         ],
       ),
       exportRow: (link) => [
-        link.source.profileName.isNotEmpty
-            ? link.source.profileName
-            : link.id,
+        link.source.profileName.isNotEmpty ? link.source.profileName : link.id,
         formatMoney(link.amount),
         link.amount.currencyCode,
         link.route,
@@ -75,8 +79,7 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
         link.referenceId,
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount payment links as $format');
+        debugPrint('AUDIT: Exported $rowCount payment links as $format');
       },
     );
   }
@@ -112,8 +115,9 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Amount',
                 hintText: '0.00',
@@ -133,8 +137,7 @@ class _PaymentLinksScreenState extends ConsumerState<PaymentLinksScreen> {
                   ..externalRef = referenceController.text.trim();
                 final request = CreatePaymentLinkRequest()
                   ..paymentLink = paymentLink;
-                final notifier =
-                    ref.read(paymentLinkNotifierProvider.notifier);
+                final notifier = ref.read(paymentLinkNotifierProvider.notifier);
                 await notifier.create(request);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {

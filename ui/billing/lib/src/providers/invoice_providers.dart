@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'billing_transport_provider.dart';
 
 /// Search invoices by query string.
-final invoiceSearchProvider =
-    FutureProvider.family<List<Invoice>, String>((ref, query) async {
+final invoiceSearchProvider = FutureProvider.family<List<Invoice>, String>((
+  ref,
+  query,
+) async {
   final client = ref.watch(billingServiceClientProvider);
   final request = SearchRequest()..query = query;
   final stream = client.searchInvoices(request);
@@ -17,8 +19,7 @@ final invoiceSearchProvider =
 });
 
 /// Get a single invoice by ID.
-final invoiceProvider =
-    FutureProvider.family<Invoice, String>((ref, id) async {
+final invoiceProvider = FutureProvider.family<Invoice, String>((ref, id) async {
   final client = ref.watch(billingServiceClientProvider);
   final request = GetInvoiceRequest()..id = id;
   final response = await client.getInvoice(request);
@@ -30,8 +31,7 @@ class InvoiceNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  BillingServiceClient get _client =>
-      ref.read(billingServiceClientProvider);
+  BillingServiceClient get _client => ref.read(billingServiceClientProvider);
 
   Future<Invoice> issue(IssueInvoiceRequest request) async {
     state = const AsyncValue.loading();

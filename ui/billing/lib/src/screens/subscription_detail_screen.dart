@@ -14,18 +14,14 @@ import '../widgets/usage_event_tile.dart';
 /// Screen showing details for a single subscription: state, plan info,
 /// period, and usage history.
 class SubscriptionDetailScreen extends ConsumerWidget {
-  const SubscriptionDetailScreen({
-    super.key,
-    required this.subscriptionId,
-  });
+  const SubscriptionDetailScreen({super.key, required this.subscriptionId});
 
   final String subscriptionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final asyncSubscription =
-        ref.watch(subscriptionProvider(subscriptionId));
+    final asyncSubscription = ref.watch(subscriptionProvider(subscriptionId));
 
     return asyncSubscription.when(
       loading: () => Scaffold(
@@ -38,8 +34,11 @@ class SubscriptionDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
@@ -52,8 +51,7 @@ class SubscriptionDetailScreen extends ConsumerWidget {
           ),
         ),
       ),
-      data: (subscription) =>
-          _buildDetail(context, ref, theme, subscription),
+      data: (subscription) => _buildDetail(context, ref, theme, subscription),
     );
   }
 
@@ -139,15 +137,17 @@ class SubscriptionDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     SubscriptionStateBadge(state: subscription.state),
                     const SizedBox(height: 16),
-                    _metadataRow(theme, 'ID', subscription.id,
-                        copyable: true, context: context),
                     _metadataRow(
-                        theme, 'Plan', subscription.planId),
-                    _metadataRow(
-                        theme, 'Profile', subscription.profileId),
+                      theme,
+                      'ID',
+                      subscription.id,
+                      copyable: true,
+                      context: context,
+                    ),
+                    _metadataRow(theme, 'Plan', subscription.planId),
+                    _metadataRow(theme, 'Profile', subscription.profileId),
                     if (subscription.currency.isNotEmpty)
-                      _metadataRow(
-                          theme, 'Currency', subscription.currency),
+                      _metadataRow(theme, 'Currency', subscription.currency),
                   ],
                 ),
               ),
@@ -208,8 +208,7 @@ class SubscriptionDetailScreen extends ConsumerWidget {
                       _cancelSubscription(context, ref, subscription),
                   icon: const Icon(Icons.cancel, size: 18),
                   label: Text(
-                    subscription.state ==
-                            SubscriptionState.SUBSCRIPTION_PENDING
+                    subscription.state == SubscriptionState.SUBSCRIPTION_PENDING
                         ? 'Cancel pending subscription'
                         : 'Cancel subscription',
                   ),
@@ -319,9 +318,7 @@ class SubscriptionDetailScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel Subscription'),
-        content: Text(
-          'Cancel subscription ${_truncate(subscription.id, 16)}?',
-        ),
+        content: Text('Cancel subscription ${_truncate(subscription.id, 16)}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -392,8 +389,7 @@ class _UsageHistorySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final asyncUsage =
-        ref.watch(usageEventSearchProvider(subscriptionId));
+    final asyncUsage = ref.watch(usageEventSearchProvider(subscriptionId));
 
     return asyncUsage.when(
       loading: () => const Padding(
@@ -409,8 +405,8 @@ class _UsageHistorySection extends ConsumerWidget {
               Text(friendlyError(error)),
               const SizedBox(height: 8),
               FilledButton.tonal(
-                onPressed: () => ref.invalidate(
-                    usageEventSearchProvider(subscriptionId)),
+                onPressed: () =>
+                    ref.invalidate(usageEventSearchProvider(subscriptionId)),
                 child: const Text('Retry'),
               ),
             ],

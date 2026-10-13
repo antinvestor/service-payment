@@ -23,8 +23,9 @@ class _SubscriptionListScreenState
 
   @override
   Widget build(BuildContext context) {
-    final asyncSubscriptions =
-        ref.watch(subscriptionListProvider(_searchQuery));
+    final asyncSubscriptions = ref.watch(
+      subscriptionListProvider(_searchQuery),
+    );
 
     return asyncSubscriptions.when(
       loading: () => _buildTable(items: const []),
@@ -77,8 +78,7 @@ class _SubscriptionListScreenState
           DataCell(Text(sub.currency)),
         ],
       ),
-      onRowNavigate: (sub) =>
-          context.go('/billing/subscriptions/${sub.id}'),
+      onRowNavigate: (sub) => context.go('/billing/subscriptions/${sub.id}'),
       exportRow: (sub) => [
         sub.id,
         sub.profileId,
@@ -89,8 +89,7 @@ class _SubscriptionListScreenState
         sub.currency,
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount subscriptions as $format');
+        debugPrint('AUDIT: Exported $rowCount subscriptions as $format');
       },
     );
   }
@@ -106,11 +105,12 @@ class _SubscriptionListScreenState
           value: null,
           child: Text('All States'),
         ),
-        ...SubscriptionState.values
-            .map((state) => DropdownMenuItem<SubscriptionState?>(
-                  value: state,
-                  child: Text(subscriptionStateLabel(state)),
-                )),
+        ...SubscriptionState.values.map(
+          (state) => DropdownMenuItem<SubscriptionState?>(
+            value: state,
+            child: Text(subscriptionStateLabel(state)),
+          ),
+        ),
       ],
       onChanged: (value) {
         setState(() => _stateFilter = value);

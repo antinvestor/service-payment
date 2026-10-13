@@ -10,8 +10,7 @@ class DiscountListScreen extends ConsumerStatefulWidget {
   const DiscountListScreen({super.key});
 
   @override
-  ConsumerState<DiscountListScreen> createState() =>
-      _DiscountListScreenState();
+  ConsumerState<DiscountListScreen> createState() => _DiscountListScreenState();
 }
 
 class _DiscountListScreenState extends ConsumerState<DiscountListScreen> {
@@ -19,8 +18,7 @@ class _DiscountListScreenState extends ConsumerState<DiscountListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncDiscounts =
-        ref.watch(discountSearchProvider(_searchQuery));
+    final asyncDiscounts = ref.watch(discountSearchProvider(_searchQuery));
 
     return asyncDiscounts.when(
       loading: () => _buildTable(items: const []),
@@ -49,14 +47,17 @@ class _DiscountListScreenState extends ConsumerState<DiscountListScreen> {
         selected: selected,
         onSelectChanged: (_) => onSelect(),
         cells: [
-          DataCell(Text(discount.name.isNotEmpty
-              ? discount.name
-              : discount.id)),
+          DataCell(
+            Text(discount.name.isNotEmpty ? discount.name : discount.id),
+          ),
           DataCell(Text(_discountTypeLabel(discount.discountType))),
           DataCell(Text(_discountValueLabel(discount))),
           DataCell(Text(_formatTimestamp(discount.startAt))),
-          DataCell(Text(
-              discount.hasEndAt() ? _formatTimestamp(discount.endAt) : 'Open')),
+          DataCell(
+            Text(
+              discount.hasEndAt() ? _formatTimestamp(discount.endAt) : 'Open',
+            ),
+          ),
         ],
       ),
       exportRow: (discount) => [

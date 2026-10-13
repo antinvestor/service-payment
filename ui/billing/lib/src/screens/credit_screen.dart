@@ -47,8 +47,11 @@ class _CreditScreenState extends ConsumerState<CreditScreen> {
             // Header
             Row(
               children: [
-                Icon(Icons.account_balance_wallet_outlined,
-                    size: 28, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 28,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Credits',
@@ -88,16 +91,14 @@ class _CreditScreenState extends ConsumerState<CreditScreen> {
                             controller: _balanceProfileController,
                             decoration: const InputDecoration(
                               hintText: 'Profile ID',
-                              prefixIcon:
-                                  Icon(Icons.person_outline, size: 20),
+                              prefixIcon: Icon(Icons.person_outline, size: 20),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.tonal(
                           onPressed: () {
-                            final id =
-                                _balanceProfileController.text.trim();
+                            final id = _balanceProfileController.text.trim();
                             if (id.isNotEmpty) {
                               setState(() => _balanceProfileId = id);
                             }
@@ -154,10 +155,9 @@ class _CreditScreenState extends ConsumerState<CreditScreen> {
                       child: TextField(
                         controller: _amountController,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          hintText: '0.00',
+                          decimal: true,
                         ),
+                        decoration: const InputDecoration(hintText: '0.00'),
                       ),
                     ),
                     FormFieldCard(
@@ -165,9 +165,7 @@ class _CreditScreenState extends ConsumerState<CreditScreen> {
                       isRequired: true,
                       child: TextField(
                         controller: _currencyController,
-                        decoration: const InputDecoration(
-                          hintText: 'KES',
-                        ),
+                        decoration: const InputDecoration(hintText: 'KES'),
                       ),
                     ),
                     FormFieldCard(
@@ -313,8 +311,7 @@ class _CreditBalanceDisplay extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             FilledButton.tonal(
-              onPressed: () =>
-                  ref.invalidate(creditBalanceProvider(profileId)),
+              onPressed: () => ref.invalidate(creditBalanceProvider(profileId)),
               child: const Text('Retry'),
             ),
           ],

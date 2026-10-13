@@ -22,28 +22,28 @@ import (
 	_ "net/http/pprof"
 	"time"
 
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common/v2"
-	"github.com/antinvestor/common/v2/connection"
-	"github.com/antinvestor/common/v2/permissions"
-	"github.com/antinvestor/common/v2/servicecatalog"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	apis "github.com/antinvestor/common/v3"
+	"github.com/antinvestor/common/v3/connection"
+	"github.com/antinvestor/common/v3/permissions"
+	"github.com/antinvestor/common/v3/servicecatalog"
 	aconfig "github.com/antinvestor/service-payments/apps/checkout/config"
 	checkoutv1 "github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/handlers"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/security"
-	"github.com/pitabwire/frame/v2/security/authorizer"
-	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
-	"github.com/pitabwire/frame/v2/setup"
-	"github.com/pitabwire/frame/v2/workerpool"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/security"
+	"github.com/pitabwire/frame/v3/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/v3/security/interceptors/connect"
+	"github.com/pitabwire/frame/v3/setup"
+	"github.com/pitabwire/frame/v3/workerpool"
 	"github.com/pitabwire/util"
 )
 
@@ -150,17 +150,12 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 }
 
 // setupConnectServer wires the interceptor stack:
-// otelconnect → TenancyAccessInterceptor → FunctionAccessInterceptor → DefaultList.
+// DefaultList (otelconnect → validation → auth → claims) → TenancyAccess → FunctionAccess.
 func setupConnectServer(
 	ctx context.Context,
 	securityMan security.Manager,
 	implementation checkoutv1connect.CheckoutServiceHandler,
 ) http.Handler {
-	otelInterceptor, err := otelconnect.NewInterceptor()
-	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
-	}
-
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker verifies caller can access the partition.
@@ -196,13 +191,15 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
-	// Prepend otelconnect as the outermost interceptor so every RPC is traced.
-	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+	// DefaultList already starts with the otelconnect server interceptor, so
+	// every RPC is traced.
+	server := connect.NewServer(defaultInterceptorList...)
+	checkoutv1connect.RegisterCheckoutServiceHandler(server, implementation)
 
-	_, serverHandler := checkoutv1connect.NewCheckoutServiceHandler(
-		implementation, connect.WithInterceptors(allInterceptors...))
+	mux := http.NewServeMux()
+	connecthttp.Mount(mux, server)
 
-	return serverHandler
+	return mux
 }
 
 func setupPaymentClient(

@@ -25,12 +25,11 @@ import (
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -174,7 +173,7 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err = s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err = s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		s.metrics.WebhookRejected(ctx, entityType, "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -209,15 +208,15 @@ func (s *MtnWebhookServer) reject(
 // forward on every status it writes).
 func (s *MtnWebhookServer) loadRequest(ctx context.Context, entityID, entityType string) (data.JSONMap, error) {
 	reqExtras := data.JSONMap{"entity_type": entityType}
-	resp, err := s.paymentCli.Status(ctx, connect.NewRequest(&commonv1.StatusRequest{
+	resp, err := s.paymentCli.Status(ctx, &commonv1.StatusRequest{
 		Id:     entityID,
 		Extras: reqExtras.ToProtoStruct(),
-	}))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("load %s status: %w", entityType, err)
 	}
 	var stored data.JSONMap
-	stored = stored.FromProtoStruct(resp.Msg.GetExtras())
+	stored = stored.FromProtoStruct(resp.GetExtras())
 	if stored.GetString(client.ExtraReferenceID) == "" {
 		return nil, fmt.Errorf("%w: no MTN reference id recorded", errNotBound)
 	}

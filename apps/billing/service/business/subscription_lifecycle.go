@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/pitabwire/frame/v2/queue"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 )
 

@@ -17,18 +17,18 @@ package main
 import (
 	"context"
 
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
-	apis "github.com/antinvestor/common/v2"
-	"github.com/antinvestor/common/v2/connection"
-	"github.com/antinvestor/common/v2/servicecatalog"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
+	apis "github.com/antinvestor/common/v3"
+	"github.com/antinvestor/common/v3/connection"
+	"github.com/antinvestor/common/v3/servicecatalog"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/flutterwave/config"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/handlers"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/queue"
 	"github.com/antinvestor/service-payments/pkg/events"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
 	"github.com/pitabwire/util"
 )
 

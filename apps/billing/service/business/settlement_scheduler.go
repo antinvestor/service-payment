@@ -20,11 +20,10 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	workflowv1 "buf.build/gen/go/antinvestor/workflow/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
-	workflowv1 "github.com/antinvestor/service-trustage/gen/go/workflow/v1"
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -128,7 +127,7 @@ func (s *trustageSettlementScheduler) EnsureAt(ctx context.Context, invoiceID st
 	if err != nil {
 		return err
 	}
-	createResp, err := s.client.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Dsl: dsl}))
+	createResp, err := s.client.CreateWorkflow(ctx, &workflowv1.CreateWorkflowRequest{Dsl: dsl})
 	if err != nil {
 		if !isAlreadyExistsErr(err) {
 			return fmt.Errorf("settle schedule create %s: %w", name, err)
@@ -142,7 +141,7 @@ func (s *trustageSettlementScheduler) EnsureAt(ctx context.Context, invoiceID st
 		}
 		return activateWorkflow(ctx, s.client, name, id)
 	}
-	return activateWorkflow(ctx, s.client, name, createResp.Msg.GetWorkflow().GetId())
+	return activateWorkflow(ctx, s.client, name, createResp.GetWorkflow().GetId())
 }
 
 func (s *trustageSettlementScheduler) CancelReminder(ctx context.Context, invoiceID string) error {

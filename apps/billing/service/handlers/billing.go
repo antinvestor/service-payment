@@ -17,14 +17,13 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
-	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
+	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v2/v1/billingv1connect"
 	billingv1 "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
@@ -42,9 +41,9 @@ func toConnectError(err error) error {
 	if !errors.As(err, &appErr) {
 		// Business validation errors (plain Go errors) map to InvalidArgument
 		if isBizValidationError(err) {
-			return connect.NewError(connect.CodeInvalidArgument, err)
+			return connect.NewError(connect.CodeInvalidArgument, err.Error()).WithCause(err)
 		}
-		return connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 
 	code := appErr.ErrorCode()
@@ -57,7 +56,7 @@ func toConnectError(err error) error {
 		apperrors.ErrorCodeInvoiceNotFound,
 		apperrors.ErrorCodeCreditGrantNotFound,
 		apperrors.ErrorCodeBillingRunNotFound:
-		return connect.NewError(connect.CodeNotFound, appErr)
+		return connect.NewError(connect.CodeNotFound, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeCatalogVersionRetired,
 		apperrors.ErrorCodeCatalogNotPublished,
@@ -67,26 +66,26 @@ func toConnectError(err error) error {
 		apperrors.ErrorCodeInvoiceNotVoidable,
 		apperrors.ErrorCodeInvoiceNotPayable,
 		apperrors.ErrorCodeCreditExpired:
-		return connect.NewError(connect.CodeFailedPrecondition, appErr)
+		return connect.NewError(connect.CodeFailedPrecondition, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeInvalidPricingModel,
 		apperrors.ErrorCodeUsageEventInvalid,
 		apperrors.ErrorCodeRatingFailed,
 		apperrors.ErrorCodeDiscountInvalid:
-		return connect.NewError(connect.CodeInvalidArgument, appErr)
+		return connect.NewError(connect.CodeInvalidArgument, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeUsageEventDuplicate,
 		apperrors.ErrorCodeBillingRunAlreadyExists:
-		return connect.NewError(connect.CodeAlreadyExists, appErr)
+		return connect.NewError(connect.CodeAlreadyExists, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeCreditInsufficientFunds:
-		return connect.NewError(connect.CodeResourceExhausted, appErr)
+		return connect.NewError(connect.CodeResourceExhausted, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeBillingRunFailed:
-		return connect.NewError(connect.CodeInternal, appErr)
+		return connect.NewError(connect.CodeInternal, appErr.Error()).WithCause(appErr)
 
 	default:
-		return connect.NewError(connect.CodeInternal, appErr)
+		return connect.NewError(connect.CodeInternal, appErr.Error()).WithCause(appErr)
 	}
 }
 
@@ -157,16 +156,16 @@ func NewBillingServer(
 
 func (s *BillingServer) CreateCatalogVersion(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreateCatalogVersionRequest],
-) (*connect.Response[billingv1.CreateCatalogVersionResponse], error) {
+	req *billingv1.CreateCatalogVersionRequest,
+) (*billingv1.CreateCatalogVersionResponse, error) {
 	cv := &models.CatalogVersion{
-		CatalogID: req.Msg.GetCatalogId(),
-		Name:      req.Msg.GetName(),
-		Currency:  req.Msg.GetCurrency(),
-		Data:      structToJSONMap(req.Msg.GetData()),
+		CatalogID: req.GetCatalogId(),
+		Name:      req.GetName(),
+		Currency:  req.GetCurrency(),
+		Data:      structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetId() != "" {
-		cv.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		cv.ID = req.GetId()
 	}
 
 	created, err := s.Catalog.CreateCatalogVersion(ctx, cv)
@@ -174,49 +173,49 @@ func (s *BillingServer) CreateCatalogVersion(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreateCatalogVersionResponse{
+	return &billingv1.CreateCatalogVersionResponse{
 		Data: catalogVersionToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) GetCatalogVersion(
 	ctx context.Context,
-	req *connect.Request[billingv1.GetCatalogVersionRequest],
-) (*connect.Response[billingv1.GetCatalogVersionResponse], error) {
-	cv, err := s.Catalog.GetCatalogVersion(ctx, req.Msg.GetId())
+	req *billingv1.GetCatalogVersionRequest,
+) (*billingv1.GetCatalogVersionResponse, error) {
+	cv, err := s.Catalog.GetCatalogVersion(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GetCatalogVersionResponse{
+	return &billingv1.GetCatalogVersionResponse{
 		Data: catalogVersionToProto(cv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) PublishCatalogVersion(
 	ctx context.Context,
-	req *connect.Request[billingv1.PublishCatalogVersionRequest],
-) (*connect.Response[billingv1.PublishCatalogVersionResponse], error) {
-	if req.Msg.GetEffectiveAt() == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("effective_at is required"))
+	req *billingv1.PublishCatalogVersionRequest,
+) (*billingv1.PublishCatalogVersionResponse, error) {
+	if req.GetEffectiveAt() == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, "effective_at is required")
 	}
-	effectiveAt := req.Msg.GetEffectiveAt().AsTime()
-	cv, err := s.Catalog.PublishCatalogVersion(ctx, req.Msg.GetId(), effectiveAt)
+	effectiveAt := req.GetEffectiveAt().AsTime()
+	cv, err := s.Catalog.PublishCatalogVersion(ctx, req.GetId(), effectiveAt)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.PublishCatalogVersionResponse{
+	return &billingv1.PublishCatalogVersionResponse{
 		Data: catalogVersionToProto(cv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) SearchCatalogVersions(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[billingv1.SearchCatalogVersionsResponse],
+	req *commonv1.SearchRequest,
+	stream billingv1connect.BillingServiceSearchCatalogVersionsServerStream,
 ) error {
-	results, err := s.CatalogSearch.SearchAsESQ(ctx, req.Msg.GetQuery())
+	results, err := s.CatalogSearch.SearchAsESQ(ctx, req.GetQuery())
 	if err != nil {
 		return toConnectError(err)
 	}
@@ -246,17 +245,17 @@ func (s *BillingServer) SearchCatalogVersions(
 
 func (s *BillingServer) CreatePlan(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreatePlanRequest],
-) (*connect.Response[billingv1.CreatePlanResponse], error) {
+	req *billingv1.CreatePlanRequest,
+) (*billingv1.CreatePlanResponse, error) {
 	plan := &models.Plan{
-		CatalogVersionID: req.Msg.GetCatalogVersionId(),
-		ExternalID:       req.Msg.GetExternalId(),
-		Name:             req.Msg.GetName(),
-		Description:      req.Msg.GetDescription(),
-		Data:             structToJSONMap(req.Msg.GetData()),
+		CatalogVersionID: req.GetCatalogVersionId(),
+		ExternalID:       req.GetExternalId(),
+		Name:             req.GetName(),
+		Description:      req.GetDescription(),
+		Data:             structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetId() != "" {
-		plan.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		plan.ID = req.GetId()
 	}
 
 	created, err := s.Catalog.CreatePlan(ctx, plan)
@@ -264,29 +263,29 @@ func (s *BillingServer) CreatePlan(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreatePlanResponse{
+	return &billingv1.CreatePlanResponse{
 		Data: planToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) CreateComponent(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreateComponentRequest],
-) (*connect.Response[billingv1.CreateComponentResponse], error) {
+	req *billingv1.CreateComponentRequest,
+) (*billingv1.CreateComponentResponse, error) {
 	comp := &models.Component{
-		PlanID:          req.Msg.GetPlanId(),
-		ExternalID:      req.Msg.GetExternalId(),
-		Name:            req.Msg.GetName(),
-		MetricKey:       req.Msg.GetMetricKey(),
-		PricingModel:    pricingModelFromProto(req.Msg.GetPricingModel()),
-		AggregationType: aggregationTypeFromProto(req.Msg.GetAggregationType()),
-		UnitName:        req.Msg.GetUnitName(),
-		FreeQuantity:    moneyToDecPtr(req.Msg.GetFreeQuantity()),
-		MinimumCharge:   moneyToDecPtr(req.Msg.GetMinimumCharge()),
-		Data:            structToJSONMap(req.Msg.GetData()),
+		PlanID:          req.GetPlanId(),
+		ExternalID:      req.GetExternalId(),
+		Name:            req.GetName(),
+		MetricKey:       req.GetMetricKey(),
+		PricingModel:    pricingModelFromProto(req.GetPricingModel()),
+		AggregationType: aggregationTypeFromProto(req.GetAggregationType()),
+		UnitName:        req.GetUnitName(),
+		FreeQuantity:    moneyToDecPtr(req.GetFreeQuantity()),
+		MinimumCharge:   moneyToDecPtr(req.GetMinimumCharge()),
+		Data:            structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetId() != "" {
-		comp.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		comp.ID = req.GetId()
 	}
 
 	created, err := s.Catalog.CreateComponent(ctx, comp)
@@ -294,25 +293,25 @@ func (s *BillingServer) CreateComponent(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreateComponentResponse{
+	return &billingv1.CreateComponentResponse{
 		Data: componentToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) CreateTier(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreateTierRequest],
-) (*connect.Response[billingv1.CreateTierResponse], error) {
+	req *billingv1.CreateTierRequest,
+) (*billingv1.CreateTierResponse, error) {
 	tier := &models.Tier{
-		ComponentID: req.Msg.GetComponentId(),
-		SortOrder:   int(req.Msg.GetSortOrder()),
-		LowerBound:  moneyToDecPtr(req.Msg.GetLowerBound()),
-		UpperBound:  moneyToDecPtr(req.Msg.GetUpperBound()),
-		UnitPrice:   moneyToDecPtr(req.Msg.GetUnitPrice()),
-		FlatFee:     moneyToDecPtr(req.Msg.GetFlatFee()),
+		ComponentID: req.GetComponentId(),
+		SortOrder:   int(req.GetSortOrder()),
+		LowerBound:  moneyToDecPtr(req.GetLowerBound()),
+		UpperBound:  moneyToDecPtr(req.GetUpperBound()),
+		UnitPrice:   moneyToDecPtr(req.GetUnitPrice()),
+		FlatFee:     moneyToDecPtr(req.GetFlatFee()),
 	}
-	if req.Msg.GetId() != "" {
-		tier.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		tier.ID = req.GetId()
 	}
 
 	created, err := s.Catalog.CreateTier(ctx, tier)
@@ -320,33 +319,33 @@ func (s *BillingServer) CreateTier(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreateTierResponse{
+	return &billingv1.CreateTierResponse{
 		Data: tierToProto(created),
-	}), nil
+	}, nil
 }
 
 // -- Subscription RPCs --
 
 func (s *BillingServer) CreateSubscription(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreateSubscriptionRequest],
-) (*connect.Response[billingv1.CreateSubscriptionResponse], error) {
+	req *billingv1.CreateSubscriptionRequest,
+) (*billingv1.CreateSubscriptionResponse, error) {
 	sub := &models.Subscription{
-		ProfileID:        req.Msg.GetProfileId(),
-		CatalogVersionID: req.Msg.GetCatalogVersionId(),
-		PlanID:           req.Msg.GetPlanId(),
+		ProfileID:        req.GetProfileId(),
+		CatalogVersionID: req.GetCatalogVersionId(),
+		PlanID:           req.GetPlanId(),
 		State:            models.SubscriptionStateActive,
-		Currency:         req.Msg.GetCurrency(),
-		Data:             structToJSONMap(req.Msg.GetData()),
+		Currency:         req.GetCurrency(),
+		Data:             structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetStartAt() != nil {
-		sub.StartAt = req.Msg.GetStartAt().AsTime()
+	if req.GetStartAt() != nil {
+		sub.StartAt = req.GetStartAt().AsTime()
 	}
-	if req.Msg.GetBillingAnchor() != nil {
-		sub.BillingAnchor = req.Msg.GetBillingAnchor().AsTime()
+	if req.GetBillingAnchor() != nil {
+		sub.BillingAnchor = req.GetBillingAnchor().AsTime()
 	}
-	if req.Msg.GetId() != "" {
-		sub.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		sub.ID = req.GetId()
 	}
 
 	created, err := s.Subscription.CreateSubscription(ctx, sub)
@@ -354,44 +353,44 @@ func (s *BillingServer) CreateSubscription(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreateSubscriptionResponse{
+	return &billingv1.CreateSubscriptionResponse{
 		Data: subscriptionToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) GetSubscription(
 	ctx context.Context,
-	req *connect.Request[billingv1.GetSubscriptionRequest],
-) (*connect.Response[billingv1.GetSubscriptionResponse], error) {
-	sub, err := s.Subscription.GetSubscription(ctx, req.Msg.GetId())
+	req *billingv1.GetSubscriptionRequest,
+) (*billingv1.GetSubscriptionResponse, error) {
+	sub, err := s.Subscription.GetSubscription(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GetSubscriptionResponse{
+	return &billingv1.GetSubscriptionResponse{
 		Data: subscriptionToProto(sub),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) CancelSubscription(
 	ctx context.Context,
-	req *connect.Request[billingv1.CancelSubscriptionRequest],
-) (*connect.Response[billingv1.CancelSubscriptionResponse], error) {
-	sub, err := s.Subscription.CancelSubscription(ctx, req.Msg.GetId())
+	req *billingv1.CancelSubscriptionRequest,
+) (*billingv1.CancelSubscriptionResponse, error) {
+	sub, err := s.Subscription.CancelSubscription(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CancelSubscriptionResponse{
+	return &billingv1.CancelSubscriptionResponse{
 		Data: subscriptionToProto(sub),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) ListSubscriptions(
 	ctx context.Context,
-	req *connect.Request[billingv1.ListSubscriptionsRequest],
-) (*connect.Response[billingv1.ListSubscriptionsResponse], error) {
-	subs, err := s.Subscription.ListActiveByProfile(ctx, req.Msg.GetProfileId())
+	req *billingv1.ListSubscriptionsRequest,
+) (*billingv1.ListSubscriptionsResponse, error) {
+	subs, err := s.Subscription.ListActiveByProfile(ctx, req.GetProfileId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -401,22 +400,22 @@ func (s *BillingServer) ListSubscriptions(
 		protoSubs[i] = subscriptionToProto(sub)
 	}
 
-	return connect.NewResponse(&billingv1.ListSubscriptionsResponse{
+	return &billingv1.ListSubscriptionsResponse{
 		Data: protoSubs,
-	}), nil
+	}, nil
 }
 
 // -- Usage RPCs --
 
 func (s *BillingServer) IngestUsageEvent(
 	ctx context.Context,
-	req *connect.Request[billingv1.IngestUsageEventRequest],
-) (*connect.Response[billingv1.IngestUsageEventResponse], error) {
-	events := make([]*models.UsageEvent, len(req.Msg.GetData()))
-	for i, e := range req.Msg.GetData() {
+	req *billingv1.IngestUsageEventRequest,
+) (*billingv1.IngestUsageEventResponse, error) {
+	events := make([]*models.UsageEvent, len(req.GetData()))
+	for i, e := range req.GetData() {
 		if e.GetTimestamp() == nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument,
-				fmt.Errorf("event at index %d: timestamp is required", i))
+			return nil, connect.Errorf(connect.CodeInvalidArgument,
+				"event at index %d: timestamp is required", i)
 		}
 		qty, _ := decimalx.NewFromString(strconv.FormatFloat(e.GetQuantity(), 'f', -1, 64))
 		events[i] = &models.UsageEvent{
@@ -441,17 +440,17 @@ func (s *BillingServer) IngestUsageEvent(
 		ids[i] = e.GetID()
 	}
 
-	return connect.NewResponse(&billingv1.IngestUsageEventResponse{
+	return &billingv1.IngestUsageEventResponse{
 		Data: ids,
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) SearchUsageEvents(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[billingv1.SearchUsageEventsResponse],
+	req *commonv1.SearchRequest,
+	stream billingv1connect.BillingServiceSearchUsageEventsServerStream,
 ) error {
-	results, err := s.UsageSearch.SearchAsESQ(ctx, req.Msg.GetQuery())
+	results, err := s.UsageSearch.SearchAsESQ(ctx, req.GetQuery())
 	if err != nil {
 		return toConnectError(err)
 	}
@@ -483,105 +482,105 @@ func (s *BillingServer) SearchUsageEvents(
 
 func (s *BillingServer) RunBilling(
 	ctx context.Context,
-	req *connect.Request[billingv1.RunBillingRequest],
-) (*connect.Response[billingv1.RunBillingResponse], error) {
-	if req.Msg.GetPeriodStart() == nil || req.Msg.GetPeriodEnd() == nil {
+	req *billingv1.RunBillingRequest,
+) (*billingv1.RunBillingResponse, error) {
+	if req.GetPeriodStart() == nil || req.GetPeriodEnd() == nil {
 		return nil, connect.NewError(
 			connect.CodeInvalidArgument,
-			errors.New("period_start and period_end are required"),
+			"period_start and period_end are required",
 		)
 	}
 	run, err := s.Workflow.RunBilling(ctx,
-		req.Msg.GetSubscriptionId(),
-		req.Msg.GetPeriodStart().AsTime(),
-		req.Msg.GetPeriodEnd().AsTime())
+		req.GetSubscriptionId(),
+		req.GetPeriodStart().AsTime(),
+		req.GetPeriodEnd().AsTime())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.RunBillingResponse{
+	return &billingv1.RunBillingResponse{
 		Data: billingRunToProto(run),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) GetBillingRun(
 	ctx context.Context,
-	req *connect.Request[billingv1.GetBillingRunRequest],
-) (*connect.Response[billingv1.GetBillingRunResponse], error) {
-	run, err := s.Workflow.GetBillingRun(ctx, req.Msg.GetId())
+	req *billingv1.GetBillingRunRequest,
+) (*billingv1.GetBillingRunResponse, error) {
+	run, err := s.Workflow.GetBillingRun(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GetBillingRunResponse{
+	return &billingv1.GetBillingRunResponse{
 		Data: billingRunToProto(run),
-	}), nil
+	}, nil
 }
 
 // -- Invoice RPCs --
 
 func (s *BillingServer) GetInvoice(
 	ctx context.Context,
-	req *connect.Request[billingv1.GetInvoiceRequest],
-) (*connect.Response[billingv1.GetInvoiceResponse], error) {
-	inv, err := s.Invoice.GetInvoice(ctx, req.Msg.GetId())
+	req *billingv1.GetInvoiceRequest,
+) (*billingv1.GetInvoiceResponse, error) {
+	inv, err := s.Invoice.GetInvoice(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GetInvoiceResponse{
+	return &billingv1.GetInvoiceResponse{
 		Data: invoiceToProto(inv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) IssueInvoice(
 	ctx context.Context,
-	req *connect.Request[billingv1.IssueInvoiceRequest],
-) (*connect.Response[billingv1.IssueInvoiceResponse], error) {
-	inv, err := s.Invoice.IssueInvoice(ctx, req.Msg.GetId())
+	req *billingv1.IssueInvoiceRequest,
+) (*billingv1.IssueInvoiceResponse, error) {
+	inv, err := s.Invoice.IssueInvoice(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.IssueInvoiceResponse{
+	return &billingv1.IssueInvoiceResponse{
 		Data: invoiceToProto(inv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) VoidInvoice(
 	ctx context.Context,
-	req *connect.Request[billingv1.VoidInvoiceRequest],
-) (*connect.Response[billingv1.VoidInvoiceResponse], error) {
-	inv, err := s.Invoice.VoidInvoice(ctx, req.Msg.GetId())
+	req *billingv1.VoidInvoiceRequest,
+) (*billingv1.VoidInvoiceResponse, error) {
+	inv, err := s.Invoice.VoidInvoice(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.VoidInvoiceResponse{
+	return &billingv1.VoidInvoiceResponse{
 		Data: invoiceToProto(inv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) RecordPayment(
 	ctx context.Context,
-	req *connect.Request[billingv1.RecordPaymentRequest],
-) (*connect.Response[billingv1.RecordPaymentResponse], error) {
-	inv, err := s.Invoice.RecordPayment(ctx, req.Msg.GetId())
+	req *billingv1.RecordPaymentRequest,
+) (*billingv1.RecordPaymentResponse, error) {
+	inv, err := s.Invoice.RecordPayment(ctx, req.GetId())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.RecordPaymentResponse{
+	return &billingv1.RecordPaymentResponse{
 		Data: invoiceToProto(inv),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) SearchInvoices(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[billingv1.SearchInvoicesResponse],
+	req *commonv1.SearchRequest,
+	stream billingv1connect.BillingServiceSearchInvoicesServerStream,
 ) error {
-	results, err := s.InvoiceSearch.SearchAsESQ(ctx, req.Msg.GetQuery())
+	results, err := s.InvoiceSearch.SearchAsESQ(ctx, req.GetQuery())
 	if err != nil {
 		return toConnectError(err)
 	}
@@ -613,22 +612,22 @@ func (s *BillingServer) SearchInvoices(
 
 func (s *BillingServer) GrantCredit(
 	ctx context.Context,
-	req *connect.Request[billingv1.GrantCreditRequest],
-) (*connect.Response[billingv1.GrantCreditResponse], error) {
+	req *billingv1.GrantCreditRequest,
+) (*billingv1.GrantCreditResponse, error) {
 	grant := &models.CreditGrant{
-		ProfileID:       req.Msg.GetProfileId(),
-		Name:            req.Msg.GetName(),
-		OriginalAmount:  moneyToDecPtr(req.Msg.GetAmount()),
-		RemainingAmount: moneyToDecPtr(req.Msg.GetAmount()),
-		Currency:        req.Msg.GetCurrency(),
-		Priority:        int(req.Msg.GetPriority()),
-		Data:            structToJSONMap(req.Msg.GetData()),
+		ProfileID:       req.GetProfileId(),
+		Name:            req.GetName(),
+		OriginalAmount:  moneyToDecPtr(req.GetAmount()),
+		RemainingAmount: moneyToDecPtr(req.GetAmount()),
+		Currency:        req.GetCurrency(),
+		Priority:        int(req.GetPriority()),
+		Data:            structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetId() != "" {
-		grant.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		grant.ID = req.GetId()
 	}
-	if req.Msg.GetExpiresAt() != nil {
-		expiresAt := req.Msg.GetExpiresAt().AsTime()
+	if req.GetExpiresAt() != nil {
+		expiresAt := req.GetExpiresAt().AsTime()
 		grant.ExpiresAt = &expiresAt
 	}
 
@@ -637,52 +636,52 @@ func (s *BillingServer) GrantCredit(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GrantCreditResponse{
+	return &billingv1.GrantCreditResponse{
 		Data: creditGrantToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) GetCreditBalance(
 	ctx context.Context,
-	req *connect.Request[billingv1.GetCreditBalanceRequest],
-) (*connect.Response[billingv1.GetCreditBalanceResponse], error) {
-	balance, err := s.Credit.GetBalance(ctx, req.Msg.GetProfileId(), req.Msg.GetCurrency())
+	req *billingv1.GetCreditBalanceRequest,
+) (*billingv1.GetCreditBalanceResponse, error) {
+	balance, err := s.Credit.GetBalance(ctx, req.GetProfileId(), req.GetCurrency())
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.GetCreditBalanceResponse{
-		Balance: decimalToMoney(balance, req.Msg.GetCurrency()),
-	}), nil
+	return &billingv1.GetCreditBalanceResponse{
+		Balance: decimalToMoney(balance, req.GetCurrency()),
+	}, nil
 }
 
 // -- Discount RPCs --
 
 func (s *BillingServer) CreateDiscount(
 	ctx context.Context,
-	req *connect.Request[billingv1.CreateDiscountRequest],
-) (*connect.Response[billingv1.CreateDiscountResponse], error) {
+	req *billingv1.CreateDiscountRequest,
+) (*billingv1.CreateDiscountResponse, error) {
 	disc := &models.Discount{
-		Name:         req.Msg.GetName(),
-		DiscountType: discountTypeFromProto(req.Msg.GetDiscountType()),
+		Name:         req.GetName(),
+		DiscountType: discountTypeFromProto(req.GetDiscountType()),
 		Value: func() *decimalx.Decimal {
-			v, _ := decimalx.NewFromString(strconv.FormatFloat(req.Msg.GetValue(), 'f', -1, 64))
+			v, _ := decimalx.NewFromString(strconv.FormatFloat(req.GetValue(), 'f', -1, 64))
 			return v.Ptr()
 		}(),
-		Currency:        req.Msg.GetCurrency(),
-		ApplicableTo:    structToJSONMap(req.Msg.GetApplicableTo()),
-		MaxApplications: int(req.Msg.GetMaxApplications()),
-		Data:            structToJSONMap(req.Msg.GetData()),
+		Currency:        req.GetCurrency(),
+		ApplicableTo:    structToJSONMap(req.GetApplicableTo()),
+		MaxApplications: int(req.GetMaxApplications()),
+		Data:            structToJSONMap(req.GetData()),
 	}
-	if req.Msg.GetId() != "" {
-		disc.ID = req.Msg.GetId()
+	if req.GetId() != "" {
+		disc.ID = req.GetId()
 	}
-	if req.Msg.GetStartAt() != nil {
-		startAt := req.Msg.GetStartAt().AsTime()
+	if req.GetStartAt() != nil {
+		startAt := req.GetStartAt().AsTime()
 		disc.StartAt = &startAt
 	}
-	if req.Msg.GetEndAt() != nil {
-		endAt := req.Msg.GetEndAt().AsTime()
+	if req.GetEndAt() != nil {
+		endAt := req.GetEndAt().AsTime()
 		disc.EndAt = &endAt
 	}
 
@@ -691,17 +690,17 @@ func (s *BillingServer) CreateDiscount(
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&billingv1.CreateDiscountResponse{
+	return &billingv1.CreateDiscountResponse{
 		Data: discountToProto(created),
-	}), nil
+	}, nil
 }
 
 func (s *BillingServer) SearchDiscounts(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[billingv1.SearchDiscountsResponse],
+	req *commonv1.SearchRequest,
+	stream billingv1connect.BillingServiceSearchDiscountsServerStream,
 ) error {
-	results, err := s.DiscountSearch.SearchAsESQ(ctx, req.Msg.GetQuery())
+	results, err := s.DiscountSearch.SearchAsESQ(ctx, req.GetQuery())
 	if err != nil {
 		return toConnectError(err)
 	}

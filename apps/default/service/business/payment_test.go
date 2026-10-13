@@ -39,7 +39,7 @@ package business_test
 // 	"github.com/testcontainers/testcontainers-go/wait"
 // 	"go.uber.org/mock/gomock"
 
-// 	"github.com/pitabwire/frame/v2"
+// 	"github.com/pitabwire/frame/v3"
 // )
 
 // func getService(serviceName string) (*ctxSrv, error) {

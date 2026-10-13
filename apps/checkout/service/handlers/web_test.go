@@ -26,10 +26,9 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	"github.com/antinvestor/service-payments/apps/checkout/config"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/handlers"
@@ -176,9 +175,9 @@ func (f *fakeLinkRepo) GetByRef(_ context.Context, ref string) (*models.Checkout
 
 type fakePaymentClient struct {
 	paymentv1connect.PaymentServiceClient
-	promptResp  *connect.Response[paymentv1.InitiatePromptResponse]
+	promptResp  *paymentv1.InitiatePromptResponse
 	promptErr   error
-	statusResp  *connect.Response[commonv1.StatusResponse]
+	statusResp  *commonv1.StatusResponse
 	statusErr   error
 	lastPrompt  *paymentv1.InitiatePromptRequest
 	promptCount int
@@ -186,9 +185,9 @@ type fakePaymentClient struct {
 
 func (f *fakePaymentClient) InitiatePrompt(
 	_ context.Context,
-	req *connect.Request[paymentv1.InitiatePromptRequest],
-) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
-	f.lastPrompt = req.Msg
+	req *paymentv1.InitiatePromptRequest,
+) (*paymentv1.InitiatePromptResponse, error) {
+	f.lastPrompt = req
 	f.promptCount++
 	if f.promptErr != nil {
 		return nil, f.promptErr
@@ -196,22 +195,22 @@ func (f *fakePaymentClient) InitiatePrompt(
 	if f.promptResp != nil {
 		return f.promptResp, nil
 	}
-	return connect.NewResponse(&paymentv1.InitiatePromptResponse{
+	return &paymentv1.InitiatePromptResponse{
 		Data: &commonv1.StatusResponse{Id: "prompt-123"},
-	}), nil
+	}, nil
 }
 
 func (f *fakePaymentClient) Status(
 	_ context.Context,
-	_ *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
+	_ *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
 	if f.statusErr != nil {
 		return nil, f.statusErr
 	}
 	if f.statusResp != nil {
 		return f.statusResp, nil
 	}
-	return connect.NewResponse(&commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}), nil
+	return &commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}, nil
 }
 
 // ---------------------------------------------------------------------------

@@ -25,17 +25,16 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/checkout/config"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
 	"github.com/antinvestor/service-payments/apps/checkout/service/observability"
 	"github.com/antinvestor/service-payments/apps/checkout/service/repository"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/workerpool"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/workerpool"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -391,15 +390,15 @@ func (b *CheckoutBusiness) applyPayer(
 	if payer.ProfileID != "" && b.profileCli != nil {
 		resp, err := b.profileCli.GetById(
 			ctx,
-			connect.NewRequest(&profilev1.GetByIdRequest{Id: payer.ProfileID}),
+			&profilev1.GetByIdRequest{Id: payer.ProfileID},
 		)
 		if err != nil {
 			util.Log(ctx).
 				WithError(err).
 				WithField("profile_id", payer.ProfileID).
 				Warn("could not fetch profile for prefill — continuing without it")
-		} else if resp.Msg.GetData() != nil {
-			profile := resp.Msg.GetData()
+		} else if resp.GetData() != nil {
+			profile := resp.GetData()
 			profileProps = profile.GetProperties()
 			// Identity from service_authentication (au_name) wins over caller label.
 			if n := ResolveDisplayName(callerDisplayName, profileProps); n != "" {
@@ -1102,11 +1101,11 @@ func (b *CheckoutBusiness) sendPrompt(
 		Extra:  extra,
 	}
 
-	resp, respErr := b.paymentCli.InitiatePrompt(ctx, connect.NewRequest(promptReq))
+	resp, respErr := b.paymentCli.InitiatePrompt(ctx, promptReq)
 	if respErr != nil {
 		return "", fmt.Errorf("initiate prompt: %w", respErr)
 	}
-	return resp.Msg.GetData().GetId(), nil
+	return resp.GetData().GetId(), nil
 }
 
 // Authorize completes PIN / OTP / AVS for a processing session by re-using the
@@ -1193,7 +1192,7 @@ func (b *CheckoutBusiness) Authorize(
 		Route:  route,
 		Extra:  extra,
 	}
-	if _, err := b.paymentCli.InitiatePrompt(ctx, connect.NewRequest(promptReq)); err != nil {
+	if _, err := b.paymentCli.InitiatePrompt(ctx, promptReq); err != nil {
 		return nil, fmt.Errorf("authorize prompt: %w", err)
 	}
 	return session, nil
@@ -1399,10 +1398,10 @@ func (b *CheckoutBusiness) pollPrompt(ctx context.Context, promptID string) (*co
 	statusExtras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
 	resp, err := b.paymentCli.Status(
 		ctx,
-		connect.NewRequest(&commonv1.StatusRequest{
+		&commonv1.StatusRequest{
 			Id:     promptID,
 			Extras: statusExtras,
-		}),
+		},
 	)
 	if err != nil {
 		util.Log(ctx).
@@ -1411,7 +1410,7 @@ func (b *CheckoutBusiness) pollPrompt(ctx context.Context, promptID string) (*co
 			Warn("payment status poll transport error — staying processing")
 		return nil, false
 	}
-	return resp.Msg, true
+	return resp, true
 }
 
 // completeSession marks the session completed by promptID.
@@ -1770,10 +1769,10 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 		}
 	}
 
-	_, err := b.profileCli.Update(ctx, connect.NewRequest(&profilev1.UpdateRequest{
+	_, err := b.profileCli.Update(ctx, &profilev1.UpdateRequest{
 		Id:         session.PayerProfileID,
 		Properties: clues.ToProperties(),
-	}))
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).Warn("could not write checkout clues to profile")
 		b.obs.RecordClueWritebackFailure(ctx)

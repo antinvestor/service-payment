@@ -32,15 +32,11 @@ proto-generate-dart: $(BIN)/buf ## Regenerate the per-module dart SDKs
 
 .PHONY: proto-generate-checkout
 proto-generate-checkout: $(BIN)/buf ## Regenerate checkout Go stubs locally
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
-	@(cd $(PROTO_DIR) && PATH="$$(go env GOPATH)/bin:$$PATH" buf generate --template buf.gen.checkout.yaml --path payment/checkout)
+	@(cd $(PROTO_DIR) && buf generate --template buf.gen.checkout.yaml --path payment/checkout)
 
 .PHONY: proto-generate-billing-collection
 proto-generate-billing-collection: $(BIN)/buf ## Regenerate billing collection Go stubs locally
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	@go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
-	@(cd $(PROTO_DIR) && PATH="$$(go env GOPATH)/bin:$$PATH" buf generate --template buf.gen.billing.collection.yaml --path billing/collection)
+	@(cd $(PROTO_DIR) && buf generate --template buf.gen.billing.collection.yaml --path billing/collection)
 
 # Wire dart generation into the standard proto-generate pipeline.
 proto-generate: proto-generate-dart proto-generate-checkout proto-generate-billing-collection

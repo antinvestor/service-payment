@@ -26,12 +26,11 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -191,7 +190,7 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		s.metrics.WebhookRejected(ctx, "stk", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -210,15 +209,15 @@ func (s *MpesaWebhookServer) bindPrompt(
 	promptID, checkoutRequestID string,
 ) (*stkBinding, error) {
 	statusExtras := data.JSONMap{"entity_type": "prompt"}
-	resp, err := s.paymentCli.Status(ctx, connect.NewRequest(&commonv1.StatusRequest{
+	resp, err := s.paymentCli.Status(ctx, &commonv1.StatusRequest{
 		Id:     promptID,
 		Extras: statusExtras.ToProtoStruct(),
-	}))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("load prompt status: %w", err)
 	}
 	var stored data.JSONMap
-	stored = stored.FromProtoStruct(resp.Msg.GetExtras())
+	stored = stored.FromProtoStruct(resp.GetExtras())
 	storedCheckoutID := stored.GetString(client.ExtraCheckoutRequestID)
 	if storedCheckoutID == "" {
 		return nil, fmt.Errorf("%w: prompt has no pending STK request", errSTKRejected)
@@ -350,7 +349,7 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status for C2B confirmation")
 		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -409,7 +408,7 @@ func (s *MpesaWebhookServer) HandleB2CResult(w http.ResponseWriter, r *http.Requ
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status for B2C result")
 		s.metrics.WebhookRejected(ctx, "b2c", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -453,7 +452,7 @@ func (s *MpesaWebhookServer) HandleB2CTimeout(w http.ResponseWriter, r *http.Req
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status for B2C timeout")
 		s.metrics.WebhookRejected(ctx, "b2c_timeout", "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)

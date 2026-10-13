@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/checkout/config"
 	checkoutv1 "github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
@@ -50,9 +50,9 @@ func NewCheckoutServer(biz *business.CheckoutBusiness, cfg *config.CheckoutConfi
 // CreateCheckoutSession maps the proto request to business.CreateSessionInput and creates a session.
 func (s *CheckoutServer) CreateCheckoutSession(
 	ctx context.Context,
-	req *connect.Request[checkoutv1.CreateCheckoutSessionRequest],
-) (*connect.Response[checkoutv1.CreateCheckoutSessionResponse], error) {
-	msg := req.Msg
+	req *checkoutv1.CreateCheckoutSessionRequest,
+) (*checkoutv1.CreateCheckoutSessionResponse, error) {
+	msg := req
 
 	// Map amount
 	amtStr := ""
@@ -101,12 +101,12 @@ func (s *CheckoutServer) CreateCheckoutSession(
 
 	session, err := s.business.CreateSession(ctx, in)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, err.Error()).WithCause(err)
 	}
 
-	return connect.NewResponse(&checkoutv1.CreateCheckoutSessionResponse{
+	return &checkoutv1.CreateCheckoutSessionResponse{
 		Data: toProtoSession(session, s.cfg.PublicBaseURL),
-	}), nil
+	}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -116,14 +116,14 @@ func (s *CheckoutServer) CreateCheckoutSession(
 // GetCheckoutSession retrieves a session by ref, refreshes payment status, and returns the proto.
 func (s *CheckoutServer) GetCheckoutSession(
 	ctx context.Context,
-	req *connect.Request[checkoutv1.GetCheckoutSessionRequest],
-) (*connect.Response[checkoutv1.GetCheckoutSessionResponse], error) {
-	session, err := s.business.GetSessionByRef(ctx, req.Msg.GetRef())
+	req *checkoutv1.GetCheckoutSessionRequest,
+) (*checkoutv1.GetCheckoutSessionResponse, error) {
+	session, err := s.business.GetSessionByRef(ctx, req.GetRef())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
+			return nil, connect.NewError(connect.CodeNotFound, err.Error()).WithCause(err)
 		}
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 
 	// Best-effort live refresh — ignore errors, return current state.
@@ -131,9 +131,9 @@ func (s *CheckoutServer) GetCheckoutSession(
 		session = refreshed
 	}
 
-	return connect.NewResponse(&checkoutv1.GetCheckoutSessionResponse{
+	return &checkoutv1.GetCheckoutSessionResponse{
 		Data: toProtoSession(session, s.cfg.PublicBaseURL),
-	}), nil
+	}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -143,9 +143,9 @@ func (s *CheckoutServer) GetCheckoutSession(
 // CreateCheckoutLink creates a reusable checkout link.
 func (s *CheckoutServer) CreateCheckoutLink(
 	ctx context.Context,
-	req *connect.Request[checkoutv1.CreateCheckoutLinkRequest],
-) (*connect.Response[checkoutv1.CreateCheckoutLinkResponse], error) {
-	msg := req.Msg
+	req *checkoutv1.CreateCheckoutLinkRequest,
+) (*checkoutv1.CreateCheckoutLinkResponse, error) {
+	msg := req
 
 	// Map amount
 	amtStr := ""
@@ -168,7 +168,7 @@ func (s *CheckoutServer) CreateCheckoutLink(
 		if parseErr != nil {
 			return nil, connect.NewError(
 				connect.CodeInvalidArgument,
-				errors.New("expires_at must be RFC3339"),
+				"expires_at must be RFC3339",
 			)
 		}
 		expiresAt = &t
@@ -188,12 +188,12 @@ func (s *CheckoutServer) CreateCheckoutLink(
 
 	link, err := s.business.CreateLink(ctx, in)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, err.Error()).WithCause(err)
 	}
 
-	return connect.NewResponse(&checkoutv1.CreateCheckoutLinkResponse{
+	return &checkoutv1.CreateCheckoutLinkResponse{
 		Data: toProtoLink(link, s.cfg.PublicBaseURL),
-	}), nil
+	}, nil
 }
 
 // ---------------------------------------------------------------------------

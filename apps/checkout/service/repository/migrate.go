@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
-	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v3/datastore"
 )
 
 // Migrate applies SQL migrations and auto-migrates the checkout models.

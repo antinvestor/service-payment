@@ -22,15 +22,14 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
 	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	frameEvents "github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
+	frameEvents "github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -192,13 +191,13 @@ func (h *promptHandler) credentialsFromSettings(
 		},
 	}
 
-	settingResp, err := h.settingsCli.Get(ctx, connect.NewRequest(settingReq))
+	settingResp, err := h.settingsCli.Get(ctx, settingReq)
 	if err != nil {
 		return nil, fmt.Errorf("settings lookup failed: %w", err)
 	}
 
 	var credMap map[string]string
-	if err = json.Unmarshal([]byte(settingResp.Msg.GetData().GetValue()), &credMap); err != nil {
+	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {
 		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
 	}
 

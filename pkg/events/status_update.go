@@ -20,8 +20,7 @@ import (
 	"log/slog"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/pitabwire/util"
 )
 
@@ -72,7 +71,7 @@ func (e *PaymentStatusUpdate) Execute(ctx context.Context, payload any) error {
 		logger.WithField("payload", statusUpdateRequest).Debug("processing status update request")
 	}
 
-	_, err := e.PaymentCli.StatusUpdate(ctx, connect.NewRequest(statusUpdateRequest))
+	_, err := e.PaymentCli.StatusUpdate(ctx, statusUpdateRequest)
 	if err != nil {
 		// Return the error so queue delivery retries. Swallowing it left
 		// checkout sessions stuck in "processing" after provider success

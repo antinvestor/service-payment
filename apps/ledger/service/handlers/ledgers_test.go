@@ -16,20 +16,22 @@ package handlers_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
 	_ "github.com/lib/pq"
-	"github.com/pitabwire/frame/v2/frametests/definition"
+	"github.com/pitabwire/frame/v3/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,7 +53,14 @@ func TestToConnectError_Nil(t *testing.T) {
 func TestToConnectError_NonApplicationError(t *testing.T) {
 	plainErr := errors.New("plain error")
 	result := handlers.ToConnectError(plainErr)
-	assert.Equal(t, plainErr, result)
+
+	// connect v2 sends only a *connect.Error; a plain error must be converted
+	// so the client still sees its message.
+	var connectErr *connect.Error
+	require.ErrorAs(t, result, &connectErr)
+	assert.Equal(t, connect.CodeInternal, connectErr.Code())
+	assert.Equal(t, "plain error", connectErr.Message())
+	assert.ErrorIs(t, result, plainErr)
 }
 
 func TestToConnectError_InvalidArgument(t *testing.T) {
@@ -171,20 +180,18 @@ func (s *LedgerHandlersTestSuite) TestCreateLedger() {
 			resources.BookBusiness,
 		)
 
-		req := &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{
-				Id:       "test-ledger",
-				Type:     ledgerv1.LedgerType_ASSET,
-				ParentId: "",
-				Data:     nil,
-			},
+		req := &ledgerv1.CreateLedgerRequest{
+			Id:       "test-ledger",
+			Type:     ledgerv1.LedgerType_ASSET,
+			ParentId: "",
+			Data:     nil,
 		}
 
 		resp, err := ledgerServer.CreateLedger(ctx, req)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, "test-ledger", resp.Msg.GetData().GetId())
-		assert.Equal(t, ledgerv1.LedgerType_ASSET, resp.Msg.GetData().GetType())
+		assert.Equal(t, "test-ledger", resp.GetData().GetId())
+		assert.Equal(t, ledgerv1.LedgerType_ASSET, resp.GetData().GetType())
 	})
 }
 
@@ -208,25 +215,21 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedger() {
 		)
 
 		// Create ledger first
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{
-				Id:   "update-handler-ledger",
-				Type: ledgerv1.LedgerType_ASSET,
-			},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "update-handler-ledger",
+			Type: ledgerv1.LedgerType_ASSET,
 		})
 		require.NoError(t, err)
 
 		// Update it
 		strct, _ := structpb.NewStruct(map[string]any{"name": "updated"})
-		resp, err := ledgerServer.UpdateLedger(ctx, &connect.Request[ledgerv1.UpdateLedgerRequest]{
-			Msg: &ledgerv1.UpdateLedgerRequest{
-				Id:   "update-handler-ledger",
-				Data: strct,
-			},
+		resp, err := ledgerServer.UpdateLedger(ctx, &ledgerv1.UpdateLedgerRequest{
+			Id:   "update-handler-ledger",
+			Data: strct,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, "updated", resp.Msg.GetData().GetData().GetFields()["name"].GetStringValue())
+		assert.Equal(t, "updated", resp.GetData().GetData().GetFields()["name"].GetStringValue())
 	})
 }
 
@@ -250,25 +253,21 @@ func (s *LedgerHandlersTestSuite) TestCreateAccount() {
 		)
 
 		// Create ledger first
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{
-				Id:   "handler-acc-ledger",
-				Type: ledgerv1.LedgerType_ASSET,
-			},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "handler-acc-ledger",
+			Type: ledgerv1.LedgerType_ASSET,
 		})
 		require.NoError(t, err)
 
 		// Create account
-		resp, err := ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-account",
-				LedgerId: "handler-acc-ledger",
-				Currency: "USD",
-			},
+		resp, err := ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-account",
+			LedgerId: "handler-acc-ledger",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, "handler-account", resp.Msg.GetData().GetId())
+		assert.Equal(t, "handler-account", resp.GetData().GetId())
 	})
 }
 
@@ -292,30 +291,24 @@ func (s *LedgerHandlersTestSuite) TestUpdateAccount() {
 		)
 
 		// Create ledger and account
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{
-				Id:   "handler-upd-ledger",
-				Type: ledgerv1.LedgerType_ASSET,
-			},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
+			Id:   "handler-upd-ledger",
+			Type: ledgerv1.LedgerType_ASSET,
 		})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-upd-account",
-				LedgerId: "handler-upd-ledger",
-				Currency: "USD",
-			},
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-upd-account",
+			LedgerId: "handler-upd-ledger",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
 		// Update account
 		strct, _ := structpb.NewStruct(map[string]any{"desc": "updated"})
-		resp, err := ledgerServer.UpdateAccount(ctx, &connect.Request[ledgerv1.UpdateAccountRequest]{
-			Msg: &ledgerv1.UpdateAccountRequest{
-				Id:   "handler-upd-account",
-				Data: strct,
-			},
+		resp, err := ledgerServer.UpdateAccount(ctx, &ledgerv1.UpdateAccountRequest{
+			Id:   "handler-upd-account",
+			Data: strct,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -342,58 +335,48 @@ func (s *LedgerHandlersTestSuite) TestCreateTransaction() {
 		)
 
 		// Setup ledgers and accounts
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-txn-asset", Type: ledgerv1.LedgerType_ASSET},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-txn-asset", Type: ledgerv1.LedgerType_ASSET})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-txn-income", Type: ledgerv1.LedgerType_INCOME})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-asset-acc",
+			LedgerId: "handler-txn-asset",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-txn-income", Type: ledgerv1.LedgerType_INCOME},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-asset-acc",
-				LedgerId: "handler-txn-asset",
-				Currency: "USD",
-			},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-income-acc",
-				LedgerId: "handler-txn-income",
-				Currency: "USD",
-			},
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-income-acc",
+			LedgerId: "handler-txn-income",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
 		// Create transaction
-		resp, err := ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "handler-txn-1",
-				Currency: "USD",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Entries: []*ledgerv1.TransactionEntry{
-					{
-						AccountId: "handler-asset-acc",
-						Credit:    false,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
-					{
-						AccountId: "handler-income-acc",
-						Credit:    true,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
+		resp, err := ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "handler-txn-1",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{
+					AccountId: "handler-asset-acc",
+					Credit:    false,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
+				},
+				{
+					AccountId: "handler-income-acc",
+					Credit:    true,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 				},
 			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, "handler-txn-1", resp.Msg.GetData().GetId())
-		assert.Len(t, resp.Msg.GetData().GetEntries(), 2)
+		assert.Equal(t, "handler-txn-1", resp.GetData().GetId())
+		assert.Len(t, resp.GetData().GetEntries(), 2)
 	})
 }
 
@@ -417,65 +400,53 @@ func (s *LedgerHandlersTestSuite) TestReverseTransaction() {
 		)
 
 		// Setup
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-rev-asset", Type: ledgerv1.LedgerType_ASSET},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-rev-asset", Type: ledgerv1.LedgerType_ASSET})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-rev-income", Type: ledgerv1.LedgerType_INCOME})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-rev-asset-acc",
+			LedgerId: "handler-rev-asset",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-rev-income", Type: ledgerv1.LedgerType_INCOME},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-rev-asset-acc",
-				LedgerId: "handler-rev-asset",
-				Currency: "USD",
-			},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-rev-income-acc",
-				LedgerId: "handler-rev-income",
-				Currency: "USD",
-			},
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-rev-income-acc",
+			LedgerId: "handler-rev-income",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
 		// Create transaction. Reversal is only valid on posted transactions,
 		// so cleared=true posts it immediately.
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "handler-rev-txn",
-				Currency: "USD",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Cleared:  true,
-				Entries: []*ledgerv1.TransactionEntry{
-					{
-						AccountId: "handler-rev-asset-acc",
-						Credit:    false,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
-					{
-						AccountId: "handler-rev-income-acc",
-						Credit:    true,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "handler-rev-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{
+					AccountId: "handler-rev-asset-acc",
+					Credit:    false,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
+				},
+				{
+					AccountId: "handler-rev-income-acc",
+					Credit:    true,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 				},
 			},
 		})
 		require.NoError(t, err)
 
 		// Reverse it
-		resp, err := ledgerServer.ReverseTransaction(ctx, &connect.Request[ledgerv1.ReverseTransactionRequest]{
-			Msg: &ledgerv1.ReverseTransactionRequest{Id: "handler-rev-txn"},
-		})
+		resp, err := ledgerServer.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{Id: "handler-rev-txn"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Equal(t, ledgerv1.TransactionType_REVERSAL, resp.Msg.GetData().GetType())
+		assert.Equal(t, ledgerv1.TransactionType_REVERSAL, resp.GetData().GetType())
 	})
 }
 
@@ -499,51 +470,41 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 		)
 
 		// Setup
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-upd-txn-asset", Type: ledgerv1.LedgerType_ASSET},
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-upd-txn-asset", Type: ledgerv1.LedgerType_ASSET})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-upd-txn-income", Type: ledgerv1.LedgerType_INCOME})
+		require.NoError(t, err)
+
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-upd-asset-acc",
+			LedgerId: "handler-upd-txn-asset",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-upd-txn-income", Type: ledgerv1.LedgerType_INCOME},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-upd-asset-acc",
-				LedgerId: "handler-upd-txn-asset",
-				Currency: "USD",
-			},
-		})
-		require.NoError(t, err)
-
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-upd-income-acc",
-				LedgerId: "handler-upd-txn-income",
-				Currency: "USD",
-			},
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-upd-income-acc",
+			LedgerId: "handler-upd-txn-income",
+			Currency: "USD",
 		})
 		require.NoError(t, err)
 
 		// Create transaction
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "handler-upd-txn",
-				Currency: "USD",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Entries: []*ledgerv1.TransactionEntry{
-					{
-						AccountId: "handler-upd-asset-acc",
-						Credit:    false,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
-					{
-						AccountId: "handler-upd-income-acc",
-						Credit:    true,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "handler-upd-txn",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{
+					AccountId: "handler-upd-asset-acc",
+					Credit:    false,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
+				},
+				{
+					AccountId: "handler-upd-income-acc",
+					Credit:    true,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 				},
 			},
 		})
@@ -551,11 +512,9 @@ func (s *LedgerHandlersTestSuite) TestUpdateTransaction() {
 
 		// Update
 		strct, _ := structpb.NewStruct(map[string]any{"status": "settled"})
-		resp, err := ledgerServer.UpdateTransaction(ctx, &connect.Request[ledgerv1.UpdateTransactionRequest]{
-			Msg: &ledgerv1.UpdateTransactionRequest{
-				Id:   "handler-upd-txn",
-				Data: strct,
-			},
+		resp, err := ledgerServer.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{
+			Id:   "handler-upd-txn",
+			Data: strct,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -581,9 +540,7 @@ func (s *LedgerHandlersTestSuite) TestCreateLedgerMissingID() {
 			resources.BookBusiness,
 		)
 
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Type: ledgerv1.LedgerType_ASSET},
-		})
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Type: ledgerv1.LedgerType_ASSET})
 		require.Error(t, err)
 	})
 }
@@ -607,17 +564,13 @@ func (s *LedgerHandlersTestSuite) TestCreateAccountInvalidCurrency() {
 			resources.BookBusiness,
 		)
 
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "handler-bad-curr-ledger", Type: ledgerv1.LedgerType_ASSET},
-		})
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "handler-bad-curr-ledger", Type: ledgerv1.LedgerType_ASSET})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{
-				Id:       "handler-bad-curr-acc",
-				LedgerId: "handler-bad-curr-ledger",
-				Currency: "US$",
-			},
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
+			Id:       "handler-bad-curr-acc",
+			LedgerId: "handler-bad-curr-ledger",
+			Currency: "US$",
 		})
 		require.Error(t, err)
 	})
@@ -642,9 +595,7 @@ func (s *LedgerHandlersTestSuite) TestUpdateLedgerMissingID() {
 			resources.BookBusiness,
 		)
 
-		_, err := ledgerServer.UpdateLedger(ctx, &connect.Request[ledgerv1.UpdateLedgerRequest]{
-			Msg: &ledgerv1.UpdateLedgerRequest{},
-		})
+		_, err := ledgerServer.UpdateLedger(ctx, &ledgerv1.UpdateLedgerRequest{})
 		require.Error(t, err)
 	})
 }
@@ -669,33 +620,23 @@ func (s *LedgerHandlersTestSuite) TestErrorPaths() {
 		)
 
 		// UpdateAccount error path — non-existent account
-		_, err := ledgerServer.UpdateAccount(ctx, &connect.Request[ledgerv1.UpdateAccountRequest]{
-			Msg: &ledgerv1.UpdateAccountRequest{Id: "non-existent"},
-		})
+		_, err := ledgerServer.UpdateAccount(ctx, &ledgerv1.UpdateAccountRequest{Id: "non-existent"})
 		require.Error(t, err)
 
 		// CreateTransaction error path — missing data
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{},
-		})
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{})
 		require.Error(t, err)
 
 		// ReverseTransaction error path — non-existent
-		_, err = ledgerServer.ReverseTransaction(ctx, &connect.Request[ledgerv1.ReverseTransactionRequest]{
-			Msg: &ledgerv1.ReverseTransactionRequest{Id: "non-existent"},
-		})
+		_, err = ledgerServer.ReverseTransaction(ctx, &ledgerv1.ReverseTransactionRequest{Id: "non-existent"})
 		require.Error(t, err)
 
 		// UpdateTransaction error path — non-existent
-		_, err = ledgerServer.UpdateTransaction(ctx, &connect.Request[ledgerv1.UpdateTransactionRequest]{
-			Msg: &ledgerv1.UpdateTransactionRequest{Id: "non-existent"},
-		})
+		_, err = ledgerServer.UpdateTransaction(ctx, &ledgerv1.UpdateTransactionRequest{Id: "non-existent"})
 		require.Error(t, err)
 
 		// CreateAccount error path — invalid currency
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "bad", Currency: "US$"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "bad", Currency: "US$"})
 		require.Error(t, err)
 	})
 }
@@ -720,100 +661,127 @@ func (s *LedgerHandlersTestSuite) TestStreamingSearchEndpoints() {
 		)
 
 		// Create HTTP test server with connect handler and inject test claims
-		path, handler := ledgerv1connect.NewLedgerServiceHandler(ledgerServer)
-		claimsMiddleware := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handler.ServeHTTP(w, r.WithContext(ctx))
-		})
+		server := connect.NewServer()
+		ledgerv1connect.RegisterLedgerServiceHandler(server, ledgerServer)
 		mux := http.NewServeMux()
-		mux.Handle(path, claimsMiddleware)
-		srv := httptest.NewServer(mux)
+		connecthttp.Mount(mux, server)
+		claimsMiddleware := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mux.ServeHTTP(w, r.WithContext(ctx))
+		})
+		srv := httptest.NewServer(claimsMiddleware)
 		defer srv.Close()
-		client := ledgerv1connect.NewLedgerServiceClient(srv.Client(), srv.URL)
+		client := ledgerv1connect.NewLedgerServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 
 		// Setup: create ledgers, accounts, and a transaction
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "stream-asset", Type: ledgerv1.LedgerType_ASSET},
-		})
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "stream-asset", Type: ledgerv1.LedgerType_ASSET})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "stream-income", Type: ledgerv1.LedgerType_INCOME},
-		})
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "stream-income", Type: ledgerv1.LedgerType_INCOME})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "stream-asset-acc", LedgerId: "stream-asset", Currency: "USD"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "stream-asset-acc", LedgerId: "stream-asset", Currency: "USD"})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "stream-income-acc", LedgerId: "stream-income", Currency: "USD"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "stream-income-acc", LedgerId: "stream-income", Currency: "USD"})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "stream-txn-1",
-				Currency: "USD",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Cleared:  true,
-				Entries: []*ledgerv1.TransactionEntry{
-					{
-						AccountId: "stream-asset-acc",
-						Credit:    false,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
-					{
-						AccountId: "stream-income-acc",
-						Credit:    true,
-						Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
-					},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "stream-txn-1",
+			Currency: "USD",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{
+					AccountId: "stream-asset-acc",
+					Credit:    false,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
+				},
+				{
+					AccountId: "stream-income-acc",
+					Credit:    true,
+					Amount:    &commonv1.Money{CurrencyCode: "USD", Units: 100},
 				},
 			},
 		})
 		require.NoError(t, err)
 
 		// Test SearchLedgers
-		ledgerStream, err := client.SearchLedgers(ctx, connect.NewRequest(&commonv1.SearchRequest{Query: "{}"}))
+		ledgerStream, err := client.SearchLedgers(ctx, &commonv1.SearchRequest{Query: "{}"})
 		require.NoError(t, err)
 		var foundLedgers []*ledgerv1.Ledger
-		for ledgerStream.Receive() {
-			foundLedgers = append(foundLedgers, ledgerStream.Msg().GetData()...)
+		var streamErr error
+		for {
+			msg, err := ledgerStream.Receive()
+			if err != nil {
+				streamErr = err
+				break
+			}
+			foundLedgers = append(foundLedgers, msg.GetData()...)
 		}
-		require.NoError(t, ledgerStream.Err())
+		if errors.Is(streamErr, io.EOF) {
+			streamErr = nil
+		}
+		require.NoError(t, streamErr)
 		assert.GreaterOrEqual(t, len(foundLedgers), 2, "Should find at least 2 ledgers")
 
 		// Test SearchAccounts
-		accountStream, err := client.SearchAccounts(ctx, connect.NewRequest(&commonv1.SearchRequest{Query: "{}"}))
+		accountStream, err := client.SearchAccounts(ctx, &commonv1.SearchRequest{Query: "{}"})
 		require.NoError(t, err)
 		var foundAccounts []*ledgerv1.Account
-		for accountStream.Receive() {
-			foundAccounts = append(foundAccounts, accountStream.Msg().GetData()...)
+		streamErr = nil
+		for {
+			msg, err := accountStream.Receive()
+			if err != nil {
+				streamErr = err
+				break
+			}
+			foundAccounts = append(foundAccounts, msg.GetData()...)
 		}
-		require.NoError(t, accountStream.Err())
+		if errors.Is(streamErr, io.EOF) {
+			streamErr = nil
+		}
+		require.NoError(t, streamErr)
 		assert.GreaterOrEqual(t, len(foundAccounts), 2, "Should find at least 2 accounts")
 
 		// Test SearchTransactions
-		txnStream, err := client.SearchTransactions(ctx, connect.NewRequest(&commonv1.SearchRequest{Query: "{}"}))
+		txnStream, err := client.SearchTransactions(ctx, &commonv1.SearchRequest{Query: "{}"})
 		require.NoError(t, err)
 		var foundTxns []*ledgerv1.Transaction
-		for txnStream.Receive() {
-			foundTxns = append(foundTxns, txnStream.Msg().GetData()...)
+		streamErr = nil
+		for {
+			msg, err := txnStream.Receive()
+			if err != nil {
+				streamErr = err
+				break
+			}
+			foundTxns = append(foundTxns, msg.GetData()...)
 		}
-		require.NoError(t, txnStream.Err())
+		if errors.Is(streamErr, io.EOF) {
+			streamErr = nil
+		}
+		require.NoError(t, streamErr)
 		assert.GreaterOrEqual(t, len(foundTxns), 1, "Should find at least 1 transaction")
 
 		// Test SearchTransactionEntries
 		entryStream, err := client.SearchTransactionEntries(
 			ctx,
-			connect.NewRequest(&commonv1.SearchRequest{Query: "{}"}),
+			&commonv1.SearchRequest{Query: "{}"},
 		)
 		require.NoError(t, err)
 		var foundEntries []*ledgerv1.TransactionEntry
-		for entryStream.Receive() {
-			foundEntries = append(foundEntries, entryStream.Msg().GetData()...)
+		streamErr = nil
+		for {
+			msg, err := entryStream.Receive()
+			if err != nil {
+				streamErr = err
+				break
+			}
+			foundEntries = append(foundEntries, msg.GetData()...)
 		}
-		require.NoError(t, entryStream.Err())
+		if errors.Is(streamErr, io.EOF) {
+			streamErr = nil
+		}
+		require.NoError(t, streamErr)
 		assert.GreaterOrEqual(t, len(foundEntries), 2, "Should find at least 2 entries")
 	})
 }

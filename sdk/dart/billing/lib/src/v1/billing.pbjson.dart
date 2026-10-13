@@ -1,23 +1,28 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: v1/billing.proto
-//
-// @dart = 2.12
+// Generated from v1/billing.proto.
+
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
+// ignore_for_file: unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-import '../common/v1/common.pbjson.dart' as $9;
-import '../common/v1/money.pbjson.dart' as $7;
-import '../google/protobuf/struct.pbjson.dart' as $6;
-import '../google/protobuf/timestamp.pbjson.dart' as $2;
-import '../google/type/interval.pbjson.dart' as $8;
+import 'package:protobuf/well_known_types/google/protobuf/struct.pbjson.dart'
+    as $1;
+import 'package:protobuf/well_known_types/google/protobuf/timestamp.pbjson.dart'
+    as $0;
+
+import '../common/v1/common.pbjson.dart' as $4;
+import '../common/v1/money.pbjson.dart' as $2;
+import '../google/type/interval.pbjson.dart' as $3;
 
 @$core.Deprecated('Use pricingModelDescriptor instead')
 const PricingModel$json = {
@@ -168,11 +173,46 @@ const CatalogVersion$json = {
     {'1': 'version', '3': 3, '4': 1, '5': 5, '10': 'version'},
     {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'published_at', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'publishedAt'},
-    {'1': 'effective_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'effectiveAt'},
-    {'1': 'retired_at', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'retiredAt'},
-    {'1': 'data', '3': 9, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'plans', '3': 10, '4': 3, '5': 11, '6': '.billing.v1.Plan', '10': 'plans'},
+    {
+      '1': 'published_at',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'publishedAt'
+    },
+    {
+      '1': 'effective_at',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'effectiveAt'
+    },
+    {
+      '1': 'retired_at',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'retiredAt'
+    },
+    {
+      '1': 'data',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'plans',
+      '3': 10,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Plan',
+      '10': 'plans'
+    },
   ],
 };
 
@@ -192,12 +232,32 @@ const Plan$json = {
   '1': 'Plan',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'catalog_version_id', '3': 2, '4': 1, '5': 9, '10': 'catalogVersionId'},
+    {
+      '1': 'catalog_version_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'catalogVersionId'
+    },
     {'1': 'external_id', '3': 3, '4': 1, '5': 9, '10': 'externalId'},
     {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
     {'1': 'description', '3': 5, '4': 1, '5': 9, '10': 'description'},
-    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'components', '3': 7, '4': 3, '5': 11, '6': '.billing.v1.Component', '10': 'components'},
+    {
+      '1': 'data',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'components',
+      '3': 7,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Component',
+      '10': 'components'
+    },
   ],
 };
 
@@ -218,13 +278,55 @@ const Component$json = {
     {'1': 'external_id', '3': 3, '4': 1, '5': 9, '10': 'externalId'},
     {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
     {'1': 'metric_key', '3': 5, '4': 1, '5': 9, '10': 'metricKey'},
-    {'1': 'pricing_model', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.PricingModel', '10': 'pricingModel'},
-    {'1': 'aggregation_type', '3': 7, '4': 1, '5': 14, '6': '.billing.v1.AggregationType', '10': 'aggregationType'},
+    {
+      '1': 'pricing_model',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.PricingModel',
+      '10': 'pricingModel'
+    },
+    {
+      '1': 'aggregation_type',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.AggregationType',
+      '10': 'aggregationType'
+    },
     {'1': 'unit_name', '3': 8, '4': 1, '5': 9, '10': 'unitName'},
-    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'freeQuantity'},
-    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'minimumCharge'},
-    {'1': 'data', '3': 11, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'tiers', '3': 12, '4': 3, '5': 11, '6': '.billing.v1.Tier', '10': 'tiers'},
+    {
+      '1': 'free_quantity',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'freeQuantity'
+    },
+    {
+      '1': 'minimum_charge',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'minimumCharge'
+    },
+    {
+      '1': 'data',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'tiers',
+      '3': 12,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Tier',
+      '10': 'tiers'
+    },
   ],
 };
 
@@ -247,10 +349,38 @@ const Tier$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'component_id', '3': 2, '4': 1, '5': 9, '10': 'componentId'},
     {'1': 'sort_order', '3': 3, '4': 1, '5': 5, '10': 'sortOrder'},
-    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'lowerBound'},
-    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'upperBound'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
-    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'flatFee'},
+    {
+      '1': 'lower_bound',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'lowerBound'
+    },
+    {
+      '1': 'upper_bound',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'upperBound'
+    },
+    {
+      '1': 'unit_price',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'unitPrice'
+    },
+    {
+      '1': 'flat_fee',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'flatFee'
+    },
   ],
 };
 
@@ -269,15 +399,63 @@ const Subscription$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '10': 'profileId'},
-    {'1': 'catalog_version_id', '3': 3, '4': 1, '5': 9, '10': 'catalogVersionId'},
+    {
+      '1': 'catalog_version_id',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'catalogVersionId'
+    },
     {'1': 'plan_id', '3': 4, '4': 1, '5': 9, '10': 'planId'},
-    {'1': 'state', '3': 5, '4': 1, '5': 14, '6': '.billing.v1.SubscriptionState', '10': 'state'},
-    {'1': 'start_at', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'startAt'},
-    {'1': 'end_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'endAt'},
-    {'1': 'cancelled_at', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'cancelledAt'},
-    {'1': 'billing_anchor', '3': 9, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'billingAnchor'},
+    {
+      '1': 'state',
+      '3': 5,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.SubscriptionState',
+      '10': 'state'
+    },
+    {
+      '1': 'start_at',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'startAt'
+    },
+    {
+      '1': 'end_at',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'endAt'
+    },
+    {
+      '1': 'cancelled_at',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'cancelledAt'
+    },
+    {
+      '1': 'billing_anchor',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'billingAnchor'
+    },
     {'1': 'currency', '3': 10, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'data', '3': 11, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -303,10 +481,38 @@ const UsageEvent$json = {
     {'1': 'description', '3': 2, '4': 1, '5': 9, '10': 'description'},
     {'1': 'quantity', '3': 6, '4': 1, '5': 1, '10': 'quantity'},
     {'1': 'unit', '3': 12, '4': 1, '5': 9, '10': 'unit'},
-    {'1': 'timestamp', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'timestamp'},
-    {'1': 'interval', '3': 11, '4': 1, '5': 11, '6': '.google.type.Interval', '10': 'interval'},
-    {'1': 'amount', '3': 13, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
-    {'1': 'properties', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'properties'},
+    {
+      '1': 'timestamp',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'timestamp'
+    },
+    {
+      '1': 'interval',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.google.type.Interval',
+      '10': 'interval'
+    },
+    {
+      '1': 'amount',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
+    {
+      '1': 'properties',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'properties'
+    },
     {'1': 'group_id', '3': 14, '4': 1, '5': 9, '10': 'groupId'},
   ],
 };
@@ -331,20 +537,104 @@ const Invoice$json = {
     {'1': 'profile_id', '3': 3, '4': 1, '5': 9, '10': 'profileId'},
     {'1': 'subscription_id', '3': 4, '4': 1, '5': 9, '10': 'subscriptionId'},
     {'1': 'invoice_number', '3': 5, '4': 1, '5': 9, '10': 'invoiceNumber'},
-    {'1': 'state', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.InvoiceState', '10': 'state'},
+    {
+      '1': 'state',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.InvoiceState',
+      '10': 'state'
+    },
     {'1': 'currency', '3': 7, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'subtotal_amount', '3': 8, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'subtotalAmount'},
-    {'1': 'discount_amount', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'discountAmount'},
-    {'1': 'credit_amount', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'creditAmount'},
-    {'1': 'total_amount', '3': 11, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalAmount'},
-    {'1': 'period_start', '3': 12, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodStart'},
-    {'1': 'period_end', '3': 13, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodEnd'},
-    {'1': 'issued_at', '3': 14, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'issuedAt'},
-    {'1': 'due_at', '3': 15, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'dueAt'},
-    {'1': 'paid_at', '3': 16, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'paidAt'},
+    {
+      '1': 'subtotal_amount',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'subtotalAmount'
+    },
+    {
+      '1': 'discount_amount',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'discountAmount'
+    },
+    {
+      '1': 'credit_amount',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'creditAmount'
+    },
+    {
+      '1': 'total_amount',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalAmount'
+    },
+    {
+      '1': 'period_start',
+      '3': 12,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodStart'
+    },
+    {
+      '1': 'period_end',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodEnd'
+    },
+    {
+      '1': 'issued_at',
+      '3': 14,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'issuedAt'
+    },
+    {
+      '1': 'due_at',
+      '3': 15,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'dueAt'
+    },
+    {
+      '1': 'paid_at',
+      '3': 16,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'paidAt'
+    },
     {'1': 'ledger_txn_id', '3': 17, '4': 1, '5': 9, '10': 'ledgerTxnId'},
-    {'1': 'data', '3': 18, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'lines', '3': 19, '4': 3, '5': 11, '6': '.billing.v1.InvoiceLine', '10': 'lines'},
+    {
+      '1': 'data',
+      '3': 18,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'lines',
+      '3': 19,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.InvoiceLine',
+      '10': 'lines'
+    },
   ],
 };
 
@@ -376,14 +666,63 @@ const InvoiceLine$json = {
     {'1': 'component_id', '3': 3, '4': 1, '5': 9, '10': 'componentId'},
     {'1': 'description', '3': 4, '4': 1, '5': 9, '10': 'description'},
     {'1': 'quantity', '3': 5, '4': 1, '5': 1, '10': 'quantity'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
-    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
-    {'1': 'discount_amount', '3': 8, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'discountAmount'},
-    {'1': 'credit_amount', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'creditAmount'},
-    {'1': 'net_amount', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'netAmount'},
+    {
+      '1': 'unit_price',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'unitPrice'
+    },
+    {
+      '1': 'amount',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
+    {
+      '1': 'discount_amount',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'discountAmount'
+    },
+    {
+      '1': 'credit_amount',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'creditAmount'
+    },
+    {
+      '1': 'net_amount',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'netAmount'
+    },
     {'1': 'currency', '3': 11, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'line_type', '3': 12, '4': 1, '5': 14, '6': '.billing.v1.InvoiceLineType', '10': 'lineType'},
-    {'1': 'data', '3': 13, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'line_type',
+      '3': 12,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.InvoiceLineType',
+      '10': 'lineType'
+    },
+    {
+      '1': 'data',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -407,12 +746,40 @@ const CreditGrant$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '10': 'profileId'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'original_amount', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'originalAmount'},
-    {'1': 'remaining_amount', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'remainingAmount'},
+    {
+      '1': 'original_amount',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'originalAmount'
+    },
+    {
+      '1': 'remaining_amount',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'remainingAmount'
+    },
     {'1': 'currency', '3': 6, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'expires_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'expiresAt'},
+    {
+      '1': 'expires_at',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'expiresAt'
+    },
     {'1': 'priority', '3': 8, '4': 1, '5': 5, '10': 'priority'},
-    {'1': 'data', '3': 9, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -433,16 +800,71 @@ const BillingRun$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'subscription_id', '3': 2, '4': 1, '5': 9, '10': 'subscriptionId'},
     {'1': 'profile_id', '3': 3, '4': 1, '5': 9, '10': 'profileId'},
-    {'1': 'catalog_version_id', '3': 4, '4': 1, '5': 9, '10': 'catalogVersionId'},
-    {'1': 'state', '3': 5, '4': 1, '5': 14, '6': '.billing.v1.BillingRunState', '10': 'state'},
-    {'1': 'period_start', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodStart'},
-    {'1': 'period_end', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodEnd'},
-    {'1': 'started_at', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'startedAt'},
-    {'1': 'completed_at', '3': 9, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'completedAt'},
-    {'1': 'failed_at', '3': 10, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'failedAt'},
+    {
+      '1': 'catalog_version_id',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'catalogVersionId'
+    },
+    {
+      '1': 'state',
+      '3': 5,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.BillingRunState',
+      '10': 'state'
+    },
+    {
+      '1': 'period_start',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodStart'
+    },
+    {
+      '1': 'period_end',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodEnd'
+    },
+    {
+      '1': 'started_at',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'startedAt'
+    },
+    {
+      '1': 'completed_at',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'completedAt'
+    },
+    {
+      '1': 'failed_at',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'failedAt'
+    },
     {'1': 'error_message', '3': 11, '4': 1, '5': 9, '10': 'errorMessage'},
     {'1': 'invoice_id', '3': 12, '4': 1, '5': 9, '10': 'invoiceId'},
-    {'1': 'data', '3': 13, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -467,14 +889,49 @@ const Discount$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'discount_type', '3': 3, '4': 1, '5': 14, '6': '.billing.v1.DiscountType', '10': 'discountType'},
+    {
+      '1': 'discount_type',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.DiscountType',
+      '10': 'discountType'
+    },
     {'1': 'value', '3': 4, '4': 1, '5': 1, '10': 'value'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'applicable_to', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'applicableTo'},
-    {'1': 'start_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'startAt'},
-    {'1': 'end_at', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'endAt'},
+    {
+      '1': 'applicable_to',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'applicableTo'
+    },
+    {
+      '1': 'start_at',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'startAt'
+    },
+    {
+      '1': 'end_at',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'endAt'
+    },
     {'1': 'max_applications', '3': 9, '4': 1, '5': 5, '10': 'maxApplications'},
-    {'1': 'data', '3': 10, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -497,7 +954,14 @@ const CreateCatalogVersionRequest$json = {
     {'1': 'catalog_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'catalogId'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'name'},
     {'1': 'currency', '3': 4, '4': 1, '5': 9, '8': {}, '10': 'currency'},
-    {'1': 'data', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -513,14 +977,22 @@ final $typed_data.Uint8List createCatalogVersionRequestDescriptor = $convert.bas
 const CreateCatalogVersionResponse$json = {
   '1': 'CreateCatalogVersionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.CatalogVersion', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.CatalogVersion',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CreateCatalogVersionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List createCatalogVersionResponseDescriptor = $convert.base64Decode(
-    'ChxDcmVhdGVDYXRhbG9nVmVyc2lvblJlc3BvbnNlEi4KBGRhdGEYASABKAsyGi5iaWxsaW5nLn'
-    'YxLkNhdGFsb2dWZXJzaW9uUgRkYXRh');
+final $typed_data.Uint8List createCatalogVersionResponseDescriptor =
+    $convert.base64Decode(
+        'ChxDcmVhdGVDYXRhbG9nVmVyc2lvblJlc3BvbnNlEi4KBGRhdGEYASABKAsyGi5iaWxsaW5nLn'
+        'YxLkNhdGFsb2dWZXJzaW9uUgRkYXRh');
 
 @$core.Deprecated('Use getCatalogVersionRequestDescriptor instead')
 const GetCatalogVersionRequest$json = {
@@ -531,74 +1003,121 @@ const GetCatalogVersionRequest$json = {
 };
 
 /// Descriptor for `GetCatalogVersionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getCatalogVersionRequestDescriptor = $convert.base64Decode(
-    'ChhHZXRDYXRhbG9nVmVyc2lvblJlcXVlc3QSKwoCaWQYASABKAlCG7pIGHIWEAMYKDIQWzAtOW'
-    'Etel8tXXszLDQwfVICaWQ=');
+final $typed_data.Uint8List getCatalogVersionRequestDescriptor =
+    $convert.base64Decode(
+        'ChhHZXRDYXRhbG9nVmVyc2lvblJlcXVlc3QSKwoCaWQYASABKAlCG7pIGHIWEAMYKDIQWzAtOW'
+        'Etel8tXXszLDQwfVICaWQ=');
 
 @$core.Deprecated('Use getCatalogVersionResponseDescriptor instead')
 const GetCatalogVersionResponse$json = {
   '1': 'GetCatalogVersionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.CatalogVersion', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.CatalogVersion',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `GetCatalogVersionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getCatalogVersionResponseDescriptor = $convert.base64Decode(
-    'ChlHZXRDYXRhbG9nVmVyc2lvblJlc3BvbnNlEi4KBGRhdGEYASABKAsyGi5iaWxsaW5nLnYxLk'
-    'NhdGFsb2dWZXJzaW9uUgRkYXRh');
+final $typed_data.Uint8List getCatalogVersionResponseDescriptor =
+    $convert.base64Decode(
+        'ChlHZXRDYXRhbG9nVmVyc2lvblJlc3BvbnNlEi4KBGRhdGEYASABKAsyGi5iaWxsaW5nLnYxLk'
+        'NhdGFsb2dWZXJzaW9uUgRkYXRh');
 
 @$core.Deprecated('Use publishCatalogVersionRequestDescriptor instead')
 const PublishCatalogVersionRequest$json = {
   '1': 'PublishCatalogVersionRequest',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'effective_at', '3': 2, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'effectiveAt'},
+    {
+      '1': 'effective_at',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'effectiveAt'
+    },
   ],
 };
 
 /// Descriptor for `PublishCatalogVersionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List publishCatalogVersionRequestDescriptor = $convert.base64Decode(
-    'ChxQdWJsaXNoQ2F0YWxvZ1ZlcnNpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEF'
-    'swLTlhLXpfLV17Myw0MH1SAmlkEj0KDGVmZmVjdGl2ZV9hdBgCIAEoCzIaLmdvb2dsZS5wcm90'
-    'b2J1Zi5UaW1lc3RhbXBSC2VmZmVjdGl2ZUF0');
+final $typed_data.Uint8List publishCatalogVersionRequestDescriptor =
+    $convert.base64Decode(
+        'ChxQdWJsaXNoQ2F0YWxvZ1ZlcnNpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEF'
+        'swLTlhLXpfLV17Myw0MH1SAmlkEj0KDGVmZmVjdGl2ZV9hdBgCIAEoCzIaLmdvb2dsZS5wcm90'
+        'b2J1Zi5UaW1lc3RhbXBSC2VmZmVjdGl2ZUF0');
 
 @$core.Deprecated('Use publishCatalogVersionResponseDescriptor instead')
 const PublishCatalogVersionResponse$json = {
   '1': 'PublishCatalogVersionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.CatalogVersion', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.CatalogVersion',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `PublishCatalogVersionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List publishCatalogVersionResponseDescriptor = $convert.base64Decode(
-    'Ch1QdWJsaXNoQ2F0YWxvZ1ZlcnNpb25SZXNwb25zZRIuCgRkYXRhGAEgASgLMhouYmlsbGluZy'
-    '52MS5DYXRhbG9nVmVyc2lvblIEZGF0YQ==');
+final $typed_data.Uint8List publishCatalogVersionResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1QdWJsaXNoQ2F0YWxvZ1ZlcnNpb25SZXNwb25zZRIuCgRkYXRhGAEgASgLMhouYmlsbGluZy'
+        '52MS5DYXRhbG9nVmVyc2lvblIEZGF0YQ==');
 
 @$core.Deprecated('Use searchCatalogVersionsResponseDescriptor instead')
 const SearchCatalogVersionsResponse$json = {
   '1': 'SearchCatalogVersionsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.CatalogVersion', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.CatalogVersion',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchCatalogVersionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchCatalogVersionsResponseDescriptor = $convert.base64Decode(
-    'Ch1TZWFyY2hDYXRhbG9nVmVyc2lvbnNSZXNwb25zZRIuCgRkYXRhGAEgAygLMhouYmlsbGluZy'
-    '52MS5DYXRhbG9nVmVyc2lvblIEZGF0YQ==');
+final $typed_data.Uint8List searchCatalogVersionsResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1TZWFyY2hDYXRhbG9nVmVyc2lvbnNSZXNwb25zZRIuCgRkYXRhGAEgAygLMhouYmlsbGluZy'
+        '52MS5DYXRhbG9nVmVyc2lvblIEZGF0YQ==');
 
 @$core.Deprecated('Use createPlanRequestDescriptor instead')
 const CreatePlanRequest$json = {
   '1': 'CreatePlanRequest',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'catalog_version_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'catalogVersionId'},
+    {
+      '1': 'catalog_version_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '8': {},
+      '10': 'catalogVersionId'
+    },
     {'1': 'external_id', '3': 3, '4': 1, '5': 9, '10': 'externalId'},
     {'1': 'name', '3': 4, '4': 1, '5': 9, '8': {}, '10': 'name'},
     {'1': 'description', '3': 5, '4': 1, '5': 9, '10': 'description'},
-    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -614,7 +1133,14 @@ final $typed_data.Uint8List createPlanRequestDescriptor = $convert.base64Decode(
 const CreatePlanResponse$json = {
   '1': 'CreatePlanResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Plan', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Plan',
+      '10': 'data'
+    },
   ],
 };
 
@@ -632,12 +1158,47 @@ const CreateComponentRequest$json = {
     {'1': 'external_id', '3': 3, '4': 1, '5': 9, '10': 'externalId'},
     {'1': 'name', '3': 4, '4': 1, '5': 9, '8': {}, '10': 'name'},
     {'1': 'metric_key', '3': 5, '4': 1, '5': 9, '8': {}, '10': 'metricKey'},
-    {'1': 'pricing_model', '3': 6, '4': 1, '5': 14, '6': '.billing.v1.PricingModel', '10': 'pricingModel'},
-    {'1': 'aggregation_type', '3': 7, '4': 1, '5': 14, '6': '.billing.v1.AggregationType', '10': 'aggregationType'},
+    {
+      '1': 'pricing_model',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.PricingModel',
+      '10': 'pricingModel'
+    },
+    {
+      '1': 'aggregation_type',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.AggregationType',
+      '10': 'aggregationType'
+    },
     {'1': 'unit_name', '3': 8, '4': 1, '5': 9, '10': 'unitName'},
-    {'1': 'free_quantity', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'freeQuantity'},
-    {'1': 'minimum_charge', '3': 10, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'minimumCharge'},
-    {'1': 'data', '3': 11, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'free_quantity',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'freeQuantity'
+    },
+    {
+      '1': 'minimum_charge',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'minimumCharge'
+    },
+    {
+      '1': 'data',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -658,14 +1219,22 @@ final $typed_data.Uint8List createComponentRequestDescriptor = $convert.base64De
 const CreateComponentResponse$json = {
   '1': 'CreateComponentResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Component', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Component',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CreateComponentResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List createComponentResponseDescriptor = $convert.base64Decode(
-    'ChdDcmVhdGVDb21wb25lbnRSZXNwb25zZRIpCgRkYXRhGAEgASgLMhUuYmlsbGluZy52MS5Db2'
-    '1wb25lbnRSBGRhdGE=');
+final $typed_data.Uint8List createComponentResponseDescriptor =
+    $convert.base64Decode(
+        'ChdDcmVhdGVDb21wb25lbnRSZXNwb25zZRIpCgRkYXRhGAEgASgLMhUuYmlsbGluZy52MS5Db2'
+        '1wb25lbnRSBGRhdGE=');
 
 @$core.Deprecated('Use createTierRequestDescriptor instead')
 const CreateTierRequest$json = {
@@ -674,10 +1243,38 @@ const CreateTierRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'component_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'componentId'},
     {'1': 'sort_order', '3': 3, '4': 1, '5': 5, '10': 'sortOrder'},
-    {'1': 'lower_bound', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'lowerBound'},
-    {'1': 'upper_bound', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'upperBound'},
-    {'1': 'unit_price', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unitPrice'},
-    {'1': 'flat_fee', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'flatFee'},
+    {
+      '1': 'lower_bound',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'lowerBound'
+    },
+    {
+      '1': 'upper_bound',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'upperBound'
+    },
+    {
+      '1': 'unit_price',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'unitPrice'
+    },
+    {
+      '1': 'flat_fee',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'flatFee'
+    },
   ],
 };
 
@@ -695,7 +1292,14 @@ final $typed_data.Uint8List createTierRequestDescriptor = $convert.base64Decode(
 const CreateTierResponse$json = {
   '1': 'CreateTierResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Tier', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Tier',
+      '10': 'data'
+    },
   ],
 };
 
@@ -710,12 +1314,40 @@ const CreateSubscriptionRequest$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'profileId'},
-    {'1': 'catalog_version_id', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'catalogVersionId'},
+    {
+      '1': 'catalog_version_id',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '8': {},
+      '10': 'catalogVersionId'
+    },
     {'1': 'plan_id', '3': 4, '4': 1, '5': 9, '8': {}, '10': 'planId'},
-    {'1': 'start_at', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'startAt'},
-    {'1': 'billing_anchor', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'billingAnchor'},
+    {
+      '1': 'start_at',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'startAt'
+    },
+    {
+      '1': 'billing_anchor',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'billingAnchor'
+    },
     {'1': 'currency', '3': 7, '4': 1, '5': 9, '8': {}, '10': 'currency'},
-    {'1': 'data', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -734,14 +1366,22 @@ final $typed_data.Uint8List createSubscriptionRequestDescriptor = $convert.base6
 const CreateSubscriptionResponse$json = {
   '1': 'CreateSubscriptionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Subscription', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Subscription',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CreateSubscriptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List createSubscriptionResponseDescriptor = $convert.base64Decode(
-    'ChpDcmVhdGVTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS'
-    '5TdWJzY3JpcHRpb25SBGRhdGE=');
+final $typed_data.Uint8List createSubscriptionResponseDescriptor =
+    $convert.base64Decode(
+        'ChpDcmVhdGVTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS'
+        '5TdWJzY3JpcHRpb25SBGRhdGE=');
 
 @$core.Deprecated('Use getSubscriptionRequestDescriptor instead')
 const GetSubscriptionRequest$json = {
@@ -752,22 +1392,31 @@ const GetSubscriptionRequest$json = {
 };
 
 /// Descriptor for `GetSubscriptionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getSubscriptionRequestDescriptor = $convert.base64Decode(
-    'ChZHZXRTdWJzY3JpcHRpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLTlhLX'
-    'pfLV17Myw0MH1SAmlk');
+final $typed_data.Uint8List getSubscriptionRequestDescriptor =
+    $convert.base64Decode(
+        'ChZHZXRTdWJzY3JpcHRpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLTlhLX'
+        'pfLV17Myw0MH1SAmlk');
 
 @$core.Deprecated('Use getSubscriptionResponseDescriptor instead')
 const GetSubscriptionResponse$json = {
   '1': 'GetSubscriptionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Subscription', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Subscription',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `GetSubscriptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getSubscriptionResponseDescriptor = $convert.base64Decode(
-    'ChdHZXRTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS5TdW'
-    'JzY3JpcHRpb25SBGRhdGE=');
+final $typed_data.Uint8List getSubscriptionResponseDescriptor =
+    $convert.base64Decode(
+        'ChdHZXRTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS5TdW'
+        'JzY3JpcHRpb25SBGRhdGE=');
 
 @$core.Deprecated('Use cancelSubscriptionRequestDescriptor instead')
 const CancelSubscriptionRequest$json = {
@@ -778,22 +1427,31 @@ const CancelSubscriptionRequest$json = {
 };
 
 /// Descriptor for `CancelSubscriptionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List cancelSubscriptionRequestDescriptor = $convert.base64Decode(
-    'ChlDYW5jZWxTdWJzY3JpcHRpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLT'
-    'lhLXpfLV17Myw0MH1SAmlk');
+final $typed_data.Uint8List cancelSubscriptionRequestDescriptor =
+    $convert.base64Decode(
+        'ChlDYW5jZWxTdWJzY3JpcHRpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLT'
+        'lhLXpfLV17Myw0MH1SAmlk');
 
 @$core.Deprecated('Use cancelSubscriptionResponseDescriptor instead')
 const CancelSubscriptionResponse$json = {
   '1': 'CancelSubscriptionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Subscription', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Subscription',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CancelSubscriptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List cancelSubscriptionResponseDescriptor = $convert.base64Decode(
-    'ChpDYW5jZWxTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS'
-    '5TdWJzY3JpcHRpb25SBGRhdGE=');
+final $typed_data.Uint8List cancelSubscriptionResponseDescriptor =
+    $convert.base64Decode(
+        'ChpDYW5jZWxTdWJzY3JpcHRpb25SZXNwb25zZRIsCgRkYXRhGAEgASgLMhguYmlsbGluZy52MS'
+        '5TdWJzY3JpcHRpb25SBGRhdGE=');
 
 @$core.Deprecated('Use listSubscriptionsRequestDescriptor instead')
 const ListSubscriptionsRequest$json = {
@@ -804,35 +1462,52 @@ const ListSubscriptionsRequest$json = {
 };
 
 /// Descriptor for `ListSubscriptionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List listSubscriptionsRequestDescriptor = $convert.base64Decode(
-    'ChhMaXN0U3Vic2NyaXB0aW9uc1JlcXVlc3QSJgoKcHJvZmlsZV9pZBgBIAEoCUIHukgEcgIQAV'
-    'IJcHJvZmlsZUlk');
+final $typed_data.Uint8List listSubscriptionsRequestDescriptor =
+    $convert.base64Decode(
+        'ChhMaXN0U3Vic2NyaXB0aW9uc1JlcXVlc3QSJgoKcHJvZmlsZV9pZBgBIAEoCUIHukgEcgIQAV'
+        'IJcHJvZmlsZUlk');
 
 @$core.Deprecated('Use listSubscriptionsResponseDescriptor instead')
 const ListSubscriptionsResponse$json = {
   '1': 'ListSubscriptionsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.Subscription', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Subscription',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `ListSubscriptionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List listSubscriptionsResponseDescriptor = $convert.base64Decode(
-    'ChlMaXN0U3Vic2NyaXB0aW9uc1Jlc3BvbnNlEiwKBGRhdGEYASADKAsyGC5iaWxsaW5nLnYxLl'
-    'N1YnNjcmlwdGlvblIEZGF0YQ==');
+final $typed_data.Uint8List listSubscriptionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChlMaXN0U3Vic2NyaXB0aW9uc1Jlc3BvbnNlEiwKBGRhdGEYASADKAsyGC5iaWxsaW5nLnYxLl'
+        'N1YnNjcmlwdGlvblIEZGF0YQ==');
 
 @$core.Deprecated('Use ingestUsageEventRequestDescriptor instead')
 const IngestUsageEventRequest$json = {
   '1': 'IngestUsageEventRequest',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.UsageEvent', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.UsageEvent',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `IngestUsageEventRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List ingestUsageEventRequestDescriptor = $convert.base64Decode(
-    'ChdJbmdlc3RVc2FnZUV2ZW50UmVxdWVzdBIqCgRkYXRhGAEgAygLMhYuYmlsbGluZy52MS5Vc2'
-    'FnZUV2ZW50UgRkYXRh');
+final $typed_data.Uint8List ingestUsageEventRequestDescriptor =
+    $convert.base64Decode(
+        'ChdJbmdlc3RVc2FnZUV2ZW50UmVxdWVzdBIqCgRkYXRhGAEgAygLMhYuYmlsbGluZy52MS5Vc2'
+        'FnZUV2ZW50UgRkYXRh');
 
 @$core.Deprecated('Use ingestUsageEventResponseDescriptor instead')
 const IngestUsageEventResponse$json = {
@@ -843,29 +1518,59 @@ const IngestUsageEventResponse$json = {
 };
 
 /// Descriptor for `IngestUsageEventResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List ingestUsageEventResponseDescriptor = $convert.base64Decode(
-    'ChhJbmdlc3RVc2FnZUV2ZW50UmVzcG9uc2USEgoEZGF0YRgBIAMoCVIEZGF0YQ==');
+final $typed_data.Uint8List ingestUsageEventResponseDescriptor =
+    $convert.base64Decode(
+        'ChhJbmdlc3RVc2FnZUV2ZW50UmVzcG9uc2USEgoEZGF0YRgBIAMoCVIEZGF0YQ==');
 
 @$core.Deprecated('Use searchUsageEventsResponseDescriptor instead')
 const SearchUsageEventsResponse$json = {
   '1': 'SearchUsageEventsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.UsageEvent', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.UsageEvent',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchUsageEventsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchUsageEventsResponseDescriptor = $convert.base64Decode(
-    'ChlTZWFyY2hVc2FnZUV2ZW50c1Jlc3BvbnNlEioKBGRhdGEYASADKAsyFi5iaWxsaW5nLnYxLl'
-    'VzYWdlRXZlbnRSBGRhdGE=');
+final $typed_data.Uint8List searchUsageEventsResponseDescriptor =
+    $convert.base64Decode(
+        'ChlTZWFyY2hVc2FnZUV2ZW50c1Jlc3BvbnNlEioKBGRhdGEYASADKAsyFi5iaWxsaW5nLnYxLl'
+        'VzYWdlRXZlbnRSBGRhdGE=');
 
 @$core.Deprecated('Use runBillingRequestDescriptor instead')
 const RunBillingRequest$json = {
   '1': 'RunBillingRequest',
   '2': [
-    {'1': 'subscription_id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'subscriptionId'},
-    {'1': 'period_start', '3': 2, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodStart'},
-    {'1': 'period_end', '3': 3, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'periodEnd'},
+    {
+      '1': 'subscription_id',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '8': {},
+      '10': 'subscriptionId'
+    },
+    {
+      '1': 'period_start',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodStart'
+    },
+    {
+      '1': 'period_end',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'periodEnd'
+    },
   ],
 };
 
@@ -880,7 +1585,14 @@ final $typed_data.Uint8List runBillingRequestDescriptor = $convert.base64Decode(
 const RunBillingResponse$json = {
   '1': 'RunBillingResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.BillingRun', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.BillingRun',
+      '10': 'data'
+    },
   ],
 };
 
@@ -906,7 +1618,14 @@ final $typed_data.Uint8List getBillingRunRequestDescriptor = $convert.base64Deco
 const GetBillingRunResponse$json = {
   '1': 'GetBillingRunResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.BillingRun', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.BillingRun',
+      '10': 'data'
+    },
   ],
 };
 
@@ -932,7 +1651,14 @@ final $typed_data.Uint8List getInvoiceRequestDescriptor = $convert.base64Decode(
 const GetInvoiceResponse$json = {
   '1': 'GetInvoiceResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Invoice', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Invoice',
+      '10': 'data'
+    },
   ],
 };
 
@@ -958,7 +1684,14 @@ final $typed_data.Uint8List issueInvoiceRequestDescriptor = $convert.base64Decod
 const IssueInvoiceResponse$json = {
   '1': 'IssueInvoiceResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Invoice', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Invoice',
+      '10': 'data'
+    },
   ],
 };
 
@@ -984,7 +1717,14 @@ final $typed_data.Uint8List voidInvoiceRequestDescriptor = $convert.base64Decode
 const VoidInvoiceResponse$json = {
   '1': 'VoidInvoiceResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Invoice', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Invoice',
+      '10': 'data'
+    },
   ],
 };
 
@@ -1010,7 +1750,14 @@ final $typed_data.Uint8List recordPaymentRequestDescriptor = $convert.base64Deco
 const RecordPaymentResponse$json = {
   '1': 'RecordPaymentResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Invoice', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Invoice',
+      '10': 'data'
+    },
   ],
 };
 
@@ -1023,14 +1770,22 @@ final $typed_data.Uint8List recordPaymentResponseDescriptor = $convert.base64Dec
 const SearchInvoicesResponse$json = {
   '1': 'SearchInvoicesResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.Invoice', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Invoice',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchInvoicesResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchInvoicesResponseDescriptor = $convert.base64Decode(
-    'ChZTZWFyY2hJbnZvaWNlc1Jlc3BvbnNlEicKBGRhdGEYASADKAsyEy5iaWxsaW5nLnYxLkludm'
-    '9pY2VSBGRhdGE=');
+final $typed_data.Uint8List searchInvoicesResponseDescriptor =
+    $convert.base64Decode(
+        'ChZTZWFyY2hJbnZvaWNlc1Jlc3BvbnNlEicKBGRhdGEYASADKAsyEy5iaWxsaW5nLnYxLkludm'
+        '9pY2VSBGRhdGE=');
 
 @$core.Deprecated('Use grantCreditRequestDescriptor instead')
 const GrantCreditRequest$json = {
@@ -1039,11 +1794,32 @@ const GrantCreditRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'profile_id', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'profileId'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'name'},
-    {'1': 'amount', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {
+      '1': 'amount',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '8': {}, '10': 'currency'},
-    {'1': 'expires_at', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'expiresAt'},
+    {
+      '1': 'expires_at',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'expiresAt'
+    },
     {'1': 'priority', '3': 7, '4': 1, '5': 5, '10': 'priority'},
-    {'1': 'data', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -1061,7 +1837,14 @@ final $typed_data.Uint8List grantCreditRequestDescriptor = $convert.base64Decode
 const GrantCreditResponse$json = {
   '1': 'GrantCreditResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.CreditGrant', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.CreditGrant',
+      '10': 'data'
+    },
   ],
 };
 
@@ -1080,22 +1863,31 @@ const GetCreditBalanceRequest$json = {
 };
 
 /// Descriptor for `GetCreditBalanceRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getCreditBalanceRequestDescriptor = $convert.base64Decode(
-    'ChdHZXRDcmVkaXRCYWxhbmNlUmVxdWVzdBImCgpwcm9maWxlX2lkGAEgASgJQge6SARyAhABUg'
-    'lwcm9maWxlSWQSIwoIY3VycmVuY3kYAiABKAlCB7pIBHICEANSCGN1cnJlbmN5');
+final $typed_data.Uint8List getCreditBalanceRequestDescriptor =
+    $convert.base64Decode(
+        'ChdHZXRDcmVkaXRCYWxhbmNlUmVxdWVzdBImCgpwcm9maWxlX2lkGAEgASgJQge6SARyAhABUg'
+        'lwcm9maWxlSWQSIwoIY3VycmVuY3kYAiABKAlCB7pIBHICEANSCGN1cnJlbmN5');
 
 @$core.Deprecated('Use getCreditBalanceResponseDescriptor instead')
 const GetCreditBalanceResponse$json = {
   '1': 'GetCreditBalanceResponse',
   '2': [
-    {'1': 'balance', '3': 1, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'balance'},
+    {
+      '1': 'balance',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'balance'
+    },
   ],
 };
 
 /// Descriptor for `GetCreditBalanceResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getCreditBalanceResponseDescriptor = $convert.base64Decode(
-    'ChhHZXRDcmVkaXRCYWxhbmNlUmVzcG9uc2USKgoHYmFsYW5jZRgBIAEoCzIQLmNvbW1vbi52MS'
-    '5Nb25leVIHYmFsYW5jZQ==');
+final $typed_data.Uint8List getCreditBalanceResponseDescriptor =
+    $convert.base64Decode(
+        'ChhHZXRDcmVkaXRCYWxhbmNlUmVzcG9uc2USKgoHYmFsYW5jZRgBIAEoCzIQLmNvbW1vbi52MS'
+        '5Nb25leVIHYmFsYW5jZQ==');
 
 @$core.Deprecated('Use createDiscountRequestDescriptor instead')
 const CreateDiscountRequest$json = {
@@ -1103,14 +1895,49 @@ const CreateDiscountRequest$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'name', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'name'},
-    {'1': 'discount_type', '3': 3, '4': 1, '5': 14, '6': '.billing.v1.DiscountType', '10': 'discountType'},
+    {
+      '1': 'discount_type',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.billing.v1.DiscountType',
+      '10': 'discountType'
+    },
     {'1': 'value', '3': 4, '4': 1, '5': 1, '10': 'value'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'applicable_to', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'applicableTo'},
-    {'1': 'start_at', '3': 7, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'startAt'},
-    {'1': 'end_at', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Timestamp', '10': 'endAt'},
+    {
+      '1': 'applicable_to',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'applicableTo'
+    },
+    {
+      '1': 'start_at',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'startAt'
+    },
+    {
+      '1': 'end_at',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'endAt'
+    },
     {'1': 'max_applications', '3': 9, '4': 1, '5': 5, '10': 'maxApplications'},
-    {'1': 'data', '3': 10, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -1130,39 +1957,65 @@ final $typed_data.Uint8List createDiscountRequestDescriptor = $convert.base64Dec
 const CreateDiscountResponse$json = {
   '1': 'CreateDiscountResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.billing.v1.Discount', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.billing.v1.Discount',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CreateDiscountResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List createDiscountResponseDescriptor = $convert.base64Decode(
-    'ChZDcmVhdGVEaXNjb3VudFJlc3BvbnNlEigKBGRhdGEYASABKAsyFC5iaWxsaW5nLnYxLkRpc2'
-    'NvdW50UgRkYXRh');
+final $typed_data.Uint8List createDiscountResponseDescriptor =
+    $convert.base64Decode(
+        'ChZDcmVhdGVEaXNjb3VudFJlc3BvbnNlEigKBGRhdGEYASABKAsyFC5iaWxsaW5nLnYxLkRpc2'
+        'NvdW50UgRkYXRh');
 
 @$core.Deprecated('Use searchDiscountsResponseDescriptor instead')
 const SearchDiscountsResponse$json = {
   '1': 'SearchDiscountsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.billing.v1.Discount', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.billing.v1.Discount',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchDiscountsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchDiscountsResponseDescriptor = $convert.base64Decode(
-    'ChdTZWFyY2hEaXNjb3VudHNSZXNwb25zZRIoCgRkYXRhGAEgAygLMhQuYmlsbGluZy52MS5EaX'
-    'Njb3VudFIEZGF0YQ==');
+final $typed_data.Uint8List searchDiscountsResponseDescriptor =
+    $convert.base64Decode(
+        'ChdTZWFyY2hEaXNjb3VudHNSZXNwb25zZRIoCgRkYXRhGAEgAygLMhQuYmlsbGluZy52MS5EaX'
+        'Njb3VudFIEZGF0YQ==');
 
 const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
   '1': 'BillingService',
   '2': [
-    {'1': 'CreateCatalogVersion', '2': '.billing.v1.CreateCatalogVersionRequest', '3': '.billing.v1.CreateCatalogVersionResponse', '4': {}},
+    {
+      '1': 'CreateCatalogVersion',
+      '2': '.billing.v1.CreateCatalogVersionRequest',
+      '3': '.billing.v1.CreateCatalogVersionResponse',
+      '4': {}
+    },
     {
       '1': 'GetCatalogVersion',
       '2': '.billing.v1.GetCatalogVersionRequest',
       '3': '.billing.v1.GetCatalogVersionResponse',
       '4': {'34': 1},
     },
-    {'1': 'PublishCatalogVersion', '2': '.billing.v1.PublishCatalogVersionRequest', '3': '.billing.v1.PublishCatalogVersionResponse', '4': {}},
+    {
+      '1': 'PublishCatalogVersion',
+      '2': '.billing.v1.PublishCatalogVersionRequest',
+      '3': '.billing.v1.PublishCatalogVersionResponse',
+      '4': {}
+    },
     {
       '1': 'SearchCatalogVersions',
       '2': '.common.v1.SearchRequest',
@@ -1170,24 +2023,54 @@ const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'CreatePlan', '2': '.billing.v1.CreatePlanRequest', '3': '.billing.v1.CreatePlanResponse', '4': {}},
-    {'1': 'CreateComponent', '2': '.billing.v1.CreateComponentRequest', '3': '.billing.v1.CreateComponentResponse', '4': {}},
-    {'1': 'CreateTier', '2': '.billing.v1.CreateTierRequest', '3': '.billing.v1.CreateTierResponse', '4': {}},
-    {'1': 'CreateSubscription', '2': '.billing.v1.CreateSubscriptionRequest', '3': '.billing.v1.CreateSubscriptionResponse', '4': {}},
+    {
+      '1': 'CreatePlan',
+      '2': '.billing.v1.CreatePlanRequest',
+      '3': '.billing.v1.CreatePlanResponse',
+      '4': {}
+    },
+    {
+      '1': 'CreateComponent',
+      '2': '.billing.v1.CreateComponentRequest',
+      '3': '.billing.v1.CreateComponentResponse',
+      '4': {}
+    },
+    {
+      '1': 'CreateTier',
+      '2': '.billing.v1.CreateTierRequest',
+      '3': '.billing.v1.CreateTierResponse',
+      '4': {}
+    },
+    {
+      '1': 'CreateSubscription',
+      '2': '.billing.v1.CreateSubscriptionRequest',
+      '3': '.billing.v1.CreateSubscriptionResponse',
+      '4': {}
+    },
     {
       '1': 'GetSubscription',
       '2': '.billing.v1.GetSubscriptionRequest',
       '3': '.billing.v1.GetSubscriptionResponse',
       '4': {'34': 1},
     },
-    {'1': 'CancelSubscription', '2': '.billing.v1.CancelSubscriptionRequest', '3': '.billing.v1.CancelSubscriptionResponse', '4': {}},
+    {
+      '1': 'CancelSubscription',
+      '2': '.billing.v1.CancelSubscriptionRequest',
+      '3': '.billing.v1.CancelSubscriptionResponse',
+      '4': {}
+    },
     {
       '1': 'ListSubscriptions',
       '2': '.billing.v1.ListSubscriptionsRequest',
       '3': '.billing.v1.ListSubscriptionsResponse',
       '4': {'34': 1},
     },
-    {'1': 'IngestUsageEvent', '2': '.billing.v1.IngestUsageEventRequest', '3': '.billing.v1.IngestUsageEventResponse', '4': {}},
+    {
+      '1': 'IngestUsageEvent',
+      '2': '.billing.v1.IngestUsageEventRequest',
+      '3': '.billing.v1.IngestUsageEventResponse',
+      '4': {}
+    },
     {
       '1': 'SearchUsageEvents',
       '2': '.common.v1.SearchRequest',
@@ -1195,7 +2078,12 @@ const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'RunBilling', '2': '.billing.v1.RunBillingRequest', '3': '.billing.v1.RunBillingResponse', '4': {}},
+    {
+      '1': 'RunBilling',
+      '2': '.billing.v1.RunBillingRequest',
+      '3': '.billing.v1.RunBillingResponse',
+      '4': {}
+    },
     {
       '1': 'GetBillingRun',
       '2': '.billing.v1.GetBillingRunRequest',
@@ -1208,9 +2096,24 @@ const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
       '3': '.billing.v1.GetInvoiceResponse',
       '4': {'34': 1},
     },
-    {'1': 'IssueInvoice', '2': '.billing.v1.IssueInvoiceRequest', '3': '.billing.v1.IssueInvoiceResponse', '4': {}},
-    {'1': 'VoidInvoice', '2': '.billing.v1.VoidInvoiceRequest', '3': '.billing.v1.VoidInvoiceResponse', '4': {}},
-    {'1': 'RecordPayment', '2': '.billing.v1.RecordPaymentRequest', '3': '.billing.v1.RecordPaymentResponse', '4': {}},
+    {
+      '1': 'IssueInvoice',
+      '2': '.billing.v1.IssueInvoiceRequest',
+      '3': '.billing.v1.IssueInvoiceResponse',
+      '4': {}
+    },
+    {
+      '1': 'VoidInvoice',
+      '2': '.billing.v1.VoidInvoiceRequest',
+      '3': '.billing.v1.VoidInvoiceResponse',
+      '4': {}
+    },
+    {
+      '1': 'RecordPayment',
+      '2': '.billing.v1.RecordPaymentRequest',
+      '3': '.billing.v1.RecordPaymentResponse',
+      '4': {}
+    },
     {
       '1': 'SearchInvoices',
       '2': '.common.v1.SearchRequest',
@@ -1218,14 +2121,24 @@ const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'GrantCredit', '2': '.billing.v1.GrantCreditRequest', '3': '.billing.v1.GrantCreditResponse', '4': {}},
+    {
+      '1': 'GrantCredit',
+      '2': '.billing.v1.GrantCreditRequest',
+      '3': '.billing.v1.GrantCreditResponse',
+      '4': {}
+    },
     {
       '1': 'GetCreditBalance',
       '2': '.billing.v1.GetCreditBalanceRequest',
       '3': '.billing.v1.GetCreditBalanceResponse',
       '4': {'34': 1},
     },
-    {'1': 'CreateDiscount', '2': '.billing.v1.CreateDiscountRequest', '3': '.billing.v1.CreateDiscountResponse', '4': {}},
+    {
+      '1': 'CreateDiscount',
+      '2': '.billing.v1.CreateDiscountRequest',
+      '3': '.billing.v1.CreateDiscountResponse',
+      '4': {}
+    },
     {
       '1': 'SearchDiscounts',
       '2': '.common.v1.SearchRequest',
@@ -1238,26 +2151,29 @@ const $core.Map<$core.String, $core.dynamic> BillingServiceBase$json = {
 };
 
 @$core.Deprecated('Use billingServiceDescriptor instead')
-const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> BillingServiceBase$messageJson = {
+const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+    BillingServiceBase$messageJson = {
   '.billing.v1.CreateCatalogVersionRequest': CreateCatalogVersionRequest$json,
-  '.google.protobuf.Struct': $6.Struct$json,
-  '.google.protobuf.Struct.FieldsEntry': $6.Struct_FieldsEntry$json,
-  '.google.protobuf.Value': $6.Value$json,
-  '.google.protobuf.ListValue': $6.ListValue$json,
+  '.google.protobuf.Struct': $1.Struct$json,
+  '.google.protobuf.Struct.FieldsEntry': $1.Struct_FieldsEntry$json,
+  '.google.protobuf.Value': $1.Value$json,
+  '.google.protobuf.ListValue': $1.ListValue$json,
   '.billing.v1.CreateCatalogVersionResponse': CreateCatalogVersionResponse$json,
   '.billing.v1.CatalogVersion': CatalogVersion$json,
-  '.google.protobuf.Timestamp': $2.Timestamp$json,
+  '.google.protobuf.Timestamp': $0.Timestamp$json,
   '.billing.v1.Plan': Plan$json,
   '.billing.v1.Component': Component$json,
-  '.common.v1.Money': $7.Money$json,
+  '.common.v1.Money': $2.Money$json,
   '.billing.v1.Tier': Tier$json,
   '.billing.v1.GetCatalogVersionRequest': GetCatalogVersionRequest$json,
   '.billing.v1.GetCatalogVersionResponse': GetCatalogVersionResponse$json,
   '.billing.v1.PublishCatalogVersionRequest': PublishCatalogVersionRequest$json,
-  '.billing.v1.PublishCatalogVersionResponse': PublishCatalogVersionResponse$json,
-  '.common.v1.SearchRequest': $9.SearchRequest$json,
-  '.common.v1.PageCursor': $9.PageCursor$json,
-  '.billing.v1.SearchCatalogVersionsResponse': SearchCatalogVersionsResponse$json,
+  '.billing.v1.PublishCatalogVersionResponse':
+      PublishCatalogVersionResponse$json,
+  '.common.v1.SearchRequest': $4.SearchRequest$json,
+  '.common.v1.PageCursor': $4.PageCursor$json,
+  '.billing.v1.SearchCatalogVersionsResponse':
+      SearchCatalogVersionsResponse$json,
   '.billing.v1.CreatePlanRequest': CreatePlanRequest$json,
   '.billing.v1.CreatePlanResponse': CreatePlanResponse$json,
   '.billing.v1.CreateComponentRequest': CreateComponentRequest$json,
@@ -1275,7 +2191,7 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> BillingSer
   '.billing.v1.ListSubscriptionsResponse': ListSubscriptionsResponse$json,
   '.billing.v1.IngestUsageEventRequest': IngestUsageEventRequest$json,
   '.billing.v1.UsageEvent': UsageEvent$json,
-  '.google.type.Interval': $8.Interval$json,
+  '.google.type.Interval': $3.Interval$json,
   '.billing.v1.IngestUsageEventResponse': IngestUsageEventResponse$json,
   '.billing.v1.SearchUsageEventsResponse': SearchUsageEventsResponse$json,
   '.billing.v1.RunBillingRequest': RunBillingRequest$json,
@@ -1453,4 +2369,3 @@ final $typed_data.Uint8List billingServiceDescriptor = $convert.base64Decode(
     'ZpZXcSDHVzYWdlX2luZ2VzdBIQYmlsbGluZ19ydW5fdmlldxISYmlsbGluZ19ydW5fbWFuYWdl'
     'EgxpbnZvaWNlX3ZpZXcSDmludm9pY2VfbWFuYWdlEg5wYXltZW50X3JlY29yZBILY3JlZGl0X3'
     'ZpZXcSDWNyZWRpdF9tYW5hZ2USDWRpc2NvdW50X3ZpZXcSD2Rpc2NvdW50X21hbmFnZQ==');
-

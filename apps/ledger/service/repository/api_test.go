@@ -18,19 +18,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/antinvestor/service-payments/apps/ledger/tests"
 	"github.com/moby/moby/api/types/container"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/frametests/definition"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/frametests/definition"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
 	"github.com/rs/xid"
@@ -69,10 +71,10 @@ func (as *ConnectAPISuite) setupDependencies(
 	port, err := lContainer.MappedPort(ctx, "80")
 	require.NoError(t, err)
 
-	client := ledgerv1connect.NewLedgerServiceClient(
+	client := ledgerv1connect.NewLedgerServiceClient(connect.NewClient(connecthttp.NewTransport(
 		http.DefaultClient,
 		fmt.Sprintf("http://%s", net.JoinHostPort(host, port.Port())),
-	)
+	)))
 
 	err = as.createInitialAccounts(ctx, client)
 	require.NoError(t, err)
@@ -153,21 +155,21 @@ func (as *ConnectAPISuite) createInitialAccounts(
 	}
 
 	for _, req := range ledgers {
-		_, err := client.CreateLedger(ctx, connect.NewRequest(&ledgerv1.CreateLedgerRequest{
+		_, err := client.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{
 			Id:   req.GetId(),
 			Type: req.GetType(),
-		}))
+		})
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, req := range accounts {
-		_, err := client.CreateAccount(ctx, connect.NewRequest(&ledgerv1.CreateAccountRequest{
+		_, err := client.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{
 			Id:       req.GetId(),
 			LedgerId: req.GetLedger(),
 			Currency: "UGX", // Default currency
-		}))
+		})
 		if err != nil {
 			return err
 		}
@@ -247,7 +249,7 @@ func (as *ConnectAPISuite) TestTransactions() {
 
 		for _, tt := range testcases {
 			t.Run(tt.name, func(t *testing.T) {
-				result, err := lc.CreateTransaction(ctx, connect.NewRequest(&ledgerv1.CreateTransactionRequest{
+				result, err := lc.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
 					Id:           tt.request.GetId(),
 					Currency:     tt.request.GetCurrencyCode(),
 					TransactedAt: tt.request.GetTransactedAt(),
@@ -255,7 +257,7 @@ func (as *ConnectAPISuite) TestTransactions() {
 					Entries:      tt.request.GetEntries(),
 					Cleared:      tt.request.GetCleared(),
 					Type:         tt.request.GetType(),
-				}))
+				})
 				if err != nil {
 					if !tt.wantErr {
 						t.Errorf("Create Transaction () error = %v, wantErr %v", err, tt.wantErr)
@@ -263,21 +265,24 @@ func (as *ConnectAPISuite) TestTransactions() {
 					return
 				}
 
-				accRef := result.Msg.GetData().GetEntries()[0].GetAccountId()
+				accRef := result.GetData().GetEntries()[0].GetAccountId()
 				searchReq := &commonv1.SearchRequest{
 					Query: fmt.Sprintf(
 						"{\"query\": {\"must\": { \"fields\": [{\"id\": {\"eq\": \"%s\"}}]}}}",
 						accRef,
 					),
 				}
-				accountsStream, err := lc.SearchAccounts(ctx, connect.NewRequest(searchReq))
+				accountsStream, err := lc.SearchAccounts(ctx, searchReq)
 				require.NoError(t, err)
 
-				var acc *ledgerv1.SearchAccountsResponse
-				for accountsStream.Receive() {
-					acc = accountsStream.Msg()
-					break // We only need the first result for this test
+				defer func() { _ = accountsStream.Close() }()
+
+				// Only the first result matters for this test.
+				acc, err := accountsStream.Receive()
+				if errors.Is(err, io.EOF) {
+					t.Fatal("No account received")
 				}
+				require.NoError(t, err)
 				require.NotNil(t, acc, "No account received")
 				require.NotEmpty(t, acc.GetData(), "No account data in response")
 
@@ -368,7 +373,7 @@ func (as *ConnectAPISuite) TestClearBalances() {
 
 		for _, tt := range testcases {
 			t.Run(tt.name, func(t *testing.T) {
-				result, err := lc.CreateTransaction(ctx, connect.NewRequest(&ledgerv1.CreateTransactionRequest{
+				result, err := lc.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
 					Id:           tt.request.GetId(),
 					Currency:     tt.request.GetCurrencyCode(),
 					TransactedAt: tt.request.GetTransactedAt(),
@@ -376,7 +381,7 @@ func (as *ConnectAPISuite) TestClearBalances() {
 					Entries:      tt.request.GetEntries(),
 					Cleared:      tt.request.GetCleared(),
 					Type:         tt.request.GetType(),
-				}))
+				})
 				if err != nil {
 					if !tt.wantErr {
 						t.Fatalf("Transaction processing error = %v, wantErr %v", err, tt.wantErr)
@@ -384,21 +389,24 @@ func (as *ConnectAPISuite) TestClearBalances() {
 					return
 				}
 
-				accRef := result.Msg.GetData().GetEntries()[0].GetAccountId()
+				accRef := result.GetData().GetEntries()[0].GetAccountId()
 
-				accountsStream, err := lc.SearchAccounts(ctx, connect.NewRequest(&commonv1.SearchRequest{
+				accountsStream, err := lc.SearchAccounts(ctx, &commonv1.SearchRequest{
 					Query: fmt.Sprintf(
 						"{\"query\": {\"must\": { \"fields\": [{\"id\": {\"eq\": \"%s\"}}]}}}",
 						accRef,
 					),
-				}))
+				})
 				require.NoError(t, err)
 
-				var acc *ledgerv1.SearchAccountsResponse
-				for accountsStream.Receive() {
-					acc = accountsStream.Msg()
-					break // We only need the first result for this test
+				defer func() { _ = accountsStream.Close() }()
+
+				// Only the first result matters for this test.
+				acc, err := accountsStream.Receive()
+				if errors.Is(err, io.EOF) {
+					t.Fatal("No account received")
 				}
+				require.NoError(t, err)
 				require.NotNil(t, acc, "No account received")
 				require.NotEmpty(t, acc.GetData(), "No account data in response")
 

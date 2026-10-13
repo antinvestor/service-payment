@@ -23,16 +23,16 @@ import (
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
 
-	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v1/billingv1connect"
+	"buf.build/gen/go/antinvestor/billing/connectrpc/go/v2/v1/billingv1connect"
 	billingpb "buf.build/gen/go/antinvestor/billing/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common/v2"
-	"github.com/antinvestor/common/v2/connection"
-	"github.com/antinvestor/common/v2/permissions"
-	"github.com/antinvestor/common/v2/servicecatalog"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	apis "github.com/antinvestor/common/v3"
+	"github.com/antinvestor/common/v3/connection"
+	"github.com/antinvestor/common/v3/permissions"
+	"github.com/antinvestor/common/v3/servicecatalog"
 	aconfig "github.com/antinvestor/service-payments/apps/billing/config"
 	collectionv1 "github.com/antinvestor/service-payments/apps/billing/gen/collection/v1"
 	"github.com/antinvestor/service-payments/apps/billing/gen/collection/v1/collectionv1connect"
@@ -42,16 +42,16 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 
 	// Ledger integration dependencies.
+	"buf.build/gen/go/antinvestor/workflow/connectrpc/go/v2/v1/workflowv1connect"
 	ledgerBusiness "github.com/antinvestor/service-payments/apps/ledger/service/business"
 	ledgerRepo "github.com/antinvestor/service-payments/apps/ledger/service/repository"
-	"github.com/antinvestor/service-trustage/gen/go/workflow/v1/workflowv1connect"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/security"
-	"github.com/pitabwire/frame/v2/security/authorizer"
-	securityconnect "github.com/pitabwire/frame/v2/security/interceptors/connect"
-	"github.com/pitabwire/frame/v2/setup"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/security"
+	"github.com/pitabwire/frame/v3/security/authorizer"
+	securityconnect "github.com/pitabwire/frame/v3/security/interceptors/connect"
+	"github.com/pitabwire/frame/v3/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -327,6 +327,11 @@ func setupTrustageClient(
 	}, workflowv1connect.NewWorkflowServiceClient)
 }
 
+// billingMaxRequestMessageBytes caps one inbound Billing/Collection message.
+// connect v2 defaults to 4 MiB; IngestUsage carries an unbounded batch of usage
+// events, so the limit is set explicitly.
+const billingMaxRequestMessageBytes = 16 << 20
+
 // setupConnectServer mounts BillingService and CollectionService on one mux
 // with the standard interceptor chain: Auth → TenancyAccess → FunctionAccess.
 func setupConnectServer(
@@ -335,11 +340,6 @@ func setupConnectServer(
 	billingImpl billingv1connect.BillingServiceHandler,
 	collectionImpl collectionv1connect.CollectionServiceHandler,
 ) http.Handler {
-	otelInterceptor, err := otelconnect.NewInterceptor()
-	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("could not configure open telemetry")
-	}
-
 	auth := securityMan.GetAuthorizer(ctx)
 
 	// Layer 1: TenancyAccessChecker (Plane 1).
@@ -364,16 +364,13 @@ func setupConnectServer(
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not create default interceptors")
 	}
-	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
-	opts := connect.WithInterceptors(allInterceptors...)
+	// DefaultList already starts with the otelconnect server interceptor.
+	server := connect.NewServer(defaultInterceptorList...)
+	billingv1connect.RegisterBillingServiceHandler(server, billingImpl)
+	collectionv1connect.RegisterCollectionServiceHandler(server, collectionImpl)
 
 	mux := http.NewServeMux()
-
-	billingPath, billingHandler := billingv1connect.NewBillingServiceHandler(billingImpl, opts)
-	mux.Handle(billingPath, billingHandler)
-
-	collectionPath, collectionHandler := collectionv1connect.NewCollectionServiceHandler(collectionImpl, opts)
-	mux.Handle(collectionPath, collectionHandler)
+	connecthttp.Mount(mux, server, connecthttp.WithReadMaxBytes(billingMaxRequestMessageBytes))
 
 	return mux
 }

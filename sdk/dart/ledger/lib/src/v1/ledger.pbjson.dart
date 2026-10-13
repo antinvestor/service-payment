@@ -1,21 +1,25 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: v1/ledger.proto
-//
-// @dart = 2.12
+// Generated from v1/ledger.proto.
+
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
+// ignore_for_file: unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-import '../common/v1/common.pbjson.dart' as $8;
-import '../common/v1/money.pbjson.dart' as $7;
-import '../google/protobuf/struct.pbjson.dart' as $6;
+import 'package:protobuf/well_known_types/google/protobuf/struct.pbjson.dart'
+    as $0;
+
+import '../common/v1/common.pbjson.dart' as $2;
+import '../common/v1/money.pbjson.dart' as $1;
 
 @$core.Deprecated('Use ledgerTypeDescriptor instead')
 const LedgerType$json = {
@@ -114,9 +118,23 @@ const Ledger$json = {
   '1': 'Ledger',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'type', '3': 2, '4': 1, '5': 14, '6': '.ledger.v1.LedgerType', '10': 'type'},
+    {
+      '1': 'type',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.LedgerType',
+      '10': 'type'
+    },
     {'1': 'parent', '3': 3, '4': 1, '5': 9, '10': 'parent'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
     {'1': 'book_id', '3': 5, '4': 1, '5': 9, '10': 'bookId'},
   ],
 };
@@ -134,12 +152,54 @@ const Account$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'ledger', '3': 3, '4': 1, '5': 9, '10': 'ledger'},
-    {'1': 'balance', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'balance'},
-    {'1': 'data', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'uncleared_balance', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'unclearedBalance'},
-    {'1': 'reserved_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'reservedBalance'},
-    {'1': 'account_type', '3': 8, '4': 1, '5': 14, '6': '.ledger.v1.AccountType', '10': 'accountType'},
-    {'1': 'normal_balance', '3': 9, '4': 1, '5': 14, '6': '.ledger.v1.NormalBalance', '10': 'normalBalance'},
+    {
+      '1': 'balance',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'balance'
+    },
+    {
+      '1': 'data',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'uncleared_balance',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'unclearedBalance'
+    },
+    {
+      '1': 'reserved_balance',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'reservedBalance'
+    },
+    {
+      '1': 'account_type',
+      '3': 8,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.AccountType',
+      '10': 'accountType'
+    },
+    {
+      '1': 'normal_balance',
+      '3': 9,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.NormalBalance',
+      '10': 'normalBalance'
+    },
     {'1': 'book_id', '3': 10, '4': 1, '5': 9, '10': 'bookId'},
   ],
 };
@@ -150,6 +210,7 @@ final $typed_data.Uint8List accountDescriptor = $convert.base64Decode(
     'YKBmxlZGdlchgDIAEoCVIGbGVkZ2VyEioKB2JhbGFuY2UYBCABKAsyEC5jb21tb24udjEuTW9u'
     'ZXlSB2JhbGFuY2USKwoEZGF0YRgFIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RSBGRhdG'
     'ESPQoRdW5jbGVhcmVkX2JhbGFuY2UYBiABKAsyEC5jb21tb24udjEuTW9uZXlSEHVuY2xlYXJl'
+    'ZEJhbGFuY2USOwoQcmVzZXJ2ZWRfYmFsYW5jZRgHIAEoCzIQLmNvbW1vbi52MS5Nb25leVIPcm'
     'VzZXJ2ZWRCYWxhbmNlEjkKDGFjY291bnRfdHlwZRgIIAEoDjIWLmxlZGdlci52MS5BY2NvdW50'
     'VHlwZVILYWNjb3VudFR5cGUSPwoObm9ybWFsX2JhbGFuY2UYCSABKA4yGC5sZWRnZXIudjEuTm'
     '9ybWFsQmFsYW5jZVINbm9ybWFsQmFsYW5jZRIXCgdib29rX2lkGAogASgJUgZib29rSWQ=');
@@ -162,9 +223,23 @@ const TransactionEntry$json = {
     {'1': 'account_id', '3': 3, '4': 1, '5': 9, '10': 'accountId'},
     {'1': 'transaction_id', '3': 4, '4': 1, '5': 9, '10': 'transactionId'},
     {'1': 'transacted_at', '3': 5, '4': 1, '5': 9, '10': 'transactedAt'},
-    {'1': 'amount', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {
+      '1': 'amount',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
     {'1': 'credit', '3': 8, '4': 1, '5': 8, '10': 'credit'},
-    {'1': 'acc_balance', '3': 9, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'accBalance'},
+    {
+      '1': 'acc_balance',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'accBalance'
+    },
     {'1': 'cleared_at', '3': 11, '4': 1, '5': 9, '10': 'clearedAt'},
   ],
 };
@@ -185,18 +260,52 @@ const Transaction$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'currency_code', '3': 2, '4': 1, '5': 9, '10': 'currencyCode'},
     {'1': 'transacted_at', '3': 3, '4': 1, '5': 9, '10': 'transactedAt'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'entries', '3': 5, '4': 3, '5': 11, '6': '.ledger.v1.TransactionEntry', '10': 'entries'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'entries',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.TransactionEntry',
+      '10': 'entries'
+    },
     {'1': 'cleared', '3': 6, '4': 1, '5': 8, '10': 'cleared'},
-    {'1': 'type', '3': 7, '4': 1, '5': 14, '6': '.ledger.v1.TransactionType', '10': 'type'},
-    {'1': 'status', '3': 8, '4': 1, '5': 14, '6': '.ledger.v1.TransactionStatus', '10': 'status'},
+    {
+      '1': 'type',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.TransactionType',
+      '10': 'type'
+    },
+    {
+      '1': 'status',
+      '3': 8,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.TransactionStatus',
+      '10': 'status'
+    },
     {'1': 'idempotency_key', '3': 9, '4': 1, '5': 9, '10': 'idempotencyKey'},
     {'1': 'external_ref', '3': 10, '4': 1, '5': 9, '10': 'externalRef'},
     {'1': 'source', '3': 11, '4': 1, '5': 9, '10': 'source'},
     {'1': 'book_id', '3': 12, '4': 1, '5': 9, '10': 'bookId'},
     {'1': 'posted_at', '3': 13, '4': 1, '5': 9, '10': 'postedAt'},
     {'1': 'voided_at', '3': 14, '4': 1, '5': 9, '10': 'voidedAt'},
-    {'1': 'reversed_transaction_id', '3': 15, '4': 1, '5': 9, '10': 'reversedTransactionId'},
+    {
+      '1': 'reversed_transaction_id',
+      '3': 15,
+      '4': 1,
+      '5': 9,
+      '10': 'reversedTransactionId'
+    },
   ],
 };
 
@@ -223,7 +332,14 @@ const Book$json = {
     {'1': 'type', '3': 3, '4': 1, '5': 9, '10': 'type'},
     {'1': 'parent_id', '3': 4, '4': 1, '5': 9, '10': 'parentId'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -239,11 +355,39 @@ const TrialBalanceLine$json = {
   '2': [
     {'1': 'account_id', '3': 1, '4': 1, '5': 9, '10': 'accountId'},
     {'1': 'ledger_id', '3': 2, '4': 1, '5': 9, '10': 'ledgerId'},
-    {'1': 'ledger_type', '3': 3, '4': 1, '5': 14, '6': '.ledger.v1.LedgerType', '10': 'ledgerType'},
+    {
+      '1': 'ledger_type',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.LedgerType',
+      '10': 'ledgerType'
+    },
     {'1': 'currency', '3': 4, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'total_debits', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
-    {'1': 'total_credits', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
-    {'1': 'net_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'netBalance'},
+    {
+      '1': 'total_debits',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalDebits'
+    },
+    {
+      '1': 'total_credits',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalCredits'
+    },
+    {
+      '1': 'net_balance',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'netBalance'
+    },
   ],
 };
 
@@ -261,8 +405,22 @@ const TrialBalanceTotal$json = {
   '1': 'TrialBalanceTotal',
   '2': [
     {'1': 'currency', '3': 1, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'total_debits', '3': 2, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
-    {'1': 'total_credits', '3': 3, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
+    {
+      '1': 'total_debits',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalDebits'
+    },
+    {
+      '1': 'total_credits',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalCredits'
+    },
     {'1': 'is_balanced', '3': 4, '4': 1, '5': 8, '10': 'isBalanced'},
   ],
 };
@@ -281,11 +439,39 @@ const StatementEntry$json = {
     {'1': 'entry_id', '3': 1, '4': 1, '5': 9, '10': 'entryId'},
     {'1': 'transaction_id', '3': 2, '4': 1, '5': 9, '10': 'transactionId'},
     {'1': 'transacted_at', '3': 3, '4': 1, '5': 9, '10': 'transactedAt'},
-    {'1': 'transaction_type', '3': 4, '4': 1, '5': 14, '6': '.ledger.v1.TransactionType', '10': 'transactionType'},
-    {'1': 'amount', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'amount'},
+    {
+      '1': 'transaction_type',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.TransactionType',
+      '10': 'transactionType'
+    },
+    {
+      '1': 'amount',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
     {'1': 'credit', '3': 6, '4': 1, '5': 8, '10': 'credit'},
-    {'1': 'running_balance', '3': 7, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'runningBalance'},
-    {'1': 'transaction_data', '3': 8, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'transactionData'},
+    {
+      '1': 'running_balance',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'runningBalance'
+    },
+    {
+      '1': 'transaction_data',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'transactionData'
+    },
     {'1': 'cleared_at', '3': 9, '4': 1, '5': 9, '10': 'clearedAt'},
   ],
 };
@@ -305,7 +491,14 @@ final $typed_data.Uint8List statementEntryDescriptor = $convert.base64Decode(
 const SearchLedgersResponse$json = {
   '1': 'SearchLedgersResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.Ledger', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.Ledger',
+      '10': 'data'
+    },
   ],
 };
 
@@ -319,9 +512,23 @@ const CreateLedgerRequest$json = {
   '1': 'CreateLedgerRequest',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'type', '3': 2, '4': 1, '5': 14, '6': '.ledger.v1.LedgerType', '10': 'type'},
+    {
+      '1': 'type',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.LedgerType',
+      '10': 'type'
+    },
     {'1': 'parent_id', '3': 3, '4': 1, '5': 9, '10': 'parentId'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -336,7 +543,14 @@ final $typed_data.Uint8List createLedgerRequestDescriptor = $convert.base64Decod
 const CreateLedgerResponse$json = {
   '1': 'CreateLedgerResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Ledger', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Ledger',
+      '10': 'data'
+    },
   ],
 };
 
@@ -350,7 +564,14 @@ const UpdateLedgerRequest$json = {
   '1': 'UpdateLedgerRequest',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -363,7 +584,14 @@ final $typed_data.Uint8List updateLedgerRequestDescriptor = $convert.base64Decod
 const UpdateLedgerResponse$json = {
   '1': 'UpdateLedgerResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Ledger', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Ledger',
+      '10': 'data'
+    },
   ],
 };
 
@@ -376,14 +604,22 @@ final $typed_data.Uint8List updateLedgerResponseDescriptor = $convert.base64Deco
 const SearchAccountsResponse$json = {
   '1': 'SearchAccountsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.Account', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.Account',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchAccountsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchAccountsResponseDescriptor = $convert.base64Decode(
-    'ChZTZWFyY2hBY2NvdW50c1Jlc3BvbnNlEiYKBGRhdGEYASADKAsyEi5sZWRnZXIudjEuQWNjb3'
-    'VudFIEZGF0YQ==');
+final $typed_data.Uint8List searchAccountsResponseDescriptor =
+    $convert.base64Decode(
+        'ChZTZWFyY2hBY2NvdW50c1Jlc3BvbnNlEiYKBGRhdGEYASADKAsyEi5sZWRnZXIudjEuQWNjb3'
+        'VudFIEZGF0YQ==');
 
 @$core.Deprecated('Use createAccountRequestDescriptor instead')
 const CreateAccountRequest$json = {
@@ -392,7 +628,14 @@ const CreateAccountRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'ledger_id', '3': 3, '4': 1, '5': 9, '10': 'ledgerId'},
     {'1': 'currency', '3': 4, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'data', '3': 5, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -407,7 +650,14 @@ final $typed_data.Uint8List createAccountRequestDescriptor = $convert.base64Deco
 const CreateAccountResponse$json = {
   '1': 'CreateAccountResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Account', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Account',
+      '10': 'data'
+    },
   ],
 };
 
@@ -421,7 +671,14 @@ const UpdateAccountRequest$json = {
   '1': 'UpdateAccountRequest',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -435,7 +692,14 @@ final $typed_data.Uint8List updateAccountRequestDescriptor = $convert.base64Deco
 const UpdateAccountResponse$json = {
   '1': 'UpdateAccountResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Account', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Account',
+      '10': 'data'
+    },
   ],
 };
 
@@ -448,14 +712,22 @@ final $typed_data.Uint8List updateAccountResponseDescriptor = $convert.base64Dec
 const SearchTransactionsResponse$json = {
   '1': 'SearchTransactionsResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchTransactionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchTransactionsResponseDescriptor = $convert.base64Decode(
-    'ChpTZWFyY2hUcmFuc2FjdGlvbnNSZXNwb25zZRIqCgRkYXRhGAEgAygLMhYubGVkZ2VyLnYxLl'
-    'RyYW5zYWN0aW9uUgRkYXRh');
+final $typed_data.Uint8List searchTransactionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChpTZWFyY2hUcmFuc2FjdGlvbnNSZXNwb25zZRIqCgRkYXRhGAEgAygLMhYubGVkZ2VyLnYxLl'
+        'RyYW5zYWN0aW9uUgRkYXRh');
 
 @$core.Deprecated('Use createTransactionRequestDescriptor instead')
 const CreateTransactionRequest$json = {
@@ -464,10 +736,31 @@ const CreateTransactionRequest$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'currency', '3': 2, '4': 1, '5': 9, '10': 'currency'},
     {'1': 'transacted_at', '3': 3, '4': 1, '5': 9, '10': 'transactedAt'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
-    {'1': 'entries', '3': 5, '4': 3, '5': 11, '6': '.ledger.v1.TransactionEntry', '10': 'entries'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
+    {
+      '1': 'entries',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.TransactionEntry',
+      '10': 'entries'
+    },
     {'1': 'cleared', '3': 6, '4': 1, '5': 8, '10': 'cleared'},
-    {'1': 'type', '3': 7, '4': 1, '5': 14, '6': '.ledger.v1.TransactionType', '10': 'type'},
+    {
+      '1': 'type',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.ledger.v1.TransactionType',
+      '10': 'type'
+    },
   ],
 };
 
@@ -484,14 +777,22 @@ final $typed_data.Uint8List createTransactionRequestDescriptor = $convert.base64
 const CreateTransactionResponse$json = {
   '1': 'CreateTransactionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `CreateTransactionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List createTransactionResponseDescriptor = $convert.base64Decode(
-    'ChlDcmVhdGVUcmFuc2FjdGlvblJlc3BvbnNlEioKBGRhdGEYASABKAsyFi5sZWRnZXIudjEuVH'
-    'JhbnNhY3Rpb25SBGRhdGE=');
+final $typed_data.Uint8List createTransactionResponseDescriptor =
+    $convert.base64Decode(
+        'ChlDcmVhdGVUcmFuc2FjdGlvblJlc3BvbnNlEioKBGRhdGEYASABKAsyFi5sZWRnZXIudjEuVH'
+        'JhbnNhY3Rpb25SBGRhdGE=');
 
 @$core.Deprecated('Use reverseTransactionRequestDescriptor instead')
 const ReverseTransactionRequest$json = {
@@ -502,22 +803,31 @@ const ReverseTransactionRequest$json = {
 };
 
 /// Descriptor for `ReverseTransactionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List reverseTransactionRequestDescriptor = $convert.base64Decode(
-    'ChlSZXZlcnNlVHJhbnNhY3Rpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLT'
-    'lhLXpfLV17Myw0MH1SAmlk');
+final $typed_data.Uint8List reverseTransactionRequestDescriptor =
+    $convert.base64Decode(
+        'ChlSZXZlcnNlVHJhbnNhY3Rpb25SZXF1ZXN0EisKAmlkGAEgASgJQhu6SBhyFhADGCgyEFswLT'
+        'lhLXpfLV17Myw0MH1SAmlk');
 
 @$core.Deprecated('Use reverseTransactionResponseDescriptor instead')
 const ReverseTransactionResponse$json = {
   '1': 'ReverseTransactionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `ReverseTransactionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List reverseTransactionResponseDescriptor = $convert.base64Decode(
-    'ChpSZXZlcnNlVHJhbnNhY3Rpb25SZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLnYxLl'
-    'RyYW5zYWN0aW9uUgRkYXRh');
+final $typed_data.Uint8List reverseTransactionResponseDescriptor =
+    $convert.base64Decode(
+        'ChpSZXZlcnNlVHJhbnNhY3Rpb25SZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLnYxLl'
+        'RyYW5zYWN0aW9uUgRkYXRh');
 
 @$core.Deprecated('Use updateTransactionRequestDescriptor instead')
 const UpdateTransactionRequest$json = {
@@ -525,7 +835,14 @@ const UpdateTransactionRequest$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'id'},
     {'1': 'cleared_at', '3': 2, '4': 1, '5': 9, '10': 'clearedAt'},
-    {'1': 'data', '3': 4, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -539,27 +856,43 @@ final $typed_data.Uint8List updateTransactionRequestDescriptor = $convert.base64
 const UpdateTransactionResponse$json = {
   '1': 'UpdateTransactionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `UpdateTransactionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List updateTransactionResponseDescriptor = $convert.base64Decode(
-    'ChlVcGRhdGVUcmFuc2FjdGlvblJlc3BvbnNlEioKBGRhdGEYASABKAsyFi5sZWRnZXIudjEuVH'
-    'JhbnNhY3Rpb25SBGRhdGE=');
+final $typed_data.Uint8List updateTransactionResponseDescriptor =
+    $convert.base64Decode(
+        'ChlVcGRhdGVUcmFuc2FjdGlvblJlc3BvbnNlEioKBGRhdGEYASABKAsyFi5sZWRnZXIudjEuVH'
+        'JhbnNhY3Rpb25SBGRhdGE=');
 
 @$core.Deprecated('Use searchTransactionEntriesResponseDescriptor instead')
 const SearchTransactionEntriesResponse$json = {
   '1': 'SearchTransactionEntriesResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.TransactionEntry', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.TransactionEntry',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `SearchTransactionEntriesResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchTransactionEntriesResponseDescriptor = $convert.base64Decode(
-    'CiBTZWFyY2hUcmFuc2FjdGlvbkVudHJpZXNSZXNwb25zZRIvCgRkYXRhGAEgAygLMhsubGVkZ2'
-    'VyLnYxLlRyYW5zYWN0aW9uRW50cnlSBGRhdGE=');
+final $typed_data.Uint8List searchTransactionEntriesResponseDescriptor =
+    $convert.base64Decode(
+        'CiBTZWFyY2hUcmFuc2FjdGlvbkVudHJpZXNSZXNwb25zZRIvCgRkYXRhGAEgAygLMhsubGVkZ2'
+        'VyLnYxLlRyYW5zYWN0aW9uRW50cnlSBGRhdGE=');
 
 @$core.Deprecated('Use createBookRequestDescriptor instead')
 const CreateBookRequest$json = {
@@ -570,7 +903,14 @@ const CreateBookRequest$json = {
     {'1': 'type', '3': 3, '4': 1, '5': 9, '10': 'type'},
     {'1': 'parent_id', '3': 4, '4': 1, '5': 9, '10': 'parentId'},
     {'1': 'currency', '3': 5, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'data', '3': 6, '4': 1, '5': 11, '6': '.google.protobuf.Struct', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'data'
+    },
   ],
 };
 
@@ -585,7 +925,14 @@ final $typed_data.Uint8List createBookRequestDescriptor = $convert.base64Decode(
 const CreateBookResponse$json = {
   '1': 'CreateBookResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Book',
+      '10': 'data'
+    },
   ],
 };
 
@@ -603,14 +950,21 @@ const GetBookRequest$json = {
 };
 
 /// Descriptor for `GetBookRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getBookRequestDescriptor = $convert.base64Decode(
-    'Cg5HZXRCb29rUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+final $typed_data.Uint8List getBookRequestDescriptor =
+    $convert.base64Decode('Cg5HZXRCb29rUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
 
 @$core.Deprecated('Use getBookResponseDescriptor instead')
 const GetBookResponse$json = {
   '1': 'GetBookResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Book',
+      '10': 'data'
+    },
   ],
 };
 
@@ -627,21 +981,30 @@ const ListBooksByTypeRequest$json = {
 };
 
 /// Descriptor for `ListBooksByTypeRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List listBooksByTypeRequestDescriptor = $convert.base64Decode(
-    'ChZMaXN0Qm9va3NCeVR5cGVSZXF1ZXN0EhIKBHR5cGUYASABKAlSBHR5cGU=');
+final $typed_data.Uint8List listBooksByTypeRequestDescriptor =
+    $convert.base64Decode(
+        'ChZMaXN0Qm9va3NCeVR5cGVSZXF1ZXN0EhIKBHR5cGUYASABKAlSBHR5cGU=');
 
 @$core.Deprecated('Use listBooksByTypeResponseDescriptor instead')
 const ListBooksByTypeResponse$json = {
   '1': 'ListBooksByTypeResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.Book', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.Book',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `ListBooksByTypeResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List listBooksByTypeResponseDescriptor = $convert.base64Decode(
-    'ChdMaXN0Qm9va3NCeVR5cGVSZXNwb25zZRIjCgRkYXRhGAEgAygLMg8ubGVkZ2VyLnYxLkJvb2'
-    'tSBGRhdGE=');
+final $typed_data.Uint8List listBooksByTypeResponseDescriptor =
+    $convert.base64Decode(
+        'ChdMaXN0Qm9va3NCeVR5cGVSZXNwb25zZRIjCgRkYXRhGAEgAygLMg8ubGVkZ2VyLnYxLkJvb2'
+        'tSBGRhdGE=');
 
 @$core.Deprecated('Use getTrialBalanceRequestDescriptor instead')
 const GetTrialBalanceRequest$json = {
@@ -665,8 +1028,22 @@ final $typed_data.Uint8List getTrialBalanceRequestDescriptor = $convert.base64De
 const GetTrialBalanceResponse$json = {
   '1': 'GetTrialBalanceResponse',
   '2': [
-    {'1': 'lines', '3': 1, '4': 3, '5': 11, '6': '.ledger.v1.TrialBalanceLine', '10': 'lines'},
-    {'1': 'totals', '3': 2, '4': 3, '5': 11, '6': '.ledger.v1.TrialBalanceTotal', '10': 'totals'},
+    {
+      '1': 'lines',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.TrialBalanceLine',
+      '10': 'lines'
+    },
+    {
+      '1': 'totals',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.TrialBalanceTotal',
+      '10': 'totals'
+    },
   ],
 };
 
@@ -689,10 +1066,11 @@ const GetAccountStatementRequest$json = {
 };
 
 /// Descriptor for `GetAccountStatementRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List getAccountStatementRequestDescriptor = $convert.base64Decode(
-    'ChpHZXRBY2NvdW50U3RhdGVtZW50UmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJUglhY2NvdW'
-    '50SWQSEgoEZnJvbRgCIAEoCVIEZnJvbRIOCgJ0bxgDIAEoCVICdG8SFAoFbGltaXQYBCABKAVS'
-    'BWxpbWl0EhYKBm9mZnNldBgFIAEoBVIGb2Zmc2V0');
+final $typed_data.Uint8List getAccountStatementRequestDescriptor =
+    $convert.base64Decode(
+        'ChpHZXRBY2NvdW50U3RhdGVtZW50UmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJUglhY2NvdW'
+        '50SWQSEgoEZnJvbRgCIAEoCVIEZnJvbRIOCgJ0bxgDIAEoCVICdG8SFAoFbGltaXQYBCABKAVS'
+        'BWxpbWl0EhYKBm9mZnNldBgFIAEoBVIGb2Zmc2V0');
 
 @$core.Deprecated('Use getAccountStatementResponseDescriptor instead')
 const GetAccountStatementResponse$json = {
@@ -700,11 +1078,46 @@ const GetAccountStatementResponse$json = {
   '2': [
     {'1': 'account_id', '3': 1, '4': 1, '5': 9, '10': 'accountId'},
     {'1': 'currency', '3': 2, '4': 1, '5': 9, '10': 'currency'},
-    {'1': 'opening_balance', '3': 3, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'openingBalance'},
-    {'1': 'closing_balance', '3': 4, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'closingBalance'},
-    {'1': 'total_debits', '3': 5, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalDebits'},
-    {'1': 'total_credits', '3': 6, '4': 1, '5': 11, '6': '.common.v1.Money', '10': 'totalCredits'},
-    {'1': 'entries', '3': 7, '4': 3, '5': 11, '6': '.ledger.v1.StatementEntry', '10': 'entries'},
+    {
+      '1': 'opening_balance',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'openingBalance'
+    },
+    {
+      '1': 'closing_balance',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'closingBalance'
+    },
+    {
+      '1': 'total_debits',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalDebits'
+    },
+    {
+      '1': 'total_credits',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'totalCredits'
+    },
+    {
+      '1': 'entries',
+      '3': 7,
+      '4': 3,
+      '5': 11,
+      '6': '.ledger.v1.StatementEntry',
+      '10': 'entries'
+    },
   ],
 };
 
@@ -727,21 +1140,29 @@ const VoidTransactionRequest$json = {
 };
 
 /// Descriptor for `VoidTransactionRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List voidTransactionRequestDescriptor = $convert.base64Decode(
-    'ChZWb2lkVHJhbnNhY3Rpb25SZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
+final $typed_data.Uint8List voidTransactionRequestDescriptor = $convert
+    .base64Decode('ChZWb2lkVHJhbnNhY3Rpb25SZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
 
 @$core.Deprecated('Use voidTransactionResponseDescriptor instead')
 const VoidTransactionResponse$json = {
   '1': 'VoidTransactionResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `VoidTransactionResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List voidTransactionResponseDescriptor = $convert.base64Decode(
-    'ChdWb2lkVHJhbnNhY3Rpb25SZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLnYxLlRyYW'
-    '5zYWN0aW9uUgRkYXRh');
+final $typed_data.Uint8List voidTransactionResponseDescriptor =
+    $convert.base64Decode(
+        'ChdWb2lkVHJhbnNhY3Rpb25SZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLnYxLlRyYW'
+        '5zYWN0aW9uUgRkYXRh');
 
 @$core.Deprecated('Use markTransactionFailedRequestDescriptor instead')
 const MarkTransactionFailedRequest$json = {
@@ -752,21 +1173,30 @@ const MarkTransactionFailedRequest$json = {
 };
 
 /// Descriptor for `MarkTransactionFailedRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List markTransactionFailedRequestDescriptor = $convert.base64Decode(
-    'ChxNYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
+final $typed_data.Uint8List markTransactionFailedRequestDescriptor =
+    $convert.base64Decode(
+        'ChxNYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
 
 @$core.Deprecated('Use markTransactionFailedResponseDescriptor instead')
 const MarkTransactionFailedResponse$json = {
   '1': 'MarkTransactionFailedResponse',
   '2': [
-    {'1': 'data', '3': 1, '4': 1, '5': 11, '6': '.ledger.v1.Transaction', '10': 'data'},
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.ledger.v1.Transaction',
+      '10': 'data'
+    },
   ],
 };
 
 /// Descriptor for `MarkTransactionFailedResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List markTransactionFailedResponseDescriptor = $convert.base64Decode(
-    'Ch1NYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLn'
-    'YxLlRyYW5zYWN0aW9uUgRkYXRh');
+final $typed_data.Uint8List markTransactionFailedResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1NYXJrVHJhbnNhY3Rpb25GYWlsZWRSZXNwb25zZRIqCgRkYXRhGAEgASgLMhYubGVkZ2VyLn'
+        'YxLlRyYW5zYWN0aW9uUgRkYXRh');
 
 const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
   '1': 'LedgerService',
@@ -778,8 +1208,18 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'CreateLedger', '2': '.ledger.v1.CreateLedgerRequest', '3': '.ledger.v1.CreateLedgerResponse', '4': {}},
-    {'1': 'UpdateLedger', '2': '.ledger.v1.UpdateLedgerRequest', '3': '.ledger.v1.UpdateLedgerResponse', '4': {}},
+    {
+      '1': 'CreateLedger',
+      '2': '.ledger.v1.CreateLedgerRequest',
+      '3': '.ledger.v1.CreateLedgerResponse',
+      '4': {}
+    },
+    {
+      '1': 'UpdateLedger',
+      '2': '.ledger.v1.UpdateLedgerRequest',
+      '3': '.ledger.v1.UpdateLedgerResponse',
+      '4': {}
+    },
     {
       '1': 'SearchAccounts',
       '2': '.common.v1.SearchRequest',
@@ -787,8 +1227,18 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'CreateAccount', '2': '.ledger.v1.CreateAccountRequest', '3': '.ledger.v1.CreateAccountResponse', '4': {}},
-    {'1': 'UpdateAccount', '2': '.ledger.v1.UpdateAccountRequest', '3': '.ledger.v1.UpdateAccountResponse', '4': {}},
+    {
+      '1': 'CreateAccount',
+      '2': '.ledger.v1.CreateAccountRequest',
+      '3': '.ledger.v1.CreateAccountResponse',
+      '4': {}
+    },
+    {
+      '1': 'UpdateAccount',
+      '2': '.ledger.v1.UpdateAccountRequest',
+      '3': '.ledger.v1.UpdateAccountResponse',
+      '4': {}
+    },
     {
       '1': 'SearchTransactions',
       '2': '.common.v1.SearchRequest',
@@ -796,9 +1246,24 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'CreateTransaction', '2': '.ledger.v1.CreateTransactionRequest', '3': '.ledger.v1.CreateTransactionResponse', '4': {}},
-    {'1': 'ReverseTransaction', '2': '.ledger.v1.ReverseTransactionRequest', '3': '.ledger.v1.ReverseTransactionResponse', '4': {}},
-    {'1': 'UpdateTransaction', '2': '.ledger.v1.UpdateTransactionRequest', '3': '.ledger.v1.UpdateTransactionResponse', '4': {}},
+    {
+      '1': 'CreateTransaction',
+      '2': '.ledger.v1.CreateTransactionRequest',
+      '3': '.ledger.v1.CreateTransactionResponse',
+      '4': {}
+    },
+    {
+      '1': 'ReverseTransaction',
+      '2': '.ledger.v1.ReverseTransactionRequest',
+      '3': '.ledger.v1.ReverseTransactionResponse',
+      '4': {}
+    },
+    {
+      '1': 'UpdateTransaction',
+      '2': '.ledger.v1.UpdateTransactionRequest',
+      '3': '.ledger.v1.UpdateTransactionResponse',
+      '4': {}
+    },
     {
       '1': 'SearchTransactionEntries',
       '2': '.common.v1.SearchRequest',
@@ -806,9 +1271,24 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
       '4': {'34': 1},
       '6': true,
     },
-    {'1': 'VoidTransaction', '2': '.ledger.v1.VoidTransactionRequest', '3': '.ledger.v1.VoidTransactionResponse', '4': {}},
-    {'1': 'MarkTransactionFailed', '2': '.ledger.v1.MarkTransactionFailedRequest', '3': '.ledger.v1.MarkTransactionFailedResponse', '4': {}},
-    {'1': 'CreateBook', '2': '.ledger.v1.CreateBookRequest', '3': '.ledger.v1.CreateBookResponse', '4': {}},
+    {
+      '1': 'VoidTransaction',
+      '2': '.ledger.v1.VoidTransactionRequest',
+      '3': '.ledger.v1.VoidTransactionResponse',
+      '4': {}
+    },
+    {
+      '1': 'MarkTransactionFailed',
+      '2': '.ledger.v1.MarkTransactionFailedRequest',
+      '3': '.ledger.v1.MarkTransactionFailedResponse',
+      '4': {}
+    },
+    {
+      '1': 'CreateBook',
+      '2': '.ledger.v1.CreateBookRequest',
+      '3': '.ledger.v1.CreateBookResponse',
+      '4': {}
+    },
     {
       '1': 'GetBook',
       '2': '.ledger.v1.GetBookRequest',
@@ -838,13 +1318,14 @@ const $core.Map<$core.String, $core.dynamic> LedgerServiceBase$json = {
 };
 
 @$core.Deprecated('Use ledgerServiceDescriptor instead')
-const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> LedgerServiceBase$messageJson = {
-  '.common.v1.SearchRequest': $8.SearchRequest$json,
-  '.common.v1.PageCursor': $8.PageCursor$json,
-  '.google.protobuf.Struct': $6.Struct$json,
-  '.google.protobuf.Struct.FieldsEntry': $6.Struct_FieldsEntry$json,
-  '.google.protobuf.Value': $6.Value$json,
-  '.google.protobuf.ListValue': $6.ListValue$json,
+const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+    LedgerServiceBase$messageJson = {
+  '.common.v1.SearchRequest': $2.SearchRequest$json,
+  '.common.v1.PageCursor': $2.PageCursor$json,
+  '.google.protobuf.Struct': $0.Struct$json,
+  '.google.protobuf.Struct.FieldsEntry': $0.Struct_FieldsEntry$json,
+  '.google.protobuf.Value': $0.Value$json,
+  '.google.protobuf.ListValue': $0.ListValue$json,
   '.ledger.v1.SearchLedgersResponse': SearchLedgersResponse$json,
   '.ledger.v1.Ledger': Ledger$json,
   '.ledger.v1.CreateLedgerRequest': CreateLedgerRequest$json,
@@ -853,7 +1334,7 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> LedgerServ
   '.ledger.v1.UpdateLedgerResponse': UpdateLedgerResponse$json,
   '.ledger.v1.SearchAccountsResponse': SearchAccountsResponse$json,
   '.ledger.v1.Account': Account$json,
-  '.common.v1.Money': $7.Money$json,
+  '.common.v1.Money': $1.Money$json,
   '.ledger.v1.CreateAccountRequest': CreateAccountRequest$json,
   '.ledger.v1.CreateAccountResponse': CreateAccountResponse$json,
   '.ledger.v1.UpdateAccountRequest': UpdateAccountRequest$json,
@@ -867,11 +1348,13 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>> LedgerServ
   '.ledger.v1.ReverseTransactionResponse': ReverseTransactionResponse$json,
   '.ledger.v1.UpdateTransactionRequest': UpdateTransactionRequest$json,
   '.ledger.v1.UpdateTransactionResponse': UpdateTransactionResponse$json,
-  '.ledger.v1.SearchTransactionEntriesResponse': SearchTransactionEntriesResponse$json,
+  '.ledger.v1.SearchTransactionEntriesResponse':
+      SearchTransactionEntriesResponse$json,
   '.ledger.v1.VoidTransactionRequest': VoidTransactionRequest$json,
   '.ledger.v1.VoidTransactionResponse': VoidTransactionResponse$json,
   '.ledger.v1.MarkTransactionFailedRequest': MarkTransactionFailedRequest$json,
-  '.ledger.v1.MarkTransactionFailedResponse': MarkTransactionFailedResponse$json,
+  '.ledger.v1.MarkTransactionFailedResponse':
+      MarkTransactionFailedResponse$json,
   '.ledger.v1.CreateBookRequest': CreateBookRequest$json,
   '.ledger.v1.CreateBookResponse': CreateBookResponse$json,
   '.ledger.v1.Book': Book$json,
@@ -1014,4 +1497,3 @@ final $typed_data.Uint8List ledgerServiceDescriptor = $convert.base64Decode(
     'VkZ2VyX3ZpZXcSDWxlZGdlcl9tYW5hZ2USDGFjY291bnRfdmlldxIOYWNjb3VudF9tYW5hZ2US'
     'EHRyYW5zYWN0aW9uX3ZpZXcSEnRyYW5zYWN0aW9uX21hbmFnZRIJYm9va192aWV3Egtib29rX2'
     '1hbmFnZRILcmVwb3J0X3ZpZXc=');
-

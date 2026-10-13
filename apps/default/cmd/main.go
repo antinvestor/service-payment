@@ -21,30 +21,30 @@ import (
 	"net/http"
 	"strings"
 
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentpbv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
-	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
-	apis "github.com/antinvestor/common/v2"
-	"github.com/antinvestor/common/v2/connection"
-	"github.com/antinvestor/common/v2/permissions"
-	"github.com/antinvestor/common/v2/servicecatalog"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/v2/tenancy/v1/tenancyv1connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	apis "github.com/antinvestor/common/v3"
+	"github.com/antinvestor/common/v3/connection"
+	"github.com/antinvestor/common/v3/permissions"
+	"github.com/antinvestor/common/v3/servicecatalog"
 	aconfig "github.com/antinvestor/service-payments/apps/default/config"
 	"github.com/antinvestor/service-payments/apps/default/service/authz"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/handlers"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/security"
-	"github.com/pitabwire/frame/v2/security/authorizer"
-	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
-	"github.com/pitabwire/frame/v2/setup"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/security"
+	"github.com/pitabwire/frame/v3/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/v3/security/interceptors/connect"
+	"github.com/pitabwire/frame/v3/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -250,6 +250,18 @@ func setupTenancyClient(
 	return tenancyCli
 }
 
+// paymentMaxRequestMessageBytes caps one inbound PaymentService message.
+// connect v2 defaults to 4 MiB. The integration services forward provider
+// webhook and callback payloads in Payment/StatusUpdate extras, so the limit
+// is set explicitly with headroom above the default.
+const paymentMaxRequestMessageBytes = 8 << 20
+
+// mountPaymentServer mounts the PaymentService procedures on mux with the
+// explicit inbound read limit.
+func mountPaymentServer(mux *http.ServeMux, server *connect.Server) {
+	connecthttp.Mount(mux, server, connecthttp.WithReadMaxBytes(paymentMaxRequestMessageBytes))
+}
+
 // setupConnectServer initializes and configures the Connect RPC server.
 func setupConnectServer(
 	ctx context.Context,
@@ -285,12 +297,6 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
-	otelInterceptor, err := otelconnect.NewInterceptor()
-	if err != nil {
-		util.Log(ctx).WithError(err).Fatal("main -- could not configure open telemetry")
-	}
-	interceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
-
 	implementation := handlers.NewPaymentServer(
 		paymentBusiness,
 		profileCli,
@@ -298,11 +304,12 @@ func setupConnectServer(
 		tenancyCli,
 	)
 
-	_, serverHandler := paymentv1connect.NewPaymentServiceHandler(
-		implementation, connect.WithInterceptors(interceptors...))
+	// DefaultList already starts with the otelconnect server interceptor.
+	server := connect.NewServer(defaultInterceptorList...)
+	paymentv1connect.RegisterPaymentServiceHandler(server, implementation)
 
 	mux := http.NewServeMux()
-	mux.Handle("/", serverHandler)
+	mountPaymentServer(mux, server)
 	mux.Handle("/openapi.yaml", apis.NewOpenAPIHandler(paymentAPISpecFile, nil))
 
 	return mux

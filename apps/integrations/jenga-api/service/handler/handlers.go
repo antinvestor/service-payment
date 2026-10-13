@@ -20,12 +20,11 @@ import (
 	"net/http"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	paymentv1connect "buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
@@ -91,13 +90,13 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Update the prompt status via StatusUpdate
-	_, err := ws.paymentCli.StatusUpdate(ctx, connect.NewRequest(&commonv1.StatusUpdateRequest{
+	_, err := ws.paymentCli.StatusUpdate(ctx, &commonv1.StatusUpdateRequest{
 		Id:         callback.Transaction,
 		State:      commonv1.STATE_ACTIVE,
 		Status:     status,
 		ExternalId: callback.Transaction,
 		Extras:     extras,
-	}))
+	})
 	if err != nil {
 		logger.WithError(err).Error("failed to update status after STK callback")
 		http.Error(w, "Failed to process callback", http.StatusInternalServerError)
@@ -118,9 +117,9 @@ func (ws *WebhookServer) HandleStkCallback(w http.ResponseWriter, r *http.Reques
 			Extra:         extras,
 		}
 
-		if _, receiveErr := ws.paymentCli.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{
+		if _, receiveErr := ws.paymentCli.Receive(ctx, &paymentv1.ReceiveRequest{
 			Data: payment,
-		})); receiveErr != nil {
+		}); receiveErr != nil {
 			logger.WithError(receiveErr).Warn("failed to record received payment from STK callback")
 		}
 	}
@@ -183,9 +182,9 @@ func (ws *WebhookServer) HandleGeneralCallback(w http.ResponseWriter, r *http.Re
 		Extra:         cbJSON.ToProtoStruct(),
 	}
 
-	_, err := ws.paymentCli.Receive(ctx, connect.NewRequest(&paymentv1.ReceiveRequest{
+	_, err := ws.paymentCli.Receive(ctx, &paymentv1.ReceiveRequest{
 		Data: payment,
-	}))
+	})
 	if err != nil {
 		logger.WithError(err).Error("failed to forward callback to payment service")
 		http.Error(w, "Failed to process callback", http.StatusInternalServerError)

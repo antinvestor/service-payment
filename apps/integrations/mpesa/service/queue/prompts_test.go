@@ -16,16 +16,15 @@ package queue
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
-	frameEvents "github.com/pitabwire/frame/v2/events"
+	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -158,8 +157,8 @@ type stubStatusReader struct {
 
 func (s *stubStatusReader) Status(
 	_ context.Context,
-	req *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
+	req *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -167,7 +166,7 @@ func (s *stubStatusReader) Status(
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&commonv1.StatusResponse{Id: req.Msg.GetId(), Extras: extras}), nil
+	return &commonv1.StatusResponse{Id: req.GetId(), Extras: extras}, nil
 }
 
 func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
@@ -191,7 +190,7 @@ func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
 		},
 		{
 			name:       "no status yet: push",
-			reader:     &stubStatusReader{err: connect.NewError(connect.CodeUnknown, errors.New("record not found"))},
+			reader:     &stubStatusReader{err: connect.NewError(connect.CodeUnknown, "record not found")},
 			wantPushed: true,
 		},
 	}

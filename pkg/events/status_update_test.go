@@ -20,9 +20,8 @@ import (
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/stretchr/testify/require"
 )
@@ -37,39 +36,39 @@ type stubPaymentClient struct {
 
 func (s *stubPaymentClient) StatusUpdate(
 	_ context.Context,
-	_ *connect.Request[commonv1.StatusUpdateRequest],
-) (*connect.Response[commonv1.StatusUpdateResponse], error) {
+	_ *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusUpdateResponse, error) {
 	s.calls++
 	if s.statusUpdateErr != nil {
 		return nil, s.statusUpdateErr
 	}
-	return connect.NewResponse(&commonv1.StatusUpdateResponse{
+	return &commonv1.StatusUpdateResponse{
 		Data: &commonv1.StatusResponse{Id: "prompt-1", Status: commonv1.STATUS_SUCCESSFUL},
-	}), nil
+	}, nil
 }
 
-func (s *stubPaymentClient) Send(context.Context, *connect.Request[paymentv1.SendRequest]) (*connect.Response[paymentv1.SendResponse], error) {
+func (s *stubPaymentClient) Send(context.Context, *paymentv1.SendRequest) (*paymentv1.SendResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) Receive(context.Context, *connect.Request[paymentv1.ReceiveRequest]) (*connect.Response[paymentv1.ReceiveResponse], error) {
+func (s *stubPaymentClient) Receive(context.Context, *paymentv1.ReceiveRequest) (*paymentv1.ReceiveResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) InitiatePrompt(context.Context, *connect.Request[paymentv1.InitiatePromptRequest]) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
+func (s *stubPaymentClient) InitiatePrompt(context.Context, *paymentv1.InitiatePromptRequest) (*paymentv1.InitiatePromptResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) CreatePaymentLink(context.Context, *connect.Request[paymentv1.CreatePaymentLinkRequest]) (*connect.Response[paymentv1.CreatePaymentLinkResponse], error) {
+func (s *stubPaymentClient) CreatePaymentLink(context.Context, *paymentv1.CreatePaymentLinkRequest) (*paymentv1.CreatePaymentLinkResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) Status(context.Context, *connect.Request[commonv1.StatusRequest]) (*connect.Response[commonv1.StatusResponse], error) {
+func (s *stubPaymentClient) Status(context.Context, *commonv1.StatusRequest) (*commonv1.StatusResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) Release(context.Context, *connect.Request[paymentv1.ReleaseRequest]) (*connect.Response[paymentv1.ReleaseResponse], error) {
+func (s *stubPaymentClient) Release(context.Context, *paymentv1.ReleaseRequest) (*paymentv1.ReleaseResponse, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) Search(context.Context, *connect.Request[commonv1.SearchRequest]) (*connect.ServerStreamForClient[paymentv1.SearchResponse], error) {
+func (s *stubPaymentClient) Search(context.Context, *commonv1.SearchRequest) (paymentv1connect.PaymentServiceSearchClientStream, error) {
 	panic("unexpected")
 }
-func (s *stubPaymentClient) Reconcile(context.Context, *connect.Request[paymentv1.ReconcileRequest]) (*connect.Response[paymentv1.ReconcileResponse], error) {
+func (s *stubPaymentClient) Reconcile(context.Context, *paymentv1.ReconcileRequest) (*paymentv1.ReconcileResponse, error) {
 	panic("unexpected")
 }
 

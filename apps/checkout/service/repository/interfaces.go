@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
-	"github.com/pitabwire/frame/v2/datastore"
+	"github.com/pitabwire/frame/v3/datastore"
 )
 
 // SessionRepository manages CheckoutSession persistence.

@@ -18,20 +18,20 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
 )
 
 // SearchTransactions finds transactions matching specified criteria.
 // Supports filtering by date range, account, currency, and status.
 func (ledgerSrv *LedgerServer) SearchTransactions(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[ledgerv1.SearchTransactionsResponse],
+	req *commonv1.SearchRequest,
+	stream ledgerv1connect.LedgerServiceSearchTransactionsServerStream,
 ) error {
 	return ToConnectError(ledgerSrv.Transaction.SearchTransactions(
 		ctx,
-		req.Msg,
+		req,
 		func(_ context.Context, batch []*ledgerv1.Transaction) error {
 			return stream.Send(&ledgerv1.SearchTransactionsResponse{
 				Data: batch,
@@ -44,9 +44,9 @@ func (ledgerSrv *LedgerServer) SearchTransactions(
 // All entries must be balanced (sum of debits = sum of credits).
 func (ledgerSrv *LedgerServer) CreateTransaction(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.CreateTransactionRequest],
-) (*connect.Response[ledgerv1.CreateTransactionResponse], error) {
-	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req.Msg)
+	req *ledgerv1.CreateTransactionRequest,
+) (*ledgerv1.CreateTransactionResponse, error) {
+	createdTransaction, err := ledgerSrv.Transaction.CreateTransaction(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -55,16 +55,16 @@ func (ledgerSrv *LedgerServer) CreateTransaction(
 		Data: createdTransaction,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // ReverseTransaction reverses a transaction by creating offsetting entries.
 // Creates a new REVERSAL transaction that negates the original.
 func (ledgerSrv *LedgerServer) ReverseTransaction(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.ReverseTransactionRequest],
-) (*connect.Response[ledgerv1.ReverseTransactionResponse], error) {
-	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req.Msg)
+	req *ledgerv1.ReverseTransactionRequest,
+) (*ledgerv1.ReverseTransactionResponse, error) {
+	reversedTransaction, err := ledgerSrv.Transaction.ReverseTransaction(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -73,16 +73,16 @@ func (ledgerSrv *LedgerServer) ReverseTransaction(
 		Data: reversedTransaction,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // UpdateTransaction updates a transaction's metadata.
 // Entries and amounts cannot be changed after creation.
 func (ledgerSrv *LedgerServer) UpdateTransaction(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.UpdateTransactionRequest],
-) (*connect.Response[ledgerv1.UpdateTransactionResponse], error) {
-	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req.Msg)
+	req *ledgerv1.UpdateTransactionRequest,
+) (*ledgerv1.UpdateTransactionResponse, error) {
+	updatedTransaction, err := ledgerSrv.Transaction.UpdateTransaction(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -91,7 +91,7 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 		Data: updatedTransaction,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // VoidTransaction transitions a draft or pending transaction to VOIDED
@@ -99,15 +99,15 @@ func (ledgerSrv *LedgerServer) UpdateTransaction(
 // must reverse so the books carry the offset and the audit trail.
 func (ledgerSrv *LedgerServer) VoidTransaction(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.VoidTransactionRequest],
-) (*connect.Response[ledgerv1.VoidTransactionResponse], error) {
-	voided, err := ledgerSrv.Transaction.VoidTransaction(ctx, req.Msg.GetId())
+	req *ledgerv1.VoidTransactionRequest,
+) (*ledgerv1.VoidTransactionResponse, error) {
+	voided, err := ledgerSrv.Transaction.VoidTransaction(ctx, req.GetId())
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
-	return connect.NewResponse(&ledgerv1.VoidTransactionResponse{
+	return &ledgerv1.VoidTransactionResponse{
 		Data: voided.ToAPI(),
-	}), nil
+	}, nil
 }
 
 // MarkTransactionFailed transitions a pending transaction to FAILED for
@@ -117,13 +117,13 @@ func (ledgerSrv *LedgerServer) VoidTransaction(
 // never submitted.
 func (ledgerSrv *LedgerServer) MarkTransactionFailed(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.MarkTransactionFailedRequest],
-) (*connect.Response[ledgerv1.MarkTransactionFailedResponse], error) {
-	failed, err := ledgerSrv.Transaction.MarkTransactionFailed(ctx, req.Msg.GetId())
+	req *ledgerv1.MarkTransactionFailedRequest,
+) (*ledgerv1.MarkTransactionFailedResponse, error) {
+	failed, err := ledgerSrv.Transaction.MarkTransactionFailed(ctx, req.GetId())
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
-	return connect.NewResponse(&ledgerv1.MarkTransactionFailedResponse{
+	return &ledgerv1.MarkTransactionFailedResponse{
 		Data: failed.ToAPI(),
-	}), nil
+	}, nil
 }

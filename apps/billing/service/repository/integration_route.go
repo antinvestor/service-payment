@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/datastore/pool"
-	"github.com/pitabwire/frame/v2/workerpool"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/datastore/pool"
+	"github.com/pitabwire/frame/v3/workerpool"
 )
 
 // IntegrationRouteRepository manages billing → external-entity delivery routes.

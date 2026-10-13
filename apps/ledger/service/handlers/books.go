@@ -18,8 +18,7 @@ import (
 	"context"
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 )
 
 // CreateBook creates a new independent accounting scope (book).
@@ -30,24 +29,24 @@ import (
 // repeating the same create returns the existing book.
 func (ledgerSrv *LedgerServer) CreateBook(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.CreateBookRequest],
-) (*connect.Response[ledgerv1.CreateBookResponse], error) {
+	req *ledgerv1.CreateBookRequest,
+) (*ledgerv1.CreateBookResponse, error) {
 	dataMap := data.JSONMap{}
-	if req.Msg.GetData() != nil {
-		dataMap = dataMap.FromProtoStruct(req.Msg.GetData())
+	if req.GetData() != nil {
+		dataMap = dataMap.FromProtoStruct(req.GetData())
 	}
 
 	var parentID *string
-	if req.Msg.GetParentId() != "" {
-		p := req.Msg.GetParentId()
+	if req.GetParentId() != "" {
+		p := req.GetParentId()
 		parentID = &p
 	}
 
 	created, err := ledgerSrv.Book.CreateBook(ctx,
-		req.Msg.GetId(),
-		req.Msg.GetName(),
-		req.Msg.GetType(),
-		req.Msg.GetCurrency(),
+		req.GetId(),
+		req.GetName(),
+		req.GetType(),
+		req.GetCurrency(),
 		parentID,
 		dataMap,
 	)
@@ -55,19 +54,19 @@ func (ledgerSrv *LedgerServer) CreateBook(
 		return nil, ToConnectError(err)
 	}
 
-	return connect.NewResponse(&ledgerv1.CreateBookResponse{Data: created.ToAPI()}), nil
+	return &ledgerv1.CreateBookResponse{Data: created.ToAPI()}, nil
 }
 
 // GetBook fetches a single book by id within the caller's tenancy scope.
 func (ledgerSrv *LedgerServer) GetBook(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.GetBookRequest],
-) (*connect.Response[ledgerv1.GetBookResponse], error) {
-	book, err := ledgerSrv.Book.GetBook(ctx, req.Msg.GetId())
+	req *ledgerv1.GetBookRequest,
+) (*ledgerv1.GetBookResponse, error) {
+	book, err := ledgerSrv.Book.GetBook(ctx, req.GetId())
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
-	return connect.NewResponse(&ledgerv1.GetBookResponse{Data: book.ToAPI()}), nil
+	return &ledgerv1.GetBookResponse{Data: book.ToAPI()}, nil
 }
 
 // ListBooksByType returns all active books of a conventional type in
@@ -75,9 +74,9 @@ func (ledgerSrv *LedgerServer) GetBook(
 // match the operator-facing UI pattern.
 func (ledgerSrv *LedgerServer) ListBooksByType(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.ListBooksByTypeRequest],
-) (*connect.Response[ledgerv1.ListBooksByTypeResponse], error) {
-	books, err := ledgerSrv.Book.ListBooksByType(ctx, req.Msg.GetType())
+	req *ledgerv1.ListBooksByTypeRequest,
+) (*ledgerv1.ListBooksByTypeResponse, error) {
+	books, err := ledgerSrv.Book.ListBooksByType(ctx, req.GetType())
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -85,5 +84,5 @@ func (ledgerSrv *LedgerServer) ListBooksByType(
 	for i, b := range books {
 		apiBooks[i] = b.ToAPI()
 	}
-	return connect.NewResponse(&ledgerv1.ListBooksByTypeResponse{Data: apiBooks}), nil
+	return &ledgerv1.ListBooksByTypeResponse{Data: apiBooks}, nil
 }

@@ -22,11 +22,10 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/checkout/config"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
@@ -173,9 +172,9 @@ func (f *fakeLinkRepo) GetByRef(_ context.Context, ref string) (*models.Checkout
 
 type fakePaymentClient struct {
 	paymentv1connect.PaymentServiceClient
-	promptResp *connect.Response[paymentv1.InitiatePromptResponse]
+	promptResp *paymentv1.InitiatePromptResponse
 	promptErr  error
-	statusResp *connect.Response[commonv1.StatusResponse]
+	statusResp *commonv1.StatusResponse
 	statusErr  error
 	lastPrompt *paymentv1.InitiatePromptRequest
 	// statusByID, when set, answers Status per prompt id (IN_PROCESS if absent).
@@ -185,38 +184,38 @@ type fakePaymentClient struct {
 
 func (f *fakePaymentClient) InitiatePrompt(
 	_ context.Context,
-	req *connect.Request[paymentv1.InitiatePromptRequest],
-) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
-	f.lastPrompt = req.Msg
+	req *paymentv1.InitiatePromptRequest,
+) (*paymentv1.InitiatePromptResponse, error) {
+	f.lastPrompt = req
 	if f.promptErr != nil {
 		return nil, f.promptErr
 	}
 	if f.promptResp != nil {
 		return f.promptResp, nil
 	}
-	return connect.NewResponse(&paymentv1.InitiatePromptResponse{
+	return &paymentv1.InitiatePromptResponse{
 		Data: &commonv1.StatusResponse{Id: "prompt-123"},
-	}), nil
+	}, nil
 }
 
 func (f *fakePaymentClient) Status(
 	_ context.Context,
-	req *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
-	f.polled = append(f.polled, req.Msg.GetId())
+	req *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
+	f.polled = append(f.polled, req.GetId())
 	if f.statusErr != nil {
 		return nil, f.statusErr
 	}
 	if f.statusByID != nil {
-		if st, ok := f.statusByID[req.Msg.GetId()]; ok {
-			return connect.NewResponse(st), nil
+		if st, ok := f.statusByID[req.GetId()]; ok {
+			return st, nil
 		}
-		return connect.NewResponse(&commonv1.StatusResponse{Id: req.Msg.GetId(), Status: commonv1.STATUS_IN_PROCESS}), nil
+		return &commonv1.StatusResponse{Id: req.GetId(), Status: commonv1.STATUS_IN_PROCESS}, nil
 	}
 	if f.statusResp != nil {
 		return f.statusResp, nil
 	}
-	return connect.NewResponse(&commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}), nil
+	return &commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -232,23 +231,23 @@ type fakeProfileClient struct {
 //nolint:revive,staticcheck // Method name matches the generated proto interface (buf.build protobuf naming).
 func (f *fakeProfileClient) GetById(
 	_ context.Context,
-	_ *connect.Request[profilev1.GetByIdRequest],
-) (*connect.Response[profilev1.GetByIdResponse], error) {
+	_ *profilev1.GetByIdRequest,
+) (*profilev1.GetByIdResponse, error) {
 	if f.getErr != nil {
 		return nil, f.getErr
 	}
-	return connect.NewResponse(&profilev1.GetByIdResponse{Data: f.profile}), nil
+	return &profilev1.GetByIdResponse{Data: f.profile}, nil
 }
 
 func (f *fakeProfileClient) Update(
 	_ context.Context,
-	req *connect.Request[profilev1.UpdateRequest],
-) (*connect.Response[profilev1.UpdateResponse], error) {
-	f.updateReq = req.Msg
+	req *profilev1.UpdateRequest,
+) (*profilev1.UpdateResponse, error) {
+	f.updateReq = req
 	if f.updateErr != nil {
 		return nil, f.updateErr
 	}
-	return connect.NewResponse(&profilev1.UpdateResponse{}), nil
+	return &profilev1.UpdateResponse{}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -854,10 +853,10 @@ func TestGetSessionByRef_ProcessingPastTTL_Paid_Completes(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Id:     "pay-1",
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{}).
 		WithSynchronousClues()
@@ -883,10 +882,10 @@ func TestGetSessionByRef_Expired_Paid_Recovers(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Id:     "pay-2",
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{}).
 		WithSynchronousClues()
@@ -1419,11 +1418,11 @@ func TestRefreshStatus_Successful_WithClue(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Id:         "payment-external-456",
 			ExternalId: "payment-external-456",
 			Status:     commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	profCli := &fakeProfileClient{}
 	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli).WithSynchronousClues()
@@ -1465,9 +1464,9 @@ func TestRefreshStatus_Successful_NoContactId_WritesMethodClue(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	profCli := &fakeProfileClient{}
 	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, linkRepo, payCli, profCli).WithSynchronousClues()
@@ -1500,9 +1499,9 @@ func TestRefreshStatus_Failed(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_FAILED,
-		}),
+		},
 	}
 	b := newBusiness(
 		defaultConfig(),
@@ -1897,10 +1896,10 @@ func TestRefreshStatus_Successful_ClueWriteError_Swallowed(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Id:     "payment-ext-789",
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	profCli := &fakeProfileClient{
 		updateErr: errors.New("profile service unavailable"),
@@ -1972,9 +1971,9 @@ func TestSweepProcessing(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	b := newBusiness(
 		defaultConfig(),
@@ -2025,10 +2024,10 @@ func TestRefreshStatus_NilWorkMan_AsyncFallback_NoPanic(t *testing.T) {
 	sessionRepo := newFakeSessionRepo()
 	linkRepo := newFakeLinkRepo()
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Id:     "payment-nil-workman",
 			Status: commonv1.STATUS_SUCCESSFUL,
-		}),
+		},
 	}
 	profCli := &fakeProfileClient{}
 
@@ -2176,10 +2175,10 @@ func TestRefreshStatus_CapturesCheckoutURL(t *testing.T) {
 	require.NoError(t, err)
 
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_IN_PROCESS,
 			Extras: extras,
-		}),
+		},
 	}
 	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
 	ctx := context.Background()
@@ -2224,10 +2223,10 @@ func TestRefreshStatus_OwnCheckoutURL_NotCapturedAsRedirect(t *testing.T) {
 	require.NoError(t, err)
 
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_IN_PROCESS,
 			Extras: extras,
-		}),
+		},
 	}
 	cfg := defaultConfig()
 	cfg.PublicBaseURL = "https://pay.example"
@@ -2261,10 +2260,10 @@ func TestRefreshStatus_CheckoutURL_Unsafe_Ignored(t *testing.T) {
 	require.NoError(t, err)
 
 	payCli := &fakePaymentClient{
-		statusResp: connect.NewResponse(&commonv1.StatusResponse{
+		statusResp: &commonv1.StatusResponse{
 			Status: commonv1.STATUS_IN_PROCESS,
 			Extras: extras,
-		}),
+		},
 	}
 	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
 	ctx := context.Background()

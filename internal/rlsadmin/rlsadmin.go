@@ -28,7 +28,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/pitabwire/frame/v2/frametests/rlstest"
+	"github.com/pitabwire/frame/v3/frametests/rlstest"
 
 	// Pull in the pgx stdlib driver so database/sql can dial postgres.
 	_ "github.com/jackc/pgx/v5/stdlib"

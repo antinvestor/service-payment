@@ -16,14 +16,26 @@ class SubscriptionStateBadge extends StatelessWidget {
 
   static (String, Color, IconData?) _stateInfo(SubscriptionState state) {
     return switch (state) {
-      SubscriptionState.SUBSCRIPTION_ACTIVE =>
-        ('Active', Colors.green, Icons.check_circle),
-      SubscriptionState.SUBSCRIPTION_CANCELLED =>
-        ('Cancelled', Colors.grey, Icons.cancel),
-      SubscriptionState.SUBSCRIPTION_EXPIRED =>
-        ('Expired', Colors.red, Icons.timer_off),
-      SubscriptionState.SUBSCRIPTION_PENDING =>
-        ('Pending', Colors.amber, Icons.schedule),
+      SubscriptionState.SUBSCRIPTION_ACTIVE => (
+        'Active',
+        Colors.green,
+        Icons.check_circle,
+      ),
+      SubscriptionState.SUBSCRIPTION_CANCELLED => (
+        'Cancelled',
+        Colors.grey,
+        Icons.cancel,
+      ),
+      SubscriptionState.SUBSCRIPTION_EXPIRED => (
+        'Expired',
+        Colors.red,
+        Icons.timer_off,
+      ),
+      SubscriptionState.SUBSCRIPTION_PENDING => (
+        'Pending',
+        Colors.amber,
+        Icons.schedule,
+      ),
       _ => ('Unknown', Colors.grey, null),
     };
   }

@@ -52,9 +52,13 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
         selected: selected,
         onSelectChanged: (_) => onSelect(),
         cells: [
-          DataCell(Text(invoice.invoiceNumber.isNotEmpty
-              ? invoice.invoiceNumber
-              : _truncate(invoice.id, 12))),
+          DataCell(
+            Text(
+              invoice.invoiceNumber.isNotEmpty
+                  ? invoice.invoiceNumber
+                  : _truncate(invoice.id, 12),
+            ),
+          ),
           DataCell(Text(_truncate(invoice.profileId, 12))),
           DataCell(InvoiceStateBadge(state: invoice.state)),
           DataCell(Text(formatMoney(invoice.subtotalAmount))),
@@ -63,12 +67,9 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
           DataCell(Text(_formatTimestamp(invoice.issuedAt))),
         ],
       ),
-      onRowNavigate: (invoice) =>
-          context.go('/billing/invoices/${invoice.id}'),
+      onRowNavigate: (invoice) => context.go('/billing/invoices/${invoice.id}'),
       exportRow: (invoice) => [
-        invoice.invoiceNumber.isNotEmpty
-            ? invoice.invoiceNumber
-            : invoice.id,
+        invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : invoice.id,
         invoice.profileId,
         invoiceStateLabel(invoice.state),
         formatMoney(invoice.subtotalAmount),

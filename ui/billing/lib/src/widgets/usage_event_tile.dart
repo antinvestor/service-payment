@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 
 /// A list tile displaying a usage event: metric, quantity, timestamp, amount.
 class UsageEventTile extends StatelessWidget {
-  const UsageEventTile({
-    super.key,
-    required this.event,
-    this.onTap,
-  });
+  const UsageEventTile({super.key, required this.event, this.onTap});
 
   final UsageEvent event;
   final VoidCallback? onTap;

@@ -6,11 +6,7 @@ import 'package:flutter/services.dart';
 /// A card widget displaying a payment (used for payment links) with
 /// copy-to-clipboard support.
 class PaymentLinkCard extends StatelessWidget {
-  const PaymentLinkCard({
-    super.key,
-    required this.payment,
-    this.onTap,
-  });
+  const PaymentLinkCard({super.key, required this.payment, this.onTap});
 
   final Payment payment;
   final VoidCallback? onTap;
@@ -54,9 +50,7 @@ class PaymentLinkCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      payment.id.isNotEmpty
-                          ? payment.id
-                          : 'Payment Link',
+                      payment.id.isNotEmpty ? payment.id : 'Payment Link',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),

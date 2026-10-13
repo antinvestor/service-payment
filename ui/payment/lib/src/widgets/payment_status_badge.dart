@@ -18,7 +18,8 @@ class PaymentStatusBadge extends StatelessWidget {
     return switch (status) {
       'pending' => ('Pending', Colors.orange, Icons.schedule),
       'processing' => ('Processing', Colors.blue, Icons.sync),
-      'completed' || 'success' => ('Completed', Colors.green, Icons.check_circle),
+      'completed' ||
+      'success' => ('Completed', Colors.green, Icons.check_circle),
       'failed' || 'error' => ('Failed', Colors.red, Icons.error),
       'cancelled' || 'canceled' => ('Cancelled', Colors.grey, Icons.cancel),
       'reversed' => ('Reversed', Colors.purple, Icons.undo),

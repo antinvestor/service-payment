@@ -101,11 +101,14 @@ class CollectionNotifier extends Notifier<AsyncValue<void>> {
     }
   }
 
-  Future<CancelCollectionResult> cancelSubscription(String subscriptionId) async {
+  Future<CancelCollectionResult> cancelSubscription(
+    String subscriptionId,
+  ) async {
     state = const AsyncValue.loading();
     try {
-      final result =
-          await _client.cancelSubscription(subscriptionId: subscriptionId);
+      final result = await _client.cancelSubscription(
+        subscriptionId: subscriptionId,
+      );
       state = const AsyncValue.data(null);
       return result;
     } catch (e, st) {
@@ -117,5 +120,5 @@ class CollectionNotifier extends Notifier<AsyncValue<void>> {
 
 final collectionNotifierProvider =
     NotifierProvider<CollectionNotifier, AsyncValue<void>>(
-  CollectionNotifier.new,
-);
+      CollectionNotifier.new,
+    );

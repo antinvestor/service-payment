@@ -27,10 +27,12 @@ class CollectionResult {
           data['sessionRef'] as String? ?? data['session_ref'] as String? ?? '',
       invoiceId:
           data['invoiceId'] as String? ?? data['invoice_id'] as String? ?? '',
-      subscriptionId: data['subscriptionId'] as String? ??
+      subscriptionId:
+          data['subscriptionId'] as String? ??
           data['subscription_id'] as String? ??
           '',
-      alreadyComplete: data['alreadyComplete'] as bool? ??
+      alreadyComplete:
+          data['alreadyComplete'] as bool? ??
           data['already_complete'] as bool? ??
           false,
     );
@@ -57,13 +59,16 @@ class ConfirmPaymentResult {
     return ConfirmPaymentResult(
       invoiceId:
           json['invoiceId'] as String? ?? json['invoice_id'] as String? ?? '',
-      invoiceState: json['invoiceState'] as String? ??
+      invoiceState:
+          json['invoiceState'] as String? ??
           json['invoice_state'] as String? ??
           '',
-      subscriptionId: json['subscriptionId'] as String? ??
+      subscriptionId:
+          json['subscriptionId'] as String? ??
           json['subscription_id'] as String? ??
           '',
-      subscriptionState: json['subscriptionState'] as String? ??
+      subscriptionState:
+          json['subscriptionState'] as String? ??
           json['subscription_state'] as String? ??
           '',
       paid: json['paid'] as bool? ?? false,
@@ -85,13 +90,16 @@ class CancelCollectionResult {
 
   factory CancelCollectionResult.fromJson(Map<String, dynamic> json) {
     return CancelCollectionResult(
-      subscriptionId: json['subscriptionId'] as String? ??
+      subscriptionId:
+          json['subscriptionId'] as String? ??
           json['subscription_id'] as String? ??
           '',
-      subscriptionState: json['subscriptionState'] as String? ??
+      subscriptionState:
+          json['subscriptionState'] as String? ??
           json['subscription_state'] as String? ??
           '',
-      voidedInvoiceId: json['voidedInvoiceId'] as String? ??
+      voidedInvoiceId:
+          json['voidedInvoiceId'] as String? ??
           json['voided_invoice_id'] as String? ??
           '',
     );
@@ -199,7 +207,8 @@ class CollectionClient {
     if (response.statusCode >= 400) {
       final err = decoded['error'] as Map<String, dynamic>?;
       final code = _parseCode(err?['code'] as String?);
-      final message = err?['message'] as String? ??
+      final message =
+          err?['message'] as String? ??
           decoded['message'] as String? ??
           'Collection request failed (${response.statusCode})';
       throw ConnectException(code, message);

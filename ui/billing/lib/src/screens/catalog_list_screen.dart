@@ -19,8 +19,7 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncCatalogs =
-        ref.watch(catalogVersionSearchProvider(_searchQuery));
+    final asyncCatalogs = ref.watch(catalogVersionSearchProvider(_searchQuery));
 
     return asyncCatalogs.when(
       loading: () => _buildTable(items: const []),
@@ -50,9 +49,13 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
         selected: selected,
         onSelectChanged: (_) => onSelect(),
         cells: [
-          DataCell(Text(catalog.name.isNotEmpty
-              ? catalog.name
-              : _truncate(catalog.id, 16))),
+          DataCell(
+            Text(
+              catalog.name.isNotEmpty
+                  ? catalog.name
+                  : _truncate(catalog.id, 16),
+            ),
+          ),
           DataCell(Text('v${catalog.version}')),
           DataCell(Text(catalog.currency)),
           DataCell(_publishedBadge(catalog)),
@@ -60,8 +63,7 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
           DataCell(Text('${catalog.plans.length}')),
         ],
       ),
-      onRowNavigate: (catalog) =>
-          context.go('/billing/catalogs/${catalog.id}'),
+      onRowNavigate: (catalog) => context.go('/billing/catalogs/${catalog.id}'),
       exportRow: (catalog) => [
         catalog.name.isNotEmpty ? catalog.name : catalog.id,
         '${catalog.version}',
@@ -71,8 +73,7 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen> {
         '${catalog.plans.length}',
       ],
       onExport: (format, rowCount) {
-        debugPrint(
-            'AUDIT: Exported $rowCount catalog versions as $format');
+        debugPrint('AUDIT: Exported $rowCount catalog versions as $format');
       },
     );
   }

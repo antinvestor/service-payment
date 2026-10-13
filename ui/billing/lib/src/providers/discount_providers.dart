@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'billing_transport_provider.dart';
 
 /// Search discounts by query string.
-final discountSearchProvider =
-    FutureProvider.family<List<Discount>, String>((ref, query) async {
+final discountSearchProvider = FutureProvider.family<List<Discount>, String>((
+  ref,
+  query,
+) async {
   final client = ref.watch(billingServiceClientProvider);
   final request = SearchRequest()..query = query;
   final stream = client.searchDiscounts(request);
@@ -21,8 +23,7 @@ class DiscountNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  BillingServiceClient get _client =>
-      ref.read(billingServiceClientProvider);
+  BillingServiceClient get _client => ref.read(billingServiceClientProvider);
 
   Future<Discount> create(CreateDiscountRequest request) async {
     state = const AsyncValue.loading();
@@ -38,5 +39,4 @@ class DiscountNotifier extends Notifier<AsyncValue<void>> {
 }
 
 final discountNotifierProvider =
-    NotifierProvider<DiscountNotifier, AsyncValue<void>>(
-        DiscountNotifier.new);
+    NotifierProvider<DiscountNotifier, AsyncValue<void>>(DiscountNotifier.new);

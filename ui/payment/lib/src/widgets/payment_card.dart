@@ -7,11 +7,7 @@ import 'payment_status_badge.dart';
 /// A card widget displaying a payment summary: amount, route, source to
 /// recipient, status, and direction (outbound/inbound).
 class PaymentCard extends StatelessWidget {
-  const PaymentCard({
-    super.key,
-    required this.payment,
-    this.onTap,
-  });
+  const PaymentCard({super.key, required this.payment, this.onTap});
 
   final Payment payment;
   final VoidCallback? onTap;

@@ -6,11 +6,7 @@ import 'invoice_state_badge.dart';
 
 /// A card widget displaying an invoice summary: number, total, state, due date.
 class InvoiceCard extends StatelessWidget {
-  const InvoiceCard({
-    super.key,
-    required this.invoice,
-    this.onTap,
-  });
+  const InvoiceCard({super.key, required this.invoice, this.onTap});
 
   final Invoice invoice;
   final VoidCallback? onTap;

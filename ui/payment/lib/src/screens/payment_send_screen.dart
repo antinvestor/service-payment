@@ -102,8 +102,7 @@ class _PaymentSendScreenState extends ConsumerState<PaymentSendScreen> {
                             ),
                             decoration: const InputDecoration(
                               hintText: '0.00',
-                              prefixIcon:
-                                  Icon(Icons.attach_money, size: 20),
+                              prefixIcon: Icon(Icons.attach_money, size: 20),
                             ),
                             validator: validateAmount,
                           ),

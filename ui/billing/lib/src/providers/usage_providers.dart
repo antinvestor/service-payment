@@ -7,22 +7,21 @@ import 'billing_transport_provider.dart';
 /// Search usage events by query string.
 final usageEventSearchProvider =
     FutureProvider.family<List<UsageEvent>, String>((ref, query) async {
-  final client = ref.watch(billingServiceClientProvider);
-  final request = SearchRequest()..query = query;
-  final stream = client.searchUsageEvents(request);
-  return collectStream<SearchUsageEventsResponse, UsageEvent>(
-    stream,
-    extract: (r) => r.data,
-  );
-});
+      final client = ref.watch(billingServiceClientProvider);
+      final request = SearchRequest()..query = query;
+      final stream = client.searchUsageEvents(request);
+      return collectStream<SearchUsageEventsResponse, UsageEvent>(
+        stream,
+        extract: (r) => r.data,
+      );
+    });
 
 /// Notifier for usage event mutations (ingest).
 class UsageEventNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  BillingServiceClient get _client =>
-      ref.read(billingServiceClientProvider);
+  BillingServiceClient get _client => ref.read(billingServiceClientProvider);
 
   /// Ingest returns a list of string IDs for the ingested events.
   Future<List<String>> ingest(IngestUsageEventRequest request) async {
@@ -40,4 +39,5 @@ class UsageEventNotifier extends Notifier<AsyncValue<void>> {
 
 final usageEventNotifierProvider =
     NotifierProvider<UsageEventNotifier, AsyncValue<void>>(
-        UsageEventNotifier.new);
+      UsageEventNotifier.new,
+    );

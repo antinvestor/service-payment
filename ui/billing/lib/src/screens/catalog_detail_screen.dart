@@ -12,10 +12,7 @@ import '../widgets/pricing_model_badge.dart';
 /// Screen showing details for a catalog version including plans,
 /// components, and tiers.
 class CatalogDetailScreen extends ConsumerWidget {
-  const CatalogDetailScreen({
-    super.key,
-    required this.catalogId,
-  });
+  const CatalogDetailScreen({super.key, required this.catalogId});
 
   final String catalogId;
 
@@ -35,8 +32,11 @@ class CatalogDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline,
-                  size: 48, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(friendlyError(error)),
               const SizedBox(height: 16),
@@ -61,9 +61,8 @@ class CatalogDetailScreen extends ConsumerWidget {
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => context.canPop()
-            ? context.pop()
-            : context.go('/billing/catalogs'),
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/billing/catalogs'),
       ),
       title: Text(
         title,
@@ -89,7 +88,9 @@ class CatalogDetailScreen extends ConsumerWidget {
               : context.go('/billing/catalogs'),
         ),
         title: Text(
-          catalog.name.isNotEmpty ? catalog.name : 'Catalog v${catalog.version}',
+          catalog.name.isNotEmpty
+              ? catalog.name
+              : 'Catalog v${catalog.version}',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -98,8 +99,7 @@ class CatalogDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () =>
-                ref.invalidate(catalogVersionProvider(catalogId)),
+            onPressed: () => ref.invalidate(catalogVersionProvider(catalogId)),
           ),
         ],
       ),
@@ -128,15 +128,17 @@ class CatalogDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _metadataRow(theme, 'ID', catalog.id,
-                        copyable: true, context: context),
                     _metadataRow(
-                        theme, 'Catalog', catalog.catalogId),
-                    _metadataRow(
-                        theme, 'Version', catalog.version.toString()),
+                      theme,
+                      'ID',
+                      catalog.id,
+                      copyable: true,
+                      context: context,
+                    ),
+                    _metadataRow(theme, 'Catalog', catalog.catalogId),
+                    _metadataRow(theme, 'Version', catalog.version.toString()),
                     if (catalog.currency.isNotEmpty)
-                      _metadataRow(
-                          theme, 'Currency', catalog.currency),
+                      _metadataRow(theme, 'Currency', catalog.currency),
                     _metadataRow(
                       theme,
                       'Status',
@@ -154,25 +156,29 @@ class CatalogDetailScreen extends ConsumerWidget {
             if (catalog.plans.isEmpty)
               _emptySection(theme, 'No plans defined')
             else
-              ...catalog.plans.expand((plan) => [
-                    _PlanCard(plan: plan),
-                    // Show components for each plan
-                    if (plan.components.isNotEmpty)
-                      ...plan.components.expand((component) => [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 16),
-                              child:
-                                  _ComponentCard(component: component),
+              ...catalog.plans.expand(
+                (plan) => [
+                  _PlanCard(plan: plan),
+                  // Show components for each plan
+                  if (plan.components.isNotEmpty)
+                    ...plan.components.expand(
+                      (component) => [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: _ComponentCard(component: component),
+                        ),
+                        // Show tiers for each component
+                        if (component.tiers.isNotEmpty)
+                          ...component.tiers.map(
+                            (tier) => Padding(
+                              padding: const EdgeInsets.only(left: 32),
+                              child: _TierCard(tier: tier),
                             ),
-                            // Show tiers for each component
-                            if (component.tiers.isNotEmpty)
-                              ...component.tiers.map((tier) => Padding(
-                                    padding:
-                                        const EdgeInsets.only(left: 32),
-                                    child: _TierCard(tier: tier),
-                                  )),
-                          ]),
-                  ]),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
           ],
         ),
       ),
@@ -302,8 +308,11 @@ class _PlanCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.description,
-                    size: 18, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.description,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -371,8 +380,11 @@ class _ComponentCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.extension,
-                    size: 18, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.extension,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -389,8 +401,11 @@ class _ComponentCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.data_usage,
-                      size: 14, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.data_usage,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Metric: ${component.metricKey}',
@@ -428,8 +443,11 @@ class _TierCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(Icons.stacked_bar_chart,
-                size: 18, color: theme.colorScheme.primary),
+            Icon(
+              Icons.stacked_bar_chart,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

@@ -16,24 +16,47 @@ class BillingRunStateBadge extends StatelessWidget {
 
   static (String, Color, IconData?) _stateInfo(BillingRunState state) {
     return switch (state) {
-      BillingRunState.BILLING_RUN_PENDING =>
-        ('Pending', Colors.grey, Icons.schedule),
-      BillingRunState.BILLING_RUN_METERING =>
-        ('Metering', Colors.blue, Icons.speed),
-      BillingRunState.BILLING_RUN_RATING =>
-        ('Rating', Colors.indigo, Icons.calculate),
-      BillingRunState.BILLING_RUN_DISCOUNTING =>
-        ('Discounting', Colors.purple, Icons.discount),
-      BillingRunState.BILLING_RUN_CREDITING =>
-        ('Crediting', Colors.teal, Icons.account_balance_wallet),
-      BillingRunState.BILLING_RUN_INVOICING =>
-        ('Invoicing', Colors.orange, Icons.receipt_long),
-      BillingRunState.BILLING_RUN_POSTING =>
-        ('Posting', Colors.amber, Icons.publish),
-      BillingRunState.BILLING_RUN_COMPLETED =>
-        ('Completed', Colors.green, Icons.check_circle),
-      BillingRunState.BILLING_RUN_FAILED =>
-        ('Failed', Colors.red, Icons.error),
+      BillingRunState.BILLING_RUN_PENDING => (
+        'Pending',
+        Colors.grey,
+        Icons.schedule,
+      ),
+      BillingRunState.BILLING_RUN_METERING => (
+        'Metering',
+        Colors.blue,
+        Icons.speed,
+      ),
+      BillingRunState.BILLING_RUN_RATING => (
+        'Rating',
+        Colors.indigo,
+        Icons.calculate,
+      ),
+      BillingRunState.BILLING_RUN_DISCOUNTING => (
+        'Discounting',
+        Colors.purple,
+        Icons.discount,
+      ),
+      BillingRunState.BILLING_RUN_CREDITING => (
+        'Crediting',
+        Colors.teal,
+        Icons.account_balance_wallet,
+      ),
+      BillingRunState.BILLING_RUN_INVOICING => (
+        'Invoicing',
+        Colors.orange,
+        Icons.receipt_long,
+      ),
+      BillingRunState.BILLING_RUN_POSTING => (
+        'Posting',
+        Colors.amber,
+        Icons.publish,
+      ),
+      BillingRunState.BILLING_RUN_COMPLETED => (
+        'Completed',
+        Colors.green,
+        Icons.check_circle,
+      ),
+      BillingRunState.BILLING_RUN_FAILED => ('Failed', Colors.red, Icons.error),
       _ => ('Unknown', Colors.grey, null),
     };
   }

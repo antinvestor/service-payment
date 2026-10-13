@@ -5,11 +5,7 @@ import 'subscription_state_badge.dart';
 
 /// A card widget displaying a subscription summary: plan name, state, period.
 class SubscriptionCard extends StatelessWidget {
-  const SubscriptionCard({
-    super.key,
-    required this.subscription,
-    this.onTap,
-  });
+  const SubscriptionCard({super.key, required this.subscription, this.onTap});
 
   final Subscription subscription;
   final VoidCallback? onTap;

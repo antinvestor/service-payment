@@ -5,21 +5,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'payment_transport_provider.dart';
 
 /// Search payments by query string.
-final paymentSearchProvider =
-    FutureProvider.family<List<Payment>, String>((ref, query) async {
+final paymentSearchProvider = FutureProvider.family<List<Payment>, String>((
+  ref,
+  query,
+) async {
   final client = ref.watch(paymentServiceClientProvider);
   final request = SearchRequest()..query = query;
   final stream = client.search(request);
-  return collectStream<SearchResponse, Payment>(
-    stream,
-    extract: (r) => r.data,
-  );
+  return collectStream<SearchResponse, Payment>(stream, extract: (r) => r.data);
 });
 
 /// Get payment status by ID.
 /// Status RPC returns common.v1.StatusResponse, not Payment.
-final paymentStatusProvider =
-    FutureProvider.family<StatusResponse, String>((ref, id) async {
+final paymentStatusProvider = FutureProvider.family<StatusResponse, String>((
+  ref,
+  id,
+) async {
   final client = ref.watch(paymentServiceClientProvider);
   final request = StatusRequest()..id = id;
   return await client.status(request);
@@ -30,8 +31,7 @@ class PaymentNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
-  PaymentServiceClient get _client =>
-      ref.read(paymentServiceClientProvider);
+  PaymentServiceClient get _client => ref.read(paymentServiceClientProvider);
 
   /// Send returns StatusResponse (via SendResponse.data).
   Future<StatusResponse> send(SendRequest request) async {

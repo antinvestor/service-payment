@@ -105,42 +105,42 @@ class PaymentRouteModule extends RouteModule {
 
   @override
   Map<String, Set<String>> get routePermissions => {
-        '/payments': {'payment_search'},
-        '/payments/detail': {'payment_search'},
-        '/payments/send': {'payment_send'},
-        '/payments/receive': {'payment_receive'},
-        '/payments/links': {'payment_link_create'},
-      };
+    '/payments': {'payment_search'},
+    '/payments/detail': {'payment_search'},
+    '/payments/send': {'payment_send'},
+    '/payments/receive': {'payment_receive'},
+    '/payments/links': {'payment_link_create'},
+  };
 
   @override
   PermissionManifest get permissionManifest => const PermissionManifest(
-        namespace: 'service_payment',
-        permissions: [
-          PermissionEntry(
-            key: 'payment_search',
-            label: 'Search Payments',
-            scope: PermissionScope.service,
-          ),
-          PermissionEntry(
-            key: 'payment_send',
-            label: 'Send Payments',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'payment_receive',
-            label: 'Receive Payments',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'payment_link_create',
-            label: 'Create Payment Links',
-            scope: PermissionScope.action,
-          ),
-          PermissionEntry(
-            key: 'payment_reconcile',
-            label: 'Reconcile Payments',
-            scope: PermissionScope.action,
-          ),
-        ],
-      );
+    namespace: 'service_payment',
+    permissions: [
+      PermissionEntry(
+        key: 'payment_search',
+        label: 'Search Payments',
+        scope: PermissionScope.service,
+      ),
+      PermissionEntry(
+        key: 'payment_send',
+        label: 'Send Payments',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'payment_receive',
+        label: 'Receive Payments',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'payment_link_create',
+        label: 'Create Payment Links',
+        scope: PermissionScope.action,
+      ),
+      PermissionEntry(
+        key: 'payment_reconcile',
+        label: 'Reconcile Payments',
+        scope: PermissionScope.action,
+      ),
+    ],
+  );
 }

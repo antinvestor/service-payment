@@ -25,7 +25,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/observability"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 )

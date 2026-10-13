@@ -19,7 +19,6 @@ import (
 	"time"
 
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/ledger/service/models"
 	utilmoney "github.com/pitabwire/util/moneyx"
 )
@@ -35,15 +34,15 @@ import (
 // as_of is an upper bound on transacted_at.
 func (ledgerSrv *LedgerServer) GetTrialBalance(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.GetTrialBalanceRequest],
-) (*connect.Response[ledgerv1.GetTrialBalanceResponse], error) {
+	req *ledgerv1.GetTrialBalanceRequest,
+) (*ledgerv1.GetTrialBalanceResponse, error) {
 	params := models.TrialBalanceParams{
-		Currency:   req.Msg.GetCurrency(),
-		LedgerID:   req.Msg.GetLedgerId(),
-		LedgerType: req.Msg.GetLedgerType(),
-		BookIDs:    req.Msg.GetBookIds(),
+		Currency:   req.GetCurrency(),
+		LedgerID:   req.GetLedgerId(),
+		LedgerType: req.GetLedgerType(),
+		BookIDs:    req.GetBookIds(),
 	}
-	if asOf := req.Msg.GetAsOf(); asOf != "" {
+	if asOf := req.GetAsOf(); asOf != "" {
 		if parsed, err := time.Parse(time.RFC3339, asOf); err == nil {
 			params.AsOf = &parsed
 		}
@@ -77,10 +76,10 @@ func (ledgerSrv *LedgerServer) GetTrialBalance(
 		}
 	}
 
-	return connect.NewResponse(&ledgerv1.GetTrialBalanceResponse{
+	return &ledgerv1.GetTrialBalanceResponse{
 		Lines:  apiLines,
 		Totals: apiTotals,
-	}), nil
+	}, nil
 }
 
 // GetAccountStatement returns the account's entries in chronological order
@@ -92,19 +91,19 @@ func (ledgerSrv *LedgerServer) GetTrialBalance(
 // so paging forward yields a continuous statement.
 func (ledgerSrv *LedgerServer) GetAccountStatement(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.GetAccountStatementRequest],
-) (*connect.Response[ledgerv1.GetAccountStatementResponse], error) {
+	req *ledgerv1.GetAccountStatementRequest,
+) (*ledgerv1.GetAccountStatementResponse, error) {
 	params := models.StatementParams{
-		AccountID: req.Msg.GetAccountId(),
-		Limit:     int(req.Msg.GetLimit()),
-		Offset:    int(req.Msg.GetOffset()),
+		AccountID: req.GetAccountId(),
+		Limit:     int(req.GetLimit()),
+		Offset:    int(req.GetOffset()),
 	}
-	if from := req.Msg.GetFrom(); from != "" {
+	if from := req.GetFrom(); from != "" {
 		if parsed, err := time.Parse(time.RFC3339, from); err == nil {
 			params.From = &parsed
 		}
 	}
-	if to := req.Msg.GetTo(); to != "" {
+	if to := req.GetTo(); to != "" {
 		if parsed, err := time.Parse(time.RFC3339, to); err == nil {
 			params.To = &parsed
 		}
@@ -120,7 +119,7 @@ func (ledgerSrv *LedgerServer) GetAccountStatement(
 		apiEntries[i] = statementEntryToAPI(stmt.Currency, e)
 	}
 
-	return connect.NewResponse(&ledgerv1.GetAccountStatementResponse{
+	return &ledgerv1.GetAccountStatementResponse{
 		AccountId:      stmt.AccountID,
 		Currency:       stmt.Currency,
 		OpeningBalance: utilmoney.ToMoney(stmt.Currency, stmt.OpeningBalance),
@@ -128,7 +127,7 @@ func (ledgerSrv *LedgerServer) GetAccountStatement(
 		TotalDebits:    utilmoney.ToMoney(stmt.Currency, stmt.TotalDebits),
 		TotalCredits:   utilmoney.ToMoney(stmt.Currency, stmt.TotalCredits),
 		Entries:        apiEntries,
-	}), nil
+	}, nil
 }
 
 func statementEntryToAPI(

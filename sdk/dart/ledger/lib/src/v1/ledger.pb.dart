@@ -1,23 +1,26 @@
+// This is a generated file - do not edit.
 //
-//  Generated code. Do not modify.
-//  source: v1/ledger.proto
-//
-// @dart = 2.12
+// Generated from v1/ledger.proto.
+
+// @dart = 3.3
 
 // ignore_for_file: annotate_overrides, camel_case_types, comment_references
-// ignore_for_file: constant_identifier_names, library_prefixes
-// ignore_for_file: non_constant_identifier_names, prefer_final_fields
-// ignore_for_file: unnecessary_import, unnecessary_this, unused_import
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:async' as $async;
 import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
+import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
-import '../common/v1/common.pb.dart' as $8;
-import '../common/v1/money.pb.dart' as $7;
-import '../google/protobuf/struct.pb.dart' as $6;
+import '../common/v1/common.pb.dart' as $2;
+import '../common/v1/money.pb.dart' as $1;
 import 'ledger.pbenum.dart';
+
+export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'ledger.pbenum.dart';
 
@@ -28,107 +31,106 @@ class Ledger extends $pb.GeneratedMessage {
     $core.String? id,
     LedgerType? type,
     $core.String? parent,
-    $6.Struct? data,
+    $0.Struct? data,
     $core.String? bookId,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (parent != null) {
-      $result.parent = parent;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    if (bookId != null) {
-      $result.bookId = bookId;
-    }
-    return $result;
+    final result = Ledger._();
+    if (id != null) result.id = id;
+    if (type != null) result.type = type;
+    if (parent != null) result.parent = parent;
+    if (data != null) result.data = data;
+    if (bookId != null) result.bookId = bookId;
+    return result;
   }
-  Ledger._() : super();
-  factory Ledger.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Ledger.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Ledger', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  Ledger._();
+
+  factory Ledger.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Ledger()..mergeFromBuffer(data, registry);
+  factory Ledger.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Ledger()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Ledger',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: Ledger.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..e<LedgerType>(2, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: LedgerType.ASSET, valueOf: LedgerType.valueOf, enumValues: LedgerType.values)
+    ..aE<LedgerType>(2, _omitFieldNames ? '' : 'type',
+        enumValues: LedgerType.values)
     ..aOS(3, _omitFieldNames ? '' : 'parent')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
     ..aOS(5, _omitFieldNames ? '' : 'bookId')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  Ledger clone() => Ledger()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  Ledger copyWith(void Function(Ledger) updates) => super.copyWith((message) => updates(message as Ledger)) as Ledger;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Ledger clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Ledger copyWith(void Function(Ledger) updates) =>
+      super.copyWith((message) => updates(message as Ledger)) as Ledger;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Ledger() / Ledger.new instead')
   static Ledger create() => Ledger._();
-  Ledger createEmptyInstance() => create();
-  static $pb.PbList<Ledger> createRepeated() => $pb.PbList<Ledger>();
+  static $pb.GeneratedMessage $_createMessage() => Ledger._();
+  @$core.override
+  Ledger createEmptyInstance() => Ledger._();
   @$core.pragma('dart2js:noInline')
-  static Ledger getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Ledger>(create);
+  static Ledger getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Ledger>(Ledger.$_createMessage);
   static Ledger? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   LedgerType get type => $_getN(1);
   @$pb.TagNumber(2)
-  set type(LedgerType v) { setField(2, v); }
+  set type(LedgerType value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasType() => $_has(1);
   @$pb.TagNumber(2)
-  void clearType() => clearField(2);
+  void clearType() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get parent => $_getSZ(2);
   @$pb.TagNumber(3)
-  set parent($core.String v) { $_setString(2, v); }
+  set parent($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasParent() => $_has(2);
   @$pb.TagNumber(3)
-  void clearParent() => clearField(3);
+  void clearParent() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.String get bookId => $_getSZ(4);
   @$pb.TagNumber(5)
-  set bookId($core.String v) { $_setString(4, v); }
+  set bookId($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasBookId() => $_has(4);
   @$pb.TagNumber(5)
-  void clearBookId() => clearField(5);
+  void clearBookId() => $_clearField(5);
 }
 
 /// Account represents a specific account within a ledger.
@@ -137,170 +139,165 @@ class Account extends $pb.GeneratedMessage {
   factory Account({
     $core.String? id,
     $core.String? ledger,
-    $7.Money? balance,
-    $6.Struct? data,
-    $7.Money? unclearedBalance,
-    $7.Money? reservedBalance,
+    $1.Money? balance,
+    $0.Struct? data,
+    $1.Money? unclearedBalance,
+    $1.Money? reservedBalance,
     AccountType? accountType,
     NormalBalance? normalBalance,
     $core.String? bookId,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (ledger != null) {
-      $result.ledger = ledger;
-    }
-    if (balance != null) {
-      $result.balance = balance;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    if (unclearedBalance != null) {
-      $result.unclearedBalance = unclearedBalance;
-    }
-    if (reservedBalance != null) {
-      $result.reservedBalance = reservedBalance;
-    }
-    if (accountType != null) {
-      $result.accountType = accountType;
-    }
-    if (normalBalance != null) {
-      $result.normalBalance = normalBalance;
-    }
-    if (bookId != null) {
-      $result.bookId = bookId;
-    }
-    return $result;
+    final result = Account._();
+    if (id != null) result.id = id;
+    if (ledger != null) result.ledger = ledger;
+    if (balance != null) result.balance = balance;
+    if (data != null) result.data = data;
+    if (unclearedBalance != null) result.unclearedBalance = unclearedBalance;
+    if (reservedBalance != null) result.reservedBalance = reservedBalance;
+    if (accountType != null) result.accountType = accountType;
+    if (normalBalance != null) result.normalBalance = normalBalance;
+    if (bookId != null) result.bookId = bookId;
+    return result;
   }
-  Account._() : super();
-  factory Account.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Account.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Account', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  Account._();
+
+  factory Account.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Account()..mergeFromBuffer(data, registry);
+  factory Account.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Account()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Account',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: Account.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(3, _omitFieldNames ? '' : 'ledger')
-    ..aOM<$7.Money>(4, _omitFieldNames ? '' : 'balance', subBuilder: $7.Money.create)
-    ..aOM<$6.Struct>(5, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'unclearedBalance', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'reservedBalance', subBuilder: $7.Money.create)
-    ..e<AccountType>(8, _omitFieldNames ? '' : 'accountType', $pb.PbFieldType.OE, defaultOrMaker: AccountType.ACCOUNT_ASSET, valueOf: AccountType.valueOf, enumValues: AccountType.values)
-    ..e<NormalBalance>(9, _omitFieldNames ? '' : 'normalBalance', $pb.PbFieldType.OE, defaultOrMaker: NormalBalance.DEBIT, valueOf: NormalBalance.valueOf, enumValues: NormalBalance.values)
+    ..aOM<$1.Money>(4, _omitFieldNames ? '' : 'balance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$0.Struct>(5, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..aOM<$1.Money>(6, _omitFieldNames ? '' : 'unclearedBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(7, _omitFieldNames ? '' : 'reservedBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aE<AccountType>(8, _omitFieldNames ? '' : 'accountType',
+        enumValues: AccountType.values)
+    ..aE<NormalBalance>(9, _omitFieldNames ? '' : 'normalBalance',
+        enumValues: NormalBalance.values)
     ..aOS(10, _omitFieldNames ? '' : 'bookId')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  Account clone() => Account()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  Account copyWith(void Function(Account) updates) => super.copyWith((message) => updates(message as Account)) as Account;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Account clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Account copyWith(void Function(Account) updates) =>
+      super.copyWith((message) => updates(message as Account)) as Account;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Account() / Account.new instead')
   static Account create() => Account._();
-  Account createEmptyInstance() => create();
-  static $pb.PbList<Account> createRepeated() => $pb.PbList<Account>();
+  static $pb.GeneratedMessage $_createMessage() => Account._();
+  @$core.override
+  Account createEmptyInstance() => Account._();
   @$core.pragma('dart2js:noInline')
-  static Account getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Account>(create);
+  static Account getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Account>(Account.$_createMessage);
   static Account? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(3)
   $core.String get ledger => $_getSZ(1);
   @$pb.TagNumber(3)
-  set ledger($core.String v) { $_setString(1, v); }
+  set ledger($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
   $core.bool hasLedger() => $_has(1);
   @$pb.TagNumber(3)
-  void clearLedger() => clearField(3);
+  void clearLedger() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $7.Money get balance => $_getN(2);
+  $1.Money get balance => $_getN(2);
   @$pb.TagNumber(4)
-  set balance($7.Money v) { setField(4, v); }
+  set balance($1.Money value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasBalance() => $_has(2);
   @$pb.TagNumber(4)
-  void clearBalance() => clearField(4);
+  void clearBalance() => $_clearField(4);
   @$pb.TagNumber(4)
-  $7.Money ensureBalance() => $_ensure(2);
+  $1.Money ensureBalance() => $_ensure(2);
 
   @$pb.TagNumber(5)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(5)
-  set data($6.Struct v) { setField(5, v); }
+  set data($0.Struct value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(5)
-  void clearData() => clearField(5);
+  void clearData() => $_clearField(5);
   @$pb.TagNumber(5)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 
   @$pb.TagNumber(6)
-  $7.Money get unclearedBalance => $_getN(4);
+  $1.Money get unclearedBalance => $_getN(4);
   @$pb.TagNumber(6)
-  set unclearedBalance($7.Money v) { setField(6, v); }
+  set unclearedBalance($1.Money value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasUnclearedBalance() => $_has(4);
   @$pb.TagNumber(6)
-  void clearUnclearedBalance() => clearField(6);
+  void clearUnclearedBalance() => $_clearField(6);
   @$pb.TagNumber(6)
-  $7.Money ensureUnclearedBalance() => $_ensure(4);
+  $1.Money ensureUnclearedBalance() => $_ensure(4);
 
   @$pb.TagNumber(7)
-  $7.Money get reservedBalance => $_getN(5);
+  $1.Money get reservedBalance => $_getN(5);
   @$pb.TagNumber(7)
-  set reservedBalance($7.Money v) { setField(7, v); }
+  set reservedBalance($1.Money value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasReservedBalance() => $_has(5);
   @$pb.TagNumber(7)
-  void clearReservedBalance() => clearField(7);
+  void clearReservedBalance() => $_clearField(7);
   @$pb.TagNumber(7)
-  $7.Money ensureReservedBalance() => $_ensure(5);
+  $1.Money ensureReservedBalance() => $_ensure(5);
 
   @$pb.TagNumber(8)
   AccountType get accountType => $_getN(6);
   @$pb.TagNumber(8)
-  set accountType(AccountType v) { setField(8, v); }
+  set accountType(AccountType value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasAccountType() => $_has(6);
   @$pb.TagNumber(8)
-  void clearAccountType() => clearField(8);
+  void clearAccountType() => $_clearField(8);
 
   @$pb.TagNumber(9)
   NormalBalance get normalBalance => $_getN(7);
   @$pb.TagNumber(9)
-  set normalBalance(NormalBalance v) { setField(9, v); }
+  set normalBalance(NormalBalance value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasNormalBalance() => $_has(7);
   @$pb.TagNumber(9)
-  void clearNormalBalance() => clearField(9);
+  void clearNormalBalance() => $_clearField(9);
 
   @$pb.TagNumber(10)
   $core.String get bookId => $_getSZ(8);
   @$pb.TagNumber(10)
-  set bookId($core.String v) { $_setString(8, v); }
+  set bookId($core.String value) => $_setString(8, value);
   @$pb.TagNumber(10)
   $core.bool hasBookId() => $_has(8);
   @$pb.TagNumber(10)
-  void clearBookId() => clearField(10);
+  void clearBookId() => $_clearField(10);
 }
 
 /// TransactionEntry represents one side of a double-entry transaction.
@@ -311,150 +308,151 @@ class TransactionEntry extends $pb.GeneratedMessage {
     $core.String? accountId,
     $core.String? transactionId,
     $core.String? transactedAt,
-    $7.Money? amount,
+    $1.Money? amount,
     $core.bool? credit,
-    $7.Money? accBalance,
+    $1.Money? accBalance,
     $core.String? clearedAt,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (accountId != null) {
-      $result.accountId = accountId;
-    }
-    if (transactionId != null) {
-      $result.transactionId = transactionId;
-    }
-    if (transactedAt != null) {
-      $result.transactedAt = transactedAt;
-    }
-    if (amount != null) {
-      $result.amount = amount;
-    }
-    if (credit != null) {
-      $result.credit = credit;
-    }
-    if (accBalance != null) {
-      $result.accBalance = accBalance;
-    }
-    if (clearedAt != null) {
-      $result.clearedAt = clearedAt;
-    }
-    return $result;
+    final result = TransactionEntry._();
+    if (id != null) result.id = id;
+    if (accountId != null) result.accountId = accountId;
+    if (transactionId != null) result.transactionId = transactionId;
+    if (transactedAt != null) result.transactedAt = transactedAt;
+    if (amount != null) result.amount = amount;
+    if (credit != null) result.credit = credit;
+    if (accBalance != null) result.accBalance = accBalance;
+    if (clearedAt != null) result.clearedAt = clearedAt;
+    return result;
   }
-  TransactionEntry._() : super();
-  factory TransactionEntry.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TransactionEntry.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TransactionEntry', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  TransactionEntry._();
+
+  factory TransactionEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TransactionEntry()..mergeFromBuffer(data, registry);
+  factory TransactionEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TransactionEntry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TransactionEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: TransactionEntry.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(3, _omitFieldNames ? '' : 'accountId')
     ..aOS(4, _omitFieldNames ? '' : 'transactionId')
     ..aOS(5, _omitFieldNames ? '' : 'transactedAt')
-    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aOM<$1.Money>(7, _omitFieldNames ? '' : 'amount',
+        subBuilder: $1.Money.$_createMessage)
     ..aOB(8, _omitFieldNames ? '' : 'credit')
-    ..aOM<$7.Money>(9, _omitFieldNames ? '' : 'accBalance', subBuilder: $7.Money.create)
+    ..aOM<$1.Money>(9, _omitFieldNames ? '' : 'accBalance',
+        subBuilder: $1.Money.$_createMessage)
     ..aOS(11, _omitFieldNames ? '' : 'clearedAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  TransactionEntry clone() => TransactionEntry()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  TransactionEntry copyWith(void Function(TransactionEntry) updates) => super.copyWith((message) => updates(message as TransactionEntry)) as TransactionEntry;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TransactionEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TransactionEntry copyWith(void Function(TransactionEntry) updates) =>
+      super.copyWith((message) => updates(message as TransactionEntry))
+          as TransactionEntry;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TransactionEntry() / TransactionEntry.new instead')
   static TransactionEntry create() => TransactionEntry._();
-  TransactionEntry createEmptyInstance() => create();
-  static $pb.PbList<TransactionEntry> createRepeated() => $pb.PbList<TransactionEntry>();
+  static $pb.GeneratedMessage $_createMessage() => TransactionEntry._();
+  @$core.override
+  TransactionEntry createEmptyInstance() => TransactionEntry._();
   @$core.pragma('dart2js:noInline')
-  static TransactionEntry getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TransactionEntry>(create);
+  static TransactionEntry getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TransactionEntry>(
+          TransactionEntry.$_createMessage);
   static TransactionEntry? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(3)
   $core.String get accountId => $_getSZ(1);
   @$pb.TagNumber(3)
-  set accountId($core.String v) { $_setString(1, v); }
+  set accountId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
   $core.bool hasAccountId() => $_has(1);
   @$pb.TagNumber(3)
-  void clearAccountId() => clearField(3);
+  void clearAccountId() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get transactionId => $_getSZ(2);
   @$pb.TagNumber(4)
-  set transactionId($core.String v) { $_setString(2, v); }
+  set transactionId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(4)
   $core.bool hasTransactionId() => $_has(2);
   @$pb.TagNumber(4)
-  void clearTransactionId() => clearField(4);
+  void clearTransactionId() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get transactedAt => $_getSZ(3);
   @$pb.TagNumber(5)
-  set transactedAt($core.String v) { $_setString(3, v); }
+  set transactedAt($core.String value) => $_setString(3, value);
   @$pb.TagNumber(5)
   $core.bool hasTransactedAt() => $_has(3);
   @$pb.TagNumber(5)
-  void clearTransactedAt() => clearField(5);
+  void clearTransactedAt() => $_clearField(5);
 
+  /// Amount for this entry. On create, supply a positive amount; the side is
+  /// carried by `credit`. On read, the amount is signed by its effect on the
+  /// account's balance: positive when the entry's side matches the account's
+  /// normal balance (debit on ASSET/EXPENSE, credit on LIABILITY/INCOME/
+  /// CAPITAL), negative when it opposes it. So a credit to an asset account
+  /// reads back with credit = true and a negative amount.
   @$pb.TagNumber(7)
-  $7.Money get amount => $_getN(4);
+  $1.Money get amount => $_getN(4);
   @$pb.TagNumber(7)
-  set amount($7.Money v) { setField(7, v); }
+  set amount($1.Money value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasAmount() => $_has(4);
   @$pb.TagNumber(7)
-  void clearAmount() => clearField(7);
+  void clearAmount() => $_clearField(7);
   @$pb.TagNumber(7)
-  $7.Money ensureAmount() => $_ensure(4);
+  $1.Money ensureAmount() => $_ensure(4);
 
   @$pb.TagNumber(8)
   $core.bool get credit => $_getBF(5);
   @$pb.TagNumber(8)
-  set credit($core.bool v) { $_setBool(5, v); }
+  set credit($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(8)
   $core.bool hasCredit() => $_has(5);
   @$pb.TagNumber(8)
-  void clearCredit() => clearField(8);
+  void clearCredit() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $7.Money get accBalance => $_getN(6);
+  $1.Money get accBalance => $_getN(6);
   @$pb.TagNumber(9)
-  set accBalance($7.Money v) { setField(9, v); }
+  set accBalance($1.Money value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasAccBalance() => $_has(6);
   @$pb.TagNumber(9)
-  void clearAccBalance() => clearField(9);
+  void clearAccBalance() => $_clearField(9);
   @$pb.TagNumber(9)
-  $7.Money ensureAccBalance() => $_ensure(6);
+  $1.Money ensureAccBalance() => $_ensure(6);
 
   @$pb.TagNumber(11)
   $core.String get clearedAt => $_getSZ(7);
   @$pb.TagNumber(11)
-  set clearedAt($core.String v) { $_setString(7, v); }
+  set clearedAt($core.String value) => $_setString(7, value);
   @$pb.TagNumber(11)
   $core.bool hasClearedAt() => $_has(7);
   @$pb.TagNumber(11)
-  void clearClearedAt() => clearField(11);
+  void clearClearedAt() => $_clearField(11);
 }
 
 /// Transaction represents a complete double-entry transaction.
@@ -464,7 +462,7 @@ class Transaction extends $pb.GeneratedMessage {
     $core.String? id,
     $core.String? currencyCode,
     $core.String? transactedAt,
-    $6.Struct? data,
+    $0.Struct? data,
     $core.Iterable<TransactionEntry>? entries,
     $core.bool? cleared,
     TransactionType? type,
@@ -477,67 +475,51 @@ class Transaction extends $pb.GeneratedMessage {
     $core.String? voidedAt,
     $core.String? reversedTransactionId,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (currencyCode != null) {
-      $result.currencyCode = currencyCode;
-    }
-    if (transactedAt != null) {
-      $result.transactedAt = transactedAt;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    if (entries != null) {
-      $result.entries.addAll(entries);
-    }
-    if (cleared != null) {
-      $result.cleared = cleared;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (status != null) {
-      $result.status = status;
-    }
-    if (idempotencyKey != null) {
-      $result.idempotencyKey = idempotencyKey;
-    }
-    if (externalRef != null) {
-      $result.externalRef = externalRef;
-    }
-    if (source != null) {
-      $result.source = source;
-    }
-    if (bookId != null) {
-      $result.bookId = bookId;
-    }
-    if (postedAt != null) {
-      $result.postedAt = postedAt;
-    }
-    if (voidedAt != null) {
-      $result.voidedAt = voidedAt;
-    }
-    if (reversedTransactionId != null) {
-      $result.reversedTransactionId = reversedTransactionId;
-    }
-    return $result;
+    final result = Transaction._();
+    if (id != null) result.id = id;
+    if (currencyCode != null) result.currencyCode = currencyCode;
+    if (transactedAt != null) result.transactedAt = transactedAt;
+    if (data != null) result.data = data;
+    if (entries != null) result.entries.addAll(entries);
+    if (cleared != null) result.cleared = cleared;
+    if (type != null) result.type = type;
+    if (status != null) result.status = status;
+    if (idempotencyKey != null) result.idempotencyKey = idempotencyKey;
+    if (externalRef != null) result.externalRef = externalRef;
+    if (source != null) result.source = source;
+    if (bookId != null) result.bookId = bookId;
+    if (postedAt != null) result.postedAt = postedAt;
+    if (voidedAt != null) result.voidedAt = voidedAt;
+    if (reversedTransactionId != null)
+      result.reversedTransactionId = reversedTransactionId;
+    return result;
   }
-  Transaction._() : super();
-  factory Transaction.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Transaction.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Transaction', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  Transaction._();
+
+  factory Transaction.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Transaction()..mergeFromBuffer(data, registry);
+  factory Transaction.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Transaction()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Transaction',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: Transaction.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'currencyCode')
     ..aOS(3, _omitFieldNames ? '' : 'transactedAt')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..pc<TransactionEntry>(5, _omitFieldNames ? '' : 'entries', $pb.PbFieldType.PM, subBuilder: TransactionEntry.create)
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..pPM<TransactionEntry>(5, _omitFieldNames ? '' : 'entries',
+        subBuilder: TransactionEntry.$_createMessage)
     ..aOB(6, _omitFieldNames ? '' : 'cleared')
-    ..e<TransactionType>(7, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: TransactionType.NORMAL, valueOf: TransactionType.valueOf, enumValues: TransactionType.values)
-    ..e<TransactionStatus>(8, _omitFieldNames ? '' : 'status', $pb.PbFieldType.OE, defaultOrMaker: TransactionStatus.PENDING, valueOf: TransactionStatus.valueOf, enumValues: TransactionStatus.values)
+    ..aE<TransactionType>(7, _omitFieldNames ? '' : 'type',
+        enumValues: TransactionType.values)
+    ..aE<TransactionStatus>(8, _omitFieldNames ? '' : 'status',
+        enumValues: TransactionStatus.values)
     ..aOS(9, _omitFieldNames ? '' : 'idempotencyKey')
     ..aOS(10, _omitFieldNames ? '' : 'externalRef')
     ..aOS(11, _omitFieldNames ? '' : 'source')
@@ -545,161 +527,162 @@ class Transaction extends $pb.GeneratedMessage {
     ..aOS(13, _omitFieldNames ? '' : 'postedAt')
     ..aOS(14, _omitFieldNames ? '' : 'voidedAt')
     ..aOS(15, _omitFieldNames ? '' : 'reversedTransactionId')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  Transaction clone() => Transaction()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  Transaction copyWith(void Function(Transaction) updates) => super.copyWith((message) => updates(message as Transaction)) as Transaction;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Transaction clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Transaction copyWith(void Function(Transaction) updates) =>
+      super.copyWith((message) => updates(message as Transaction))
+          as Transaction;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Transaction() / Transaction.new instead')
   static Transaction create() => Transaction._();
-  Transaction createEmptyInstance() => create();
-  static $pb.PbList<Transaction> createRepeated() => $pb.PbList<Transaction>();
+  static $pb.GeneratedMessage $_createMessage() => Transaction._();
+  @$core.override
+  Transaction createEmptyInstance() => Transaction._();
   @$core.pragma('dart2js:noInline')
-  static Transaction getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Transaction>(create);
+  static Transaction getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Transaction>(
+          Transaction.$_createMessage);
   static Transaction? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
-  /// The three-letter currency code defined in ISO 4217.
+  /// Asset code shared by every entry and their accounts: an ISO 4217 code
+  /// (USD, UGX) or a token symbol (USDC), 3-10 uppercase letters or digits.
   @$pb.TagNumber(2)
   $core.String get currencyCode => $_getSZ(1);
   @$pb.TagNumber(2)
-  set currencyCode($core.String v) { $_setString(1, v); }
+  set currencyCode($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasCurrencyCode() => $_has(1);
   @$pb.TagNumber(2)
-  void clearCurrencyCode() => clearField(2);
+  void clearCurrencyCode() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get transactedAt => $_getSZ(2);
   @$pb.TagNumber(3)
-  set transactedAt($core.String v) { $_setString(2, v); }
+  set transactedAt($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasTransactedAt() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTransactedAt() => clearField(3);
+  void clearTransactedAt() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $core.List<TransactionEntry> get entries => $_getList(4);
+  $pb.PbList<TransactionEntry> get entries => $_getList(4);
 
   @$pb.TagNumber(6)
   $core.bool get cleared => $_getBF(5);
   @$pb.TagNumber(6)
-  set cleared($core.bool v) { $_setBool(5, v); }
+  set cleared($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
   $core.bool hasCleared() => $_has(5);
   @$pb.TagNumber(6)
-  void clearCleared() => clearField(6);
+  void clearCleared() => $_clearField(6);
 
   @$pb.TagNumber(7)
   TransactionType get type => $_getN(6);
   @$pb.TagNumber(7)
-  set type(TransactionType v) { setField(7, v); }
+  set type(TransactionType value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
-  void clearType() => clearField(7);
+  void clearType() => $_clearField(7);
 
   @$pb.TagNumber(8)
   TransactionStatus get status => $_getN(7);
   @$pb.TagNumber(8)
-  set status(TransactionStatus v) { setField(8, v); }
+  set status(TransactionStatus value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasStatus() => $_has(7);
   @$pb.TagNumber(8)
-  void clearStatus() => clearField(8);
+  void clearStatus() => $_clearField(8);
 
   @$pb.TagNumber(9)
   $core.String get idempotencyKey => $_getSZ(8);
   @$pb.TagNumber(9)
-  set idempotencyKey($core.String v) { $_setString(8, v); }
+  set idempotencyKey($core.String value) => $_setString(8, value);
   @$pb.TagNumber(9)
   $core.bool hasIdempotencyKey() => $_has(8);
   @$pb.TagNumber(9)
-  void clearIdempotencyKey() => clearField(9);
+  void clearIdempotencyKey() => $_clearField(9);
 
   @$pb.TagNumber(10)
   $core.String get externalRef => $_getSZ(9);
   @$pb.TagNumber(10)
-  set externalRef($core.String v) { $_setString(9, v); }
+  set externalRef($core.String value) => $_setString(9, value);
   @$pb.TagNumber(10)
   $core.bool hasExternalRef() => $_has(9);
   @$pb.TagNumber(10)
-  void clearExternalRef() => clearField(10);
+  void clearExternalRef() => $_clearField(10);
 
   @$pb.TagNumber(11)
   $core.String get source => $_getSZ(10);
   @$pb.TagNumber(11)
-  set source($core.String v) { $_setString(10, v); }
+  set source($core.String value) => $_setString(10, value);
   @$pb.TagNumber(11)
   $core.bool hasSource() => $_has(10);
   @$pb.TagNumber(11)
-  void clearSource() => clearField(11);
+  void clearSource() => $_clearField(11);
 
   @$pb.TagNumber(12)
   $core.String get bookId => $_getSZ(11);
   @$pb.TagNumber(12)
-  set bookId($core.String v) { $_setString(11, v); }
+  set bookId($core.String value) => $_setString(11, value);
   @$pb.TagNumber(12)
   $core.bool hasBookId() => $_has(11);
   @$pb.TagNumber(12)
-  void clearBookId() => clearField(12);
+  void clearBookId() => $_clearField(12);
 
   @$pb.TagNumber(13)
   $core.String get postedAt => $_getSZ(12);
   @$pb.TagNumber(13)
-  set postedAt($core.String v) { $_setString(12, v); }
+  set postedAt($core.String value) => $_setString(12, value);
   @$pb.TagNumber(13)
   $core.bool hasPostedAt() => $_has(12);
   @$pb.TagNumber(13)
-  void clearPostedAt() => clearField(13);
+  void clearPostedAt() => $_clearField(13);
 
   @$pb.TagNumber(14)
   $core.String get voidedAt => $_getSZ(13);
   @$pb.TagNumber(14)
-  set voidedAt($core.String v) { $_setString(13, v); }
+  set voidedAt($core.String value) => $_setString(13, value);
   @$pb.TagNumber(14)
   $core.bool hasVoidedAt() => $_has(13);
   @$pb.TagNumber(14)
-  void clearVoidedAt() => clearField(14);
+  void clearVoidedAt() => $_clearField(14);
 
   @$pb.TagNumber(15)
   $core.String get reversedTransactionId => $_getSZ(14);
   @$pb.TagNumber(15)
-  set reversedTransactionId($core.String v) { $_setString(14, v); }
+  set reversedTransactionId($core.String value) => $_setString(14, value);
   @$pb.TagNumber(15)
   $core.bool hasReversedTransactionId() => $_has(14);
   @$pb.TagNumber(15)
-  void clearReversedTransactionId() => clearField(15);
+  void clearReversedTransactionId() => $_clearField(15);
 }
 
 /// Book is an independent accounting scope — one entity's complete set of
@@ -716,119 +699,115 @@ class Book extends $pb.GeneratedMessage {
     $core.String? type,
     $core.String? parentId,
     $core.String? currency,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (name != null) {
-      $result.name = name;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (parentId != null) {
-      $result.parentId = parentId;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = Book._();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (type != null) result.type = type;
+    if (parentId != null) result.parentId = parentId;
+    if (currency != null) result.currency = currency;
+    if (data != null) result.data = data;
+    return result;
   }
-  Book._() : super();
-  factory Book.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Book.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Book', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  Book._();
+
+  factory Book.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Book()..mergeFromBuffer(data, registry);
+  factory Book.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Book()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Book',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: Book.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'type')
     ..aOS(4, _omitFieldNames ? '' : 'parentId')
     ..aOS(5, _omitFieldNames ? '' : 'currency')
-    ..aOM<$6.Struct>(6, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(6, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  Book clone() => Book()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  Book copyWith(void Function(Book) updates) => super.copyWith((message) => updates(message as Book)) as Book;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Book clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Book copyWith(void Function(Book) updates) =>
+      super.copyWith((message) => updates(message as Book)) as Book;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Book() / Book.new instead')
   static Book create() => Book._();
-  Book createEmptyInstance() => create();
-  static $pb.PbList<Book> createRepeated() => $pb.PbList<Book>();
+  static $pb.GeneratedMessage $_createMessage() => Book._();
+  @$core.override
+  Book createEmptyInstance() => Book._();
   @$core.pragma('dart2js:noInline')
-  static Book getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Book>(create);
+  static Book getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Book>(Book.$_createMessage);
   static Book? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set name($core.String v) { $_setString(1, v); }
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearName() => clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get type => $_getSZ(2);
   @$pb.TagNumber(3)
-  set type($core.String v) { $_setString(2, v); }
+  set type($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasType() => $_has(2);
   @$pb.TagNumber(3)
-  void clearType() => clearField(3);
+  void clearType() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get parentId => $_getSZ(3);
   @$pb.TagNumber(4)
-  set parentId($core.String v) { $_setString(3, v); }
+  set parentId($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasParentId() => $_has(3);
   @$pb.TagNumber(4)
-  void clearParentId() => clearField(4);
+  void clearParentId() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get currency => $_getSZ(4);
   @$pb.TagNumber(5)
-  set currency($core.String v) { $_setString(4, v); }
+  set currency($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasCurrency() => $_has(4);
   @$pb.TagNumber(5)
-  void clearCurrency() => clearField(5);
+  void clearCurrency() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $6.Struct get data => $_getN(5);
+  $0.Struct get data => $_getN(5);
   @$pb.TagNumber(6)
-  set data($6.Struct v) { setField(6, v); }
+  set data($0.Struct value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasData() => $_has(5);
   @$pb.TagNumber(6)
-  void clearData() => clearField(6);
+  void clearData() => $_clearField(6);
   @$pb.TagNumber(6)
-  $6.Struct ensureData() => $_ensure(5);
+  $0.Struct ensureData() => $_ensure(5);
 }
 
 /// TrialBalanceLine is one row of the trial balance — a single account's
@@ -839,138 +818,137 @@ class TrialBalanceLine extends $pb.GeneratedMessage {
     $core.String? ledgerId,
     LedgerType? ledgerType,
     $core.String? currency,
-    $7.Money? totalDebits,
-    $7.Money? totalCredits,
-    $7.Money? netBalance,
+    $1.Money? totalDebits,
+    $1.Money? totalCredits,
+    $1.Money? netBalance,
   }) {
-    final $result = create();
-    if (accountId != null) {
-      $result.accountId = accountId;
-    }
-    if (ledgerId != null) {
-      $result.ledgerId = ledgerId;
-    }
-    if (ledgerType != null) {
-      $result.ledgerType = ledgerType;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (totalDebits != null) {
-      $result.totalDebits = totalDebits;
-    }
-    if (totalCredits != null) {
-      $result.totalCredits = totalCredits;
-    }
-    if (netBalance != null) {
-      $result.netBalance = netBalance;
-    }
-    return $result;
+    final result = TrialBalanceLine._();
+    if (accountId != null) result.accountId = accountId;
+    if (ledgerId != null) result.ledgerId = ledgerId;
+    if (ledgerType != null) result.ledgerType = ledgerType;
+    if (currency != null) result.currency = currency;
+    if (totalDebits != null) result.totalDebits = totalDebits;
+    if (totalCredits != null) result.totalCredits = totalCredits;
+    if (netBalance != null) result.netBalance = netBalance;
+    return result;
   }
-  TrialBalanceLine._() : super();
-  factory TrialBalanceLine.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TrialBalanceLine.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrialBalanceLine', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  TrialBalanceLine._();
+
+  factory TrialBalanceLine.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TrialBalanceLine()..mergeFromBuffer(data, registry);
+  factory TrialBalanceLine.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TrialBalanceLine()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TrialBalanceLine',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: TrialBalanceLine.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'accountId')
     ..aOS(2, _omitFieldNames ? '' : 'ledgerId')
-    ..e<LedgerType>(3, _omitFieldNames ? '' : 'ledgerType', $pb.PbFieldType.OE, defaultOrMaker: LedgerType.ASSET, valueOf: LedgerType.valueOf, enumValues: LedgerType.values)
+    ..aE<LedgerType>(3, _omitFieldNames ? '' : 'ledgerType',
+        enumValues: LedgerType.values)
     ..aOS(4, _omitFieldNames ? '' : 'currency')
-    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'netBalance', subBuilder: $7.Money.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$1.Money>(5, _omitFieldNames ? '' : 'totalDebits',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(6, _omitFieldNames ? '' : 'totalCredits',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(7, _omitFieldNames ? '' : 'netBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  TrialBalanceLine clone() => TrialBalanceLine()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  TrialBalanceLine copyWith(void Function(TrialBalanceLine) updates) => super.copyWith((message) => updates(message as TrialBalanceLine)) as TrialBalanceLine;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TrialBalanceLine clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TrialBalanceLine copyWith(void Function(TrialBalanceLine) updates) =>
+      super.copyWith((message) => updates(message as TrialBalanceLine))
+          as TrialBalanceLine;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TrialBalanceLine() / TrialBalanceLine.new instead')
   static TrialBalanceLine create() => TrialBalanceLine._();
-  TrialBalanceLine createEmptyInstance() => create();
-  static $pb.PbList<TrialBalanceLine> createRepeated() => $pb.PbList<TrialBalanceLine>();
+  static $pb.GeneratedMessage $_createMessage() => TrialBalanceLine._();
+  @$core.override
+  TrialBalanceLine createEmptyInstance() => TrialBalanceLine._();
   @$core.pragma('dart2js:noInline')
-  static TrialBalanceLine getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceLine>(create);
+  static TrialBalanceLine getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceLine>(
+          TrialBalanceLine.$_createMessage);
   static TrialBalanceLine? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get accountId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set accountId($core.String v) { $_setString(0, v); }
+  set accountId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasAccountId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAccountId() => clearField(1);
+  void clearAccountId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get ledgerId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set ledgerId($core.String v) { $_setString(1, v); }
+  set ledgerId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasLedgerId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearLedgerId() => clearField(2);
+  void clearLedgerId() => $_clearField(2);
 
   @$pb.TagNumber(3)
   LedgerType get ledgerType => $_getN(2);
   @$pb.TagNumber(3)
-  set ledgerType(LedgerType v) { setField(3, v); }
+  set ledgerType(LedgerType value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasLedgerType() => $_has(2);
   @$pb.TagNumber(3)
-  void clearLedgerType() => clearField(3);
+  void clearLedgerType() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get currency => $_getSZ(3);
   @$pb.TagNumber(4)
-  set currency($core.String v) { $_setString(3, v); }
+  set currency($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasCurrency() => $_has(3);
   @$pb.TagNumber(4)
-  void clearCurrency() => clearField(4);
+  void clearCurrency() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $7.Money get totalDebits => $_getN(4);
+  $1.Money get totalDebits => $_getN(4);
   @$pb.TagNumber(5)
-  set totalDebits($7.Money v) { setField(5, v); }
+  set totalDebits($1.Money value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasTotalDebits() => $_has(4);
   @$pb.TagNumber(5)
-  void clearTotalDebits() => clearField(5);
+  void clearTotalDebits() => $_clearField(5);
   @$pb.TagNumber(5)
-  $7.Money ensureTotalDebits() => $_ensure(4);
+  $1.Money ensureTotalDebits() => $_ensure(4);
 
   @$pb.TagNumber(6)
-  $7.Money get totalCredits => $_getN(5);
+  $1.Money get totalCredits => $_getN(5);
   @$pb.TagNumber(6)
-  set totalCredits($7.Money v) { setField(6, v); }
+  set totalCredits($1.Money value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasTotalCredits() => $_has(5);
   @$pb.TagNumber(6)
-  void clearTotalCredits() => clearField(6);
+  void clearTotalCredits() => $_clearField(6);
   @$pb.TagNumber(6)
-  $7.Money ensureTotalCredits() => $_ensure(5);
+  $1.Money ensureTotalCredits() => $_ensure(5);
 
   @$pb.TagNumber(7)
-  $7.Money get netBalance => $_getN(6);
+  $1.Money get netBalance => $_getN(6);
   @$pb.TagNumber(7)
-  set netBalance($7.Money v) { setField(7, v); }
+  set netBalance($1.Money value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasNetBalance() => $_has(6);
   @$pb.TagNumber(7)
-  void clearNetBalance() => clearField(7);
+  void clearNetBalance() => $_clearField(7);
   @$pb.TagNumber(7)
-  $7.Money ensureNetBalance() => $_ensure(6);
+  $1.Money ensureNetBalance() => $_ensure(6);
 }
 
 /// TrialBalanceTotal aggregates one currency's debits and credits across
@@ -978,97 +956,100 @@ class TrialBalanceLine extends $pb.GeneratedMessage {
 class TrialBalanceTotal extends $pb.GeneratedMessage {
   factory TrialBalanceTotal({
     $core.String? currency,
-    $7.Money? totalDebits,
-    $7.Money? totalCredits,
+    $1.Money? totalDebits,
+    $1.Money? totalCredits,
     $core.bool? isBalanced,
   }) {
-    final $result = create();
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (totalDebits != null) {
-      $result.totalDebits = totalDebits;
-    }
-    if (totalCredits != null) {
-      $result.totalCredits = totalCredits;
-    }
-    if (isBalanced != null) {
-      $result.isBalanced = isBalanced;
-    }
-    return $result;
+    final result = TrialBalanceTotal._();
+    if (currency != null) result.currency = currency;
+    if (totalDebits != null) result.totalDebits = totalDebits;
+    if (totalCredits != null) result.totalCredits = totalCredits;
+    if (isBalanced != null) result.isBalanced = isBalanced;
+    return result;
   }
-  TrialBalanceTotal._() : super();
-  factory TrialBalanceTotal.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TrialBalanceTotal.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrialBalanceTotal', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  TrialBalanceTotal._();
+
+  factory TrialBalanceTotal.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TrialBalanceTotal()..mergeFromBuffer(data, registry);
+  factory TrialBalanceTotal.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      TrialBalanceTotal()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TrialBalanceTotal',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: TrialBalanceTotal.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'currency')
-    ..aOM<$7.Money>(2, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(3, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
+    ..aOM<$1.Money>(2, _omitFieldNames ? '' : 'totalDebits',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(3, _omitFieldNames ? '' : 'totalCredits',
+        subBuilder: $1.Money.$_createMessage)
     ..aOB(4, _omitFieldNames ? '' : 'isBalanced')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  TrialBalanceTotal clone() => TrialBalanceTotal()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  TrialBalanceTotal copyWith(void Function(TrialBalanceTotal) updates) => super.copyWith((message) => updates(message as TrialBalanceTotal)) as TrialBalanceTotal;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TrialBalanceTotal clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TrialBalanceTotal copyWith(void Function(TrialBalanceTotal) updates) =>
+      super.copyWith((message) => updates(message as TrialBalanceTotal))
+          as TrialBalanceTotal;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TrialBalanceTotal() / TrialBalanceTotal.new instead')
   static TrialBalanceTotal create() => TrialBalanceTotal._();
-  TrialBalanceTotal createEmptyInstance() => create();
-  static $pb.PbList<TrialBalanceTotal> createRepeated() => $pb.PbList<TrialBalanceTotal>();
+  static $pb.GeneratedMessage $_createMessage() => TrialBalanceTotal._();
+  @$core.override
+  TrialBalanceTotal createEmptyInstance() => TrialBalanceTotal._();
   @$core.pragma('dart2js:noInline')
-  static TrialBalanceTotal getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceTotal>(create);
+  static TrialBalanceTotal getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrialBalanceTotal>(
+          TrialBalanceTotal.$_createMessage);
   static TrialBalanceTotal? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get currency => $_getSZ(0);
   @$pb.TagNumber(1)
-  set currency($core.String v) { $_setString(0, v); }
+  set currency($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasCurrency() => $_has(0);
   @$pb.TagNumber(1)
-  void clearCurrency() => clearField(1);
+  void clearCurrency() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $7.Money get totalDebits => $_getN(1);
+  $1.Money get totalDebits => $_getN(1);
   @$pb.TagNumber(2)
-  set totalDebits($7.Money v) { setField(2, v); }
+  set totalDebits($1.Money value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasTotalDebits() => $_has(1);
   @$pb.TagNumber(2)
-  void clearTotalDebits() => clearField(2);
+  void clearTotalDebits() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.Money ensureTotalDebits() => $_ensure(1);
+  $1.Money ensureTotalDebits() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $7.Money get totalCredits => $_getN(2);
+  $1.Money get totalCredits => $_getN(2);
   @$pb.TagNumber(3)
-  set totalCredits($7.Money v) { setField(3, v); }
+  set totalCredits($1.Money value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasTotalCredits() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTotalCredits() => clearField(3);
+  void clearTotalCredits() => $_clearField(3);
   @$pb.TagNumber(3)
-  $7.Money ensureTotalCredits() => $_ensure(2);
+  $1.Money ensureTotalCredits() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.bool get isBalanced => $_getBF(3);
   @$pb.TagNumber(4)
-  set isBalanced($core.bool v) { $_setBool(3, v); }
+  set isBalanced($core.bool value) => $_setBool(3, value);
   @$pb.TagNumber(4)
   $core.bool hasIsBalanced() => $_has(3);
   @$pb.TagNumber(4)
-  void clearIsBalanced() => clearField(4);
+  void clearIsBalanced() => $_clearField(4);
 }
 
 /// StatementEntry is one row on an account statement, hydrated with its
@@ -1079,166 +1060,168 @@ class StatementEntry extends $pb.GeneratedMessage {
     $core.String? transactionId,
     $core.String? transactedAt,
     TransactionType? transactionType,
-    $7.Money? amount,
+    $1.Money? amount,
     $core.bool? credit,
-    $7.Money? runningBalance,
-    $6.Struct? transactionData,
+    $1.Money? runningBalance,
+    $0.Struct? transactionData,
     $core.String? clearedAt,
   }) {
-    final $result = create();
-    if (entryId != null) {
-      $result.entryId = entryId;
-    }
-    if (transactionId != null) {
-      $result.transactionId = transactionId;
-    }
-    if (transactedAt != null) {
-      $result.transactedAt = transactedAt;
-    }
-    if (transactionType != null) {
-      $result.transactionType = transactionType;
-    }
-    if (amount != null) {
-      $result.amount = amount;
-    }
-    if (credit != null) {
-      $result.credit = credit;
-    }
-    if (runningBalance != null) {
-      $result.runningBalance = runningBalance;
-    }
-    if (transactionData != null) {
-      $result.transactionData = transactionData;
-    }
-    if (clearedAt != null) {
-      $result.clearedAt = clearedAt;
-    }
-    return $result;
+    final result = StatementEntry._();
+    if (entryId != null) result.entryId = entryId;
+    if (transactionId != null) result.transactionId = transactionId;
+    if (transactedAt != null) result.transactedAt = transactedAt;
+    if (transactionType != null) result.transactionType = transactionType;
+    if (amount != null) result.amount = amount;
+    if (credit != null) result.credit = credit;
+    if (runningBalance != null) result.runningBalance = runningBalance;
+    if (transactionData != null) result.transactionData = transactionData;
+    if (clearedAt != null) result.clearedAt = clearedAt;
+    return result;
   }
-  StatementEntry._() : super();
-  factory StatementEntry.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory StatementEntry.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'StatementEntry', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  StatementEntry._();
+
+  factory StatementEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StatementEntry()..mergeFromBuffer(data, registry);
+  factory StatementEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StatementEntry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StatementEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: StatementEntry.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'entryId')
     ..aOS(2, _omitFieldNames ? '' : 'transactionId')
     ..aOS(3, _omitFieldNames ? '' : 'transactedAt')
-    ..e<TransactionType>(4, _omitFieldNames ? '' : 'transactionType', $pb.PbFieldType.OE, defaultOrMaker: TransactionType.NORMAL, valueOf: TransactionType.valueOf, enumValues: TransactionType.values)
-    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'amount', subBuilder: $7.Money.create)
+    ..aE<TransactionType>(4, _omitFieldNames ? '' : 'transactionType',
+        enumValues: TransactionType.values)
+    ..aOM<$1.Money>(5, _omitFieldNames ? '' : 'amount',
+        subBuilder: $1.Money.$_createMessage)
     ..aOB(6, _omitFieldNames ? '' : 'credit')
-    ..aOM<$7.Money>(7, _omitFieldNames ? '' : 'runningBalance', subBuilder: $7.Money.create)
-    ..aOM<$6.Struct>(8, _omitFieldNames ? '' : 'transactionData', subBuilder: $6.Struct.create)
+    ..aOM<$1.Money>(7, _omitFieldNames ? '' : 'runningBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$0.Struct>(8, _omitFieldNames ? '' : 'transactionData',
+        subBuilder: $0.Struct.$_createMessage)
     ..aOS(9, _omitFieldNames ? '' : 'clearedAt')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  StatementEntry clone() => StatementEntry()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  StatementEntry copyWith(void Function(StatementEntry) updates) => super.copyWith((message) => updates(message as StatementEntry)) as StatementEntry;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StatementEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StatementEntry copyWith(void Function(StatementEntry) updates) =>
+      super.copyWith((message) => updates(message as StatementEntry))
+          as StatementEntry;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use StatementEntry() / StatementEntry.new instead')
   static StatementEntry create() => StatementEntry._();
-  StatementEntry createEmptyInstance() => create();
-  static $pb.PbList<StatementEntry> createRepeated() => $pb.PbList<StatementEntry>();
+  static $pb.GeneratedMessage $_createMessage() => StatementEntry._();
+  @$core.override
+  StatementEntry createEmptyInstance() => StatementEntry._();
   @$core.pragma('dart2js:noInline')
-  static StatementEntry getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StatementEntry>(create);
+  static StatementEntry getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StatementEntry>(
+          StatementEntry.$_createMessage);
   static StatementEntry? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get entryId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set entryId($core.String v) { $_setString(0, v); }
+  set entryId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasEntryId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearEntryId() => clearField(1);
+  void clearEntryId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get transactionId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set transactionId($core.String v) { $_setString(1, v); }
+  set transactionId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasTransactionId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearTransactionId() => clearField(2);
+  void clearTransactionId() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get transactedAt => $_getSZ(2);
   @$pb.TagNumber(3)
-  set transactedAt($core.String v) { $_setString(2, v); }
+  set transactedAt($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasTransactedAt() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTransactedAt() => clearField(3);
+  void clearTransactedAt() => $_clearField(3);
 
   @$pb.TagNumber(4)
   TransactionType get transactionType => $_getN(3);
   @$pb.TagNumber(4)
-  set transactionType(TransactionType v) { setField(4, v); }
+  set transactionType(TransactionType value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasTransactionType() => $_has(3);
   @$pb.TagNumber(4)
-  void clearTransactionType() => clearField(4);
+  void clearTransactionType() => $_clearField(4);
 
+  /// Signed effect of the entry on the account's balance: positive when the
+  /// entry's side matches the account's normal balance, negative when it
+  /// opposes it. On a debit-normal account (ASSET, EXPENSE) a credit carries
+  /// credit = true and a negative amount; on a credit-normal account
+  /// (LIABILITY, INCOME, CAPITAL) a credit carries a positive amount and a
+  /// debit a negative one. running_balance is the opening balance plus the
+  /// sum of these amounts; use credit for the side and |amount| for the size.
   @$pb.TagNumber(5)
-  $7.Money get amount => $_getN(4);
+  $1.Money get amount => $_getN(4);
   @$pb.TagNumber(5)
-  set amount($7.Money v) { setField(5, v); }
+  set amount($1.Money value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasAmount() => $_has(4);
   @$pb.TagNumber(5)
-  void clearAmount() => clearField(5);
+  void clearAmount() => $_clearField(5);
   @$pb.TagNumber(5)
-  $7.Money ensureAmount() => $_ensure(4);
+  $1.Money ensureAmount() => $_ensure(4);
 
   @$pb.TagNumber(6)
   $core.bool get credit => $_getBF(5);
   @$pb.TagNumber(6)
-  set credit($core.bool v) { $_setBool(5, v); }
+  set credit($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
   $core.bool hasCredit() => $_has(5);
   @$pb.TagNumber(6)
-  void clearCredit() => clearField(6);
+  void clearCredit() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $7.Money get runningBalance => $_getN(6);
+  $1.Money get runningBalance => $_getN(6);
   @$pb.TagNumber(7)
-  set runningBalance($7.Money v) { setField(7, v); }
+  set runningBalance($1.Money value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasRunningBalance() => $_has(6);
   @$pb.TagNumber(7)
-  void clearRunningBalance() => clearField(7);
+  void clearRunningBalance() => $_clearField(7);
   @$pb.TagNumber(7)
-  $7.Money ensureRunningBalance() => $_ensure(6);
+  $1.Money ensureRunningBalance() => $_ensure(6);
 
   @$pb.TagNumber(8)
-  $6.Struct get transactionData => $_getN(7);
+  $0.Struct get transactionData => $_getN(7);
   @$pb.TagNumber(8)
-  set transactionData($6.Struct v) { setField(8, v); }
+  set transactionData($0.Struct value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasTransactionData() => $_has(7);
   @$pb.TagNumber(8)
-  void clearTransactionData() => clearField(8);
+  void clearTransactionData() => $_clearField(8);
   @$pb.TagNumber(8)
-  $6.Struct ensureTransactionData() => $_ensure(7);
+  $0.Struct ensureTransactionData() => $_ensure(7);
 
   @$pb.TagNumber(9)
   $core.String get clearedAt => $_getSZ(8);
   @$pb.TagNumber(9)
-  set clearedAt($core.String v) { $_setString(8, v); }
+  set clearedAt($core.String value) => $_setString(8, value);
   @$pb.TagNumber(9)
   $core.bool hasClearedAt() => $_has(8);
   @$pb.TagNumber(9)
-  void clearClearedAt() => clearField(9);
+  void clearClearedAt() => $_clearField(9);
 }
 
 /// SearchLedgersResponse returns ledgers matching search criteria.
@@ -1246,44 +1229,54 @@ class SearchLedgersResponse extends $pb.GeneratedMessage {
   factory SearchLedgersResponse({
     $core.Iterable<Ledger>? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data.addAll(data);
-    }
-    return $result;
+    final result = SearchLedgersResponse._();
+    if (data != null) result.data.addAll(data);
+    return result;
   }
-  SearchLedgersResponse._() : super();
-  factory SearchLedgersResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SearchLedgersResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchLedgersResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<Ledger>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: Ledger.create)
-    ..hasRequiredFields = false
-  ;
+  SearchLedgersResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  SearchLedgersResponse clone() => SearchLedgersResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SearchLedgersResponse copyWith(void Function(SearchLedgersResponse) updates) => super.copyWith((message) => updates(message as SearchLedgersResponse)) as SearchLedgersResponse;
+  factory SearchLedgersResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLedgersResponse()..mergeFromBuffer(data, registry);
+  factory SearchLedgersResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLedgersResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchLedgersResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: SearchLedgersResponse.$_createMessage)
+    ..pPM<Ledger>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Ledger.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLedgersResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLedgersResponse copyWith(
+          void Function(SearchLedgersResponse) updates) =>
+      super.copyWith((message) => updates(message as SearchLedgersResponse))
+          as SearchLedgersResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SearchLedgersResponse() / SearchLedgersResponse.new instead')
   static SearchLedgersResponse create() => SearchLedgersResponse._();
-  SearchLedgersResponse createEmptyInstance() => create();
-  static $pb.PbList<SearchLedgersResponse> createRepeated() => $pb.PbList<SearchLedgersResponse>();
+  static $pb.GeneratedMessage $_createMessage() => SearchLedgersResponse._();
+  @$core.override
+  SearchLedgersResponse createEmptyInstance() => SearchLedgersResponse._();
   @$core.pragma('dart2js:noInline')
-  static SearchLedgersResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchLedgersResponse>(create);
+  static SearchLedgersResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SearchLedgersResponse>(
+          SearchLedgersResponse.$_createMessage);
   static SearchLedgersResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<Ledger> get data => $_getList(0);
+  $pb.PbList<Ledger> get data => $_getList(0);
 }
 
 /// CreateLedgerRequest creates a new ledger in the chart of accounts.
@@ -1292,93 +1285,97 @@ class CreateLedgerRequest extends $pb.GeneratedMessage {
     $core.String? id,
     LedgerType? type,
     $core.String? parentId,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (parentId != null) {
-      $result.parentId = parentId;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateLedgerRequest._();
+    if (id != null) result.id = id;
+    if (type != null) result.type = type;
+    if (parentId != null) result.parentId = parentId;
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateLedgerRequest._() : super();
-  factory CreateLedgerRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateLedgerRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateLedgerRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  CreateLedgerRequest._();
+
+  factory CreateLedgerRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateLedgerRequest()..mergeFromBuffer(data, registry);
+  factory CreateLedgerRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateLedgerRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateLedgerRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateLedgerRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..e<LedgerType>(2, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: LedgerType.ASSET, valueOf: LedgerType.valueOf, enumValues: LedgerType.values)
+    ..aE<LedgerType>(2, _omitFieldNames ? '' : 'type',
+        enumValues: LedgerType.values)
     ..aOS(3, _omitFieldNames ? '' : 'parentId')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateLedgerRequest clone() => CreateLedgerRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateLedgerRequest copyWith(void Function(CreateLedgerRequest) updates) => super.copyWith((message) => updates(message as CreateLedgerRequest)) as CreateLedgerRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLedgerRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLedgerRequest copyWith(void Function(CreateLedgerRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateLedgerRequest))
+          as CreateLedgerRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use CreateLedgerRequest() / CreateLedgerRequest.new instead')
   static CreateLedgerRequest create() => CreateLedgerRequest._();
-  CreateLedgerRequest createEmptyInstance() => create();
-  static $pb.PbList<CreateLedgerRequest> createRepeated() => $pb.PbList<CreateLedgerRequest>();
+  static $pb.GeneratedMessage $_createMessage() => CreateLedgerRequest._();
+  @$core.override
+  CreateLedgerRequest createEmptyInstance() => CreateLedgerRequest._();
   @$core.pragma('dart2js:noInline')
-  static CreateLedgerRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateLedgerRequest>(create);
+  static CreateLedgerRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateLedgerRequest>(
+          CreateLedgerRequest.$_createMessage);
   static CreateLedgerRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   LedgerType get type => $_getN(1);
   @$pb.TagNumber(2)
-  set type(LedgerType v) { setField(2, v); }
+  set type(LedgerType value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasType() => $_has(1);
   @$pb.TagNumber(2)
-  void clearType() => clearField(2);
+  void clearType() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get parentId => $_getSZ(2);
   @$pb.TagNumber(3)
-  set parentId($core.String v) { $_setString(2, v); }
+  set parentId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasParentId() => $_has(2);
   @$pb.TagNumber(3)
-  void clearParentId() => clearField(3);
+  void clearParentId() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 }
 
 /// CreateLedgerResponse returns the newly created ledger.
@@ -1386,50 +1383,59 @@ class CreateLedgerResponse extends $pb.GeneratedMessage {
   factory CreateLedgerResponse({
     Ledger? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateLedgerResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateLedgerResponse._() : super();
-  factory CreateLedgerResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateLedgerResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateLedgerResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Ledger>(1, _omitFieldNames ? '' : 'data', subBuilder: Ledger.create)
-    ..hasRequiredFields = false
-  ;
+  CreateLedgerResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateLedgerResponse clone() => CreateLedgerResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateLedgerResponse copyWith(void Function(CreateLedgerResponse) updates) => super.copyWith((message) => updates(message as CreateLedgerResponse)) as CreateLedgerResponse;
+  factory CreateLedgerResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateLedgerResponse()..mergeFromBuffer(data, registry);
+  factory CreateLedgerResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateLedgerResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateLedgerResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateLedgerResponse.$_createMessage)
+    ..aOM<Ledger>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Ledger.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLedgerResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLedgerResponse copyWith(void Function(CreateLedgerResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateLedgerResponse))
+          as CreateLedgerResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateLedgerResponse() / CreateLedgerResponse.new instead')
   static CreateLedgerResponse create() => CreateLedgerResponse._();
-  CreateLedgerResponse createEmptyInstance() => create();
-  static $pb.PbList<CreateLedgerResponse> createRepeated() => $pb.PbList<CreateLedgerResponse>();
+  static $pb.GeneratedMessage $_createMessage() => CreateLedgerResponse._();
+  @$core.override
+  CreateLedgerResponse createEmptyInstance() => CreateLedgerResponse._();
   @$core.pragma('dart2js:noInline')
-  static CreateLedgerResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateLedgerResponse>(create);
+  static CreateLedgerResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateLedgerResponse>(
+          CreateLedgerResponse.$_createMessage);
   static CreateLedgerResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Ledger get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Ledger v) { setField(1, v); }
+  set data(Ledger value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Ledger ensureData() => $_ensure(0);
 }
@@ -1438,67 +1444,74 @@ class CreateLedgerResponse extends $pb.GeneratedMessage {
 class UpdateLedgerRequest extends $pb.GeneratedMessage {
   factory UpdateLedgerRequest({
     $core.String? id,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateLedgerRequest._();
+    if (id != null) result.id = id;
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateLedgerRequest._() : super();
-  factory UpdateLedgerRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateLedgerRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateLedgerRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  UpdateLedgerRequest._();
+
+  factory UpdateLedgerRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateLedgerRequest()..mergeFromBuffer(data, registry);
+  factory UpdateLedgerRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateLedgerRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateLedgerRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateLedgerRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateLedgerRequest clone() => UpdateLedgerRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateLedgerRequest copyWith(void Function(UpdateLedgerRequest) updates) => super.copyWith((message) => updates(message as UpdateLedgerRequest)) as UpdateLedgerRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateLedgerRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateLedgerRequest copyWith(void Function(UpdateLedgerRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateLedgerRequest))
+          as UpdateLedgerRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use UpdateLedgerRequest() / UpdateLedgerRequest.new instead')
   static UpdateLedgerRequest create() => UpdateLedgerRequest._();
-  UpdateLedgerRequest createEmptyInstance() => create();
-  static $pb.PbList<UpdateLedgerRequest> createRepeated() => $pb.PbList<UpdateLedgerRequest>();
+  static $pb.GeneratedMessage $_createMessage() => UpdateLedgerRequest._();
+  @$core.override
+  UpdateLedgerRequest createEmptyInstance() => UpdateLedgerRequest._();
   @$core.pragma('dart2js:noInline')
-  static UpdateLedgerRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateLedgerRequest>(create);
+  static UpdateLedgerRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateLedgerRequest>(
+          UpdateLedgerRequest.$_createMessage);
   static UpdateLedgerRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(1);
+  $0.Struct get data => $_getN(1);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(1);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(1);
+  $0.Struct ensureData() => $_ensure(1);
 }
 
 /// UpdateLedgerResponse returns the updated ledger.
@@ -1506,50 +1519,59 @@ class UpdateLedgerResponse extends $pb.GeneratedMessage {
   factory UpdateLedgerResponse({
     Ledger? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateLedgerResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateLedgerResponse._() : super();
-  factory UpdateLedgerResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateLedgerResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateLedgerResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Ledger>(1, _omitFieldNames ? '' : 'data', subBuilder: Ledger.create)
-    ..hasRequiredFields = false
-  ;
+  UpdateLedgerResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateLedgerResponse clone() => UpdateLedgerResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateLedgerResponse copyWith(void Function(UpdateLedgerResponse) updates) => super.copyWith((message) => updates(message as UpdateLedgerResponse)) as UpdateLedgerResponse;
+  factory UpdateLedgerResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateLedgerResponse()..mergeFromBuffer(data, registry);
+  factory UpdateLedgerResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateLedgerResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateLedgerResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateLedgerResponse.$_createMessage)
+    ..aOM<Ledger>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Ledger.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateLedgerResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateLedgerResponse copyWith(void Function(UpdateLedgerResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateLedgerResponse))
+          as UpdateLedgerResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateLedgerResponse() / UpdateLedgerResponse.new instead')
   static UpdateLedgerResponse create() => UpdateLedgerResponse._();
-  UpdateLedgerResponse createEmptyInstance() => create();
-  static $pb.PbList<UpdateLedgerResponse> createRepeated() => $pb.PbList<UpdateLedgerResponse>();
+  static $pb.GeneratedMessage $_createMessage() => UpdateLedgerResponse._();
+  @$core.override
+  UpdateLedgerResponse createEmptyInstance() => UpdateLedgerResponse._();
   @$core.pragma('dart2js:noInline')
-  static UpdateLedgerResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateLedgerResponse>(create);
+  static UpdateLedgerResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateLedgerResponse>(
+          UpdateLedgerResponse.$_createMessage);
   static UpdateLedgerResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Ledger get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Ledger v) { setField(1, v); }
+  set data(Ledger value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Ledger ensureData() => $_ensure(0);
 }
@@ -1559,44 +1581,54 @@ class SearchAccountsResponse extends $pb.GeneratedMessage {
   factory SearchAccountsResponse({
     $core.Iterable<Account>? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data.addAll(data);
-    }
-    return $result;
+    final result = SearchAccountsResponse._();
+    if (data != null) result.data.addAll(data);
+    return result;
   }
-  SearchAccountsResponse._() : super();
-  factory SearchAccountsResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SearchAccountsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchAccountsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<Account>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: Account.create)
-    ..hasRequiredFields = false
-  ;
+  SearchAccountsResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  SearchAccountsResponse clone() => SearchAccountsResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SearchAccountsResponse copyWith(void Function(SearchAccountsResponse) updates) => super.copyWith((message) => updates(message as SearchAccountsResponse)) as SearchAccountsResponse;
+  factory SearchAccountsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchAccountsResponse()..mergeFromBuffer(data, registry);
+  factory SearchAccountsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchAccountsResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchAccountsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: SearchAccountsResponse.$_createMessage)
+    ..pPM<Account>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Account.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchAccountsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchAccountsResponse copyWith(
+          void Function(SearchAccountsResponse) updates) =>
+      super.copyWith((message) => updates(message as SearchAccountsResponse))
+          as SearchAccountsResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SearchAccountsResponse() / SearchAccountsResponse.new instead')
   static SearchAccountsResponse create() => SearchAccountsResponse._();
-  SearchAccountsResponse createEmptyInstance() => create();
-  static $pb.PbList<SearchAccountsResponse> createRepeated() => $pb.PbList<SearchAccountsResponse>();
+  static $pb.GeneratedMessage $_createMessage() => SearchAccountsResponse._();
+  @$core.override
+  SearchAccountsResponse createEmptyInstance() => SearchAccountsResponse._();
   @$core.pragma('dart2js:noInline')
-  static SearchAccountsResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchAccountsResponse>(create);
+  static SearchAccountsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SearchAccountsResponse>(
+          SearchAccountsResponse.$_createMessage);
   static SearchAccountsResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<Account> get data => $_getList(0);
+  $pb.PbList<Account> get data => $_getList(0);
 }
 
 /// CreateAccountRequest creates a new account within a ledger.
@@ -1605,93 +1637,100 @@ class CreateAccountRequest extends $pb.GeneratedMessage {
     $core.String? id,
     $core.String? ledgerId,
     $core.String? currency,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (ledgerId != null) {
-      $result.ledgerId = ledgerId;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateAccountRequest._();
+    if (id != null) result.id = id;
+    if (ledgerId != null) result.ledgerId = ledgerId;
+    if (currency != null) result.currency = currency;
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateAccountRequest._() : super();
-  factory CreateAccountRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateAccountRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateAccountRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  CreateAccountRequest._();
+
+  factory CreateAccountRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateAccountRequest()..mergeFromBuffer(data, registry);
+  factory CreateAccountRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateAccountRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateAccountRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateAccountRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(3, _omitFieldNames ? '' : 'ledgerId')
     ..aOS(4, _omitFieldNames ? '' : 'currency')
-    ..aOM<$6.Struct>(5, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(5, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateAccountRequest clone() => CreateAccountRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateAccountRequest copyWith(void Function(CreateAccountRequest) updates) => super.copyWith((message) => updates(message as CreateAccountRequest)) as CreateAccountRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAccountRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAccountRequest copyWith(void Function(CreateAccountRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateAccountRequest))
+          as CreateAccountRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateAccountRequest() / CreateAccountRequest.new instead')
   static CreateAccountRequest create() => CreateAccountRequest._();
-  CreateAccountRequest createEmptyInstance() => create();
-  static $pb.PbList<CreateAccountRequest> createRepeated() => $pb.PbList<CreateAccountRequest>();
+  static $pb.GeneratedMessage $_createMessage() => CreateAccountRequest._();
+  @$core.override
+  CreateAccountRequest createEmptyInstance() => CreateAccountRequest._();
   @$core.pragma('dart2js:noInline')
-  static CreateAccountRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateAccountRequest>(create);
+  static CreateAccountRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateAccountRequest>(
+          CreateAccountRequest.$_createMessage);
   static CreateAccountRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(3)
   $core.String get ledgerId => $_getSZ(1);
   @$pb.TagNumber(3)
-  set ledgerId($core.String v) { $_setString(1, v); }
+  set ledgerId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
   $core.bool hasLedgerId() => $_has(1);
   @$pb.TagNumber(3)
-  void clearLedgerId() => clearField(3);
+  void clearLedgerId() => $_clearField(3);
 
+  /// Asset the account holds: an ISO 4217 code (USD, UGX) or a token symbol
+  /// (USDC, USDT, EURC), 3-10 letters or digits, stored upper-cased. The
+  /// ledger keeps 9 fractional digits for every asset and never derives minor
+  /// units from the code.
   @$pb.TagNumber(4)
   $core.String get currency => $_getSZ(2);
   @$pb.TagNumber(4)
-  set currency($core.String v) { $_setString(2, v); }
+  set currency($core.String value) => $_setString(2, value);
   @$pb.TagNumber(4)
   $core.bool hasCurrency() => $_has(2);
   @$pb.TagNumber(4)
-  void clearCurrency() => clearField(4);
+  void clearCurrency() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(5)
-  set data($6.Struct v) { setField(5, v); }
+  set data($0.Struct value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(5)
-  void clearData() => clearField(5);
+  void clearData() => $_clearField(5);
   @$pb.TagNumber(5)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 }
 
 /// CreateAccountResponse returns the newly created account.
@@ -1699,50 +1738,60 @@ class CreateAccountResponse extends $pb.GeneratedMessage {
   factory CreateAccountResponse({
     Account? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateAccountResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateAccountResponse._() : super();
-  factory CreateAccountResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateAccountResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateAccountResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Account>(1, _omitFieldNames ? '' : 'data', subBuilder: Account.create)
-    ..hasRequiredFields = false
-  ;
+  CreateAccountResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateAccountResponse clone() => CreateAccountResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateAccountResponse copyWith(void Function(CreateAccountResponse) updates) => super.copyWith((message) => updates(message as CreateAccountResponse)) as CreateAccountResponse;
+  factory CreateAccountResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateAccountResponse()..mergeFromBuffer(data, registry);
+  factory CreateAccountResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateAccountResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateAccountResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateAccountResponse.$_createMessage)
+    ..aOM<Account>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Account.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAccountResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAccountResponse copyWith(
+          void Function(CreateAccountResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateAccountResponse))
+          as CreateAccountResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateAccountResponse() / CreateAccountResponse.new instead')
   static CreateAccountResponse create() => CreateAccountResponse._();
-  CreateAccountResponse createEmptyInstance() => create();
-  static $pb.PbList<CreateAccountResponse> createRepeated() => $pb.PbList<CreateAccountResponse>();
+  static $pb.GeneratedMessage $_createMessage() => CreateAccountResponse._();
+  @$core.override
+  CreateAccountResponse createEmptyInstance() => CreateAccountResponse._();
   @$core.pragma('dart2js:noInline')
-  static CreateAccountResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateAccountResponse>(create);
+  static CreateAccountResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateAccountResponse>(
+          CreateAccountResponse.$_createMessage);
   static CreateAccountResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Account get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Account v) { setField(1, v); }
+  set data(Account value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Account ensureData() => $_ensure(0);
 }
@@ -1751,67 +1800,74 @@ class CreateAccountResponse extends $pb.GeneratedMessage {
 class UpdateAccountRequest extends $pb.GeneratedMessage {
   factory UpdateAccountRequest({
     $core.String? id,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateAccountRequest._();
+    if (id != null) result.id = id;
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateAccountRequest._() : super();
-  factory UpdateAccountRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateAccountRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateAccountRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  UpdateAccountRequest._();
+
+  factory UpdateAccountRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateAccountRequest()..mergeFromBuffer(data, registry);
+  factory UpdateAccountRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateAccountRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateAccountRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateAccountRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateAccountRequest clone() => UpdateAccountRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateAccountRequest copyWith(void Function(UpdateAccountRequest) updates) => super.copyWith((message) => updates(message as UpdateAccountRequest)) as UpdateAccountRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAccountRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAccountRequest copyWith(void Function(UpdateAccountRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateAccountRequest))
+          as UpdateAccountRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateAccountRequest() / UpdateAccountRequest.new instead')
   static UpdateAccountRequest create() => UpdateAccountRequest._();
-  UpdateAccountRequest createEmptyInstance() => create();
-  static $pb.PbList<UpdateAccountRequest> createRepeated() => $pb.PbList<UpdateAccountRequest>();
+  static $pb.GeneratedMessage $_createMessage() => UpdateAccountRequest._();
+  @$core.override
+  UpdateAccountRequest createEmptyInstance() => UpdateAccountRequest._();
   @$core.pragma('dart2js:noInline')
-  static UpdateAccountRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateAccountRequest>(create);
+  static UpdateAccountRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateAccountRequest>(
+          UpdateAccountRequest.$_createMessage);
   static UpdateAccountRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(1);
+  $0.Struct get data => $_getN(1);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(1);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(1);
+  $0.Struct ensureData() => $_ensure(1);
 }
 
 /// UpdateAccountResponse returns the updated account.
@@ -1819,50 +1875,60 @@ class UpdateAccountResponse extends $pb.GeneratedMessage {
   factory UpdateAccountResponse({
     Account? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateAccountResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateAccountResponse._() : super();
-  factory UpdateAccountResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateAccountResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateAccountResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Account>(1, _omitFieldNames ? '' : 'data', subBuilder: Account.create)
-    ..hasRequiredFields = false
-  ;
+  UpdateAccountResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateAccountResponse clone() => UpdateAccountResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateAccountResponse copyWith(void Function(UpdateAccountResponse) updates) => super.copyWith((message) => updates(message as UpdateAccountResponse)) as UpdateAccountResponse;
+  factory UpdateAccountResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateAccountResponse()..mergeFromBuffer(data, registry);
+  factory UpdateAccountResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateAccountResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateAccountResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateAccountResponse.$_createMessage)
+    ..aOM<Account>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Account.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAccountResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAccountResponse copyWith(
+          void Function(UpdateAccountResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateAccountResponse))
+          as UpdateAccountResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateAccountResponse() / UpdateAccountResponse.new instead')
   static UpdateAccountResponse create() => UpdateAccountResponse._();
-  UpdateAccountResponse createEmptyInstance() => create();
-  static $pb.PbList<UpdateAccountResponse> createRepeated() => $pb.PbList<UpdateAccountResponse>();
+  static $pb.GeneratedMessage $_createMessage() => UpdateAccountResponse._();
+  @$core.override
+  UpdateAccountResponse createEmptyInstance() => UpdateAccountResponse._();
   @$core.pragma('dart2js:noInline')
-  static UpdateAccountResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateAccountResponse>(create);
+  static UpdateAccountResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateAccountResponse>(
+          UpdateAccountResponse.$_createMessage);
   static UpdateAccountResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Account get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Account v) { setField(1, v); }
+  set data(Account value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Account ensureData() => $_ensure(0);
 }
@@ -1872,44 +1938,57 @@ class SearchTransactionsResponse extends $pb.GeneratedMessage {
   factory SearchTransactionsResponse({
     $core.Iterable<Transaction>? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data.addAll(data);
-    }
-    return $result;
+    final result = SearchTransactionsResponse._();
+    if (data != null) result.data.addAll(data);
+    return result;
   }
-  SearchTransactionsResponse._() : super();
-  factory SearchTransactionsResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SearchTransactionsResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchTransactionsResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<Transaction>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  SearchTransactionsResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  SearchTransactionsResponse clone() => SearchTransactionsResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SearchTransactionsResponse copyWith(void Function(SearchTransactionsResponse) updates) => super.copyWith((message) => updates(message as SearchTransactionsResponse)) as SearchTransactionsResponse;
+  factory SearchTransactionsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchTransactionsResponse()..mergeFromBuffer(data, registry);
+  factory SearchTransactionsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchTransactionsResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchTransactionsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: SearchTransactionsResponse.$_createMessage)
+    ..pPM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchTransactionsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchTransactionsResponse copyWith(
+          void Function(SearchTransactionsResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as SearchTransactionsResponse))
+          as SearchTransactionsResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SearchTransactionsResponse() / SearchTransactionsResponse.new instead')
   static SearchTransactionsResponse create() => SearchTransactionsResponse._();
-  SearchTransactionsResponse createEmptyInstance() => create();
-  static $pb.PbList<SearchTransactionsResponse> createRepeated() => $pb.PbList<SearchTransactionsResponse>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SearchTransactionsResponse._();
+  @$core.override
+  SearchTransactionsResponse createEmptyInstance() =>
+      SearchTransactionsResponse._();
   @$core.pragma('dart2js:noInline')
-  static SearchTransactionsResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchTransactionsResponse>(create);
+  static SearchTransactionsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SearchTransactionsResponse>(
+          SearchTransactionsResponse.$_createMessage);
   static SearchTransactionsResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<Transaction> get data => $_getList(0);
+  $pb.PbList<Transaction> get data => $_getList(0);
 }
 
 /// CreateTransactionRequest creates a new double-entry transaction.
@@ -1918,129 +1997,130 @@ class CreateTransactionRequest extends $pb.GeneratedMessage {
     $core.String? id,
     $core.String? currency,
     $core.String? transactedAt,
-    $6.Struct? data,
+    $0.Struct? data,
     $core.Iterable<TransactionEntry>? entries,
     $core.bool? cleared,
     TransactionType? type,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (transactedAt != null) {
-      $result.transactedAt = transactedAt;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    if (entries != null) {
-      $result.entries.addAll(entries);
-    }
-    if (cleared != null) {
-      $result.cleared = cleared;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    return $result;
+    final result = CreateTransactionRequest._();
+    if (id != null) result.id = id;
+    if (currency != null) result.currency = currency;
+    if (transactedAt != null) result.transactedAt = transactedAt;
+    if (data != null) result.data = data;
+    if (entries != null) result.entries.addAll(entries);
+    if (cleared != null) result.cleared = cleared;
+    if (type != null) result.type = type;
+    return result;
   }
-  CreateTransactionRequest._() : super();
-  factory CreateTransactionRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateTransactionRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateTransactionRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  CreateTransactionRequest._();
+
+  factory CreateTransactionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateTransactionRequest()..mergeFromBuffer(data, registry);
+  factory CreateTransactionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateTransactionRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTransactionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateTransactionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'currency')
     ..aOS(3, _omitFieldNames ? '' : 'transactedAt')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..pc<TransactionEntry>(5, _omitFieldNames ? '' : 'entries', $pb.PbFieldType.PM, subBuilder: TransactionEntry.create)
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..pPM<TransactionEntry>(5, _omitFieldNames ? '' : 'entries',
+        subBuilder: TransactionEntry.$_createMessage)
     ..aOB(6, _omitFieldNames ? '' : 'cleared')
-    ..e<TransactionType>(7, _omitFieldNames ? '' : 'type', $pb.PbFieldType.OE, defaultOrMaker: TransactionType.NORMAL, valueOf: TransactionType.valueOf, enumValues: TransactionType.values)
-    ..hasRequiredFields = false
-  ;
+    ..aE<TransactionType>(7, _omitFieldNames ? '' : 'type',
+        enumValues: TransactionType.values)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateTransactionRequest clone() => CreateTransactionRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateTransactionRequest copyWith(void Function(CreateTransactionRequest) updates) => super.copyWith((message) => updates(message as CreateTransactionRequest)) as CreateTransactionRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTransactionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTransactionRequest copyWith(
+          void Function(CreateTransactionRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateTransactionRequest))
+          as CreateTransactionRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateTransactionRequest() / CreateTransactionRequest.new instead')
   static CreateTransactionRequest create() => CreateTransactionRequest._();
-  CreateTransactionRequest createEmptyInstance() => create();
-  static $pb.PbList<CreateTransactionRequest> createRepeated() => $pb.PbList<CreateTransactionRequest>();
+  static $pb.GeneratedMessage $_createMessage() => CreateTransactionRequest._();
+  @$core.override
+  CreateTransactionRequest createEmptyInstance() =>
+      CreateTransactionRequest._();
   @$core.pragma('dart2js:noInline')
-  static CreateTransactionRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateTransactionRequest>(create);
+  static CreateTransactionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTransactionRequest>(
+          CreateTransactionRequest.$_createMessage);
   static CreateTransactionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get currency => $_getSZ(1);
   @$pb.TagNumber(2)
-  set currency($core.String v) { $_setString(1, v); }
+  set currency($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasCurrency() => $_has(1);
   @$pb.TagNumber(2)
-  void clearCurrency() => clearField(2);
+  void clearCurrency() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get transactedAt => $_getSZ(2);
   @$pb.TagNumber(3)
-  set transactedAt($core.String v) { $_setString(2, v); }
+  set transactedAt($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasTransactedAt() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTransactedAt() => clearField(3);
+  void clearTransactedAt() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(3);
+  $0.Struct get data => $_getN(3);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(3);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(3);
+  $0.Struct ensureData() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $core.List<TransactionEntry> get entries => $_getList(4);
+  $pb.PbList<TransactionEntry> get entries => $_getList(4);
 
   @$pb.TagNumber(6)
   $core.bool get cleared => $_getBF(5);
   @$pb.TagNumber(6)
-  set cleared($core.bool v) { $_setBool(5, v); }
+  set cleared($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
   $core.bool hasCleared() => $_has(5);
   @$pb.TagNumber(6)
-  void clearCleared() => clearField(6);
+  void clearCleared() => $_clearField(6);
 
   @$pb.TagNumber(7)
   TransactionType get type => $_getN(6);
   @$pb.TagNumber(7)
-  set type(TransactionType v) { setField(7, v); }
+  set type(TransactionType value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
-  void clearType() => clearField(7);
+  void clearType() => $_clearField(7);
 }
 
 /// CreateTransactionResponse returns the newly created transaction.
@@ -2048,50 +2128,62 @@ class CreateTransactionResponse extends $pb.GeneratedMessage {
   factory CreateTransactionResponse({
     Transaction? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateTransactionResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateTransactionResponse._() : super();
-  factory CreateTransactionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateTransactionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateTransactionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  CreateTransactionResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateTransactionResponse clone() => CreateTransactionResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateTransactionResponse copyWith(void Function(CreateTransactionResponse) updates) => super.copyWith((message) => updates(message as CreateTransactionResponse)) as CreateTransactionResponse;
+  factory CreateTransactionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateTransactionResponse()..mergeFromBuffer(data, registry);
+  factory CreateTransactionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateTransactionResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTransactionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateTransactionResponse.$_createMessage)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTransactionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTransactionResponse copyWith(
+          void Function(CreateTransactionResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateTransactionResponse))
+          as CreateTransactionResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateTransactionResponse() / CreateTransactionResponse.new instead')
   static CreateTransactionResponse create() => CreateTransactionResponse._();
-  CreateTransactionResponse createEmptyInstance() => create();
-  static $pb.PbList<CreateTransactionResponse> createRepeated() => $pb.PbList<CreateTransactionResponse>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      CreateTransactionResponse._();
+  @$core.override
+  CreateTransactionResponse createEmptyInstance() =>
+      CreateTransactionResponse._();
   @$core.pragma('dart2js:noInline')
-  static CreateTransactionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateTransactionResponse>(create);
+  static CreateTransactionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTransactionResponse>(
+          CreateTransactionResponse.$_createMessage);
   static CreateTransactionResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Transaction get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Transaction v) { setField(1, v); }
+  set data(Transaction value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Transaction ensureData() => $_ensure(0);
 }
@@ -2101,50 +2193,61 @@ class ReverseTransactionRequest extends $pb.GeneratedMessage {
   factory ReverseTransactionRequest({
     $core.String? id,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    return $result;
+    final result = ReverseTransactionRequest._();
+    if (id != null) result.id = id;
+    return result;
   }
-  ReverseTransactionRequest._() : super();
-  factory ReverseTransactionRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ReverseTransactionRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ReverseTransactionRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  ReverseTransactionRequest._();
+
+  factory ReverseTransactionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ReverseTransactionRequest()..mergeFromBuffer(data, registry);
+  factory ReverseTransactionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ReverseTransactionRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ReverseTransactionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: ReverseTransactionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ReverseTransactionRequest clone() => ReverseTransactionRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ReverseTransactionRequest copyWith(void Function(ReverseTransactionRequest) updates) => super.copyWith((message) => updates(message as ReverseTransactionRequest)) as ReverseTransactionRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ReverseTransactionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ReverseTransactionRequest copyWith(
+          void Function(ReverseTransactionRequest) updates) =>
+      super.copyWith((message) => updates(message as ReverseTransactionRequest))
+          as ReverseTransactionRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ReverseTransactionRequest() / ReverseTransactionRequest.new instead')
   static ReverseTransactionRequest create() => ReverseTransactionRequest._();
-  ReverseTransactionRequest createEmptyInstance() => create();
-  static $pb.PbList<ReverseTransactionRequest> createRepeated() => $pb.PbList<ReverseTransactionRequest>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ReverseTransactionRequest._();
+  @$core.override
+  ReverseTransactionRequest createEmptyInstance() =>
+      ReverseTransactionRequest._();
   @$core.pragma('dart2js:noInline')
-  static ReverseTransactionRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ReverseTransactionRequest>(create);
+  static ReverseTransactionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ReverseTransactionRequest>(
+          ReverseTransactionRequest.$_createMessage);
   static ReverseTransactionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 }
 
 /// ReverseTransactionResponse returns the reversal transaction.
@@ -2152,50 +2255,63 @@ class ReverseTransactionResponse extends $pb.GeneratedMessage {
   factory ReverseTransactionResponse({
     Transaction? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = ReverseTransactionResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  ReverseTransactionResponse._() : super();
-  factory ReverseTransactionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ReverseTransactionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ReverseTransactionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  ReverseTransactionResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ReverseTransactionResponse clone() => ReverseTransactionResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ReverseTransactionResponse copyWith(void Function(ReverseTransactionResponse) updates) => super.copyWith((message) => updates(message as ReverseTransactionResponse)) as ReverseTransactionResponse;
+  factory ReverseTransactionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ReverseTransactionResponse()..mergeFromBuffer(data, registry);
+  factory ReverseTransactionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ReverseTransactionResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ReverseTransactionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: ReverseTransactionResponse.$_createMessage)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ReverseTransactionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ReverseTransactionResponse copyWith(
+          void Function(ReverseTransactionResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ReverseTransactionResponse))
+          as ReverseTransactionResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ReverseTransactionResponse() / ReverseTransactionResponse.new instead')
   static ReverseTransactionResponse create() => ReverseTransactionResponse._();
-  ReverseTransactionResponse createEmptyInstance() => create();
-  static $pb.PbList<ReverseTransactionResponse> createRepeated() => $pb.PbList<ReverseTransactionResponse>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ReverseTransactionResponse._();
+  @$core.override
+  ReverseTransactionResponse createEmptyInstance() =>
+      ReverseTransactionResponse._();
   @$core.pragma('dart2js:noInline')
-  static ReverseTransactionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ReverseTransactionResponse>(create);
+  static ReverseTransactionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ReverseTransactionResponse>(
+          ReverseTransactionResponse.$_createMessage);
   static ReverseTransactionResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Transaction get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Transaction v) { setField(1, v); }
+  set data(Transaction value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Transaction ensureData() => $_ensure(0);
 }
@@ -2205,80 +2321,87 @@ class UpdateTransactionRequest extends $pb.GeneratedMessage {
   factory UpdateTransactionRequest({
     $core.String? id,
     $core.String? clearedAt,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (clearedAt != null) {
-      $result.clearedAt = clearedAt;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateTransactionRequest._();
+    if (id != null) result.id = id;
+    if (clearedAt != null) result.clearedAt = clearedAt;
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateTransactionRequest._() : super();
-  factory UpdateTransactionRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateTransactionRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateTransactionRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  UpdateTransactionRequest._();
+
+  factory UpdateTransactionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateTransactionRequest()..mergeFromBuffer(data, registry);
+  factory UpdateTransactionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateTransactionRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTransactionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateTransactionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'clearedAt')
-    ..aOM<$6.Struct>(4, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateTransactionRequest clone() => UpdateTransactionRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateTransactionRequest copyWith(void Function(UpdateTransactionRequest) updates) => super.copyWith((message) => updates(message as UpdateTransactionRequest)) as UpdateTransactionRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTransactionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTransactionRequest copyWith(
+          void Function(UpdateTransactionRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateTransactionRequest))
+          as UpdateTransactionRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateTransactionRequest() / UpdateTransactionRequest.new instead')
   static UpdateTransactionRequest create() => UpdateTransactionRequest._();
-  UpdateTransactionRequest createEmptyInstance() => create();
-  static $pb.PbList<UpdateTransactionRequest> createRepeated() => $pb.PbList<UpdateTransactionRequest>();
+  static $pb.GeneratedMessage $_createMessage() => UpdateTransactionRequest._();
+  @$core.override
+  UpdateTransactionRequest createEmptyInstance() =>
+      UpdateTransactionRequest._();
   @$core.pragma('dart2js:noInline')
-  static UpdateTransactionRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateTransactionRequest>(create);
+  static UpdateTransactionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTransactionRequest>(
+          UpdateTransactionRequest.$_createMessage);
   static UpdateTransactionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get clearedAt => $_getSZ(1);
   @$pb.TagNumber(2)
-  set clearedAt($core.String v) { $_setString(1, v); }
+  set clearedAt($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasClearedAt() => $_has(1);
   @$pb.TagNumber(2)
-  void clearClearedAt() => clearField(2);
+  void clearClearedAt() => $_clearField(2);
 
   @$pb.TagNumber(4)
-  $6.Struct get data => $_getN(2);
+  $0.Struct get data => $_getN(2);
   @$pb.TagNumber(4)
-  set data($6.Struct v) { setField(4, v); }
+  set data($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasData() => $_has(2);
   @$pb.TagNumber(4)
-  void clearData() => clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  $6.Struct ensureData() => $_ensure(2);
+  $0.Struct ensureData() => $_ensure(2);
 }
 
 /// UpdateTransactionResponse returns the updated transaction.
@@ -2286,50 +2409,62 @@ class UpdateTransactionResponse extends $pb.GeneratedMessage {
   factory UpdateTransactionResponse({
     Transaction? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = UpdateTransactionResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  UpdateTransactionResponse._() : super();
-  factory UpdateTransactionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory UpdateTransactionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'UpdateTransactionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  UpdateTransactionResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  UpdateTransactionResponse clone() => UpdateTransactionResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  UpdateTransactionResponse copyWith(void Function(UpdateTransactionResponse) updates) => super.copyWith((message) => updates(message as UpdateTransactionResponse)) as UpdateTransactionResponse;
+  factory UpdateTransactionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateTransactionResponse()..mergeFromBuffer(data, registry);
+  factory UpdateTransactionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateTransactionResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTransactionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: UpdateTransactionResponse.$_createMessage)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTransactionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTransactionResponse copyWith(
+          void Function(UpdateTransactionResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateTransactionResponse))
+          as UpdateTransactionResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateTransactionResponse() / UpdateTransactionResponse.new instead')
   static UpdateTransactionResponse create() => UpdateTransactionResponse._();
-  UpdateTransactionResponse createEmptyInstance() => create();
-  static $pb.PbList<UpdateTransactionResponse> createRepeated() => $pb.PbList<UpdateTransactionResponse>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      UpdateTransactionResponse._();
+  @$core.override
+  UpdateTransactionResponse createEmptyInstance() =>
+      UpdateTransactionResponse._();
   @$core.pragma('dart2js:noInline')
-  static UpdateTransactionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UpdateTransactionResponse>(create);
+  static UpdateTransactionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTransactionResponse>(
+          UpdateTransactionResponse.$_createMessage);
   static UpdateTransactionResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Transaction get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Transaction v) { setField(1, v); }
+  set data(Transaction value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Transaction ensureData() => $_ensure(0);
 }
@@ -2339,44 +2474,59 @@ class SearchTransactionEntriesResponse extends $pb.GeneratedMessage {
   factory SearchTransactionEntriesResponse({
     $core.Iterable<TransactionEntry>? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data.addAll(data);
-    }
-    return $result;
+    final result = SearchTransactionEntriesResponse._();
+    if (data != null) result.data.addAll(data);
+    return result;
   }
-  SearchTransactionEntriesResponse._() : super();
-  factory SearchTransactionEntriesResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory SearchTransactionEntriesResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'SearchTransactionEntriesResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<TransactionEntry>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: TransactionEntry.create)
-    ..hasRequiredFields = false
-  ;
+  SearchTransactionEntriesResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  SearchTransactionEntriesResponse clone() => SearchTransactionEntriesResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  SearchTransactionEntriesResponse copyWith(void Function(SearchTransactionEntriesResponse) updates) => super.copyWith((message) => updates(message as SearchTransactionEntriesResponse)) as SearchTransactionEntriesResponse;
+  factory SearchTransactionEntriesResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchTransactionEntriesResponse()..mergeFromBuffer(data, registry);
+  factory SearchTransactionEntriesResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchTransactionEntriesResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchTransactionEntriesResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: SearchTransactionEntriesResponse.$_createMessage)
+    ..pPM<TransactionEntry>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: TransactionEntry.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchTransactionEntriesResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchTransactionEntriesResponse copyWith(
+          void Function(SearchTransactionEntriesResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as SearchTransactionEntriesResponse))
+          as SearchTransactionEntriesResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static SearchTransactionEntriesResponse create() => SearchTransactionEntriesResponse._();
-  SearchTransactionEntriesResponse createEmptyInstance() => create();
-  static $pb.PbList<SearchTransactionEntriesResponse> createRepeated() => $pb.PbList<SearchTransactionEntriesResponse>();
+  @$core.Deprecated(
+      'Use SearchTransactionEntriesResponse() / SearchTransactionEntriesResponse.new instead')
+  static SearchTransactionEntriesResponse create() =>
+      SearchTransactionEntriesResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SearchTransactionEntriesResponse._();
+  @$core.override
+  SearchTransactionEntriesResponse createEmptyInstance() =>
+      SearchTransactionEntriesResponse._();
   @$core.pragma('dart2js:noInline')
-  static SearchTransactionEntriesResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchTransactionEntriesResponse>(create);
+  static SearchTransactionEntriesResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SearchTransactionEntriesResponse>(
+          SearchTransactionEntriesResponse.$_createMessage);
   static SearchTransactionEntriesResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<TransactionEntry> get data => $_getList(0);
+  $pb.PbList<TransactionEntry> get data => $_getList(0);
 }
 
 class CreateBookRequest extends $pb.GeneratedMessage {
@@ -2386,169 +2536,175 @@ class CreateBookRequest extends $pb.GeneratedMessage {
     $core.String? type,
     $core.String? parentId,
     $core.String? currency,
-    $6.Struct? data,
+    $0.Struct? data,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    if (name != null) {
-      $result.name = name;
-    }
-    if (type != null) {
-      $result.type = type;
-    }
-    if (parentId != null) {
-      $result.parentId = parentId;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateBookRequest._();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (type != null) result.type = type;
+    if (parentId != null) result.parentId = parentId;
+    if (currency != null) result.currency = currency;
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateBookRequest._() : super();
-  factory CreateBookRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateBookRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateBookRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  CreateBookRequest._();
+
+  factory CreateBookRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBookRequest()..mergeFromBuffer(data, registry);
+  factory CreateBookRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBookRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateBookRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateBookRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'type')
     ..aOS(4, _omitFieldNames ? '' : 'parentId')
     ..aOS(5, _omitFieldNames ? '' : 'currency')
-    ..aOM<$6.Struct>(6, _omitFieldNames ? '' : 'data', subBuilder: $6.Struct.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$0.Struct>(6, _omitFieldNames ? '' : 'data',
+        subBuilder: $0.Struct.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateBookRequest clone() => CreateBookRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateBookRequest copyWith(void Function(CreateBookRequest) updates) => super.copyWith((message) => updates(message as CreateBookRequest)) as CreateBookRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBookRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBookRequest copyWith(void Function(CreateBookRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateBookRequest))
+          as CreateBookRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CreateBookRequest() / CreateBookRequest.new instead')
   static CreateBookRequest create() => CreateBookRequest._();
-  CreateBookRequest createEmptyInstance() => create();
-  static $pb.PbList<CreateBookRequest> createRepeated() => $pb.PbList<CreateBookRequest>();
+  static $pb.GeneratedMessage $_createMessage() => CreateBookRequest._();
+  @$core.override
+  CreateBookRequest createEmptyInstance() => CreateBookRequest._();
   @$core.pragma('dart2js:noInline')
-  static CreateBookRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateBookRequest>(create);
+  static CreateBookRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateBookRequest>(
+          CreateBookRequest.$_createMessage);
   static CreateBookRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set name($core.String v) { $_setString(1, v); }
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearName() => clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get type => $_getSZ(2);
   @$pb.TagNumber(3)
-  set type($core.String v) { $_setString(2, v); }
+  set type($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasType() => $_has(2);
   @$pb.TagNumber(3)
-  void clearType() => clearField(3);
+  void clearType() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get parentId => $_getSZ(3);
   @$pb.TagNumber(4)
-  set parentId($core.String v) { $_setString(3, v); }
+  set parentId($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
   $core.bool hasParentId() => $_has(3);
   @$pb.TagNumber(4)
-  void clearParentId() => clearField(4);
+  void clearParentId() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get currency => $_getSZ(4);
   @$pb.TagNumber(5)
-  set currency($core.String v) { $_setString(4, v); }
+  set currency($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasCurrency() => $_has(4);
   @$pb.TagNumber(5)
-  void clearCurrency() => clearField(5);
+  void clearCurrency() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $6.Struct get data => $_getN(5);
+  $0.Struct get data => $_getN(5);
   @$pb.TagNumber(6)
-  set data($6.Struct v) { setField(6, v); }
+  set data($0.Struct value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasData() => $_has(5);
   @$pb.TagNumber(6)
-  void clearData() => clearField(6);
+  void clearData() => $_clearField(6);
   @$pb.TagNumber(6)
-  $6.Struct ensureData() => $_ensure(5);
+  $0.Struct ensureData() => $_ensure(5);
 }
 
 class CreateBookResponse extends $pb.GeneratedMessage {
   factory CreateBookResponse({
     Book? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = CreateBookResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  CreateBookResponse._() : super();
-  factory CreateBookResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory CreateBookResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'CreateBookResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Book>(1, _omitFieldNames ? '' : 'data', subBuilder: Book.create)
-    ..hasRequiredFields = false
-  ;
+  CreateBookResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  CreateBookResponse clone() => CreateBookResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  CreateBookResponse copyWith(void Function(CreateBookResponse) updates) => super.copyWith((message) => updates(message as CreateBookResponse)) as CreateBookResponse;
+  factory CreateBookResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBookResponse()..mergeFromBuffer(data, registry);
+  factory CreateBookResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBookResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateBookResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: CreateBookResponse.$_createMessage)
+    ..aOM<Book>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Book.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBookResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBookResponse copyWith(void Function(CreateBookResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateBookResponse))
+          as CreateBookResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CreateBookResponse() / CreateBookResponse.new instead')
   static CreateBookResponse create() => CreateBookResponse._();
-  CreateBookResponse createEmptyInstance() => create();
-  static $pb.PbList<CreateBookResponse> createRepeated() => $pb.PbList<CreateBookResponse>();
+  static $pb.GeneratedMessage $_createMessage() => CreateBookResponse._();
+  @$core.override
+  CreateBookResponse createEmptyInstance() => CreateBookResponse._();
   @$core.pragma('dart2js:noInline')
-  static CreateBookResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CreateBookResponse>(create);
+  static CreateBookResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateBookResponse>(
+          CreateBookResponse.$_createMessage);
   static CreateBookResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Book get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Book v) { setField(1, v); }
+  set data(Book value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Book ensureData() => $_ensure(0);
 }
@@ -2557,100 +2713,115 @@ class GetBookRequest extends $pb.GeneratedMessage {
   factory GetBookRequest({
     $core.String? id,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    return $result;
+    final result = GetBookRequest._();
+    if (id != null) result.id = id;
+    return result;
   }
-  GetBookRequest._() : super();
-  factory GetBookRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetBookRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetBookRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  GetBookRequest._();
+
+  factory GetBookRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetBookRequest()..mergeFromBuffer(data, registry);
+  factory GetBookRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetBookRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetBookRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetBookRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetBookRequest clone() => GetBookRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetBookRequest copyWith(void Function(GetBookRequest) updates) => super.copyWith((message) => updates(message as GetBookRequest)) as GetBookRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetBookRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetBookRequest copyWith(void Function(GetBookRequest) updates) =>
+      super.copyWith((message) => updates(message as GetBookRequest))
+          as GetBookRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetBookRequest() / GetBookRequest.new instead')
   static GetBookRequest create() => GetBookRequest._();
-  GetBookRequest createEmptyInstance() => create();
-  static $pb.PbList<GetBookRequest> createRepeated() => $pb.PbList<GetBookRequest>();
+  static $pb.GeneratedMessage $_createMessage() => GetBookRequest._();
+  @$core.override
+  GetBookRequest createEmptyInstance() => GetBookRequest._();
   @$core.pragma('dart2js:noInline')
-  static GetBookRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookRequest>(create);
+  static GetBookRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookRequest>(
+          GetBookRequest.$_createMessage);
   static GetBookRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 }
 
 class GetBookResponse extends $pb.GeneratedMessage {
   factory GetBookResponse({
     Book? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = GetBookResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  GetBookResponse._() : super();
-  factory GetBookResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetBookResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetBookResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Book>(1, _omitFieldNames ? '' : 'data', subBuilder: Book.create)
-    ..hasRequiredFields = false
-  ;
+  GetBookResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetBookResponse clone() => GetBookResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetBookResponse copyWith(void Function(GetBookResponse) updates) => super.copyWith((message) => updates(message as GetBookResponse)) as GetBookResponse;
+  factory GetBookResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetBookResponse()..mergeFromBuffer(data, registry);
+  factory GetBookResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetBookResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetBookResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetBookResponse.$_createMessage)
+    ..aOM<Book>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Book.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetBookResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetBookResponse copyWith(void Function(GetBookResponse) updates) =>
+      super.copyWith((message) => updates(message as GetBookResponse))
+          as GetBookResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetBookResponse() / GetBookResponse.new instead')
   static GetBookResponse create() => GetBookResponse._();
-  GetBookResponse createEmptyInstance() => create();
-  static $pb.PbList<GetBookResponse> createRepeated() => $pb.PbList<GetBookResponse>();
+  static $pb.GeneratedMessage $_createMessage() => GetBookResponse._();
+  @$core.override
+  GetBookResponse createEmptyInstance() => GetBookResponse._();
   @$core.pragma('dart2js:noInline')
-  static GetBookResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookResponse>(create);
+  static GetBookResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetBookResponse>(
+          GetBookResponse.$_createMessage);
   static GetBookResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Book get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Book v) { setField(1, v); }
+  set data(Book value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Book ensureData() => $_ensure(0);
 }
@@ -2659,94 +2830,113 @@ class ListBooksByTypeRequest extends $pb.GeneratedMessage {
   factory ListBooksByTypeRequest({
     $core.String? type,
   }) {
-    final $result = create();
-    if (type != null) {
-      $result.type = type;
-    }
-    return $result;
+    final result = ListBooksByTypeRequest._();
+    if (type != null) result.type = type;
+    return result;
   }
-  ListBooksByTypeRequest._() : super();
-  factory ListBooksByTypeRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ListBooksByTypeRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ListBooksByTypeRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  ListBooksByTypeRequest._();
+
+  factory ListBooksByTypeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBooksByTypeRequest()..mergeFromBuffer(data, registry);
+  factory ListBooksByTypeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBooksByTypeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListBooksByTypeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: ListBooksByTypeRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'type')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ListBooksByTypeRequest clone() => ListBooksByTypeRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ListBooksByTypeRequest copyWith(void Function(ListBooksByTypeRequest) updates) => super.copyWith((message) => updates(message as ListBooksByTypeRequest)) as ListBooksByTypeRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBooksByTypeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBooksByTypeRequest copyWith(
+          void Function(ListBooksByTypeRequest) updates) =>
+      super.copyWith((message) => updates(message as ListBooksByTypeRequest))
+          as ListBooksByTypeRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListBooksByTypeRequest() / ListBooksByTypeRequest.new instead')
   static ListBooksByTypeRequest create() => ListBooksByTypeRequest._();
-  ListBooksByTypeRequest createEmptyInstance() => create();
-  static $pb.PbList<ListBooksByTypeRequest> createRepeated() => $pb.PbList<ListBooksByTypeRequest>();
+  static $pb.GeneratedMessage $_createMessage() => ListBooksByTypeRequest._();
+  @$core.override
+  ListBooksByTypeRequest createEmptyInstance() => ListBooksByTypeRequest._();
   @$core.pragma('dart2js:noInline')
-  static ListBooksByTypeRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeRequest>(create);
+  static ListBooksByTypeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeRequest>(
+          ListBooksByTypeRequest.$_createMessage);
   static ListBooksByTypeRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get type => $_getSZ(0);
   @$pb.TagNumber(1)
-  set type($core.String v) { $_setString(0, v); }
+  set type($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasType() => $_has(0);
   @$pb.TagNumber(1)
-  void clearType() => clearField(1);
+  void clearType() => $_clearField(1);
 }
 
 class ListBooksByTypeResponse extends $pb.GeneratedMessage {
   factory ListBooksByTypeResponse({
     $core.Iterable<Book>? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data.addAll(data);
-    }
-    return $result;
+    final result = ListBooksByTypeResponse._();
+    if (data != null) result.data.addAll(data);
+    return result;
   }
-  ListBooksByTypeResponse._() : super();
-  factory ListBooksByTypeResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory ListBooksByTypeResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'ListBooksByTypeResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<Book>(1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.PM, subBuilder: Book.create)
-    ..hasRequiredFields = false
-  ;
+  ListBooksByTypeResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  ListBooksByTypeResponse clone() => ListBooksByTypeResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  ListBooksByTypeResponse copyWith(void Function(ListBooksByTypeResponse) updates) => super.copyWith((message) => updates(message as ListBooksByTypeResponse)) as ListBooksByTypeResponse;
+  factory ListBooksByTypeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBooksByTypeResponse()..mergeFromBuffer(data, registry);
+  factory ListBooksByTypeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBooksByTypeResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListBooksByTypeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: ListBooksByTypeResponse.$_createMessage)
+    ..pPM<Book>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Book.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBooksByTypeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBooksByTypeResponse copyWith(
+          void Function(ListBooksByTypeResponse) updates) =>
+      super.copyWith((message) => updates(message as ListBooksByTypeResponse))
+          as ListBooksByTypeResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListBooksByTypeResponse() / ListBooksByTypeResponse.new instead')
   static ListBooksByTypeResponse create() => ListBooksByTypeResponse._();
-  ListBooksByTypeResponse createEmptyInstance() => create();
-  static $pb.PbList<ListBooksByTypeResponse> createRepeated() => $pb.PbList<ListBooksByTypeResponse>();
+  static $pb.GeneratedMessage $_createMessage() => ListBooksByTypeResponse._();
+  @$core.override
+  ListBooksByTypeResponse createEmptyInstance() => ListBooksByTypeResponse._();
   @$core.pragma('dart2js:noInline')
-  static ListBooksByTypeResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeResponse>(create);
+  static ListBooksByTypeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListBooksByTypeResponse>(
+          ListBooksByTypeResponse.$_createMessage);
   static ListBooksByTypeResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<Book> get data => $_getList(0);
+  $pb.PbList<Book> get data => $_getList(0);
 }
 
 class GetTrialBalanceRequest extends $pb.GeneratedMessage {
@@ -2757,75 +2947,76 @@ class GetTrialBalanceRequest extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? bookIds,
     $core.String? asOf,
   }) {
-    final $result = create();
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (ledgerId != null) {
-      $result.ledgerId = ledgerId;
-    }
-    if (ledgerType != null) {
-      $result.ledgerType = ledgerType;
-    }
-    if (bookIds != null) {
-      $result.bookIds.addAll(bookIds);
-    }
-    if (asOf != null) {
-      $result.asOf = asOf;
-    }
-    return $result;
+    final result = GetTrialBalanceRequest._();
+    if (currency != null) result.currency = currency;
+    if (ledgerId != null) result.ledgerId = ledgerId;
+    if (ledgerType != null) result.ledgerType = ledgerType;
+    if (bookIds != null) result.bookIds.addAll(bookIds);
+    if (asOf != null) result.asOf = asOf;
+    return result;
   }
-  GetTrialBalanceRequest._() : super();
-  factory GetTrialBalanceRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetTrialBalanceRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetTrialBalanceRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  GetTrialBalanceRequest._();
+
+  factory GetTrialBalanceRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTrialBalanceRequest()..mergeFromBuffer(data, registry);
+  factory GetTrialBalanceRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTrialBalanceRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetTrialBalanceRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetTrialBalanceRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'currency')
     ..aOS(2, _omitFieldNames ? '' : 'ledgerId')
     ..aOS(3, _omitFieldNames ? '' : 'ledgerType')
     ..pPS(4, _omitFieldNames ? '' : 'bookIds')
     ..aOS(5, _omitFieldNames ? '' : 'asOf')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetTrialBalanceRequest clone() => GetTrialBalanceRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetTrialBalanceRequest copyWith(void Function(GetTrialBalanceRequest) updates) => super.copyWith((message) => updates(message as GetTrialBalanceRequest)) as GetTrialBalanceRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTrialBalanceRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTrialBalanceRequest copyWith(
+          void Function(GetTrialBalanceRequest) updates) =>
+      super.copyWith((message) => updates(message as GetTrialBalanceRequest))
+          as GetTrialBalanceRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetTrialBalanceRequest() / GetTrialBalanceRequest.new instead')
   static GetTrialBalanceRequest create() => GetTrialBalanceRequest._();
-  GetTrialBalanceRequest createEmptyInstance() => create();
-  static $pb.PbList<GetTrialBalanceRequest> createRepeated() => $pb.PbList<GetTrialBalanceRequest>();
+  static $pb.GeneratedMessage $_createMessage() => GetTrialBalanceRequest._();
+  @$core.override
+  GetTrialBalanceRequest createEmptyInstance() => GetTrialBalanceRequest._();
   @$core.pragma('dart2js:noInline')
-  static GetTrialBalanceRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceRequest>(create);
+  static GetTrialBalanceRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceRequest>(
+          GetTrialBalanceRequest.$_createMessage);
   static GetTrialBalanceRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get currency => $_getSZ(0);
   @$pb.TagNumber(1)
-  set currency($core.String v) { $_setString(0, v); }
+  set currency($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasCurrency() => $_has(0);
   @$pb.TagNumber(1)
-  void clearCurrency() => clearField(1);
+  void clearCurrency() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get ledgerId => $_getSZ(1);
   @$pb.TagNumber(2)
-  set ledgerId($core.String v) { $_setString(1, v); }
+  set ledgerId($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasLedgerId() => $_has(1);
   @$pb.TagNumber(2)
-  void clearLedgerId() => clearField(2);
+  void clearLedgerId() => $_clearField(2);
 
   /// ledger_type is a case-sensitive string filter ("ASSET", "LIABILITY",
   /// "INCOME", "EXPENSE", "CAPITAL"). Empty means "no filter". A string is
@@ -2835,23 +3026,23 @@ class GetTrialBalanceRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.String get ledgerType => $_getSZ(2);
   @$pb.TagNumber(3)
-  set ledgerType($core.String v) { $_setString(2, v); }
+  set ledgerType($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasLedgerType() => $_has(2);
   @$pb.TagNumber(3)
-  void clearLedgerType() => clearField(3);
+  void clearLedgerType() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.List<$core.String> get bookIds => $_getList(3);
+  $pb.PbList<$core.String> get bookIds => $_getList(3);
 
   @$pb.TagNumber(5)
   $core.String get asOf => $_getSZ(4);
   @$pb.TagNumber(5)
-  set asOf($core.String v) { $_setString(4, v); }
+  set asOf($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasAsOf() => $_has(4);
   @$pb.TagNumber(5)
-  void clearAsOf() => clearField(5);
+  void clearAsOf() => $_clearField(5);
 }
 
 class GetTrialBalanceResponse extends $pb.GeneratedMessage {
@@ -2859,51 +3050,60 @@ class GetTrialBalanceResponse extends $pb.GeneratedMessage {
     $core.Iterable<TrialBalanceLine>? lines,
     $core.Iterable<TrialBalanceTotal>? totals,
   }) {
-    final $result = create();
-    if (lines != null) {
-      $result.lines.addAll(lines);
-    }
-    if (totals != null) {
-      $result.totals.addAll(totals);
-    }
-    return $result;
+    final result = GetTrialBalanceResponse._();
+    if (lines != null) result.lines.addAll(lines);
+    if (totals != null) result.totals.addAll(totals);
+    return result;
   }
-  GetTrialBalanceResponse._() : super();
-  factory GetTrialBalanceResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetTrialBalanceResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetTrialBalanceResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..pc<TrialBalanceLine>(1, _omitFieldNames ? '' : 'lines', $pb.PbFieldType.PM, subBuilder: TrialBalanceLine.create)
-    ..pc<TrialBalanceTotal>(2, _omitFieldNames ? '' : 'totals', $pb.PbFieldType.PM, subBuilder: TrialBalanceTotal.create)
-    ..hasRequiredFields = false
-  ;
+  GetTrialBalanceResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetTrialBalanceResponse clone() => GetTrialBalanceResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetTrialBalanceResponse copyWith(void Function(GetTrialBalanceResponse) updates) => super.copyWith((message) => updates(message as GetTrialBalanceResponse)) as GetTrialBalanceResponse;
+  factory GetTrialBalanceResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTrialBalanceResponse()..mergeFromBuffer(data, registry);
+  factory GetTrialBalanceResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetTrialBalanceResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetTrialBalanceResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetTrialBalanceResponse.$_createMessage)
+    ..pPM<TrialBalanceLine>(1, _omitFieldNames ? '' : 'lines',
+        subBuilder: TrialBalanceLine.$_createMessage)
+    ..pPM<TrialBalanceTotal>(2, _omitFieldNames ? '' : 'totals',
+        subBuilder: TrialBalanceTotal.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTrialBalanceResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetTrialBalanceResponse copyWith(
+          void Function(GetTrialBalanceResponse) updates) =>
+      super.copyWith((message) => updates(message as GetTrialBalanceResponse))
+          as GetTrialBalanceResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetTrialBalanceResponse() / GetTrialBalanceResponse.new instead')
   static GetTrialBalanceResponse create() => GetTrialBalanceResponse._();
-  GetTrialBalanceResponse createEmptyInstance() => create();
-  static $pb.PbList<GetTrialBalanceResponse> createRepeated() => $pb.PbList<GetTrialBalanceResponse>();
+  static $pb.GeneratedMessage $_createMessage() => GetTrialBalanceResponse._();
+  @$core.override
+  GetTrialBalanceResponse createEmptyInstance() => GetTrialBalanceResponse._();
   @$core.pragma('dart2js:noInline')
-  static GetTrialBalanceResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceResponse>(create);
+  static GetTrialBalanceResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetTrialBalanceResponse>(
+          GetTrialBalanceResponse.$_createMessage);
   static GetTrialBalanceResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.List<TrialBalanceLine> get lines => $_getList(0);
+  $pb.PbList<TrialBalanceLine> get lines => $_getList(0);
 
   @$pb.TagNumber(2)
-  $core.List<TrialBalanceTotal> get totals => $_getList(1);
+  $pb.PbList<TrialBalanceTotal> get totals => $_getList(1);
 }
 
 class GetAccountStatementRequest extends $pb.GeneratedMessage {
@@ -2914,338 +3114,367 @@ class GetAccountStatementRequest extends $pb.GeneratedMessage {
     $core.int? limit,
     $core.int? offset,
   }) {
-    final $result = create();
-    if (accountId != null) {
-      $result.accountId = accountId;
-    }
-    if (from != null) {
-      $result.from = from;
-    }
-    if (to != null) {
-      $result.to = to;
-    }
-    if (limit != null) {
-      $result.limit = limit;
-    }
-    if (offset != null) {
-      $result.offset = offset;
-    }
-    return $result;
+    final result = GetAccountStatementRequest._();
+    if (accountId != null) result.accountId = accountId;
+    if (from != null) result.from = from;
+    if (to != null) result.to = to;
+    if (limit != null) result.limit = limit;
+    if (offset != null) result.offset = offset;
+    return result;
   }
-  GetAccountStatementRequest._() : super();
-  factory GetAccountStatementRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetAccountStatementRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetAccountStatementRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  GetAccountStatementRequest._();
+
+  factory GetAccountStatementRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAccountStatementRequest()..mergeFromBuffer(data, registry);
+  factory GetAccountStatementRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAccountStatementRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetAccountStatementRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetAccountStatementRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'accountId')
     ..aOS(2, _omitFieldNames ? '' : 'from')
     ..aOS(3, _omitFieldNames ? '' : 'to')
-    ..a<$core.int>(4, _omitFieldNames ? '' : 'limit', $pb.PbFieldType.O3)
-    ..a<$core.int>(5, _omitFieldNames ? '' : 'offset', $pb.PbFieldType.O3)
-    ..hasRequiredFields = false
-  ;
+    ..aI(4, _omitFieldNames ? '' : 'limit')
+    ..aI(5, _omitFieldNames ? '' : 'offset')
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetAccountStatementRequest clone() => GetAccountStatementRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetAccountStatementRequest copyWith(void Function(GetAccountStatementRequest) updates) => super.copyWith((message) => updates(message as GetAccountStatementRequest)) as GetAccountStatementRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAccountStatementRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAccountStatementRequest copyWith(
+          void Function(GetAccountStatementRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as GetAccountStatementRequest))
+          as GetAccountStatementRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetAccountStatementRequest() / GetAccountStatementRequest.new instead')
   static GetAccountStatementRequest create() => GetAccountStatementRequest._();
-  GetAccountStatementRequest createEmptyInstance() => create();
-  static $pb.PbList<GetAccountStatementRequest> createRepeated() => $pb.PbList<GetAccountStatementRequest>();
+  static $pb.GeneratedMessage $_createMessage() =>
+      GetAccountStatementRequest._();
+  @$core.override
+  GetAccountStatementRequest createEmptyInstance() =>
+      GetAccountStatementRequest._();
   @$core.pragma('dart2js:noInline')
-  static GetAccountStatementRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetAccountStatementRequest>(create);
+  static GetAccountStatementRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetAccountStatementRequest>(
+          GetAccountStatementRequest.$_createMessage);
   static GetAccountStatementRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get accountId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set accountId($core.String v) { $_setString(0, v); }
+  set accountId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasAccountId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAccountId() => clearField(1);
+  void clearAccountId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get from => $_getSZ(1);
   @$pb.TagNumber(2)
-  set from($core.String v) { $_setString(1, v); }
+  set from($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasFrom() => $_has(1);
   @$pb.TagNumber(2)
-  void clearFrom() => clearField(2);
+  void clearFrom() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.String get to => $_getSZ(2);
   @$pb.TagNumber(3)
-  set to($core.String v) { $_setString(2, v); }
+  set to($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
   $core.bool hasTo() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTo() => clearField(3);
+  void clearTo() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.int get limit => $_getIZ(3);
   @$pb.TagNumber(4)
-  set limit($core.int v) { $_setSignedInt32(3, v); }
+  set limit($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
   $core.bool hasLimit() => $_has(3);
   @$pb.TagNumber(4)
-  void clearLimit() => clearField(4);
+  void clearLimit() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.int get offset => $_getIZ(4);
   @$pb.TagNumber(5)
-  set offset($core.int v) { $_setSignedInt32(4, v); }
+  set offset($core.int value) => $_setSignedInt32(4, value);
   @$pb.TagNumber(5)
   $core.bool hasOffset() => $_has(4);
   @$pb.TagNumber(5)
-  void clearOffset() => clearField(5);
+  void clearOffset() => $_clearField(5);
 }
 
 class GetAccountStatementResponse extends $pb.GeneratedMessage {
   factory GetAccountStatementResponse({
     $core.String? accountId,
     $core.String? currency,
-    $7.Money? openingBalance,
-    $7.Money? closingBalance,
-    $7.Money? totalDebits,
-    $7.Money? totalCredits,
+    $1.Money? openingBalance,
+    $1.Money? closingBalance,
+    $1.Money? totalDebits,
+    $1.Money? totalCredits,
     $core.Iterable<StatementEntry>? entries,
   }) {
-    final $result = create();
-    if (accountId != null) {
-      $result.accountId = accountId;
-    }
-    if (currency != null) {
-      $result.currency = currency;
-    }
-    if (openingBalance != null) {
-      $result.openingBalance = openingBalance;
-    }
-    if (closingBalance != null) {
-      $result.closingBalance = closingBalance;
-    }
-    if (totalDebits != null) {
-      $result.totalDebits = totalDebits;
-    }
-    if (totalCredits != null) {
-      $result.totalCredits = totalCredits;
-    }
-    if (entries != null) {
-      $result.entries.addAll(entries);
-    }
-    return $result;
+    final result = GetAccountStatementResponse._();
+    if (accountId != null) result.accountId = accountId;
+    if (currency != null) result.currency = currency;
+    if (openingBalance != null) result.openingBalance = openingBalance;
+    if (closingBalance != null) result.closingBalance = closingBalance;
+    if (totalDebits != null) result.totalDebits = totalDebits;
+    if (totalCredits != null) result.totalCredits = totalCredits;
+    if (entries != null) result.entries.addAll(entries);
+    return result;
   }
-  GetAccountStatementResponse._() : super();
-  factory GetAccountStatementResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory GetAccountStatementResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GetAccountStatementResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  GetAccountStatementResponse._();
+
+  factory GetAccountStatementResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAccountStatementResponse()..mergeFromBuffer(data, registry);
+  factory GetAccountStatementResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAccountStatementResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetAccountStatementResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: GetAccountStatementResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'accountId')
     ..aOS(2, _omitFieldNames ? '' : 'currency')
-    ..aOM<$7.Money>(3, _omitFieldNames ? '' : 'openingBalance', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(4, _omitFieldNames ? '' : 'closingBalance', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(5, _omitFieldNames ? '' : 'totalDebits', subBuilder: $7.Money.create)
-    ..aOM<$7.Money>(6, _omitFieldNames ? '' : 'totalCredits', subBuilder: $7.Money.create)
-    ..pc<StatementEntry>(7, _omitFieldNames ? '' : 'entries', $pb.PbFieldType.PM, subBuilder: StatementEntry.create)
-    ..hasRequiredFields = false
-  ;
+    ..aOM<$1.Money>(3, _omitFieldNames ? '' : 'openingBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(4, _omitFieldNames ? '' : 'closingBalance',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(5, _omitFieldNames ? '' : 'totalDebits',
+        subBuilder: $1.Money.$_createMessage)
+    ..aOM<$1.Money>(6, _omitFieldNames ? '' : 'totalCredits',
+        subBuilder: $1.Money.$_createMessage)
+    ..pPM<StatementEntry>(7, _omitFieldNames ? '' : 'entries',
+        subBuilder: StatementEntry.$_createMessage)
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  GetAccountStatementResponse clone() => GetAccountStatementResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  GetAccountStatementResponse copyWith(void Function(GetAccountStatementResponse) updates) => super.copyWith((message) => updates(message as GetAccountStatementResponse)) as GetAccountStatementResponse;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAccountStatementResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAccountStatementResponse copyWith(
+          void Function(GetAccountStatementResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as GetAccountStatementResponse))
+          as GetAccountStatementResponse;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static GetAccountStatementResponse create() => GetAccountStatementResponse._();
-  GetAccountStatementResponse createEmptyInstance() => create();
-  static $pb.PbList<GetAccountStatementResponse> createRepeated() => $pb.PbList<GetAccountStatementResponse>();
+  @$core.Deprecated(
+      'Use GetAccountStatementResponse() / GetAccountStatementResponse.new instead')
+  static GetAccountStatementResponse create() =>
+      GetAccountStatementResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      GetAccountStatementResponse._();
+  @$core.override
+  GetAccountStatementResponse createEmptyInstance() =>
+      GetAccountStatementResponse._();
   @$core.pragma('dart2js:noInline')
-  static GetAccountStatementResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GetAccountStatementResponse>(create);
+  static GetAccountStatementResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetAccountStatementResponse>(
+          GetAccountStatementResponse.$_createMessage);
   static GetAccountStatementResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get accountId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set accountId($core.String v) { $_setString(0, v); }
+  set accountId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasAccountId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearAccountId() => clearField(1);
+  void clearAccountId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get currency => $_getSZ(1);
   @$pb.TagNumber(2)
-  set currency($core.String v) { $_setString(1, v); }
+  set currency($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasCurrency() => $_has(1);
   @$pb.TagNumber(2)
-  void clearCurrency() => clearField(2);
+  void clearCurrency() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $7.Money get openingBalance => $_getN(2);
+  $1.Money get openingBalance => $_getN(2);
   @$pb.TagNumber(3)
-  set openingBalance($7.Money v) { setField(3, v); }
+  set openingBalance($1.Money value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasOpeningBalance() => $_has(2);
   @$pb.TagNumber(3)
-  void clearOpeningBalance() => clearField(3);
+  void clearOpeningBalance() => $_clearField(3);
   @$pb.TagNumber(3)
-  $7.Money ensureOpeningBalance() => $_ensure(2);
+  $1.Money ensureOpeningBalance() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  $7.Money get closingBalance => $_getN(3);
+  $1.Money get closingBalance => $_getN(3);
   @$pb.TagNumber(4)
-  set closingBalance($7.Money v) { setField(4, v); }
+  set closingBalance($1.Money value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasClosingBalance() => $_has(3);
   @$pb.TagNumber(4)
-  void clearClosingBalance() => clearField(4);
+  void clearClosingBalance() => $_clearField(4);
   @$pb.TagNumber(4)
-  $7.Money ensureClosingBalance() => $_ensure(3);
+  $1.Money ensureClosingBalance() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $7.Money get totalDebits => $_getN(4);
+  $1.Money get totalDebits => $_getN(4);
   @$pb.TagNumber(5)
-  set totalDebits($7.Money v) { setField(5, v); }
+  set totalDebits($1.Money value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasTotalDebits() => $_has(4);
   @$pb.TagNumber(5)
-  void clearTotalDebits() => clearField(5);
+  void clearTotalDebits() => $_clearField(5);
   @$pb.TagNumber(5)
-  $7.Money ensureTotalDebits() => $_ensure(4);
+  $1.Money ensureTotalDebits() => $_ensure(4);
 
   @$pb.TagNumber(6)
-  $7.Money get totalCredits => $_getN(5);
+  $1.Money get totalCredits => $_getN(5);
   @$pb.TagNumber(6)
-  set totalCredits($7.Money v) { setField(6, v); }
+  set totalCredits($1.Money value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasTotalCredits() => $_has(5);
   @$pb.TagNumber(6)
-  void clearTotalCredits() => clearField(6);
+  void clearTotalCredits() => $_clearField(6);
   @$pb.TagNumber(6)
-  $7.Money ensureTotalCredits() => $_ensure(5);
+  $1.Money ensureTotalCredits() => $_ensure(5);
 
   @$pb.TagNumber(7)
-  $core.List<StatementEntry> get entries => $_getList(6);
+  $pb.PbList<StatementEntry> get entries => $_getList(6);
 }
 
 class VoidTransactionRequest extends $pb.GeneratedMessage {
   factory VoidTransactionRequest({
     $core.String? id,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    return $result;
+    final result = VoidTransactionRequest._();
+    if (id != null) result.id = id;
+    return result;
   }
-  VoidTransactionRequest._() : super();
-  factory VoidTransactionRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory VoidTransactionRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VoidTransactionRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  VoidTransactionRequest._();
+
+  factory VoidTransactionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VoidTransactionRequest()..mergeFromBuffer(data, registry);
+  factory VoidTransactionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VoidTransactionRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VoidTransactionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: VoidTransactionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  VoidTransactionRequest clone() => VoidTransactionRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  VoidTransactionRequest copyWith(void Function(VoidTransactionRequest) updates) => super.copyWith((message) => updates(message as VoidTransactionRequest)) as VoidTransactionRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VoidTransactionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VoidTransactionRequest copyWith(
+          void Function(VoidTransactionRequest) updates) =>
+      super.copyWith((message) => updates(message as VoidTransactionRequest))
+          as VoidTransactionRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use VoidTransactionRequest() / VoidTransactionRequest.new instead')
   static VoidTransactionRequest create() => VoidTransactionRequest._();
-  VoidTransactionRequest createEmptyInstance() => create();
-  static $pb.PbList<VoidTransactionRequest> createRepeated() => $pb.PbList<VoidTransactionRequest>();
+  static $pb.GeneratedMessage $_createMessage() => VoidTransactionRequest._();
+  @$core.override
+  VoidTransactionRequest createEmptyInstance() => VoidTransactionRequest._();
   @$core.pragma('dart2js:noInline')
-  static VoidTransactionRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoidTransactionRequest>(create);
+  static VoidTransactionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VoidTransactionRequest>(
+          VoidTransactionRequest.$_createMessage);
   static VoidTransactionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 }
 
 class VoidTransactionResponse extends $pb.GeneratedMessage {
   factory VoidTransactionResponse({
     Transaction? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = VoidTransactionResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  VoidTransactionResponse._() : super();
-  factory VoidTransactionResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory VoidTransactionResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'VoidTransactionResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  VoidTransactionResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  VoidTransactionResponse clone() => VoidTransactionResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  VoidTransactionResponse copyWith(void Function(VoidTransactionResponse) updates) => super.copyWith((message) => updates(message as VoidTransactionResponse)) as VoidTransactionResponse;
+  factory VoidTransactionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VoidTransactionResponse()..mergeFromBuffer(data, registry);
+  factory VoidTransactionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VoidTransactionResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VoidTransactionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: VoidTransactionResponse.$_createMessage)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VoidTransactionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VoidTransactionResponse copyWith(
+          void Function(VoidTransactionResponse) updates) =>
+      super.copyWith((message) => updates(message as VoidTransactionResponse))
+          as VoidTransactionResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use VoidTransactionResponse() / VoidTransactionResponse.new instead')
   static VoidTransactionResponse create() => VoidTransactionResponse._();
-  VoidTransactionResponse createEmptyInstance() => create();
-  static $pb.PbList<VoidTransactionResponse> createRepeated() => $pb.PbList<VoidTransactionResponse>();
+  static $pb.GeneratedMessage $_createMessage() => VoidTransactionResponse._();
+  @$core.override
+  VoidTransactionResponse createEmptyInstance() => VoidTransactionResponse._();
   @$core.pragma('dart2js:noInline')
-  static VoidTransactionResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<VoidTransactionResponse>(create);
+  static VoidTransactionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VoidTransactionResponse>(
+          VoidTransactionResponse.$_createMessage);
   static VoidTransactionResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Transaction get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Transaction v) { setField(1, v); }
+  set data(Transaction value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Transaction ensureData() => $_ensure(0);
 }
@@ -3254,164 +3483,269 @@ class MarkTransactionFailedRequest extends $pb.GeneratedMessage {
   factory MarkTransactionFailedRequest({
     $core.String? id,
   }) {
-    final $result = create();
-    if (id != null) {
-      $result.id = id;
-    }
-    return $result;
+    final result = MarkTransactionFailedRequest._();
+    if (id != null) result.id = id;
+    return result;
   }
-  MarkTransactionFailedRequest._() : super();
-  factory MarkTransactionFailedRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory MarkTransactionFailedRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MarkTransactionFailedRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
+  MarkTransactionFailedRequest._();
+
+  factory MarkTransactionFailedRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MarkTransactionFailedRequest()..mergeFromBuffer(data, registry);
+  factory MarkTransactionFailedRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MarkTransactionFailedRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkTransactionFailedRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: MarkTransactionFailedRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..hasRequiredFields = false
-  ;
+    ..hasRequiredFields = false;
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  MarkTransactionFailedRequest clone() => MarkTransactionFailedRequest()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  MarkTransactionFailedRequest copyWith(void Function(MarkTransactionFailedRequest) updates) => super.copyWith((message) => updates(message as MarkTransactionFailedRequest)) as MarkTransactionFailedRequest;
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkTransactionFailedRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkTransactionFailedRequest copyWith(
+          void Function(MarkTransactionFailedRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as MarkTransactionFailedRequest))
+          as MarkTransactionFailedRequest;
 
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static MarkTransactionFailedRequest create() => MarkTransactionFailedRequest._();
-  MarkTransactionFailedRequest createEmptyInstance() => create();
-  static $pb.PbList<MarkTransactionFailedRequest> createRepeated() => $pb.PbList<MarkTransactionFailedRequest>();
+  @$core.Deprecated(
+      'Use MarkTransactionFailedRequest() / MarkTransactionFailedRequest.new instead')
+  static MarkTransactionFailedRequest create() =>
+      MarkTransactionFailedRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      MarkTransactionFailedRequest._();
+  @$core.override
+  MarkTransactionFailedRequest createEmptyInstance() =>
+      MarkTransactionFailedRequest._();
   @$core.pragma('dart2js:noInline')
-  static MarkTransactionFailedRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedRequest>(create);
+  static MarkTransactionFailedRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedRequest>(
+          MarkTransactionFailedRequest.$_createMessage);
   static MarkTransactionFailedRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
-  set id($core.String v) { $_setString(0, v); }
+  set id($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
   $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearId() => $_clearField(1);
 }
 
 class MarkTransactionFailedResponse extends $pb.GeneratedMessage {
   factory MarkTransactionFailedResponse({
     Transaction? data,
   }) {
-    final $result = create();
-    if (data != null) {
-      $result.data = data;
-    }
-    return $result;
+    final result = MarkTransactionFailedResponse._();
+    if (data != null) result.data = data;
+    return result;
   }
-  MarkTransactionFailedResponse._() : super();
-  factory MarkTransactionFailedResponse.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory MarkTransactionFailedResponse.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'MarkTransactionFailedResponse', package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'), createEmptyInstance: create)
-    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data', subBuilder: Transaction.create)
-    ..hasRequiredFields = false
-  ;
+  MarkTransactionFailedResponse._();
 
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  MarkTransactionFailedResponse clone() => MarkTransactionFailedResponse()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  MarkTransactionFailedResponse copyWith(void Function(MarkTransactionFailedResponse) updates) => super.copyWith((message) => updates(message as MarkTransactionFailedResponse)) as MarkTransactionFailedResponse;
+  factory MarkTransactionFailedResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MarkTransactionFailedResponse()..mergeFromBuffer(data, registry);
+  factory MarkTransactionFailedResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MarkTransactionFailedResponse()..mergeFromJson(json, registry);
 
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkTransactionFailedResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'ledger.v1'),
+      createEmptyInstance: MarkTransactionFailedResponse.$_createMessage)
+    ..aOM<Transaction>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: Transaction.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkTransactionFailedResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkTransactionFailedResponse copyWith(
+          void Function(MarkTransactionFailedResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as MarkTransactionFailedResponse))
+          as MarkTransactionFailedResponse;
+
+  @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static MarkTransactionFailedResponse create() => MarkTransactionFailedResponse._();
-  MarkTransactionFailedResponse createEmptyInstance() => create();
-  static $pb.PbList<MarkTransactionFailedResponse> createRepeated() => $pb.PbList<MarkTransactionFailedResponse>();
+  @$core.Deprecated(
+      'Use MarkTransactionFailedResponse() / MarkTransactionFailedResponse.new instead')
+  static MarkTransactionFailedResponse create() =>
+      MarkTransactionFailedResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      MarkTransactionFailedResponse._();
+  @$core.override
+  MarkTransactionFailedResponse createEmptyInstance() =>
+      MarkTransactionFailedResponse._();
   @$core.pragma('dart2js:noInline')
-  static MarkTransactionFailedResponse getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedResponse>(create);
+  static MarkTransactionFailedResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkTransactionFailedResponse>(
+          MarkTransactionFailedResponse.$_createMessage);
   static MarkTransactionFailedResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Transaction get data => $_getN(0);
   @$pb.TagNumber(1)
-  set data(Transaction v) { setField(1, v); }
+  set data(Transaction value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasData() => $_has(0);
   @$pb.TagNumber(1)
-  void clearData() => clearField(1);
+  void clearData() => $_clearField(1);
   @$pb.TagNumber(1)
   Transaction ensureData() => $_ensure(0);
 }
 
+/// LedgerService provides double-entry bookkeeping and financial accounting.
+/// All RPCs require authentication via Bearer token.
 class LedgerServiceApi {
-  $pb.RpcClient _client;
+  final $pb.RpcClient _client;
+
   LedgerServiceApi(this._client);
 
-  $async.Future<SearchLedgersResponse> searchLedgers($pb.ClientContext? ctx, $8.SearchRequest request) =>
-    _client.invoke<SearchLedgersResponse>(ctx, 'LedgerService', 'SearchLedgers', request, SearchLedgersResponse())
-  ;
-  $async.Future<CreateLedgerResponse> createLedger($pb.ClientContext? ctx, CreateLedgerRequest request) =>
-    _client.invoke<CreateLedgerResponse>(ctx, 'LedgerService', 'CreateLedger', request, CreateLedgerResponse())
-  ;
-  $async.Future<UpdateLedgerResponse> updateLedger($pb.ClientContext? ctx, UpdateLedgerRequest request) =>
-    _client.invoke<UpdateLedgerResponse>(ctx, 'LedgerService', 'UpdateLedger', request, UpdateLedgerResponse())
-  ;
-  $async.Future<SearchAccountsResponse> searchAccounts($pb.ClientContext? ctx, $8.SearchRequest request) =>
-    _client.invoke<SearchAccountsResponse>(ctx, 'LedgerService', 'SearchAccounts', request, SearchAccountsResponse())
-  ;
-  $async.Future<CreateAccountResponse> createAccount($pb.ClientContext? ctx, CreateAccountRequest request) =>
-    _client.invoke<CreateAccountResponse>(ctx, 'LedgerService', 'CreateAccount', request, CreateAccountResponse())
-  ;
-  $async.Future<UpdateAccountResponse> updateAccount($pb.ClientContext? ctx, UpdateAccountRequest request) =>
-    _client.invoke<UpdateAccountResponse>(ctx, 'LedgerService', 'UpdateAccount', request, UpdateAccountResponse())
-  ;
-  $async.Future<SearchTransactionsResponse> searchTransactions($pb.ClientContext? ctx, $8.SearchRequest request) =>
-    _client.invoke<SearchTransactionsResponse>(ctx, 'LedgerService', 'SearchTransactions', request, SearchTransactionsResponse())
-  ;
-  $async.Future<CreateTransactionResponse> createTransaction($pb.ClientContext? ctx, CreateTransactionRequest request) =>
-    _client.invoke<CreateTransactionResponse>(ctx, 'LedgerService', 'CreateTransaction', request, CreateTransactionResponse())
-  ;
-  $async.Future<ReverseTransactionResponse> reverseTransaction($pb.ClientContext? ctx, ReverseTransactionRequest request) =>
-    _client.invoke<ReverseTransactionResponse>(ctx, 'LedgerService', 'ReverseTransaction', request, ReverseTransactionResponse())
-  ;
-  $async.Future<UpdateTransactionResponse> updateTransaction($pb.ClientContext? ctx, UpdateTransactionRequest request) =>
-    _client.invoke<UpdateTransactionResponse>(ctx, 'LedgerService', 'UpdateTransaction', request, UpdateTransactionResponse())
-  ;
-  $async.Future<SearchTransactionEntriesResponse> searchTransactionEntries($pb.ClientContext? ctx, $8.SearchRequest request) =>
-    _client.invoke<SearchTransactionEntriesResponse>(ctx, 'LedgerService', 'SearchTransactionEntries', request, SearchTransactionEntriesResponse())
-  ;
-  $async.Future<VoidTransactionResponse> voidTransaction($pb.ClientContext? ctx, VoidTransactionRequest request) =>
-    _client.invoke<VoidTransactionResponse>(ctx, 'LedgerService', 'VoidTransaction', request, VoidTransactionResponse())
-  ;
-  $async.Future<MarkTransactionFailedResponse> markTransactionFailed($pb.ClientContext? ctx, MarkTransactionFailedRequest request) =>
-    _client.invoke<MarkTransactionFailedResponse>(ctx, 'LedgerService', 'MarkTransactionFailed', request, MarkTransactionFailedResponse())
-  ;
-  $async.Future<CreateBookResponse> createBook($pb.ClientContext? ctx, CreateBookRequest request) =>
-    _client.invoke<CreateBookResponse>(ctx, 'LedgerService', 'CreateBook', request, CreateBookResponse())
-  ;
-  $async.Future<GetBookResponse> getBook($pb.ClientContext? ctx, GetBookRequest request) =>
-    _client.invoke<GetBookResponse>(ctx, 'LedgerService', 'GetBook', request, GetBookResponse())
-  ;
-  $async.Future<ListBooksByTypeResponse> listBooksByType($pb.ClientContext? ctx, ListBooksByTypeRequest request) =>
-    _client.invoke<ListBooksByTypeResponse>(ctx, 'LedgerService', 'ListBooksByType', request, ListBooksByTypeResponse())
-  ;
-  $async.Future<GetTrialBalanceResponse> getTrialBalance($pb.ClientContext? ctx, GetTrialBalanceRequest request) =>
-    _client.invoke<GetTrialBalanceResponse>(ctx, 'LedgerService', 'GetTrialBalance', request, GetTrialBalanceResponse())
-  ;
-  $async.Future<GetAccountStatementResponse> getAccountStatement($pb.ClientContext? ctx, GetAccountStatementRequest request) =>
-    _client.invoke<GetAccountStatementResponse>(ctx, 'LedgerService', 'GetAccountStatement', request, GetAccountStatementResponse())
-  ;
+  /// SearchLedgers finds ledgers in the chart of accounts.
+  /// Supports filtering by type, parent, and custom properties.
+  $async.Future<SearchLedgersResponse> searchLedgers(
+          $pb.ClientContext? ctx, $2.SearchRequest request) =>
+      _client.invoke<SearchLedgersResponse>(ctx, 'LedgerService',
+          'SearchLedgers', request, SearchLedgersResponse());
+
+  /// CreateLedger creates a new ledger in the chart of accounts.
+  /// Ledgers can be hierarchical with parent-child relationships.
+  $async.Future<CreateLedgerResponse> createLedger(
+          $pb.ClientContext? ctx, CreateLedgerRequest request) =>
+      _client.invoke<CreateLedgerResponse>(ctx, 'LedgerService', 'CreateLedger',
+          request, CreateLedgerResponse());
+
+  /// UpdateLedger updates an existing ledger's metadata.
+  /// The ledger type and reference cannot be changed.
+  $async.Future<UpdateLedgerResponse> updateLedger(
+          $pb.ClientContext? ctx, UpdateLedgerRequest request) =>
+      _client.invoke<UpdateLedgerResponse>(ctx, 'LedgerService', 'UpdateLedger',
+          request, UpdateLedgerResponse());
+
+  /// SearchAccounts finds accounts matching specified criteria.
+  /// Supports filtering by ledger, balance range, and custom properties.
+  $async.Future<SearchAccountsResponse> searchAccounts(
+          $pb.ClientContext? ctx, $2.SearchRequest request) =>
+      _client.invoke<SearchAccountsResponse>(ctx, 'LedgerService',
+          'SearchAccounts', request, SearchAccountsResponse());
+
+  /// CreateAccount creates a new account within a ledger.
+  /// Each account tracks balances and transaction history.
+  $async.Future<CreateAccountResponse> createAccount(
+          $pb.ClientContext? ctx, CreateAccountRequest request) =>
+      _client.invoke<CreateAccountResponse>(ctx, 'LedgerService',
+          'CreateAccount', request, CreateAccountResponse());
+
+  /// UpdateAccount updates an existing account's metadata.
+  /// Balances are updated through transactions, not directly.
+  $async.Future<UpdateAccountResponse> updateAccount(
+          $pb.ClientContext? ctx, UpdateAccountRequest request) =>
+      _client.invoke<UpdateAccountResponse>(ctx, 'LedgerService',
+          'UpdateAccount', request, UpdateAccountResponse());
+
+  /// SearchTransactions finds transactions matching specified criteria.
+  /// Supports filtering by date range, account, currency, and status.
+  $async.Future<SearchTransactionsResponse> searchTransactions(
+          $pb.ClientContext? ctx, $2.SearchRequest request) =>
+      _client.invoke<SearchTransactionsResponse>(ctx, 'LedgerService',
+          'SearchTransactions', request, SearchTransactionsResponse());
+
+  /// CreateTransaction creates a new double-entry transaction.
+  /// All entries must be balanced (sum of debits = sum of credits).
+  $async.Future<CreateTransactionResponse> createTransaction(
+          $pb.ClientContext? ctx, CreateTransactionRequest request) =>
+      _client.invoke<CreateTransactionResponse>(ctx, 'LedgerService',
+          'CreateTransaction', request, CreateTransactionResponse());
+
+  /// ReverseTransaction reverses a transaction by creating offsetting entries.
+  /// Creates a new REVERSAL transaction that negates the original.
+  $async.Future<ReverseTransactionResponse> reverseTransaction(
+          $pb.ClientContext? ctx, ReverseTransactionRequest request) =>
+      _client.invoke<ReverseTransactionResponse>(ctx, 'LedgerService',
+          'ReverseTransaction', request, ReverseTransactionResponse());
+
+  /// UpdateTransaction updates a transaction's metadata.
+  /// Entries and amounts cannot be changed after creation.
+  $async.Future<UpdateTransactionResponse> updateTransaction(
+          $pb.ClientContext? ctx, UpdateTransactionRequest request) =>
+      _client.invoke<UpdateTransactionResponse>(ctx, 'LedgerService',
+          'UpdateTransaction', request, UpdateTransactionResponse());
+
+  /// SearchTransactionEntries finds individual transaction entries.
+  /// Useful for account statement generation and reconciliation.
+  $async.Future<SearchTransactionEntriesResponse> searchTransactionEntries(
+          $pb.ClientContext? ctx, $2.SearchRequest request) =>
+      _client.invoke<SearchTransactionEntriesResponse>(
+          ctx,
+          'LedgerService',
+          'SearchTransactionEntries',
+          request,
+          SearchTransactionEntriesResponse());
+
+  /// VoidTransaction transitions a draft or pending transaction to VOIDED.
+  /// Posted activity cannot be voided — reverse it instead so the books
+  /// carry the offset and the audit trail.
+  $async.Future<VoidTransactionResponse> voidTransaction(
+          $pb.ClientContext? ctx, VoidTransactionRequest request) =>
+      _client.invoke<VoidTransactionResponse>(ctx, 'LedgerService',
+          'VoidTransaction', request, VoidTransactionResponse());
+
+  /// MarkTransactionFailed transitions a pending transaction to FAILED for
+  /// upstream rejections (e.g. payment provider declined the webhook).
+  $async.Future<MarkTransactionFailedResponse> markTransactionFailed(
+          $pb.ClientContext? ctx, MarkTransactionFailedRequest request) =>
+      _client.invoke<MarkTransactionFailedResponse>(ctx, 'LedgerService',
+          'MarkTransactionFailed', request, MarkTransactionFailedResponse());
+
+  /// CreateBook creates a new accounting scope. Each book balances
+  /// independently; cross-book postings are rejected.
+  $async.Future<CreateBookResponse> createBook(
+          $pb.ClientContext? ctx, CreateBookRequest request) =>
+      _client.invoke<CreateBookResponse>(
+          ctx, 'LedgerService', 'CreateBook', request, CreateBookResponse());
+
+  /// GetBook fetches a single book by id within the caller's tenancy.
+  $async.Future<GetBookResponse> getBook(
+          $pb.ClientContext? ctx, GetBookRequest request) =>
+      _client.invoke<GetBookResponse>(
+          ctx, 'LedgerService', 'GetBook', request, GetBookResponse());
+
+  /// ListBooksByType returns all books of a given conventional type.
+  $async.Future<ListBooksByTypeResponse> listBooksByType(
+          $pb.ClientContext? ctx, ListBooksByTypeRequest request) =>
+      _client.invoke<ListBooksByTypeResponse>(ctx, 'LedgerService',
+          'ListBooksByType', request, ListBooksByTypeResponse());
+
+  /// GetTrialBalance returns the per-account debit/credit totals plus per-
+  /// currency grand totals with the textbook integrity check (is_balanced).
+  $async.Future<GetTrialBalanceResponse> getTrialBalance(
+          $pb.ClientContext? ctx, GetTrialBalanceRequest request) =>
+      _client.invoke<GetTrialBalanceResponse>(ctx, 'LedgerService',
+          'GetTrialBalance', request, GetTrialBalanceResponse());
+
+  /// GetAccountStatement returns a customer-facing account ledger for a
+  /// period with opening balance, running balance per entry, and totals.
+  $async.Future<GetAccountStatementResponse> getAccountStatement(
+          $pb.ClientContext? ctx, GetAccountStatementRequest request) =>
+      _client.invoke<GetAccountStatementResponse>(ctx, 'LedgerService',
+          'GetAccountStatement', request, GetAccountStatementResponse());
 }
 
-
-const _omitFieldNames = $core.bool.fromEnvironment('protobuf.omit_field_names');
-const _omitMessageNames = $core.bool.fromEnvironment('protobuf.omit_message_names');
+const $core.bool _omitFieldNames =
+    $core.bool.fromEnvironment('protobuf.omit_field_names');
+const $core.bool _omitMessageNames =
+    $core.bool.fromEnvironment('protobuf.omit_message_names');

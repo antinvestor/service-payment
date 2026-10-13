@@ -29,14 +29,14 @@ import (
 
 	// Register PostgreSQL driver for database connections.
 	_ "github.com/lib/pq"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/frametests"
-	"github.com/pitabwire/frame/v2/frametests/definition"
-	"github.com/pitabwire/frame/v2/frametests/deps/testpostgres"
-	"github.com/pitabwire/frame/v2/frametests/rlstest"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/frametests"
+	"github.com/pitabwire/frame/v3/frametests/definition"
+	"github.com/pitabwire/frame/v3/frametests/deps/testpostgres"
+	"github.com/pitabwire/frame/v3/frametests/rlstest"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/require"
 )

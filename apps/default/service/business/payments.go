@@ -19,24 +19,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/v2/tenancy/v1/tenancyv1connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/metrics"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/pitabwire/frame/v2/data"
-	fevents "github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
-	"github.com/pitabwire/frame/v2/workerpool"
+	"github.com/pitabwire/frame/v3/data"
+	fevents "github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
+	"github.com/pitabwire/frame/v3/workerpool"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	utilmoney "github.com/pitabwire/util/moneyx"
@@ -951,7 +952,7 @@ func (pb *paymentBusiness) createDepositStep1(
 		Type:         ledgerv1.TransactionType_NORMAL,
 	}
 
-	if _, err := pb.ledgerCli.CreateTransaction(ctx, connect.NewRequest(transaction)); err != nil {
+	if _, err := pb.ledgerCli.CreateTransaction(ctx, transaction); err != nil {
 		logger.WithError(err).Error("failed to create deposit step1 transaction")
 		return err
 	}
@@ -976,19 +977,24 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 		Query: fmt.Sprintf("reference:%s", accountRef),
 	}
 
-	accountStream, err := pb.ledgerCli.SearchAccounts(ctx, connect.NewRequest(searchReq))
+	accountStream, err := pb.ledgerCli.SearchAccounts(ctx, searchReq)
 	if err != nil {
 		logger.WithError(err).Error("failed to search for existing account")
 		return err
 	}
+	defer func() { _ = accountStream.Close() }()
 
 	var accounts []*ledgerv1.Account
-	for accountStream.Receive() {
-		if accountStream.Err() != nil {
-			return accountStream.Err()
+	for {
+		msg, recvErr := accountStream.Receive()
+		if errors.Is(recvErr, io.EOF) {
+			break
+		}
+		if recvErr != nil {
+			return recvErr
 		}
 
-		accounts = append(accounts, accountStream.Msg().GetData()...)
+		accounts = append(accounts, msg.GetData()...)
 	}
 
 	if len(accounts) > 0 {
@@ -1009,7 +1015,7 @@ func (pb *paymentBusiness) ensureLedgerAccount(
 		Data:     accountData.ToProtoStruct(),
 	}
 
-	_, err = pb.ledgerCli.CreateAccount(ctx, connect.NewRequest(account))
+	_, err = pb.ledgerCli.CreateAccount(ctx, account)
 	if err != nil {
 		logger.WithError(err).Error("failed to create ledger account")
 		return err
@@ -1081,6 +1087,6 @@ func (pb *paymentBusiness) Reconcile(
 
 	return nil, connect.NewError(
 		connect.CodeUnimplemented,
-		errors.New("reconcile not yet implemented"),
+		"reconcile not yet implemented",
 	)
 }

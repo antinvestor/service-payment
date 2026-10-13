@@ -20,9 +20,8 @@ import (
 	"errors"
 	"fmt"
 
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 )
@@ -75,13 +74,13 @@ func (r *credentialResolver) credentialsFromSettings(
 		},
 	}
 
-	settingResp, err := r.settingsCli.Get(ctx, connect.NewRequest(settingReq))
+	settingResp, err := r.settingsCli.Get(ctx, settingReq)
 	if err != nil {
 		return nil, fmt.Errorf("settings lookup failed: %w", err)
 	}
 
 	var credMap map[string]string
-	if err = json.Unmarshal([]byte(settingResp.Msg.GetData().GetValue()), &credMap); err != nil {
+	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {
 		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
 	}
 

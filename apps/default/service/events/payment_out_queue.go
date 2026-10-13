@@ -21,8 +21,8 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
+	"github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 )

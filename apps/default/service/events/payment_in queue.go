@@ -20,11 +20,11 @@ import (
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
-	"github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
+	"github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 )
 

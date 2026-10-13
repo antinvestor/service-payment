@@ -19,206 +19,219 @@
 package collectionv1connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v1 "github.com/antinvestor/service-payments/apps/billing/gen/collection/v1"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// CollectionServiceName is the fully-qualified name of the CollectionService service.
 	CollectionServiceName = "collection.v1.CollectionService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// CollectionServiceCollectPaymentProcedure is the fully-qualified name of the CollectionService's
+	// CollectionServiceCollectPaymentProcedure is the procedure name of the CollectionService's
 	// CollectPayment RPC.
 	CollectionServiceCollectPaymentProcedure = "/collection.v1.CollectionService/CollectPayment"
-	// CollectionServiceStartSubscriptionProcedure is the fully-qualified name of the
-	// CollectionService's StartSubscription RPC.
+	// CollectionServiceStartSubscriptionProcedure is the procedure name of the CollectionService's
+	// StartSubscription RPC.
 	CollectionServiceStartSubscriptionProcedure = "/collection.v1.CollectionService/StartSubscription"
-	// CollectionServiceConfirmPaymentProcedure is the fully-qualified name of the CollectionService's
+	// CollectionServiceConfirmPaymentProcedure is the procedure name of the CollectionService's
 	// ConfirmPayment RPC.
 	CollectionServiceConfirmPaymentProcedure = "/collection.v1.CollectionService/ConfirmPayment"
-	// CollectionServiceCancelSubscriptionProcedure is the fully-qualified name of the
-	// CollectionService's CancelSubscription RPC.
+	// CollectionServiceCancelSubscriptionProcedure is the procedure name of the CollectionService's
+	// CancelSubscription RPC.
 	CollectionServiceCancelSubscriptionProcedure = "/collection.v1.CollectionService/CancelSubscription"
+)
+
+var (
+	collectionServiceCollectPaymentSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods().ByName("CollectPayment"),
+			Procedure:  CollectionServiceCollectPaymentProcedure,
+		}
+	})
+	collectionServiceStartSubscriptionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods().ByName("StartSubscription"),
+			Procedure:  CollectionServiceStartSubscriptionProcedure,
+		}
+	})
+	collectionServiceConfirmPaymentSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods().ByName("ConfirmPayment"),
+			Procedure:  CollectionServiceConfirmPaymentProcedure,
+		}
+	})
+	collectionServiceCancelSubscriptionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods().ByName("CancelSubscription"),
+			Procedure:  CollectionServiceCancelSubscriptionProcedure,
+		}
+	})
 )
 
 // CollectionServiceClient is a client for the collection.v1.CollectionService service.
 type CollectionServiceClient interface {
 	// CollectPayment opens hosted checkout for an issued invoice.
 	// Redirect the end user to data.page_url, then call ConfirmPayment with data.session_ref.
-	CollectPayment(context.Context, *connect.Request[v1.CollectPaymentRequest]) (*connect.Response[v1.CollectPaymentResponse], error)
+	CollectPayment(context.Context, *v1.CollectPaymentRequest) (*v1.CollectPaymentResponse, error)
 	// StartSubscription creates a subscription and opens checkout for any upfront fee.
 	// Redirect the end user to data.page_url when present; otherwise the subscription is already active.
-	StartSubscription(context.Context, *connect.Request[v1.StartSubscriptionRequest]) (*connect.Response[v1.StartSubscriptionResponse], error)
+	StartSubscription(context.Context, *v1.StartSubscriptionRequest) (*v1.StartSubscriptionResponse, error)
 	// ConfirmPayment captures a completed checkout session into billing.
 	// Source of truth is the checkout session status — never trust browser redirects alone.
-	ConfirmPayment(context.Context, *connect.Request[v1.ConfirmPaymentRequest]) (*connect.Response[v1.ConfirmPaymentResponse], error)
+	ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error)
 	// CancelSubscription cancels a subscription (and voids unpaid first invoices).
-	CancelSubscription(context.Context, *connect.Request[v1.CancelSubscriptionRequest]) (*connect.Response[v1.CancelSubscriptionResponse], error)
+	CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error)
 }
 
 // NewCollectionServiceClient constructs a client for the collection.v1.CollectionService service.
-// By default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped
-// responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CollectionServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	collectionServiceMethods := v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods()
-	return &collectionServiceClient{
-		collectPayment: connect.NewClient[v1.CollectPaymentRequest, v1.CollectPaymentResponse](
-			httpClient,
-			baseURL+CollectionServiceCollectPaymentProcedure,
-			connect.WithSchema(collectionServiceMethods.ByName("CollectPayment")),
-			connect.WithClientOptions(opts...),
-		),
-		startSubscription: connect.NewClient[v1.StartSubscriptionRequest, v1.StartSubscriptionResponse](
-			httpClient,
-			baseURL+CollectionServiceStartSubscriptionProcedure,
-			connect.WithSchema(collectionServiceMethods.ByName("StartSubscription")),
-			connect.WithClientOptions(opts...),
-		),
-		confirmPayment: connect.NewClient[v1.ConfirmPaymentRequest, v1.ConfirmPaymentResponse](
-			httpClient,
-			baseURL+CollectionServiceConfirmPaymentProcedure,
-			connect.WithSchema(collectionServiceMethods.ByName("ConfirmPayment")),
-			connect.WithClientOptions(opts...),
-		),
-		cancelSubscription: connect.NewClient[v1.CancelSubscriptionRequest, v1.CancelSubscriptionResponse](
-			httpClient,
-			baseURL+CollectionServiceCancelSubscriptionProcedure,
-			connect.WithSchema(collectionServiceMethods.ByName("CancelSubscription")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// collectionServiceClient implements CollectionServiceClient.
-type collectionServiceClient struct {
-	collectPayment     *connect.Client[v1.CollectPaymentRequest, v1.CollectPaymentResponse]
-	startSubscription  *connect.Client[v1.StartSubscriptionRequest, v1.StartSubscriptionResponse]
-	confirmPayment     *connect.Client[v1.ConfirmPaymentRequest, v1.ConfirmPaymentResponse]
-	cancelSubscription *connect.Client[v1.CancelSubscriptionRequest, v1.CancelSubscriptionResponse]
-}
-
-// CollectPayment calls collection.v1.CollectionService.CollectPayment.
-func (c *collectionServiceClient) CollectPayment(ctx context.Context, req *connect.Request[v1.CollectPaymentRequest]) (*connect.Response[v1.CollectPaymentResponse], error) {
-	return c.collectPayment.CallUnary(ctx, req)
-}
-
-// StartSubscription calls collection.v1.CollectionService.StartSubscription.
-func (c *collectionServiceClient) StartSubscription(ctx context.Context, req *connect.Request[v1.StartSubscriptionRequest]) (*connect.Response[v1.StartSubscriptionResponse], error) {
-	return c.startSubscription.CallUnary(ctx, req)
-}
-
-// ConfirmPayment calls collection.v1.CollectionService.ConfirmPayment.
-func (c *collectionServiceClient) ConfirmPayment(ctx context.Context, req *connect.Request[v1.ConfirmPaymentRequest]) (*connect.Response[v1.ConfirmPaymentResponse], error) {
-	return c.confirmPayment.CallUnary(ctx, req)
-}
-
-// CancelSubscription calls collection.v1.CollectionService.CancelSubscription.
-func (c *collectionServiceClient) CancelSubscription(ctx context.Context, req *connect.Request[v1.CancelSubscriptionRequest]) (*connect.Response[v1.CancelSubscriptionResponse], error) {
-	return c.cancelSubscription.CallUnary(ctx, req)
+// Multiple service clients may share a single connect.Client.
+func NewCollectionServiceClient(client *connect.Client) CollectionServiceClient {
+	return &collectionServiceClient{client: client}
 }
 
 // CollectionServiceHandler is an implementation of the collection.v1.CollectionService service.
 type CollectionServiceHandler interface {
 	// CollectPayment opens hosted checkout for an issued invoice.
 	// Redirect the end user to data.page_url, then call ConfirmPayment with data.session_ref.
-	CollectPayment(context.Context, *connect.Request[v1.CollectPaymentRequest]) (*connect.Response[v1.CollectPaymentResponse], error)
+	CollectPayment(context.Context, *v1.CollectPaymentRequest) (*v1.CollectPaymentResponse, error)
 	// StartSubscription creates a subscription and opens checkout for any upfront fee.
 	// Redirect the end user to data.page_url when present; otherwise the subscription is already active.
-	StartSubscription(context.Context, *connect.Request[v1.StartSubscriptionRequest]) (*connect.Response[v1.StartSubscriptionResponse], error)
+	StartSubscription(context.Context, *v1.StartSubscriptionRequest) (*v1.StartSubscriptionResponse, error)
 	// ConfirmPayment captures a completed checkout session into billing.
 	// Source of truth is the checkout session status — never trust browser redirects alone.
-	ConfirmPayment(context.Context, *connect.Request[v1.ConfirmPaymentRequest]) (*connect.Response[v1.ConfirmPaymentResponse], error)
+	ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error)
 	// CancelSubscription cancels a subscription (and voids unpaid first invoices).
-	CancelSubscription(context.Context, *connect.Request[v1.CancelSubscriptionRequest]) (*connect.Response[v1.CancelSubscriptionResponse], error)
+	CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error)
 }
 
-// NewCollectionServiceHandler builds an HTTP handler from the service implementation. It returns
-// the path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	collectionServiceMethods := v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods()
-	collectionServiceCollectPaymentHandler := connect.NewUnaryHandler(
-		CollectionServiceCollectPaymentProcedure,
-		svc.CollectPayment,
-		connect.WithSchema(collectionServiceMethods.ByName("CollectPayment")),
-		connect.WithHandlerOptions(opts...),
+// RegisterCollectionServiceHandler registers svc as the collection.v1.CollectionService
+// implementation on server.
+func RegisterCollectionServiceHandler(server *connect.Server, svc CollectionServiceHandler) {
+	adapter := collectionServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: collectionServiceCollectPaymentSpec(), Handler: adapter.collectPayment},
+		connect.Method{Spec: collectionServiceStartSubscriptionSpec(), Handler: adapter.startSubscription},
+		connect.Method{Spec: collectionServiceConfirmPaymentSpec(), Handler: adapter.confirmPayment},
+		connect.Method{Spec: collectionServiceCancelSubscriptionSpec(), Handler: adapter.cancelSubscription},
 	)
-	collectionServiceStartSubscriptionHandler := connect.NewUnaryHandler(
-		CollectionServiceStartSubscriptionProcedure,
-		svc.StartSubscription,
-		connect.WithSchema(collectionServiceMethods.ByName("StartSubscription")),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceConfirmPaymentHandler := connect.NewUnaryHandler(
-		CollectionServiceConfirmPaymentProcedure,
-		svc.ConfirmPayment,
-		connect.WithSchema(collectionServiceMethods.ByName("ConfirmPayment")),
-		connect.WithHandlerOptions(opts...),
-	)
-	collectionServiceCancelSubscriptionHandler := connect.NewUnaryHandler(
-		CollectionServiceCancelSubscriptionProcedure,
-		svc.CancelSubscription,
-		connect.WithSchema(collectionServiceMethods.ByName("CancelSubscription")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/collection.v1.CollectionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case CollectionServiceCollectPaymentProcedure:
-			collectionServiceCollectPaymentHandler.ServeHTTP(w, r)
-		case CollectionServiceStartSubscriptionProcedure:
-			collectionServiceStartSubscriptionHandler.ServeHTTP(w, r)
-		case CollectionServiceConfirmPaymentProcedure:
-			collectionServiceConfirmPaymentHandler.ServeHTTP(w, r)
-		case CollectionServiceCancelSubscriptionProcedure:
-			collectionServiceCancelSubscriptionHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
 }
 
 // UnimplementedCollectionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedCollectionServiceHandler struct{}
 
-func (UnimplementedCollectionServiceHandler) CollectPayment(context.Context, *connect.Request[v1.CollectPaymentRequest]) (*connect.Response[v1.CollectPaymentResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CollectPayment is not implemented"))
+func (UnimplementedCollectionServiceHandler) CollectPayment(context.Context, *v1.CollectPaymentRequest) (*v1.CollectPaymentResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.CollectPayment is not implemented")
 }
 
-func (UnimplementedCollectionServiceHandler) StartSubscription(context.Context, *connect.Request[v1.StartSubscriptionRequest]) (*connect.Response[v1.StartSubscriptionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.StartSubscription is not implemented"))
+func (UnimplementedCollectionServiceHandler) StartSubscription(context.Context, *v1.StartSubscriptionRequest) (*v1.StartSubscriptionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.StartSubscription is not implemented")
 }
 
-func (UnimplementedCollectionServiceHandler) ConfirmPayment(context.Context, *connect.Request[v1.ConfirmPaymentRequest]) (*connect.Response[v1.ConfirmPaymentResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.ConfirmPayment is not implemented"))
+func (UnimplementedCollectionServiceHandler) ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.ConfirmPayment is not implemented")
 }
 
-func (UnimplementedCollectionServiceHandler) CancelSubscription(context.Context, *connect.Request[v1.CancelSubscriptionRequest]) (*connect.Response[v1.CancelSubscriptionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("collection.v1.CollectionService.CancelSubscription is not implemented"))
+func (UnimplementedCollectionServiceHandler) CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.CancelSubscription is not implemented")
+}
+
+type collectionServiceClient struct {
+	client *connect.Client
+}
+
+func (c *collectionServiceClient) CollectPayment(ctx context.Context, req *v1.CollectPaymentRequest) (*v1.CollectPaymentResponse, error) {
+	var res v1.CollectPaymentResponse
+	if err := c.client.CallUnary(ctx, collectionServiceCollectPaymentSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *collectionServiceClient) StartSubscription(ctx context.Context, req *v1.StartSubscriptionRequest) (*v1.StartSubscriptionResponse, error) {
+	var res v1.StartSubscriptionResponse
+	if err := c.client.CallUnary(ctx, collectionServiceStartSubscriptionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *collectionServiceClient) ConfirmPayment(ctx context.Context, req *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error) {
+	var res v1.ConfirmPaymentResponse
+	if err := c.client.CallUnary(ctx, collectionServiceConfirmPaymentSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *collectionServiceClient) CancelSubscription(ctx context.Context, req *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error) {
+	var res v1.CancelSubscriptionResponse
+	if err := c.client.CallUnary(ctx, collectionServiceCancelSubscriptionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type collectionServiceHandler struct{ svc CollectionServiceHandler }
+
+func (h collectionServiceHandler) collectPayment(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.CollectPaymentRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.CollectPayment(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h collectionServiceHandler) startSubscription(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.StartSubscriptionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.StartSubscription(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h collectionServiceHandler) confirmPayment(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ConfirmPaymentRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ConfirmPayment(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h collectionServiceHandler) cancelSubscription(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.CancelSubscriptionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.CancelSubscription(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

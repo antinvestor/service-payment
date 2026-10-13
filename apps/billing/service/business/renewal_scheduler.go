@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
+	workflowv1 "buf.build/gen/go/antinvestor/workflow/protocolbuffers/go/v1"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	workflowv1 "github.com/antinvestor/service-trustage/gen/go/workflow/v1"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -30,10 +30,10 @@ import (
 // WorkflowClient is the Trustage surface needed for per-subscription reminders.
 // Satisfied by workflowv1connect.WorkflowServiceClient.
 type WorkflowClient interface {
-	ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error)
-	CreateWorkflow(context.Context, *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error)
-	ActivateWorkflow(context.Context, *connect.Request[workflowv1.ActivateWorkflowRequest]) (*connect.Response[workflowv1.ActivateWorkflowResponse], error)
-	ArchiveWorkflow(context.Context, *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[workflowv1.ArchiveWorkflowResponse], error)
+	ListWorkflows(context.Context, *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, error)
+	CreateWorkflow(context.Context, *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, error)
+	ActivateWorkflow(context.Context, *workflowv1.ActivateWorkflowRequest) (*workflowv1.ActivateWorkflowResponse, error)
+	ArchiveWorkflow(context.Context, *workflowv1.ArchiveWorkflowRequest) (*workflowv1.ArchiveWorkflowResponse, error)
 }
 
 // RenewalScheduler keeps one Trustage one-shot reminder per subscription in
@@ -167,7 +167,7 @@ func (s *trustageRenewalScheduler) ensure(ctx context.Context, subscriptionID st
 	if err != nil {
 		return err
 	}
-	createResp, err := s.client.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Dsl: dsl}))
+	createResp, err := s.client.CreateWorkflow(ctx, &workflowv1.CreateWorkflowRequest{Dsl: dsl})
 	if err != nil {
 		if !isAlreadyExistsErr(err) {
 			return fmt.Errorf("renewal schedule create %s: %w", name, err)
@@ -181,7 +181,7 @@ func (s *trustageRenewalScheduler) ensure(ctx context.Context, subscriptionID st
 		}
 		return activateWorkflow(ctx, s.client, name, id)
 	}
-	return activateWorkflow(ctx, s.client, name, createResp.Msg.GetWorkflow().GetId())
+	return activateWorkflow(ctx, s.client, name, createResp.GetWorkflow().GetId())
 }
 
 func buildRenewalDSL(
@@ -234,11 +234,11 @@ func buildRenewalDSL(
 }
 
 func findWorkflow(ctx context.Context, client WorkflowClient, name string) (id string, active bool, cron string, err error) {
-	resp, err := client.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Name: name}))
+	resp, err := client.ListWorkflows(ctx, &workflowv1.ListWorkflowsRequest{Name: name})
 	if err != nil {
 		return "", false, "", fmt.Errorf("renewal schedule list %s: %w", name, err)
 	}
-	for _, it := range resp.Msg.GetItems() {
+	for _, it := range resp.GetItems() {
 		if it.GetName() != name {
 			continue
 		}
@@ -273,7 +273,7 @@ func activateWorkflow(ctx context.Context, client WorkflowClient, name, id strin
 	if id == "" {
 		return nil
 	}
-	if _, err := client.ActivateWorkflow(ctx, connect.NewRequest(&workflowv1.ActivateWorkflowRequest{Id: id})); err != nil {
+	if _, err := client.ActivateWorkflow(ctx, &workflowv1.ActivateWorkflowRequest{Id: id}); err != nil {
 		if connect.CodeOf(err) == connect.CodeNotFound {
 			return nil
 		}
@@ -283,17 +283,17 @@ func activateWorkflow(ctx context.Context, client WorkflowClient, name, id strin
 }
 
 func archiveWorkflowByName(ctx context.Context, client WorkflowClient, name string) error {
-	listResp, err := client.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Name: name}))
+	listResp, err := client.ListWorkflows(ctx, &workflowv1.ListWorkflowsRequest{Name: name})
 	if err != nil {
 		return fmt.Errorf("renewal schedule list %s: %w", name, err)
 	}
-	for _, it := range listResp.Msg.GetItems() {
+	for _, it := range listResp.GetItems() {
 		if it.GetName() != name || it.GetStatus() == workflowv1.WorkflowStatus_WORKFLOW_STATUS_ARCHIVED {
 			continue
 		}
-		if _, err := client.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{
+		if _, err := client.ArchiveWorkflow(ctx, &workflowv1.ArchiveWorkflowRequest{
 			Id: it.GetId(),
-		})); err != nil {
+		}); err != nil {
 			return fmt.Errorf("renewal schedule archive %s: %w", name, err)
 		}
 	}

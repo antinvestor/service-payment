@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v3"
 )
 
 // Search namespace constants.

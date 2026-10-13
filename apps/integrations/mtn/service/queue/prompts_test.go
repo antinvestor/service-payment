@@ -22,7 +22,7 @@ import (
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
-	frameEvents "github.com/pitabwire/frame/v2/events"
+	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

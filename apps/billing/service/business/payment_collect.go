@@ -21,11 +21,10 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/pitabwire/util"
@@ -106,17 +105,17 @@ func (c *paymentCollector) CollectCOF(
 	}
 	extras, _ := structpb.NewStruct(extraMap)
 
-	resp, err := c.pay.InitiatePrompt(ctx, connect.NewRequest(&paymentv1.InitiatePromptRequest{
+	resp, err := c.pay.InitiatePrompt(ctx, &paymentv1.InitiatePromptRequest{
 		Route:  route,
 		Amount: money,
 		// Profile id as party when available — payment service uses it for tenancy.
 		Extra: extras,
-	}))
+	})
 	if err != nil {
 		return "", fmt.Errorf("initiate cof prompt: %w", err)
 	}
 	id := ""
-	if data := resp.Msg.GetData(); data != nil {
+	if data := resp.GetData(); data != nil {
 		id = data.GetId()
 	}
 	if id == "" {
@@ -132,14 +131,14 @@ func (c *paymentCollector) PollPromptStatus(ctx context.Context, promptID string
 		return commonv1.STATUS_UNKNOWN, fmt.Errorf("payment client not configured")
 	}
 	extras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
-	resp, err := c.pay.Status(ctx, connect.NewRequest(&commonv1.StatusRequest{
+	resp, err := c.pay.Status(ctx, &commonv1.StatusRequest{
 		Id:     promptID,
 		Extras: extras,
-	}))
+	})
 	if err != nil {
 		return commonv1.STATUS_UNKNOWN, err
 	}
-	return resp.Msg.GetStatus(), nil
+	return resp.GetStatus(), nil
 }
 
 // --- Instrument resolution ---
@@ -165,13 +164,13 @@ func (s *instrumentSource) ResolveInstrument(ctx context.Context, sub *models.Su
 	if s.profile == nil || strings.TrimSpace(sub.ProfileID) == "" {
 		return nil, fmt.Errorf("no saved instrument on subscription and profile client unavailable")
 	}
-	resp, err := s.profile.GetById(ctx, connect.NewRequest(&profilev1.GetByIdRequest{
+	resp, err := s.profile.GetById(ctx, &profilev1.GetByIdRequest{
 		Id: sub.ProfileID,
-	}))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("profile get: %w", err)
 	}
-	props := resp.Msg.GetData().GetProperties()
+	props := resp.GetData().GetProperties()
 	if props == nil {
 		return nil, fmt.Errorf("profile has no checkout instrument")
 	}

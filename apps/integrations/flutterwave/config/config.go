@@ -15,7 +15,7 @@
 package config
 
 import (
-	"github.com/pitabwire/frame/v2/config"
+	"github.com/pitabwire/frame/v3/config"
 )
 
 // Credential / header keys for multi-tenant override (settings or queue headers).

@@ -18,11 +18,11 @@ import (
 	"context"
 	"encoding/json"
 
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/config"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/queue"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 )
 

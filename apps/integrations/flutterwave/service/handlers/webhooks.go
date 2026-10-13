@@ -24,13 +24,12 @@ import (
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/config"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -337,7 +336,7 @@ func (s *FlutterwaveWebhookServer) pushPromptStatus(
 		ExternalId: externalID,
 		Extras:     extras.ToProtoStruct(),
 	}
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(req)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, req); err != nil {
 		logger.WithError(err).Error("StatusUpdate failed for charge")
 		return err
 	}
@@ -398,7 +397,7 @@ func (s *FlutterwaveWebhookServer) handleTransferDisburse(
 		ExternalId: externalID,
 		Extras:     extras.ToProtoStruct(),
 	}
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(req)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, req); err != nil {
 		logger.WithError(err).Error("StatusUpdate failed for transfer")
 		return err
 	}

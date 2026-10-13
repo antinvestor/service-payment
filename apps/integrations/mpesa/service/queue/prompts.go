@@ -22,13 +22,12 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	frameEvents "github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
+	frameEvents "github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -47,8 +46,8 @@ type promptHandler struct {
 type PromptStatusReader interface {
 	Status(
 		ctx context.Context,
-		req *connect.Request[commonv1.StatusRequest],
-	) (*connect.Response[commonv1.StatusResponse], error)
+		req *commonv1.StatusRequest,
+	) (*commonv1.StatusResponse, error)
 }
 
 // NewPromptHandler creates a queue worker for handling STK Push prompt requests.
@@ -213,16 +212,16 @@ func (h *promptHandler) pushedCheckoutRequestID(ctx context.Context, promptID st
 		return ""
 	}
 	extras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
-	resp, err := h.statusReader.Status(ctx, connect.NewRequest(&commonv1.StatusRequest{
+	resp, err := h.statusReader.Status(ctx, &commonv1.StatusRequest{
 		Id:     promptID,
 		Extras: extras,
-	}))
+	})
 	if err != nil {
 		util.Log(ctx).WithError(err).WithField("prompt_id", promptID).
 			Debug("no prior prompt status found before STK push")
 		return ""
 	}
-	if f, ok := resp.Msg.GetExtras().GetFields()[client.ExtraCheckoutRequestID]; ok {
+	if f, ok := resp.GetExtras().GetFields()[client.ExtraCheckoutRequestID]; ok {
 		return f.GetStringValue()
 	}
 	return ""

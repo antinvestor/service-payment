@@ -18,13 +18,13 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
-	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/tenancy/v1/tenancyv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/tenancy/connectrpc/go/v2/tenancy/v1/tenancyv1connect"
 	"github.com/antinvestor/service-payments/apps/default/service/business"
+	"github.com/antinvestor/service-payments/pkg/connecterr"
 )
 
 var _ paymentv1connect.PaymentServiceHandler = (*PaymentServer)(nil)
@@ -53,104 +53,104 @@ func NewPaymentServer(
 
 func (ps *PaymentServer) Send(
 	ctx context.Context,
-	req *connect.Request[paymentv1.SendRequest],
-) (*connect.Response[paymentv1.SendResponse], error) {
-	response, err := ps.PaymentBusiness.Send(ctx, req.Msg.GetData())
+	req *paymentv1.SendRequest,
+) (*paymentv1.SendResponse, error) {
+	response, err := ps.PaymentBusiness.Send(ctx, req.GetData())
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
-	return connect.NewResponse(&paymentv1.SendResponse{Data: response}), nil
+	return &paymentv1.SendResponse{Data: response}, nil
 }
 
 func (ps *PaymentServer) Status(
 	ctx context.Context,
-	req *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
-	response, err := ps.PaymentBusiness.Status(ctx, req.Msg)
+	req *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
+	response, err := ps.PaymentBusiness.Status(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // StatusUpdate request to allow continuation of payment processing.
 func (ps *PaymentServer) StatusUpdate(
 	ctx context.Context,
-	req *connect.Request[commonv1.StatusUpdateRequest],
-) (*connect.Response[commonv1.StatusUpdateResponse], error) {
-	response, err := ps.PaymentBusiness.StatusUpdate(ctx, req.Msg)
+	req *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusUpdateResponse, error) {
+	response, err := ps.PaymentBusiness.StatusUpdate(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(&commonv1.StatusUpdateResponse{Data: response}), nil
+	return &commonv1.StatusUpdateResponse{Data: response}, nil
 }
 
 // Release method for releasing queued payments and returns if payment status if released.
 func (ps *PaymentServer) Release(
 	ctx context.Context,
-	req *connect.Request[paymentv1.ReleaseRequest],
-) (*connect.Response[paymentv1.ReleaseResponse], error) {
-	response, err := ps.PaymentBusiness.Release(ctx, req.Msg)
+	req *paymentv1.ReleaseRequest,
+) (*paymentv1.ReleaseResponse, error) {
+	response, err := ps.PaymentBusiness.Release(ctx, req)
 
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(&paymentv1.ReleaseResponse{Data: response}), nil
+	return &paymentv1.ReleaseResponse{Data: response}, nil
 }
 
 // Receive method is for client request for particular Payment responses from system.
 func (ps *PaymentServer) Receive(
 	ctx context.Context,
-	req *connect.Request[paymentv1.ReceiveRequest],
-) (*connect.Response[paymentv1.ReceiveResponse], error) {
-	response, err := ps.PaymentBusiness.Receive(ctx, req.Msg.GetData())
+	req *paymentv1.ReceiveRequest,
+) (*paymentv1.ReceiveResponse, error) {
+	response, err := ps.PaymentBusiness.Receive(ctx, req.GetData())
 
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(&paymentv1.ReceiveResponse{Data: response}), nil
+	return &paymentv1.ReceiveResponse{Data: response}, nil
 }
 
 // InitiatePrompt method for client request for particular Prompt responses from system.
 func (ps *PaymentServer) InitiatePrompt(
 	ctx context.Context,
-	req *connect.Request[paymentv1.InitiatePromptRequest],
-) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
-	response, err := ps.PaymentBusiness.InitiatePrompt(ctx, req.Msg)
+	req *paymentv1.InitiatePromptRequest,
+) (*paymentv1.InitiatePromptResponse, error) {
+	response, err := ps.PaymentBusiness.InitiatePrompt(ctx, req)
 
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(&paymentv1.InitiatePromptResponse{Data: response}), nil
+	return &paymentv1.InitiatePromptResponse{Data: response}, nil
 }
 
 // CreatePaymentLink method for client request to create a payment link.
 func (ps *PaymentServer) CreatePaymentLink(
 	ctx context.Context,
-	req *connect.Request[paymentv1.CreatePaymentLinkRequest],
-) (*connect.Response[paymentv1.CreatePaymentLinkResponse], error) {
-	response, err := ps.PaymentBusiness.CreatePaymentLink(ctx, req.Msg)
+	req *paymentv1.CreatePaymentLinkRequest,
+) (*paymentv1.CreatePaymentLinkResponse, error) {
+	response, err := ps.PaymentBusiness.CreatePaymentLink(ctx, req)
 
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(&paymentv1.CreatePaymentLinkResponse{Data: response}), nil
+	return &paymentv1.CreatePaymentLinkResponse{Data: response}, nil
 }
 
 // Search method for searching payments based on query criteria.
 func (ps *PaymentServer) Search(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[paymentv1.SearchResponse],
+	req *commonv1.SearchRequest,
+	stream paymentv1connect.PaymentServiceSearchServerStream,
 ) error {
-	resultPipe, err := ps.PaymentBusiness.Search(ctx, req.Msg)
+	resultPipe, err := ps.PaymentBusiness.Search(ctx, req)
 	if err != nil {
-		return err
+		return connecterr.From(err)
 	}
 
 	// Read from the result pipe and stream back to client
@@ -167,20 +167,20 @@ func (ps *PaymentServer) Search(
 		// Stream each payment back to the client
 		err = stream.Send(&paymentv1.SearchResponse{Data: result.Item()})
 		if err != nil {
-			return err
+			return connecterr.From(err)
 		}
 	}
 }
 
 func (ps *PaymentServer) Reconcile(
 	ctx context.Context,
-	req *connect.Request[paymentv1.ReconcileRequest],
-) (*connect.Response[paymentv1.ReconcileResponse], error) {
-	response, err := ps.PaymentBusiness.Reconcile(ctx, req.Msg)
+	req *paymentv1.ReconcileRequest,
+) (*paymentv1.ReconcileResponse, error) {
+	response, err := ps.PaymentBusiness.Reconcile(ctx, req)
 
 	if err != nil {
-		return nil, err
+		return nil, connecterr.From(err)
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }

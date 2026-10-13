@@ -14,19 +14,19 @@
 
 name: antinvestor_api_payment
 description: Dart client library for Ant Investor Payment Service
-version: 1.53.0
+version: 2.0.0
 repository: https://github.com/antinvestor/service-payment
 homepage: https://github.com/antinvestor/service-payment
 issue_tracker: https://github.com/antinvestor/service-payment/issues
 
 environment:
-  sdk: ^3.3.0
+  sdk: ^3.7.0
 
 dependencies:
-  protobuf: ^4.2.0
-  connectrpc: ^1.0.0
-  fixnum: ^1.1.0
-  antinvestor_api_common: ^1.52.0
+  protobuf: ^6.1.0
+  connectrpc: ^2.0.0
+  fixnum: ^1.1.1
+  antinvestor_api_common: ^2.0.0
 
 dev_dependencies:
   lints: ^6.0.0

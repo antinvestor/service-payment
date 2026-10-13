@@ -23,11 +23,12 @@ import (
 	"time"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/profile/connectrpc/go/profile/v1/profilev1connect"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	billingTests "github.com/antinvestor/service-payments/apps/billing/tests"
@@ -38,8 +39,8 @@ import (
 	checkoutModels "github.com/antinvestor/service-payments/apps/checkout/service/models"
 	checkoutRepo "github.com/antinvestor/service-payments/apps/checkout/service/repository"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/frametests/definition"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"
@@ -147,30 +148,30 @@ func (f *fakeCheckoutLinkRepo) GetByRef(_ context.Context, ref string) (*checkou
 
 type fakeCheckoutPaymentClient struct {
 	paymentv1connect.PaymentServiceClient
-	promptResp *connect.Response[paymentv1.InitiatePromptResponse]
-	statusResp *connect.Response[commonv1.StatusResponse]
+	promptResp *paymentv1.InitiatePromptResponse
+	statusResp *commonv1.StatusResponse
 }
 
 func (f *fakeCheckoutPaymentClient) InitiatePrompt(
 	_ context.Context,
-	_ *connect.Request[paymentv1.InitiatePromptRequest],
-) (*connect.Response[paymentv1.InitiatePromptResponse], error) {
+	_ *paymentv1.InitiatePromptRequest,
+) (*paymentv1.InitiatePromptResponse, error) {
 	if f.promptResp != nil {
 		return f.promptResp, nil
 	}
-	return connect.NewResponse(&paymentv1.InitiatePromptResponse{
+	return &paymentv1.InitiatePromptResponse{
 		Data: &commonv1.StatusResponse{Id: "prompt-test-id"},
-	}), nil
+	}, nil
 }
 
 func (f *fakeCheckoutPaymentClient) Status(
 	_ context.Context,
-	_ *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
+	_ *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
 	if f.statusResp != nil {
 		return f.statusResp, nil
 	}
-	return connect.NewResponse(&commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}), nil
+	return &commonv1.StatusResponse{Status: commonv1.STATUS_IN_PROCESS}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -182,16 +183,16 @@ type fakeCheckoutProfileClient struct {
 //nolint:revive,staticcheck // GetById matches generated interface name.
 func (f *fakeCheckoutProfileClient) GetById(
 	_ context.Context,
-	_ *connect.Request[profilev1.GetByIdRequest],
-) (*connect.Response[profilev1.GetByIdResponse], error) {
-	return connect.NewResponse(&profilev1.GetByIdResponse{}), nil
+	_ *profilev1.GetByIdRequest,
+) (*profilev1.GetByIdResponse, error) {
+	return &profilev1.GetByIdResponse{}, nil
 }
 
 func (f *fakeCheckoutProfileClient) Update(
 	_ context.Context,
-	_ *connect.Request[profilev1.UpdateRequest],
-) (*connect.Response[profilev1.UpdateResponse], error) {
-	return connect.NewResponse(&profilev1.UpdateResponse{}), nil
+	_ *profilev1.UpdateRequest,
+) (*profilev1.UpdateResponse, error) {
+	return &profilev1.UpdateResponse{}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -227,12 +228,13 @@ func newCheckoutTestHarness(t *testing.T) *checkoutTestHarness {
 
 	rpcServer := checkoutHandlers.NewCheckoutServer(biz, cfg)
 	mux := http.NewServeMux()
-	path, h := checkoutv1connect.NewCheckoutServiceHandler(rpcServer)
-	mux.Handle(path, h)
+	server := connect.NewServer()
+	checkoutv1connect.RegisterCheckoutServiceHandler(server, rpcServer)
+	connecthttp.Mount(mux, server)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	cli := checkoutv1connect.NewCheckoutServiceClient(srv.Client(), srv.URL)
+	cli := checkoutv1connect.NewCheckoutServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 
 	return &checkoutTestHarness{
 		sessionRepo: sessionRepo,

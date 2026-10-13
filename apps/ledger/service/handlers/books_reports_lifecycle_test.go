@@ -20,10 +20,10 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
-	"github.com/pitabwire/frame/v2/frametests/definition"
+	"github.com/pitabwire/frame/v3/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,43 +50,35 @@ func (s *LedgerHandlersTestSuite) TestCreateAndGetBookHandler() {
 			resources.BookBusiness,
 		)
 
-		orgResp, err := ledgerServer.CreateBook(ctx, &connect.Request[ledgerv1.CreateBookRequest]{
-			Msg: &ledgerv1.CreateBookRequest{
-				Name:     "Test Organization",
-				Type:     "platform",
-				Currency: "UGX",
-			},
+		orgResp, err := ledgerServer.CreateBook(ctx, &ledgerv1.CreateBookRequest{
+			Name:     "Test Organization",
+			Type:     "platform",
+			Currency: "UGX",
 		})
 		require.NoError(t, err)
 		require.NotNil(t, orgResp)
-		assert.Equal(t, "Test Organization", orgResp.Msg.GetData().GetName())
-		assert.Equal(t, "platform", orgResp.Msg.GetData().GetType())
-		orgID := orgResp.Msg.GetData().GetId()
+		assert.Equal(t, "Test Organization", orgResp.GetData().GetName())
+		assert.Equal(t, "platform", orgResp.GetData().GetType())
+		orgID := orgResp.GetData().GetId()
 		require.NotEmpty(t, orgID)
 
-		groupResp, err := ledgerServer.CreateBook(ctx, &connect.Request[ledgerv1.CreateBookRequest]{
-			Msg: &ledgerv1.CreateBookRequest{
-				Name:     "Group A",
-				Type:     "group",
-				ParentId: orgID,
-				Currency: "UGX",
-			},
+		groupResp, err := ledgerServer.CreateBook(ctx, &ledgerv1.CreateBookRequest{
+			Name:     "Group A",
+			Type:     "group",
+			ParentId: orgID,
+			Currency: "UGX",
 		})
 		require.NoError(t, err)
-		assert.Equal(t, orgID, groupResp.Msg.GetData().GetParentId())
+		assert.Equal(t, orgID, groupResp.GetData().GetParentId())
 
-		got, err := ledgerServer.GetBook(ctx, &connect.Request[ledgerv1.GetBookRequest]{
-			Msg: &ledgerv1.GetBookRequest{Id: groupResp.Msg.GetData().GetId()},
-		})
+		got, err := ledgerServer.GetBook(ctx, &ledgerv1.GetBookRequest{Id: groupResp.GetData().GetId()})
 		require.NoError(t, err)
-		assert.Equal(t, "Group A", got.Msg.GetData().GetName())
+		assert.Equal(t, "Group A", got.GetData().GetName())
 
-		listed, err := ledgerServer.ListBooksByType(ctx, &connect.Request[ledgerv1.ListBooksByTypeRequest]{
-			Msg: &ledgerv1.ListBooksByTypeRequest{Type: "group"},
-		})
+		listed, err := ledgerServer.ListBooksByType(ctx, &ledgerv1.ListBooksByTypeRequest{Type: "group"})
 		require.NoError(t, err)
-		require.Len(t, listed.Msg.GetData(), 1)
-		assert.Equal(t, "Group A", listed.Msg.GetData()[0].GetName())
+		require.Len(t, listed.GetData(), 1)
+		assert.Equal(t, "Group A", listed.GetData()[0].GetName())
 	})
 }
 
@@ -113,31 +105,25 @@ func (s *LedgerHandlersTestSuite) TestCreateBookWithCallerIDHandler() {
 		)
 
 		const roomID = "room-0123456789abcdef"
-		create := func(c context.Context, name string) (*connect.Response[ledgerv1.CreateBookResponse], error) {
-			return ledgerServer.CreateBook(c, &connect.Request[ledgerv1.CreateBookRequest]{
-				Msg: &ledgerv1.CreateBookRequest{Id: roomID, Name: name, Type: "group", Currency: "UGX"},
-			})
+		create := func(c context.Context, name string) (*ledgerv1.CreateBookResponse, error) {
+			return ledgerServer.CreateBook(c, &ledgerv1.CreateBookRequest{Id: roomID, Name: name, Type: "group", Currency: "UGX"})
 		}
 
 		first, err := create(tenantCtx, "Room")
 		require.NoError(t, err)
-		assert.Equal(t, roomID, first.Msg.GetData().GetId())
+		assert.Equal(t, roomID, first.GetData().GetId())
 
 		again, err := create(tenantCtx, "Room")
 		require.NoError(t, err)
-		assert.Equal(t, roomID, again.Msg.GetData().GetId())
+		assert.Equal(t, roomID, again.GetData().GetId())
 
 		_, err = create(tenantCtx, "Renamed")
 		assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
 
-		_, err = ledgerServer.GetBook(tenantCtx, &connect.Request[ledgerv1.GetBookRequest]{
-			Msg: &ledgerv1.GetBookRequest{Id: "missing-book"},
-		})
+		_, err = ledgerServer.GetBook(tenantCtx, &ledgerv1.GetBookRequest{Id: "missing-book"})
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 
-		_, err = ledgerServer.CreateBook(tenantCtx, &connect.Request[ledgerv1.CreateBookRequest]{
-			Msg: &ledgerv1.CreateBookRequest{Id: "Not Valid", Name: "Room", Type: "group"},
-		})
+		_, err = ledgerServer.CreateBook(tenantCtx, &ledgerv1.CreateBookRequest{Id: "Not Valid", Name: "Room", Type: "group"})
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 
 		// Book ids are scoped to the tenancy: another tenant neither sees,
@@ -148,34 +134,28 @@ func (s *LedgerHandlersTestSuite) TestCreateBookWithCallerIDHandler() {
 		otherCtx := s.WithAuthClaims(ctx, otherTenant, otherPartition, otherProfile)
 		s.SeedTenantRole(otherCtx, svc, otherTenant, otherPartition, otherProfile, authz.RoleOwner)
 
-		_, err = ledgerServer.GetBook(otherCtx, &connect.Request[ledgerv1.GetBookRequest]{
-			Msg: &ledgerv1.GetBookRequest{Id: roomID},
-		})
+		_, err = ledgerServer.GetBook(otherCtx, &ledgerv1.GetBookRequest{Id: roomID})
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err),
 			"another tenant must get the same answer as for an id nobody holds")
 
 		theirs, err := create(otherCtx, "Their room")
 		require.NoError(t, err, "another tenant must not be blocked by this tenant's id")
-		assert.Equal(t, roomID, theirs.Msg.GetData().GetId())
-		assert.Equal(t, "Their room", theirs.Msg.GetData().GetName())
+		assert.Equal(t, roomID, theirs.GetData().GetId())
+		assert.Equal(t, "Their room", theirs.GetData().GetName())
 
 		_, err = create(otherCtx, "Room")
 		assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err),
 			"a create is matched against the caller's own book only")
 
-		ours, err := ledgerServer.GetBook(tenantCtx, &connect.Request[ledgerv1.GetBookRequest]{
-			Msg: &ledgerv1.GetBookRequest{Id: roomID},
-		})
+		ours, err := ledgerServer.GetBook(tenantCtx, &ledgerv1.GetBookRequest{Id: roomID})
 		require.NoError(t, err)
-		assert.Equal(t, "Room", ours.Msg.GetData().GetName())
+		assert.Equal(t, "Room", ours.GetData().GetName())
 
 		for c, want := range map[context.Context]string{tenantCtx: "Room", otherCtx: "Their room"} {
-			listed, lErr := ledgerServer.ListBooksByType(c, &connect.Request[ledgerv1.ListBooksByTypeRequest]{
-				Msg: &ledgerv1.ListBooksByTypeRequest{Type: "group"},
-			})
+			listed, lErr := ledgerServer.ListBooksByType(c, &ledgerv1.ListBooksByTypeRequest{Type: "group"})
 			require.NoError(t, lErr)
-			require.Len(t, listed.Msg.GetData(), 1)
-			assert.Equal(t, want, listed.Msg.GetData()[0].GetName())
+			require.Len(t, listed.GetData(), 1)
+			assert.Equal(t, want, listed.GetData()[0].GetName())
 		}
 	})
 }
@@ -202,50 +182,38 @@ func (s *LedgerHandlersTestSuite) TestGetTrialBalanceHandler() {
 		)
 
 		// Minimal fixtures: asset + income ledgers, one account each.
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "tb-asset", Type: ledgerv1.LedgerType_ASSET},
-		})
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "tb-asset", Type: ledgerv1.LedgerType_ASSET})
 		require.NoError(t, err)
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "tb-income", Type: ledgerv1.LedgerType_INCOME},
-		})
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "tb-income", Type: ledgerv1.LedgerType_INCOME})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "tb-cash", LedgerId: "tb-asset", Currency: "UGX"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "tb-cash", LedgerId: "tb-asset", Currency: "UGX"})
 		require.NoError(t, err)
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "tb-rev", LedgerId: "tb-income", Currency: "UGX"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "tb-rev", LedgerId: "tb-income", Currency: "UGX"})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "tb-txn",
-				Currency: "UGX",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Cleared:  true,
-				Entries: []*ledgerv1.TransactionEntry{
-					{
-						AccountId: "tb-cash", Credit: false,
-						Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 150},
-					},
-					{
-						AccountId: "tb-rev", Credit: true,
-						Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 150},
-					},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "tb-txn",
+			Currency: "UGX",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{
+					AccountId: "tb-cash", Credit: false,
+					Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 150},
+				},
+				{
+					AccountId: "tb-rev", Credit: true,
+					Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 150},
 				},
 			},
 		})
 		require.NoError(t, err)
 
-		tb, err := ledgerServer.GetTrialBalance(ctx, &connect.Request[ledgerv1.GetTrialBalanceRequest]{
-			Msg: &ledgerv1.GetTrialBalanceRequest{Currency: "UGX"},
-		})
+		tb, err := ledgerServer.GetTrialBalance(ctx, &ledgerv1.GetTrialBalanceRequest{Currency: "UGX"})
 		require.NoError(t, err)
-		require.Len(t, tb.Msg.GetTotals(), 1)
-		total := tb.Msg.GetTotals()[0]
+		require.Len(t, tb.GetTotals(), 1)
+		total := tb.GetTotals()[0]
 		assert.Equal(t, "UGX", total.GetCurrency())
 		assert.True(t, total.GetIsBalanced())
 		assert.Equal(t, int64(150), total.GetTotalDebits().GetUnits())
@@ -273,62 +241,46 @@ func (s *LedgerHandlersTestSuite) TestVoidPendingTransactionHandler() {
 			resources.BookBusiness,
 		)
 
-		_, err := ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "vd-asset", Type: ledgerv1.LedgerType_ASSET},
-		})
+		_, err := ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "vd-asset", Type: ledgerv1.LedgerType_ASSET})
 		require.NoError(t, err)
-		_, err = ledgerServer.CreateLedger(ctx, &connect.Request[ledgerv1.CreateLedgerRequest]{
-			Msg: &ledgerv1.CreateLedgerRequest{Id: "vd-income", Type: ledgerv1.LedgerType_INCOME},
-		})
+		_, err = ledgerServer.CreateLedger(ctx, &ledgerv1.CreateLedgerRequest{Id: "vd-income", Type: ledgerv1.LedgerType_INCOME})
 		require.NoError(t, err)
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "vd-cash", LedgerId: "vd-asset", Currency: "UGX"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "vd-cash", LedgerId: "vd-asset", Currency: "UGX"})
 		require.NoError(t, err)
-		_, err = ledgerServer.CreateAccount(ctx, &connect.Request[ledgerv1.CreateAccountRequest]{
-			Msg: &ledgerv1.CreateAccountRequest{Id: "vd-rev", LedgerId: "vd-income", Currency: "UGX"},
-		})
+		_, err = ledgerServer.CreateAccount(ctx, &ledgerv1.CreateAccountRequest{Id: "vd-rev", LedgerId: "vd-income", Currency: "UGX"})
 		require.NoError(t, err)
 
 		// Pending transaction (cleared=false).
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "vd-pending",
-				Currency: "UGX",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Entries: []*ledgerv1.TransactionEntry{
-					{AccountId: "vd-cash", Credit: false, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 60}},
-					{AccountId: "vd-rev", Credit: true, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 60}},
-				},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "vd-pending",
+			Currency: "UGX",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "vd-cash", Credit: false, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 60}},
+				{AccountId: "vd-rev", Credit: true, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 60}},
 			},
 		})
 		require.NoError(t, err)
 
-		voided, err := ledgerServer.VoidTransaction(ctx, &connect.Request[ledgerv1.VoidTransactionRequest]{
-			Msg: &ledgerv1.VoidTransactionRequest{Id: "vd-pending"},
-		})
+		voided, err := ledgerServer.VoidTransaction(ctx, &ledgerv1.VoidTransactionRequest{Id: "vd-pending"})
 		require.NoError(t, err)
-		assert.Equal(t, ledgerv1.TransactionStatus_VOIDED, voided.Msg.GetData().GetStatus())
-		assert.NotEmpty(t, voided.Msg.GetData().GetVoidedAt())
+		assert.Equal(t, ledgerv1.TransactionStatus_VOIDED, voided.GetData().GetStatus())
+		assert.NotEmpty(t, voided.GetData().GetVoidedAt())
 
 		// Voiding a posted transaction must fail.
-		_, err = ledgerServer.CreateTransaction(ctx, &connect.Request[ledgerv1.CreateTransactionRequest]{
-			Msg: &ledgerv1.CreateTransactionRequest{
-				Id:       "vd-posted",
-				Currency: "UGX",
-				Type:     ledgerv1.TransactionType_NORMAL,
-				Cleared:  true,
-				Entries: []*ledgerv1.TransactionEntry{
-					{AccountId: "vd-cash", Credit: false, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 30}},
-					{AccountId: "vd-rev", Credit: true, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 30}},
-				},
+		_, err = ledgerServer.CreateTransaction(ctx, &ledgerv1.CreateTransactionRequest{
+			Id:       "vd-posted",
+			Currency: "UGX",
+			Type:     ledgerv1.TransactionType_NORMAL,
+			Cleared:  true,
+			Entries: []*ledgerv1.TransactionEntry{
+				{AccountId: "vd-cash", Credit: false, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 30}},
+				{AccountId: "vd-rev", Credit: true, Amount: &commonv1.Money{CurrencyCode: "UGX", Units: 30}},
 			},
 		})
 		require.NoError(t, err)
 
-		_, err = ledgerServer.VoidTransaction(ctx, &connect.Request[ledgerv1.VoidTransactionRequest]{
-			Msg: &ledgerv1.VoidTransactionRequest{Id: "vd-posted"},
-		})
+		_, err = ledgerServer.VoidTransaction(ctx, &ledgerv1.VoidTransactionRequest{Id: "vd-posted"})
 		require.Error(t, err, "voiding a posted transaction must be rejected")
 	})
 }

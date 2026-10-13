@@ -19,11 +19,12 @@ import (
 	"errors"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/pkg/apperrors"
+	"github.com/antinvestor/service-payments/pkg/connecterr"
 )
 
 // ToConnectError translates application errors into appropriate ConnectRPC
@@ -36,7 +37,9 @@ func ToConnectError(err error) error {
 
 	var appErr apperrors.ApplicationError
 	if !errors.As(err, &appErr) {
-		return err
+		// connect v2 sends only a *connect.Error it was handed; anything else
+		// reaches the client as a bare Unknown.
+		return connecterr.From(err)
 	}
 
 	code := appErr.ErrorCode()
@@ -52,7 +55,7 @@ func ToConnectError(err error) error {
 		apperrors.ErrorCodeTransactionAccountsDifferCurrency,
 		apperrors.ErrorCodeSearchQueryHasInvalidFormat,
 		apperrors.ErrorCodeSearchQueryHasInvalidKeys:
-		return connect.NewError(connect.CodeInvalidArgument, appErr)
+		return connect.NewError(connect.CodeInvalidArgument, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeLedgerNotFound,
 		apperrors.ErrorCodeBookNotFound,
@@ -61,22 +64,22 @@ func ToConnectError(err error) error {
 		apperrors.ErrorCodeTransactionNotFound,
 		apperrors.ErrorCodeTransactionEntriesNotFound,
 		apperrors.ErrorCodeSearchNamespaceUnknown:
-		return connect.NewError(connect.CodeNotFound, appErr)
+		return connect.NewError(connect.CodeNotFound, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeAccountWithReferenceExists,
 		apperrors.ErrorCodeBookIDTaken,
 		apperrors.ErrorCodeTransactionAlreadyExists,
 		apperrors.ErrorCodeTransactionIsConflicting:
-		return connect.NewError(connect.CodeAlreadyExists, appErr)
+		return connect.NewError(connect.CodeAlreadyExists, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeTransactionTypeNotReversible:
-		return connect.NewError(connect.CodeFailedPrecondition, appErr)
+		return connect.NewError(connect.CodeFailedPrecondition, appErr.Error()).WithCause(appErr)
 
 	case apperrors.ErrorCodeAccountsCurrencyUnknown:
-		return connect.NewError(connect.CodeInvalidArgument, appErr)
+		return connect.NewError(connect.CodeInvalidArgument, appErr.Error()).WithCause(appErr)
 
 	default:
-		return connect.NewError(connect.CodeInternal, appErr)
+		return connect.NewError(connect.CodeInternal, appErr.Error()).WithCause(appErr)
 	}
 }
 
@@ -116,12 +119,12 @@ func NewLedgerServer(
 // Supports filtering by type, parent, and custom properties.
 func (ledgerSrv *LedgerServer) SearchLedgers(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[ledgerv1.SearchLedgersResponse],
+	req *commonv1.SearchRequest,
+	stream ledgerv1connect.LedgerServiceSearchLedgersServerStream,
 ) error {
 	// Search ledgers using business layer
 	return ToConnectError(
-		ledgerSrv.Ledger.SearchLedgers(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Ledger) error {
+		ledgerSrv.Ledger.SearchLedgers(ctx, req, func(_ context.Context, batch []*ledgerv1.Ledger) error {
 			return stream.Send(&ledgerv1.SearchLedgersResponse{
 				Data: batch,
 			})
@@ -133,10 +136,10 @@ func (ledgerSrv *LedgerServer) SearchLedgers(
 // Ledgers can be hierarchical with parent-child relationships.
 func (ledgerSrv *LedgerServer) CreateLedger(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.CreateLedgerRequest],
-) (*connect.Response[ledgerv1.CreateLedgerResponse], error) {
+	req *ledgerv1.CreateLedgerRequest,
+) (*ledgerv1.CreateLedgerResponse, error) {
 	// Create the ledger using business layer
-	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req.Msg)
+	createdLedger, err := ledgerSrv.Ledger.CreateLedger(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -145,17 +148,17 @@ func (ledgerSrv *LedgerServer) CreateLedger(
 		Data: createdLedger,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // UpdateLedger updates an existing ledger's metadata.
 // The ledger type and reference cannot be changed.
 func (ledgerSrv *LedgerServer) UpdateLedger(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.UpdateLedgerRequest],
-) (*connect.Response[ledgerv1.UpdateLedgerResponse], error) {
+	req *ledgerv1.UpdateLedgerRequest,
+) (*ledgerv1.UpdateLedgerResponse, error) {
 	// Update the ledger using business layer
-	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req.Msg)
+	updatedLedger, err := ledgerSrv.Ledger.UpdateLedger(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -164,5 +167,5 @@ func (ledgerSrv *LedgerServer) UpdateLedger(
 		Data: updatedLedger,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }

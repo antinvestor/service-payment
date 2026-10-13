@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/config"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/client"
 )
@@ -36,8 +35,8 @@ type credentialResolver struct {
 type settingsClient interface {
 	Get(
 		ctx context.Context,
-		req *connect.Request[settingsv1.GetRequest],
-	) (*connect.Response[settingsv1.GetResponse], error)
+		req *settingsv1.GetRequest,
+	) (*settingsv1.GetResponse, error)
 }
 
 func (cr *credentialResolver) extractCredentials(
@@ -78,13 +77,13 @@ func (cr *credentialResolver) credentialsFromSettings(
 		},
 	}
 
-	settingResp, err := cr.settingsCli.Get(ctx, connect.NewRequest(settingReq))
+	settingResp, err := cr.settingsCli.Get(ctx, settingReq)
 	if err != nil {
 		return nil, fmt.Errorf("settings lookup failed: %w", err)
 	}
 
 	var credMap map[string]string
-	if err = json.Unmarshal([]byte(settingResp.Msg.GetData().GetValue()), &credMap); err != nil {
+	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {
 		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
 	}
 

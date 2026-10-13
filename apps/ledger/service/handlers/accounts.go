@@ -18,19 +18,19 @@ import (
 	"context"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
 )
 
 // SearchAccounts finds accounts matching specified criteria.
 // Supports filtering by ledger, balance range, and custom properties.
 func (ledgerSrv *LedgerServer) SearchAccounts(
 	ctx context.Context,
-	req *connect.Request[commonv1.SearchRequest],
-	stream *connect.ServerStream[ledgerv1.SearchAccountsResponse],
+	req *commonv1.SearchRequest,
+	stream ledgerv1connect.LedgerServiceSearchAccountsServerStream,
 ) error {
 	return ToConnectError(
-		ledgerSrv.Account.SearchAccounts(ctx, req.Msg, func(_ context.Context, batch []*ledgerv1.Account) error {
+		ledgerSrv.Account.SearchAccounts(ctx, req, func(_ context.Context, batch []*ledgerv1.Account) error {
 			return stream.Send(&ledgerv1.SearchAccountsResponse{
 				Data: batch,
 			})
@@ -42,10 +42,10 @@ func (ledgerSrv *LedgerServer) SearchAccounts(
 // Each account tracks balances and transaction history.
 func (ledgerSrv *LedgerServer) CreateAccount(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.CreateAccountRequest],
-) (*connect.Response[ledgerv1.CreateAccountResponse], error) {
+	req *ledgerv1.CreateAccountRequest,
+) (*ledgerv1.CreateAccountResponse, error) {
 	// Create the account using business layer
-	createdAccount, err := ledgerSrv.Account.CreateAccount(ctx, req.Msg)
+	createdAccount, err := ledgerSrv.Account.CreateAccount(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -54,17 +54,17 @@ func (ledgerSrv *LedgerServer) CreateAccount(
 		Data: createdAccount,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }
 
 // UpdateAccount updates an existing account's metadata.
 // Balances are updated through transactions, not directly.
 func (ledgerSrv *LedgerServer) UpdateAccount(
 	ctx context.Context,
-	req *connect.Request[ledgerv1.UpdateAccountRequest],
-) (*connect.Response[ledgerv1.UpdateAccountResponse], error) {
+	req *ledgerv1.UpdateAccountRequest,
+) (*ledgerv1.UpdateAccountResponse, error) {
 	// Update the account using business layer
-	updatedAccount, err := ledgerSrv.Account.UpdateAccount(ctx, req.Msg)
+	updatedAccount, err := ledgerSrv.Account.UpdateAccount(ctx, req)
 	if err != nil {
 		return nil, ToConnectError(err)
 	}
@@ -73,5 +73,5 @@ func (ledgerSrv *LedgerServer) UpdateAccount(
 		Data: updatedAccount,
 	}
 
-	return connect.NewResponse(response), nil
+	return response, nil
 }

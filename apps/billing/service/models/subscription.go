@@ -17,7 +17,7 @@ package models
 import (
 	"time"
 
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 )
 
 // Subscription represents a profile's subscription to a plan.

@@ -20,13 +20,12 @@ import (
 	"net/http"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -148,7 +147,7 @@ func (s *PolarWebhookServer) handleCheckoutCreated(
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		return err
 	}
@@ -195,7 +194,7 @@ func (s *PolarWebhookServer) handleCheckoutUpdated(
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		return err
 	}
@@ -230,7 +229,7 @@ func (s *PolarWebhookServer) handleSubscriptionCreated(
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		return err
 	}
@@ -277,7 +276,7 @@ func (s *PolarWebhookServer) handleSubscriptionUpdated(
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		return err
 	}
@@ -348,7 +347,7 @@ func (s *PolarWebhookServer) updateSubscriptionStatus(
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		return err
 	}

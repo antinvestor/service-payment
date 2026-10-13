@@ -17,7 +17,7 @@ package authz
 import (
 	"context"
 
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 

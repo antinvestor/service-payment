@@ -20,7 +20,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/billing/service/business"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

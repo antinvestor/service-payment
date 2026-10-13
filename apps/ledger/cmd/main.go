@@ -21,23 +21,23 @@ import (
 	//nolint:gosec // G108: Profiling endpoint deliberately exposed for monitoring and debugging purposes
 	_ "net/http/pprof"
 
-	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v1/ledgerv1connect"
+	"buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2/v1/ledgerv1connect"
 	ledgerpbv1 "buf.build/gen/go/antinvestor/ledger/protocolbuffers/go/v1"
-	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
-	"github.com/antinvestor/common/v2/permissions"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
+	"github.com/antinvestor/common/v3/permissions"
 	aconfig "github.com/antinvestor/service-payments/apps/ledger/config"
 	"github.com/antinvestor/service-payments/apps/ledger/service/authz"
 	"github.com/antinvestor/service-payments/apps/ledger/service/business"
 	"github.com/antinvestor/service-payments/apps/ledger/service/handlers"
 	"github.com/antinvestor/service-payments/apps/ledger/service/repository"
-	"github.com/pitabwire/frame/v2"
-	"github.com/pitabwire/frame/v2/config"
-	"github.com/pitabwire/frame/v2/datastore"
-	"github.com/pitabwire/frame/v2/security"
-	"github.com/pitabwire/frame/v2/security/authorizer"
-	connectInterceptors "github.com/pitabwire/frame/v2/security/interceptors/connect"
-	"github.com/pitabwire/frame/v2/setup"
+	"github.com/pitabwire/frame/v3"
+	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/frame/v3/datastore"
+	"github.com/pitabwire/frame/v3/security"
+	"github.com/pitabwire/frame/v3/security/authorizer"
+	connectInterceptors "github.com/pitabwire/frame/v3/security/interceptors/connect"
+	"github.com/pitabwire/frame/v3/setup"
 	"github.com/pitabwire/util"
 )
 
@@ -118,6 +118,11 @@ func main() {
 	}
 }
 
+// ledgerMaxRequestMessageBytes caps one inbound LedgerService message. connect
+// v2 defaults to 4 MiB; CreateTransaction carries an unbounded list of entries,
+// each with its own Struct data, so the limit is set explicitly.
+const ledgerMaxRequestMessageBytes = 8 << 20
+
 // setupConnectServer initializes and configures the connect server.
 func setupConnectServer(
 	ctx context.Context,
@@ -144,11 +149,6 @@ func setupConnectServer(
 	// publishes app.tenant_id + app.partition_id from the claims via set_config,
 	// and binds the transaction to the request context.
 
-	otelInterceptor, otelErr := otelconnect.NewInterceptor()
-	if otelErr != nil {
-		util.Log(ctx).WithError(otelErr).Fatal("main -- Could not configure open telemetry interceptor")
-	}
-
 	defaultInterceptorList, err := connectInterceptors.DefaultList(
 		ctx, securityMan.GetAuthenticator(ctx),
 		tenancyAccessInterceptor, functionAccessInterceptor)
@@ -156,10 +156,12 @@ func setupConnectServer(
 		util.Log(ctx).WithError(err).Fatal("main -- Could not create default interceptors")
 	}
 
-	allInterceptors := append([]connect.Interceptor{otelInterceptor}, defaultInterceptorList...)
+	// DefaultList already starts with the otelconnect server interceptor.
+	server := connect.NewServer(defaultInterceptorList...)
+	ledgerv1connect.RegisterLedgerServiceHandler(server, implementation)
 
-	_, serverHandler := ledgerv1connect.NewLedgerServiceHandler(
-		implementation, connect.WithInterceptors(allInterceptors...))
+	mux := http.NewServeMux()
+	connecthttp.Mount(mux, server, connecthttp.WithReadMaxBytes(ledgerMaxRequestMessageBytes))
 
-	return serverHandler
+	return mux
 }

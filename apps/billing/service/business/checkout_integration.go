@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 
-	"connectrpc.com/connect"
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/observability"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
@@ -150,12 +149,12 @@ func (c *checkoutIntegration) CreateInvoiceCheckout(
 		req.ReturnUrl = returnURL
 	}
 
-	resp, err := c.checkoutCli.CreateCheckoutSession(ctx, connect.NewRequest(req))
+	resp, err := c.checkoutCli.CreateCheckoutSession(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create checkout session: %w", err)
 	}
 
-	data := resp.Msg.GetData()
+	data := resp.GetData()
 
 	util.Log(ctx).
 		WithField("invoice_id", invoiceID).
@@ -187,13 +186,13 @@ func (c *checkoutIntegration) SettleFromCheckout(
 
 	resp, err := c.checkoutCli.GetCheckoutSession(
 		ctx,
-		connect.NewRequest(&checkoutv1.GetCheckoutSessionRequest{Ref: sessionRef}),
+		&checkoutv1.GetCheckoutSessionRequest{Ref: sessionRef},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get checkout session: %w", err)
 	}
 
-	session := resp.Msg.GetData()
+	session := resp.GetData()
 	if session.GetStatus() != checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED {
 		return nil, ErrCheckoutNotCompleted
 	}

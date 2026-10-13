@@ -22,7 +22,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	billingTests "github.com/antinvestor/service-payments/apps/billing/tests"
 	checkoutModels "github.com/antinvestor/service-payments/apps/checkout/service/models"
-	"github.com/pitabwire/frame/v2/frametests/definition"
+	"github.com/pitabwire/frame/v3/frametests/definition"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
 	"github.com/stretchr/testify/assert"

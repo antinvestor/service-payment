@@ -24,11 +24,11 @@ import (
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/handlers"
-	"github.com/pitabwire/frame/v2/data"
+	"github.com/pitabwire/frame/v3/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,28 +42,28 @@ type stubPaymentClient struct {
 
 func (s *stubPaymentClient) Status(
 	_ context.Context,
-	req *connect.Request[commonv1.StatusRequest],
-) (*connect.Response[commonv1.StatusResponse], error) {
+	req *commonv1.StatusRequest,
+) (*commonv1.StatusResponse, error) {
 	if s.statusErr != nil {
 		return nil, s.statusErr
 	}
-	extras, ok := s.stored[req.Msg.GetId()]
+	extras, ok := s.stored[req.GetId()]
 	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("record not found"))
+		return nil, connect.NewError(connect.CodeNotFound, "record not found")
 	}
-	return connect.NewResponse(&commonv1.StatusResponse{
-		Id:     req.Msg.GetId(),
+	return &commonv1.StatusResponse{
+		Id:     req.GetId(),
 		Status: commonv1.STATUS_IN_PROCESS,
 		Extras: extras.ToProtoStruct(),
-	}), nil
+	}, nil
 }
 
 func (s *stubPaymentClient) StatusUpdate(
 	_ context.Context,
-	req *connect.Request[commonv1.StatusUpdateRequest],
-) (*connect.Response[commonv1.StatusUpdateResponse], error) {
-	s.updates = append(s.updates, req.Msg)
-	return connect.NewResponse(&commonv1.StatusUpdateResponse{}), nil
+	req *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusUpdateResponse, error) {
+	s.updates = append(s.updates, req)
+	return &commonv1.StatusUpdateResponse{}, nil
 }
 
 type stubMpesa struct {
@@ -259,7 +259,7 @@ func TestSTKCallback_PromptIDRecordsUnderPrompt(t *testing.T) {
 }
 
 func TestSTKCallback_PromptStatusUnavailable(t *testing.T) {
-	pay := &stubPaymentClient{statusErr: connect.NewError(connect.CodeUnavailable, errors.New("down"))}
+	pay := &stubPaymentClient{statusErr: connect.NewError(connect.CodeUnavailable, "down")}
 	mp := &stubMpesa{queryResp: &client.STKQueryResponse{ResultCode: "0"}}
 	var connections []string
 	srv := handlers.NewMpesaWebhookServer(pay, mp, credsFor(&connections))

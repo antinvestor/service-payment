@@ -24,7 +24,8 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	checkoutv1 "github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
@@ -41,10 +42,10 @@ import (
 //nolint:revive,staticcheck // GetById matches the generated interface name; renaming to GetByID would break compilation.
 func (f *fakeProfileClient) GetById(
 	_ context.Context,
-	_ *connect.Request[profilev1.GetByIdRequest],
-) (*connect.Response[profilev1.GetByIdResponse], error) {
+	_ *profilev1.GetByIdRequest,
+) (*profilev1.GetByIdResponse, error) {
 	// Return an empty profile — sufficient for tests that just need non-panic behaviour.
-	return connect.NewResponse(&profilev1.GetByIdResponse{}), nil
+	return &profilev1.GetByIdResponse{}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -84,12 +85,13 @@ func newRPCHarness(t *testing.T) *rpcHarness {
 	rpcServer := handlers.NewCheckoutServer(biz, cfg)
 
 	mux := http.NewServeMux()
-	path, h := checkoutv1connect.NewCheckoutServiceHandler(rpcServer)
-	mux.Handle(path, h)
+	server := connect.NewServer()
+	checkoutv1connect.RegisterCheckoutServiceHandler(server, rpcServer)
+	connecthttp.Mount(mux, server)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	cli := checkoutv1connect.NewCheckoutServiceClient(srv.Client(), srv.URL)
+	cli := checkoutv1connect.NewCheckoutServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 
 	return &rpcHarness{
 		sessionRepo: sessionRepo,
@@ -108,7 +110,7 @@ func newRPCHarness(t *testing.T) *rpcHarness {
 func TestRPC_CreateGet_RoundTrip(t *testing.T) {
 	h := newRPCHarness(t)
 
-	createReq := connect.NewRequest(&checkoutv1.CreateCheckoutSessionRequest{
+	createReq := &checkoutv1.CreateCheckoutSessionRequest{
 		Name:        "Acme Store",
 		Description: "Order payment",
 		Amount: &commonv1.Money{
@@ -123,11 +125,11 @@ func TestRPC_CreateGet_RoundTrip(t *testing.T) {
 			Language:    "en",
 		},
 		ReturnUrl: "https://example.com/done",
-	})
+	}
 	createResp, err := h.cli.CreateCheckoutSession(t.Context(), createReq)
 	require.NoError(t, err)
 
-	data := createResp.Msg.GetData()
+	data := createResp.GetData()
 	require.NotNil(t, data)
 
 	// ref must be 32 chars
@@ -142,12 +144,12 @@ func TestRPC_CreateGet_RoundTrip(t *testing.T) {
 	assert.Equal(t, "KES", data.GetAmount().GetCurrencyCode())
 
 	// Now Get the same session
-	getResp, err := h.cli.GetCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.GetCheckoutSessionRequest{
+	getResp, err := h.cli.GetCheckoutSession(t.Context(), &checkoutv1.GetCheckoutSessionRequest{
 		Ref: data.GetRef(),
-	}))
+	})
 	require.NoError(t, err)
 
-	got := getResp.Msg.GetData()
+	got := getResp.GetData()
 	require.NotNil(t, got)
 	assert.Equal(t, data.GetRef(), got.GetRef())
 	// metadata should contain orderId
@@ -162,17 +164,17 @@ func TestRPC_InternalMetadata_DoesNotLeak(t *testing.T) {
 	h := newRPCHarness(t)
 
 	// Create a session normally
-	leakReq := connect.NewRequest(&checkoutv1.CreateCheckoutSessionRequest{
+	leakReq := &checkoutv1.CreateCheckoutSessionRequest{
 		Name: "Merchant",
 		Amount: &commonv1.Money{
 			CurrencyCode: "KES",
 			Units:        100,
 		},
 		ReturnUrl: "https://example.com/done",
-	})
+	}
 	createResp, err := h.cli.CreateCheckoutSession(t.Context(), leakReq)
 	require.NoError(t, err)
-	ref := createResp.Msg.GetData().GetRef()
+	ref := createResp.GetData().GetRef()
 
 	// Mutate the stored session to add internal metadata (simulating Pay() writing _method).
 	stored := h.sessionRepo.sessions[ref]
@@ -184,12 +186,12 @@ func TestRPC_InternalMetadata_DoesNotLeak(t *testing.T) {
 	stored.Metadata["publicKey"] = "visible"
 
 	// Get and verify
-	getResp, err := h.cli.GetCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.GetCheckoutSessionRequest{
+	getResp, err := h.cli.GetCheckoutSession(t.Context(), &checkoutv1.GetCheckoutSessionRequest{
 		Ref: ref,
-	}))
+	})
 	require.NoError(t, err)
 
-	meta := getResp.Msg.GetData().GetMetadata()
+	meta := getResp.GetData().GetMetadata()
 	assert.NotContains(t, meta, "_method", "_method must not be exposed")
 	assert.NotContains(t, meta, "_contact_id", "_contact_id must not be exposed")
 	assert.Equal(t, "visible", meta["publicKey"], "non-internal keys must be passed through")
@@ -202,7 +204,7 @@ func TestRPC_InternalMetadata_DoesNotLeak(t *testing.T) {
 func TestRPC_CreateSession_ZeroAmount_InvalidArgument(t *testing.T) {
 	h := newRPCHarness(t)
 
-	_, err := h.cli.CreateCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.CreateCheckoutSessionRequest{
+	_, err := h.cli.CreateCheckoutSession(t.Context(), &checkoutv1.CreateCheckoutSessionRequest{
 		Name: "Merchant",
 		Amount: &commonv1.Money{
 			CurrencyCode: "KES",
@@ -210,7 +212,7 @@ func TestRPC_CreateSession_ZeroAmount_InvalidArgument(t *testing.T) {
 			Nanos:        0,
 		},
 		// default AmountOption is FIXED_UNSPECIFIED (fixed)
-	}))
+	})
 	require.Error(t, err)
 
 	var connectErr *connect.Error
@@ -225,14 +227,14 @@ func TestRPC_CreateSession_ZeroAmount_InvalidArgument(t *testing.T) {
 func TestRPC_CreateSession_JavascriptReturnURL_InvalidArgument(t *testing.T) {
 	h := newRPCHarness(t)
 
-	_, err := h.cli.CreateCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.CreateCheckoutSessionRequest{
+	_, err := h.cli.CreateCheckoutSession(t.Context(), &checkoutv1.CreateCheckoutSessionRequest{
 		Name: "Merchant",
 		Amount: &commonv1.Money{
 			CurrencyCode: "KES",
 			Units:        100,
 		},
 		ReturnUrl: "javascript:alert(1)",
-	}))
+	})
 	require.Error(t, err)
 
 	var connectErr *connect.Error
@@ -247,9 +249,9 @@ func TestRPC_CreateSession_JavascriptReturnURL_InvalidArgument(t *testing.T) {
 func TestRPC_GetSession_UnknownRef_NotFound(t *testing.T) {
 	h := newRPCHarness(t)
 
-	_, err := h.cli.GetCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.GetCheckoutSessionRequest{
+	_, err := h.cli.GetCheckoutSession(t.Context(), &checkoutv1.GetCheckoutSessionRequest{
 		Ref: "no-such-ref",
-	}))
+	})
 	require.Error(t, err)
 
 	var connectErr *connect.Error
@@ -264,16 +266,16 @@ func TestRPC_GetSession_UnknownRef_NotFound(t *testing.T) {
 func TestRPC_CreateLink_ValidRequest(t *testing.T) {
 	h := newRPCHarness(t)
 
-	resp, err := h.cli.CreateCheckoutLink(t.Context(), connect.NewRequest(&checkoutv1.CreateCheckoutLinkRequest{
+	resp, err := h.cli.CreateCheckoutLink(t.Context(), &checkoutv1.CreateCheckoutLinkRequest{
 		Name: "Product Link",
 		Amount: &commonv1.Money{
 			CurrencyCode: "KES",
 			Units:        500,
 		},
-	}))
+	})
 	require.NoError(t, err)
 
-	data := resp.Msg.GetData()
+	data := resp.GetData()
 	require.NotNil(t, data)
 	assert.Contains(t, data.GetPageUrl(), "/l/", "PageUrl must contain /l/")
 	assert.True(t, strings.HasPrefix(data.GetPageUrl(), testConfig().PublicBaseURL+"/l/"))
@@ -287,14 +289,14 @@ func TestRPC_CreateLink_ValidRequest(t *testing.T) {
 func TestRPC_CreateLink_BadExpiresAt_InvalidArgument(t *testing.T) {
 	h := newRPCHarness(t)
 
-	_, err := h.cli.CreateCheckoutLink(t.Context(), connect.NewRequest(&checkoutv1.CreateCheckoutLinkRequest{
+	_, err := h.cli.CreateCheckoutLink(t.Context(), &checkoutv1.CreateCheckoutLinkRequest{
 		Name: "Product Link",
 		Amount: &commonv1.Money{
 			CurrencyCode: "KES",
 			Units:        500,
 		},
 		ExpiresAt: "not-a-date",
-	}))
+	})
 	require.Error(t, err)
 
 	var connectErr *connect.Error
@@ -322,18 +324,18 @@ func TestRPC_GetSession_ProcessingRefreshedToCompleted(t *testing.T) {
 	}
 
 	// Fake payment client returns SUCCESSFUL for any status poll.
-	h.payCli.statusResp = connect.NewResponse(&commonv1.StatusResponse{
+	h.payCli.statusResp = &commonv1.StatusResponse{
 		Status: commonv1.STATUS_SUCCESSFUL,
 		Id:     "payment-abc",
-	})
+	}
 
-	getResp, err := h.cli.GetCheckoutSession(t.Context(), connect.NewRequest(&checkoutv1.GetCheckoutSessionRequest{
+	getResp, err := h.cli.GetCheckoutSession(t.Context(), &checkoutv1.GetCheckoutSessionRequest{
 		Ref: "proc-ref",
-	}))
+	})
 	require.NoError(t, err)
 
-	assert.Equal(t, checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED, getResp.Msg.GetData().GetStatus(),
+	assert.Equal(t, checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED, getResp.GetData().GetStatus(),
 		"RefreshStatus must transition processing→completed when payment is SUCCESSFUL")
-	assert.Equal(t, "payment-abc", getResp.Msg.GetData().GetPaymentId(),
+	assert.Equal(t, "payment-abc", getResp.GetData().GetPaymentId(),
 		"payment_id must be set from the external payment ID when SUCCESSFUL")
 }

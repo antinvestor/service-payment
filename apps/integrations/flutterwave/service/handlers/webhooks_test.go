@@ -27,8 +27,7 @@ import (
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/config"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/handlers"
@@ -43,10 +42,10 @@ type stubPaymentClient struct {
 
 func (s *stubPaymentClient) StatusUpdate(
 	_ context.Context,
-	req *connect.Request[commonv1.StatusUpdateRequest],
-) (*connect.Response[commonv1.StatusUpdateResponse], error) {
-	s.last = req.Msg
-	return connect.NewResponse(&commonv1.StatusUpdateResponse{}), nil
+	req *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusUpdateResponse, error) {
+	s.last = req
+	return &commonv1.StatusUpdateResponse{}, nil
 }
 
 type stubFW struct{}

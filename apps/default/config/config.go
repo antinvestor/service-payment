@@ -36,6 +36,10 @@ type PaymentConfig struct {
 	// Example: {"mpesa":"nats://…mpesa.prompts","flutterwave":"nats://…flutterwave.prompts"}
 	// Publisher reference becomes "prompt.<route>". Unlisted routes fall back to default.
 	InitiatePromptRouteURIs string `env:"INITIATE_PROMPT_ROUTE_URIS"`
-	PaymentLinkTopicName    string `envDefault:"create_payment_link"       env:"PAYMENT_LINK_TOPIC_NAME"    required:"true"`
-	PaymentLinkTopicURI     string `envDefault:"mem://create_payment_link" env:"PAYMENT_LINK_TOPIC_URI"     required:"true"`
+	// PaymentRoutes is the JSON list of payment routes the setup Job writes
+	// (repository.RouteConfig): which queue receives and sends payments, by
+	// partition, mode and contact kind.
+	PaymentRoutes        string `env:"PAYMENT_ROUTES"`
+	PaymentLinkTopicName string `envDefault:"create_payment_link"       env:"PAYMENT_LINK_TOPIC_NAME"    required:"true"`
+	PaymentLinkTopicURI  string `envDefault:"mem://create_payment_link" env:"PAYMENT_LINK_TOPIC_URI"     required:"true"`
 }

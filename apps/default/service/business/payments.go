@@ -117,8 +117,8 @@ func (pb *paymentBusiness) Send(
 	defer func() { pb.obs.EndSpan(ctx, span, err) }()
 
 	// The payee's contact decides how the money leaves: the route is chosen
-	// by the payment's partition and the kind of contact paid, never by the
-	// caller. Only the contact id is stored; the number is read again as the
+	// by the payment's partition and the kind of contact paid. A route the
+	// caller names is ignored. Only the contact id is stored; the number is read again as the
 	// payment leaves for its provider.
 	payee, err := contacts.ResolvePayee(ctx, pb.profileCli, message.GetRecipient())
 	switch {
@@ -143,7 +143,6 @@ func (pb *paymentBusiness) Send(
 		RecipientContactID:   recipientContactID,
 		ReferenceID:          message.GetReferenceId(),
 		BatchID:              message.GetBatchId(),
-		RouteID:              message.GetRoute(),
 		PaymentType:          payee.Kind,
 		OutBound:             true,
 	}
@@ -155,11 +154,7 @@ func (pb *paymentBusiness) Send(
 	}
 	c.GenID(ctx)
 
-	// A caller-chosen id makes a retried send the same payment.
-	p.ID = message.GetId()
-	if p.ID == "" {
-		p.GenID(ctx)
-	}
+	p.GenID(ctx)
 
 	pb.validateAmountAndCost(message, p, c)
 

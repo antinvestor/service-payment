@@ -163,7 +163,7 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 			events.NewPaymentLinkSave(paymentLinkRepo),
 			events.NewAccountSave(accountRepo),
 			events.NewCostSave(costRepo),
-			events.NewStatusSave(statusRepo, paymentRepo),
+			events.NewStatusSave(statusRepo, paymentRepo, promptRepo, evtsMan),
 		))
 
 	// Initialize the service with all options

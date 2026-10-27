@@ -22,6 +22,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/util"
 )
 
@@ -30,17 +31,25 @@ const entityTypePayment = "payment"
 type StatusSave struct {
 	statusRepo     repository.StatusRepository
 	paymentRepo    repository.PaymentRepository
+	promptRepo     repository.PromptRepository
+	eventMan       events.Manager
 	paymentMetrics *metrics.PaymentMetrics
 }
 
-// NewStatusSave creates a new StatusSave event handler with the required dependencies.
+// NewStatusSave creates a new StatusSave event handler with the required
+// dependencies. With a prompt repository and an event manager, a prompt
+// that succeeds is received as an inbound payment (see receivePrompt).
 func NewStatusSave(
 	statusRepo repository.StatusRepository,
 	paymentRepo repository.PaymentRepository,
+	promptRepo repository.PromptRepository,
+	eventMan events.Manager,
 ) *StatusSave {
 	return &StatusSave{
 		statusRepo:     statusRepo,
 		paymentRepo:    paymentRepo,
+		promptRepo:     promptRepo,
+		eventMan:       eventMan,
 		paymentMetrics: metrics.NewPaymentMetrics(),
 	}
 }
@@ -90,7 +99,7 @@ func (e *StatusSave) Execute(ctx context.Context, payload any) error {
 
 	e.recordPaymentMetrics(ctx, status)
 
-	return nil
+	return e.receivePrompt(ctx, status)
 }
 
 // recordPaymentMetrics emits business metrics for payments reaching a

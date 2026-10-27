@@ -233,8 +233,10 @@ func (pb *paymentBusiness) Receive(
 		ReferenceID:          message.GetReferenceId(),
 		BatchID:              message.GetBatchId(),
 		RouteID:              message.GetRoute(),
+		TransactionID:        message.GetTransactionId(),
 		OutBound:             false,
 	}
+	p.Extra = p.Extra.FromProtoStruct(message.GetExtra())
 
 	costAmt2 := utilmoney.FromMoney(message.GetCost())
 	c := &models.Cost{
@@ -243,7 +245,9 @@ func (pb *paymentBusiness) Receive(
 	}
 	c.GenID(ctx)
 
-	if message.GetId() == "" {
+	// A caller-chosen id makes a retried receive the same payment.
+	p.ID = message.GetId()
+	if p.ID == "" {
 		p.GenID(ctx)
 	}
 	pb.validateAmountAndCost(message, p, c)
@@ -551,6 +555,22 @@ func (pb *paymentBusiness) InitiatePrompt(
 	logger := util.Log(ctx)
 	logger.Debug("handling initiate prompt request")
 
+	// A caller-chosen id names one prompt: asking again returns where that
+	// prompt stands instead of pushing the payer a second time.
+	if req.GetId() != "" {
+		if existing, getErr := pb.promptRepo.GetByID(ctx, req.GetId()); getErr == nil && existing != nil {
+			logger.WithField("prompt_id", req.GetId()).Debug("prompt already raised; not sent again")
+			return existing.ToAPIStatus(), nil
+		}
+	}
+
+	// Resolve the payer's number before anything is stored, so a prompt
+	// that cannot be dialled is refused rather than left queued.
+	var dial string
+	if dial, err = payerNumber(ctx, pb.profileCli, req.GetSource()); err != nil {
+		return nil, err
+	}
+
 	// Build Account from request
 	account := models.Account{
 		AccountNumber: req.GetRecipientAccount().GetAccountNumber(),
@@ -595,6 +615,11 @@ func (pb *paymentBusiness) InitiatePrompt(
 	// Publish InitiatePromptRequest protobuf (not the ORM model) so integrators
 	// can proto.Unmarshal. Route-specific publishers take priority when registered.
 	apiPrompt := p.ToAPI(nil)
+	if dial != "" {
+		// Providers dial the source contact; only the published prompt
+		// carries the number, the stored prompt keeps the contact id.
+		apiPrompt.Source.ContactId = dial
+	}
 	binaryPrompt, marshalErr := proto.Marshal(apiPrompt)
 	if marshalErr != nil {
 		logger.WithError(marshalErr).Warn("could not marshal initiate-prompt")

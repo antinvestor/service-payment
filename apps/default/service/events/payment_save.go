@@ -73,7 +73,7 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 	if err != nil {
 		if data.ErrorIsDuplicateKey(err) {
 			logger.Debug("record already exists, skipping duplicate")
-			return nil
+			return event.resumeInboundRouting(ctx, payment)
 		}
 		logger.WithError(err).Warn("could not save to db")
 		return err
@@ -114,4 +114,21 @@ func (event *PaymentSave) Execute(ctx context.Context, payload any) error {
 		}
 	}
 	return nil
+}
+
+// resumeInboundRouting routes a replayed inbound payment whose first save
+// landed but whose routing never did: an inbound payment is routed once it
+// is stored, and a stored payment without a route was never routed.
+func (event *PaymentSave) resumeInboundRouting(ctx context.Context, payment *models.Payment) error {
+	if payment.OutBound {
+		return nil
+	}
+	stored, err := event.paymentRepo.GetByID(ctx, payment.GetID())
+	if err != nil {
+		return err
+	}
+	if stored.OutBound || stored.RouteID != "" {
+		return nil
+	}
+	return event.eventMan.Emit(ctx, EventNamePaymentInRoute, stored.GetID())
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -51,6 +52,9 @@ import (
 //go:embed spec/payment.openapi.yaml
 var paymentAPISpecFile []byte
 
+// routesSetupStep is the setup step that writes the declared payment routes.
+const routesSetupStep = "routes"
+
 func main() { //nolint:funlen // service wiring requires sequential setup
 	ctx := context.Background()
 
@@ -74,6 +78,19 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 
 	svc.Setup().RegisterFunc(setup.NameMigrate, func(ctx context.Context) error {
 		return repository.Migrate(ctx, svc.DatastoreManager(), cfg.GetDatabaseMigrationPath())
+	})
+	// Payment routes are environment config: the setup Job writes those
+	// PAYMENT_ROUTES declares, after the schema they live in.
+	svc.Setup().RegisterFunc(routesSetupStep, func(ctx context.Context) error {
+		routes, err := repository.ParseRouteConfig(cfg.PaymentRoutes)
+		if err != nil {
+			return err
+		}
+		dbPool := svc.DatastoreManager().GetPool(ctx, datastore.DefaultPoolName)
+		if dbPool == nil {
+			return errors.New("routes: database pool is not configured")
+		}
+		return repository.SyncRoutes(ctx, dbPool, routes)
 	})
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)

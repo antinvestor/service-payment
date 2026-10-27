@@ -156,7 +156,7 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 		frame.WithRegisterEvents(
 			events.NewPaymentSave(paymentRepo, evtsMan),
 			events.NewPaymentInQueue(qMan, evtsMan, paymentRepo, routeRepo, profileCli),
-			events.NewPaymentOutQueue(qMan, evtsMan, paymentRepo, statusRepo),
+			events.NewPaymentOutQueue(qMan, evtsMan, paymentRepo, statusRepo, routeRepo, profileCli),
 			events.NewPaymentInRoute(evtsMan, paymentRepo, routeRepo),
 			events.NewPaymentOutRoute(qMan, evtsMan, paymentRepo, routeRepo, statusRepo),
 			events.NewPromptSave(promptRepo),

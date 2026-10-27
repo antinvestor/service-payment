@@ -17,8 +17,11 @@ package events
 import (
 	"context"
 	"errors"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
+	"github.com/antinvestor/service-payments/apps/default/service/contacts"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
 	"github.com/pitabwire/frame/v3/events"
@@ -32,6 +35,8 @@ type PaymentOutQueue struct {
 	eventMan    events.Manager
 	paymentRepo repository.PaymentRepository
 	statusRepo  repository.StatusRepository
+	routeRepo   repository.RouteRepository
+	profileCli  profilev1connect.ProfileServiceClient
 }
 
 // NewPaymentOutQueue creates a new PaymentOutQueue event handler with the required dependencies.
@@ -40,12 +45,16 @@ func NewPaymentOutQueue(
 	eventMan events.Manager,
 	paymentRepo repository.PaymentRepository,
 	statusRepo repository.StatusRepository,
+	routeRepo repository.RouteRepository,
+	profileCli profilev1connect.ProfileServiceClient,
 ) *PaymentOutQueue {
 	return &PaymentOutQueue{
 		qMan:        qMan,
 		eventMan:    eventMan,
 		paymentRepo: paymentRepo,
 		statusRepo:  statusRepo,
+		routeRepo:   routeRepo,
+		profileCli:  profileCli,
 	}
 }
 
@@ -93,13 +102,30 @@ func (event *PaymentOutQueue) Execute(ctx context.Context, payload any) error {
 
 	apiPayment := payment.ToAPI(status, nil)
 
+	// Providers pay the recipient's number; only the published payment
+	// carries it, the stored payment keeps the contact id.
+	payee, err := contacts.Resolve(ctx, event.profileCli, apiPayment.GetRecipient())
+	if err != nil {
+		return err
+	}
+	if payee.Detail != "" {
+		apiPayment.GetRecipient().SetContactId(payee.Detail)
+	}
+
 	binaryProto, err := proto.Marshal(apiPayment)
 	if err != nil {
 		return err
 	}
 
-	// Publish the payment message for further processing
+	// Publish the payment message for further processing. A route's publisher
+	// is registered the first time a payment uses it.
 	err = event.qMan.Publish(ctx, payment.RouteID, binaryProto)
+	if err != nil && strings.Contains(err.Error(), "reference does not exist") {
+		if _, loadErr := loadRoute(ctx, event.qMan, event.routeRepo, payment.RouteID); loadErr != nil {
+			return loadErr
+		}
+		err = event.qMan.Publish(ctx, payment.RouteID, binaryProto)
+	}
 	if err != nil {
 		return err
 	}

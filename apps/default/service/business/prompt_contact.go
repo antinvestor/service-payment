@@ -16,18 +16,17 @@ package business
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/profile/connectrpc/go/v2/profile/v1/profilev1connect"
-	profilev1 "buf.build/gen/go/antinvestor/profile/protocolbuffers/go/profile/v1"
+
+	"github.com/antinvestor/service-payments/apps/default/service/contacts"
 )
 
 // ErrPayerContactUnknown is returned when a prompt names a payer contact the
 // payer's profile does not hold.
-var ErrPayerContactUnknown = errors.New("the payer's profile has no such contact")
+var ErrPayerContactUnknown = contacts.ErrUnknown
 
 // payerNumber is the number a prompt dials. A caller that names the payer by
 // profile and contact id never handles the number: it is read from the
@@ -40,36 +39,12 @@ func payerNumber(
 	source *commonv1.ContactLink,
 ) (string, error) {
 	contactID := strings.TrimSpace(source.GetContactId())
-	profileID := strings.TrimSpace(source.GetProfileId())
-	if contactID == "" || profileID == "" || isPhoneNumber(contactID) {
+	if contactID == "" || strings.TrimSpace(source.GetProfileId()) == "" || contacts.IsPhoneNumber(contactID) {
 		return "", nil
 	}
-	if profiles == nil {
-		return "", fmt.Errorf("resolve payer contact %s: profile service not configured", contactID)
-	}
-	resp, err := profiles.GetById(ctx, &profilev1.GetByIdRequest{Id: profileID})
+	contact, err := contacts.Resolve(ctx, profiles, source)
 	if err != nil {
-		return "", fmt.Errorf("resolve payer contact %s: %w", contactID, err)
+		return "", err
 	}
-	for _, c := range resp.GetData().GetContacts() {
-		if c.GetId() == contactID && strings.TrimSpace(c.GetDetail()) != "" {
-			return strings.TrimSpace(c.GetDetail()), nil
-		}
-	}
-	return "", ErrPayerContactUnknown
-}
-
-// isPhoneNumber reports whether s is a phone number (digits, optionally
-// led by +) rather than a contact id.
-func isPhoneNumber(s string) bool {
-	digits := strings.TrimPrefix(s, "+")
-	if digits == "" {
-		return false
-	}
-	for _, r := range digits {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
+	return contact.Detail, nil
 }

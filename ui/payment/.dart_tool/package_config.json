@@ -21,19 +21,19 @@
     },
     {
       "name": "antinvestor_api_common",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_common-1.52.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_common-2.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
     {
       "name": "antinvestor_api_payment",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_payment-1.53.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_api_payment-2.0.0",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.7"
     },
     {
       "name": "antinvestor_ui_core",
-      "rootUri": "../../../../common/ui_core",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/antinvestor_ui_core-0.6.0",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },
@@ -147,9 +147,9 @@
     },
     {
       "name": "connectrpc",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/connectrpc-1.0.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/connectrpc-2.0.1",
       "packageUri": "lib/",
-      "languageVersion": "3.6"
+      "languageVersion": "3.7"
     },
     {
       "name": "convert",
@@ -215,7 +215,7 @@
       "name": "flutter",
       "rootUri": "file:///home/j/code/flutter/packages/flutter",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "flutter_lints",
@@ -269,13 +269,13 @@
       "name": "flutter_test",
       "rootUri": "file:///home/j/code/flutter/packages/flutter_test",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "flutter_web_plugins",
       "rootUri": "file:///home/j/code/flutter/packages/flutter_web_plugins",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "freezed_annotation",
@@ -483,9 +483,9 @@
     },
     {
       "name": "matcher",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/matcher-0.12.19",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/matcher-0.12.20",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "material_color_utilities",
@@ -495,7 +495,7 @@
     },
     {
       "name": "meta",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/meta-1.18.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/meta-1.19.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
     },
@@ -621,7 +621,7 @@
     },
     {
       "name": "protobuf",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/protobuf-4.2.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/protobuf-6.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
@@ -689,7 +689,7 @@
       "name": "sky_engine",
       "rootUri": "file:///home/j/code/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "source_gen",
@@ -753,21 +753,21 @@
     },
     {
       "name": "test",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test-1.31.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test-1.31.1",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "test_api",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test_api-0.7.11",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test_api-0.7.12",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "test_core",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test_core-0.6.17",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/test_core-0.6.18",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "typed_data",
@@ -783,9 +783,9 @@
     },
     {
       "name": "vector_math",
-      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/vector_math-2.2.0",
+      "rootUri": "file:///home/j/.pub-cache/hosted/pub.dev/vector_math-2.4.3",
       "packageUri": "lib/",
-      "languageVersion": "3.1"
+      "languageVersion": "3.10"
     },
     {
       "name": "vm_service",
@@ -855,8 +855,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.12.0",
+  "generatorVersion": "3.13.5",
   "flutterRoot": "file:///home/j/code/flutter",
-  "flutterVersion": "3.44.0",
+  "flutterVersion": "3.47.7",
   "pubCache": "file:///home/j/.pub-cache"
 }

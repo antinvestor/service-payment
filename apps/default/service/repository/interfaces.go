@@ -27,9 +27,9 @@ type PaymentRepository interface {
 	datastore.BaseRepository[*models.Payment]
 	Search(ctx context.Context, query *data.SearchQuery) (workerpool.JobResultPipe[[]*models.Payment], error)
 	GetByProfileID(ctx context.Context, profileID string) ([]*models.Payment, error)
-	// GetOutboundByReference finds the caller's outbound payment carrying
+	// GetOutboundByReference finds the partition's outbound payment carrying
 	// reference, or gorm's ErrRecordNotFound.
-	GetOutboundByReference(ctx context.Context, reference string) (*models.Payment, error)
+	GetOutboundByReference(ctx context.Context, tenantID, partitionID, reference string) (*models.Payment, error)
 }
 
 type AccountRepository interface {

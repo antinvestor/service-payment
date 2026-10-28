@@ -22,7 +22,10 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"connectrpc.com/connect/v2"
+	"github.com/pitabwire/frame/v3/security"
+	utilmoney "github.com/pitabwire/util/moneyx"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 
 	"github.com/antinvestor/service-payments/apps/default/service/metrics"
@@ -37,7 +40,10 @@ type paymentsByReference struct {
 	byReference map[string]*models.Payment
 }
 
-func (r *paymentsByReference) GetOutboundByReference(_ context.Context, ref string) (*models.Payment, error) {
+func (r *paymentsByReference) GetOutboundByReference(
+	_ context.Context,
+	_, _, ref string,
+) (*models.Payment, error) {
 	if p, ok := r.byReference[ref]; ok {
 		return p, nil
 	}
@@ -59,7 +65,14 @@ func (r *statusesByEntity) GetByEntity(_ context.Context, id, _ string) (*models
 }
 
 func TestSendWithAKnownReferenceAnswersTheFirstPayment(t *testing.T) {
-	prior := &models.Payment{ReferenceID: "refund-1", OutBound: true}
+	amount := utilmoney.FromMoney(&commonv1.Money{CurrencyCode: "KES", Units: 250})
+	prior := &models.Payment{
+		ReferenceID:        "refund-1",
+		OutBound:           true,
+		RecipientProfileID: "buyer-1",
+		Currency:           "KES",
+		Amount:             &amount,
+	}
 	prior.ID = "payment-1"
 	status := &models.Status{
 		EntityID:   prior.ID,
@@ -73,10 +86,37 @@ func TestSendWithAKnownReferenceAnswersTheFirstPayment(t *testing.T) {
 		obs:         metrics.NewMetrics(),
 	}
 
+	resend := &paymentv1.Payment{
+		ReferenceId: "refund-1",
+		Recipient:   &commonv1.ContactLink{ProfileId: "buyer-1"},
+		Amount:      &commonv1.Money{CurrencyCode: "KES", Units: 250},
+	}
 	// No profile client is wired: a resend must not resolve the payee again.
-	resp, err := pb.Send(context.Background(), &paymentv1.Payment{ReferenceId: "refund-1"})
+	resp, err := pb.Send(context.Background(), resend)
 	require.NoError(t, err)
 	require.Equal(t, commonv1.STATUS_SUCCESSFUL, resp.GetStatus())
+
+	// The same reference for someone else, or another amount, is refused.
+	other := proto.Clone(resend).(*paymentv1.Payment)
+	other.Recipient = &commonv1.ContactLink{ProfileId: "someone-else"}
+	_, err = pb.Send(context.Background(), other)
+	require.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
+
+	more := proto.Clone(resend).(*paymentv1.Payment)
+	more.Amount = &commonv1.Money{CurrencyCode: "KES", Units: 251}
+	_, err = pb.Send(context.Background(), more)
+	require.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
+}
+
+func TestReferencedIDsDifferByPartition(t *testing.T) {
+	inPartition := func(partition string) context.Context {
+		claims := &security.AuthenticationClaims{TenantID: "tenant-1", PartitionID: partition}
+		return claims.ClaimsToContext(context.Background())
+	}
+	a := referencedID(inPartition("partition-a"), "refund-1")
+	require.Equal(t, a, referencedID(inPartition("partition-a"), "refund-1"))
+	require.NotEqual(t, a, referencedID(inPartition("partition-b"), "refund-1"))
+	require.Empty(t, referencedID(inPartition("partition-a"), ""))
 }
 
 func TestSendRefusesAReferenceTooLongToStore(t *testing.T) {

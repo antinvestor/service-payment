@@ -247,17 +247,33 @@ func (pb *paymentBusiness) Send(
 	return status.ToAPI(), nil
 }
 
+// extraSendFingerprint holds, on a referenced send's claim, what the send
+// pays and to whom.
+const extraSendFingerprint = "send_fingerprint"
+
+// sendFingerprint is what a referenced send pays and to whom.
+func sendFingerprint(message *paymentv1.Payment) string {
+	sum := sha256.Sum256([]byte(message.GetRecipient().GetProfileId() + "|" +
+		message.GetAmount().GetCurrencyCode() + "|" +
+		utilmoney.FromMoney(message.GetAmount()).String()))
+	return hex.EncodeToString(sum[:])
+}
+
 // claimReference saves the queued status a referenced send starts with. Its
 // id comes from the reference, so of two sends racing past priorSend only
-// one saves it. The other answers the saved payment, checked as priorSend
-// checks it; while that payment is still on its way to the database, it goes
-// on and saves the same payment under the same ids, which the save event
-// stores once. It returns nil, nil when the caller should go on sending.
+// one saves it, and it records what that send pays and to whom. A send that
+// loses the claim must match that record or is refused. A matching one
+// answers the saved payment, or, while that payment is still on its way to
+// the database, saves the same payment under the same ids, which the save
+// event stores once. It returns nil, nil when the caller should go on
+// sending.
 func (pb *paymentBusiness) claimReference(
 	ctx context.Context,
 	message *paymentv1.Payment,
 	status *models.Status,
 ) (*commonv1.StatusResponse, error) {
+	fingerprint := sendFingerprint(message)
+	status.Extra[extraSendFingerprint] = fingerprint
 	status.GenID(ctx)
 	err := pb.statusRepo.Create(ctx, status)
 	if err == nil {
@@ -266,6 +282,13 @@ func (pb *paymentBusiness) claimReference(
 	if !data.ErrorIsDuplicateKey(err) {
 		util.Log(ctx).WithError(err).Warn("could not save status")
 		return nil, err
+	}
+	claim, err := pb.statusRepo.GetByID(ctx, status.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("read claim %s: %w", status.GetID(), err)
+	}
+	if claim.Extra.GetString(extraSendFingerprint) != fingerprint {
+		return nil, connect.NewError(connect.CodeAlreadyExists, ErrReferenceReused.Error())
 	}
 	return pb.priorSend(ctx, message)
 }

@@ -28,6 +28,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 
+	"github.com/pitabwire/frame/v3/data"
+
 	"github.com/antinvestor/service-payments/apps/default/service/metrics"
 	"github.com/antinvestor/service-payments/apps/default/service/models"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
@@ -65,6 +67,15 @@ func (r *statusesByEntity) Create(_ context.Context, status *models.Status) erro
 	}
 	r.byEntity[status.EntityID] = status
 	return nil
+}
+
+func (r *statusesByEntity) GetByID(_ context.Context, id string) (*models.Status, error) {
+	for _, saved := range r.byEntity {
+		if saved.ID == id {
+			return saved, nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 func (r *statusesByEntity) GetByEntity(_ context.Context, id, _ string) (*models.Status, error) {
@@ -136,17 +147,23 @@ func TestSendRefusesAReferenceTooLongToStore(t *testing.T) {
 }
 
 func TestClaimReference(t *testing.T) {
-	amount := utilmoney.FromMoney(&commonv1.Money{CurrencyCode: "KES", Units: 250})
 	send := &paymentv1.Payment{
 		ReferenceId: "refund-1",
 		Recipient:   &commonv1.ContactLink{ProfileId: "buyer-1"},
 		Amount:      &commonv1.Money{CurrencyCode: "KES", Units: 250},
 	}
 	claim := func(id string) *models.Status {
-		s := &models.Status{EntityID: "payment-1", EntityType: "payment"}
+		s := &models.Status{EntityID: "payment-1", EntityType: "payment", Extra: data.JSONMap{}}
 		s.ID = id
 		return s
 	}
+	claimedBy := func(m *paymentv1.Payment) *models.Status {
+		s := claim("ref-queued")
+		s.Extra[extraSendFingerprint] = sendFingerprint(m)
+		return s
+	}
+	elsewhere := proto.Clone(send).(*paymentv1.Payment)
+	elsewhere.Recipient = &commonv1.ContactLink{ProfileId: "someone-else"}
 
 	t.Run("the first send takes the claim", func(t *testing.T) {
 		pb := &paymentBusiness{
@@ -158,21 +175,19 @@ func TestClaimReference(t *testing.T) {
 		require.Nil(t, resp, "the claimant goes on sending")
 	})
 
-	t.Run("a racing send for someone else is refused once the payment is saved", func(t *testing.T) {
-		prior := &models.Payment{ReferenceID: "refund-1", RecipientProfileID: "someone-else", Currency: "KES", Amount: &amount}
-		prior.ID = "payment-1"
+	t.Run("a racing send for someone else is refused before the payment is saved", func(t *testing.T) {
 		pb := &paymentBusiness{
-			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{"refund-1": prior}},
-			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claim("ref-queued")}},
+			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{}},
+			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claimedBy(elsewhere)}},
 		}
 		_, err := pb.claimReference(context.Background(), send, claim("ref-queued"))
 		require.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
 	})
 
-	t.Run("a racing send before the payment is saved saves the same payment", func(t *testing.T) {
+	t.Run("the same send racing, before the payment is saved, saves the same payment", func(t *testing.T) {
 		pb := &paymentBusiness{
 			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{}},
-			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claim("ref-queued")}},
+			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claimedBy(send)}},
 		}
 		resp, err := pb.claimReference(context.Background(), send, claim("ref-queued"))
 		require.NoError(t, err)

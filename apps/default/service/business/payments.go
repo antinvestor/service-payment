@@ -174,6 +174,22 @@ func (pb *paymentBusiness) Send(
 
 	pb.validateAmountAndCost(message, p, c)
 
+	status := &models.Status{
+		EntityID:   p.GetID(),
+		EntityType: "payment",
+		State:      int32(commonv1.STATE_CREATED.Number()),
+		Status:     int32(commonv1.STATUS_QUEUED.Number()),
+		Extra:      make(data.JSONMap),
+	}
+	if referenceID != "" {
+		// The queued status is the reference's claim, saved before
+		// anything is sent on.
+		status.ID = referenceID + "-queued"
+		if claimed, claimErr := pb.claimReference(ctx, message, status); claimed != nil || claimErr != nil {
+			return claimed, claimErr
+		}
+	}
+
 	// Save cost separately and add its ID to payment
 	if err = pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
 		util.Log(ctx).WithError(err).Warn("could not emit cost event")
@@ -218,36 +234,40 @@ func (pb *paymentBusiness) Send(
 		}
 	}
 
-	// Create status using repository
-	status := &models.Status{
-		EntityID:   p.GetID(),
-		EntityType: "payment",
-		State:      int32(commonv1.STATE_CREATED.Number()),
-		Status:     int32(commonv1.STATUS_QUEUED.Number()),
-		Extra:      make(data.JSONMap),
-	}
-	if referenceID != "" {
-		status.ID = referenceID + "-queued"
-	}
-	status.GenID(ctx)
-
-	err = pb.statusRepo.Create(ctx, status)
-	if data.ErrorIsDuplicateKey(err) {
-		// The racing send got here first; its payment is this one.
-		prior, priorErr := pb.statusRepo.GetByEntity(ctx, p.GetID(), "payment")
-		if priorErr != nil {
-			return nil, fmt.Errorf("read status of payment %s: %w", p.GetID(), priorErr)
+	if referenceID == "" {
+		status.GenID(ctx)
+		if err = pb.statusRepo.Create(ctx, status); err != nil {
+			util.Log(ctx).WithError(err).Warn("could not save status")
+			return nil, err
 		}
-		return prior.ToAPI(), nil
-	}
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not save status")
-		return nil, err
 	}
 
 	pb.paymentMetrics.RecordInitiated(ctx, p)
 
 	return status.ToAPI(), nil
+}
+
+// claimReference saves the queued status a referenced send starts with. Its
+// id comes from the reference, so of two sends racing past priorSend only
+// one saves it. The other answers the saved payment, checked as priorSend
+// checks it; while that payment is still on its way to the database, it goes
+// on and saves the same payment under the same ids, which the save event
+// stores once. It returns nil, nil when the caller should go on sending.
+func (pb *paymentBusiness) claimReference(
+	ctx context.Context,
+	message *paymentv1.Payment,
+	status *models.Status,
+) (*commonv1.StatusResponse, error) {
+	status.GenID(ctx)
+	err := pb.statusRepo.Create(ctx, status)
+	if err == nil {
+		return nil, nil
+	}
+	if !data.ErrorIsDuplicateKey(err) {
+		util.Log(ctx).WithError(err).Warn("could not save status")
+		return nil, err
+	}
+	return pb.priorSend(ctx, message)
 }
 
 // maxReferenceLength is the longest reference a payment row stores.

@@ -57,6 +57,16 @@ type statusesByEntity struct {
 	byEntity map[string]*models.Status
 }
 
+func (r *statusesByEntity) Create(_ context.Context, status *models.Status) error {
+	for _, saved := range r.byEntity {
+		if saved.ID == status.ID {
+			return gorm.ErrDuplicatedKey
+		}
+	}
+	r.byEntity[status.EntityID] = status
+	return nil
+}
+
 func (r *statusesByEntity) GetByEntity(_ context.Context, id, _ string) (*models.Status, error) {
 	if s, ok := r.byEntity[id]; ok {
 		return s, nil
@@ -123,4 +133,49 @@ func TestSendRefusesAReferenceTooLongToStore(t *testing.T) {
 	pb := &paymentBusiness{obs: metrics.NewMetrics()}
 	_, err := pb.Send(context.Background(), &paymentv1.Payment{ReferenceId: strings.Repeat("r", 151)})
 	require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+}
+
+func TestClaimReference(t *testing.T) {
+	amount := utilmoney.FromMoney(&commonv1.Money{CurrencyCode: "KES", Units: 250})
+	send := &paymentv1.Payment{
+		ReferenceId: "refund-1",
+		Recipient:   &commonv1.ContactLink{ProfileId: "buyer-1"},
+		Amount:      &commonv1.Money{CurrencyCode: "KES", Units: 250},
+	}
+	claim := func(id string) *models.Status {
+		s := &models.Status{EntityID: "payment-1", EntityType: "payment"}
+		s.ID = id
+		return s
+	}
+
+	t.Run("the first send takes the claim", func(t *testing.T) {
+		pb := &paymentBusiness{
+			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{}},
+			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{}},
+		}
+		resp, err := pb.claimReference(context.Background(), send, claim("ref-queued"))
+		require.NoError(t, err)
+		require.Nil(t, resp, "the claimant goes on sending")
+	})
+
+	t.Run("a racing send for someone else is refused once the payment is saved", func(t *testing.T) {
+		prior := &models.Payment{ReferenceID: "refund-1", RecipientProfileID: "someone-else", Currency: "KES", Amount: &amount}
+		prior.ID = "payment-1"
+		pb := &paymentBusiness{
+			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{"refund-1": prior}},
+			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claim("ref-queued")}},
+		}
+		_, err := pb.claimReference(context.Background(), send, claim("ref-queued"))
+		require.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
+	})
+
+	t.Run("a racing send before the payment is saved saves the same payment", func(t *testing.T) {
+		pb := &paymentBusiness{
+			paymentRepo: &paymentsByReference{byReference: map[string]*models.Payment{}},
+			statusRepo:  &statusesByEntity{byEntity: map[string]*models.Status{"payment-1": claim("ref-queued")}},
+		}
+		resp, err := pb.claimReference(context.Background(), send, claim("ref-queued"))
+		require.NoError(t, err)
+		require.Nil(t, resp)
+	})
 }

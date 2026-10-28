@@ -46,7 +46,7 @@ type Payment struct {
 
 	Amount        *decimalx.Decimal `gorm:"type:numeric"                          json:"amount"`
 	TransactionID string            `gorm:"type:varchar(50)"`
-	ReferenceID   string            `gorm:"type:varchar(50)"`
+	ReferenceID   string            `gorm:"type:varchar(150)"`
 	BatchID       string            `gorm:"type:varchar(50)"`
 	RouteID       string            `gorm:"type:varchar(50)"`
 	Currency      string            `gorm:"type:varchar(10)"`

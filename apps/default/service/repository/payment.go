@@ -56,3 +56,16 @@ func (pr *paymentRepository) GetByProfileID(ctx context.Context, profileID strin
 		Find(&payments).Error
 	return payments, err
 }
+
+func (pr *paymentRepository) GetOutboundByReference(ctx context.Context, reference string) (*models.Payment, error) {
+	payment := models.Payment{}
+	// The primary: a retry follows its first attempt closely.
+	err := pr.Pool().DB(ctx, false).
+		Where("reference_id = ? AND out_bound = ?", reference, true).
+		Order("created_at").
+		First(&payment).Error
+	if err != nil {
+		return nil, err
+	}
+	return &payment, nil
+}

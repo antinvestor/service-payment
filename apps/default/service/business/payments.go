@@ -116,6 +116,12 @@ func (pb *paymentBusiness) Send(
 	)
 	defer func() { pb.obs.EndSpan(ctx, span, err) }()
 
+	// A reference names one payout: sending it again answers the first
+	// payment's status instead of paying twice.
+	if prior, priorErr := pb.priorSend(ctx, message.GetReferenceId()); prior != nil || priorErr != nil {
+		return prior, priorErr
+	}
+
 	// The payee's contact decides how the money leaves: the route is chosen
 	// by the payment's partition and the kind of contact paid. A route the
 	// caller names is ignored. Only the contact id is stored; the number is read again as the
@@ -220,6 +226,34 @@ func (pb *paymentBusiness) Send(
 
 	pb.paymentMetrics.RecordInitiated(ctx, p)
 
+	return status.ToAPI(), nil
+}
+
+// maxReferenceLength is the longest reference a payment row stores.
+const maxReferenceLength = 150
+
+// priorSend answers the status of the outbound payment already sent under
+// reference, nil when there is none. A reference too long to store is
+// refused here rather than lost when the payment is saved.
+func (pb *paymentBusiness) priorSend(ctx context.Context, reference string) (*commonv1.StatusResponse, error) {
+	if reference == "" {
+		return nil, nil
+	}
+	if len(reference) > maxReferenceLength {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Sprintf("reference_id is longer than %d characters", maxReferenceLength))
+	}
+	prior, err := pb.paymentRepo.GetOutboundByReference(ctx, reference)
+	if data.ErrorIsNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("look up payment by reference: %w", err)
+	}
+	status, err := pb.statusRepo.GetByEntity(ctx, prior.GetID(), "payment")
+	if err != nil {
+		return nil, fmt.Errorf("read status of payment %s: %w", prior.GetID(), err)
+	}
 	return status.ToAPI(), nil
 }
 

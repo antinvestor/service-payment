@@ -29,26 +29,26 @@ packages:
     dependency: "direct main"
     description:
       name: antinvestor_api_common
-      sha256: "06210c68804e2720fec6bb497b6cbf43d8f712994deb00c257eec770cd2b12cc"
+      sha256: "8d6f3b1580526cc2fa8f895c9e26b6cbb969d1f9ec273b2635b996ef35e861b3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.52.0"
+    version: "2.0.0"
   antinvestor_api_payment:
     dependency: "direct main"
     description:
       name: antinvestor_api_payment
-      sha256: "66c9a8f1cd4431b5f1196217f594a9d2851d1eb4c5e595cd7b092f45ee855d08"
+      sha256: "509d5fef25da5e8e724f9d6f61ec53db6510a7cc8a34a2dd9c87852cdfde9227"
       url: "https://pub.dev"
     source: hosted
-    version: "1.53.0"
+    version: "2.0.0"
   antinvestor_ui_core:
     dependency: "direct main"
     description:
       name: antinvestor_ui_core
-      sha256: "20cd4811dce4a9da6efaa9f95371055e78d08f12ac6d7dff43420f7c029476bf"
+      sha256: "5a3cd467d4b0797334d3412422711f254227a5ddd1bd51a53105f3924f1924cb"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.1"
+    version: "0.6.0"
   args:
     dependency: transitive
     description:
@@ -197,10 +197,10 @@ packages:
     dependency: "direct main"
     description:
       name: connectrpc
-      sha256: a1dbf301d0dfa189bb879a9f15bbe72f31dbac581f385035a10fcc2d31a93a18
+      sha256: c19e62091f42bcc032d3af22201df91c59d174225480aa1a0c716a2ce2d121af
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "2.0.1"
   convert:
     dependency: transitive
     description:
@@ -820,10 +820,10 @@ packages:
     dependency: "direct main"
     description:
       name: protobuf
-      sha256: de9c9eb2c33f8e933a42932fe1dc504800ca45ebc3d673e6ed7f39754ee4053e
+      sha256: "13b6717366aa7ec3792dd62c19c7d33a785708224365f2db23c5ca01f1c1a0f2"
       url: "https://pub.dev"
     source: hosted
-    version: "4.2.0"
+    version: "6.1.0"
   pub_semver:
     dependency: transitive
     description:

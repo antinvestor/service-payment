@@ -16,6 +16,8 @@ package business
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +40,7 @@ import (
 	"github.com/pitabwire/frame/v3/data"
 	fevents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/frame/v3/workerpool"
 	"github.com/pitabwire/util"
 	"github.com/pitabwire/util/decimalx"
@@ -116,6 +119,12 @@ func (pb *paymentBusiness) Send(
 	)
 	defer func() { pb.obs.EndSpan(ctx, span, err) }()
 
+	// A reference names one payout: sending it again answers the first
+	// payment's status instead of paying twice.
+	if prior, priorErr := pb.priorSend(ctx, message); prior != nil || priorErr != nil {
+		return prior, priorErr
+	}
+
 	// The payee's contact decides how the money leaves: the route is chosen
 	// by the payment's partition and the kind of contact paid. A route the
 	// caller names is ignored. Only the contact id is stored; the number is read again as the
@@ -152,11 +161,34 @@ func (pb *paymentBusiness) Send(
 		Amount:   costAmt.Ptr(),
 		Currency: message.GetCost().GetCurrencyCode(),
 	}
+	// Under a reference the ids are derived from it, so two sends racing
+	// past priorSend save one payment, one cost and one status.
+	referenceID := referencedID(ctx, message.GetReferenceId())
+	if referenceID != "" {
+		p.ID = referenceID
+		c.ID = referenceID + "-cost"
+	}
 	c.GenID(ctx)
 
 	p.GenID(ctx)
 
 	pb.validateAmountAndCost(message, p, c)
+
+	status := &models.Status{
+		EntityID:   p.GetID(),
+		EntityType: "payment",
+		State:      int32(commonv1.STATE_CREATED.Number()),
+		Status:     int32(commonv1.STATUS_QUEUED.Number()),
+		Extra:      make(data.JSONMap),
+	}
+	if referenceID != "" {
+		// The queued status is the reference's claim, saved before
+		// anything is sent on.
+		status.ID = referenceID + "-queued"
+		if claimed, claimErr := pb.claimReference(ctx, message, status); claimed != nil || claimErr != nil {
+			return claimed, claimErr
+		}
+	}
 
 	// Save cost separately and add its ID to payment
 	if err = pb.eventMan.Emit(ctx, events.EventNameCostSave, c); err != nil {
@@ -202,24 +234,115 @@ func (pb *paymentBusiness) Send(
 		}
 	}
 
-	// Create status using repository
-	status := &models.Status{
-		EntityID:   p.GetID(),
-		EntityType: "payment",
-		State:      int32(commonv1.STATE_CREATED.Number()),
-		Status:     int32(commonv1.STATUS_QUEUED.Number()),
-		Extra:      make(data.JSONMap),
-	}
-	status.GenID(ctx)
-
-	err = pb.statusRepo.Create(ctx, status)
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not save status")
-		return nil, err
+	if referenceID == "" {
+		status.GenID(ctx)
+		if err = pb.statusRepo.Create(ctx, status); err != nil {
+			util.Log(ctx).WithError(err).Warn("could not save status")
+			return nil, err
+		}
 	}
 
 	pb.paymentMetrics.RecordInitiated(ctx, p)
 
+	return status.ToAPI(), nil
+}
+
+// extraSendFingerprint holds, on a referenced send's claim, what the send
+// pays and to whom.
+const extraSendFingerprint = "send_fingerprint"
+
+// sendFingerprint is what a referenced send pays and to whom.
+func sendFingerprint(message *paymentv1.Payment) string {
+	sum := sha256.Sum256([]byte(message.GetRecipient().GetProfileId() + "|" +
+		message.GetAmount().GetCurrencyCode() + "|" +
+		utilmoney.FromMoney(message.GetAmount()).String()))
+	return hex.EncodeToString(sum[:])
+}
+
+// claimReference saves the queued status a referenced send starts with. Its
+// id comes from the reference, so of two sends racing past priorSend only
+// one saves it, and it records what that send pays and to whom. A send that
+// loses the claim must match that record or is refused. A matching one
+// answers the saved payment, or, while that payment is still on its way to
+// the database, saves the same payment under the same ids, which the save
+// event stores once. It returns nil, nil when the caller should go on
+// sending.
+func (pb *paymentBusiness) claimReference(
+	ctx context.Context,
+	message *paymentv1.Payment,
+	status *models.Status,
+) (*commonv1.StatusResponse, error) {
+	fingerprint := sendFingerprint(message)
+	status.Extra[extraSendFingerprint] = fingerprint
+	status.GenID(ctx)
+	err := pb.statusRepo.Create(ctx, status)
+	if err == nil {
+		return nil, nil
+	}
+	if !data.ErrorIsDuplicateKey(err) {
+		util.Log(ctx).WithError(err).Warn("could not save status")
+		return nil, err
+	}
+	claim, err := pb.statusRepo.GetByID(ctx, status.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("read claim %s: %w", status.GetID(), err)
+	}
+	if claim.Extra.GetString(extraSendFingerprint) != fingerprint {
+		return nil, connect.NewError(connect.CodeAlreadyExists, ErrReferenceReused.Error())
+	}
+	return pb.priorSend(ctx, message)
+}
+
+// maxReferenceLength is the longest reference a payment row stores.
+const maxReferenceLength = 150
+
+// ErrReferenceReused is returned when a reference already names a payout to
+// someone else or of another amount.
+var ErrReferenceReused = errors.New("reference_id already names a different payment")
+
+// referencedID derives a payment id from the caller's tenancy and reference,
+// "" when there is no reference.
+func referencedID(ctx context.Context, reference string) string {
+	if reference == "" {
+		return ""
+	}
+	claims := security.ClaimsFromContext(ctx)
+	sum := sha256.Sum256([]byte(claims.GetTenantID() + "/" + claims.GetPartitionID() + "/" + reference))
+	return "ref" + hex.EncodeToString(sum[:])[:32]
+}
+
+// priorSend answers the status of the outbound payment already sent under
+// the message's reference, nil when there is none. The earlier payment must
+// be to the same recipient for the same amount. A reference too long to
+// store is refused here rather than lost when the payment is saved.
+func (pb *paymentBusiness) priorSend(ctx context.Context, message *paymentv1.Payment) (*commonv1.StatusResponse, error) {
+	reference := message.GetReferenceId()
+	if reference == "" {
+		return nil, nil
+	}
+	if len(reference) > maxReferenceLength {
+		return nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Sprintf("reference_id is longer than %d characters", maxReferenceLength))
+	}
+	claims := security.ClaimsFromContext(ctx)
+	prior, err := pb.paymentRepo.GetOutboundByReference(ctx,
+		claims.GetTenantID(), claims.GetPartitionID(), reference)
+	if data.ErrorIsNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("look up payment by reference: %w", err)
+	}
+	amount := utilmoney.FromMoney(message.GetAmount())
+	if prior.RecipientProfileID != message.GetRecipient().GetProfileId() ||
+		prior.Currency != message.GetAmount().GetCurrencyCode() ||
+		prior.Amount == nil || !prior.Amount.Equal(amount) {
+		return nil, connect.NewError(connect.CodeAlreadyExists, ErrReferenceReused.Error())
+	}
+	status, err := pb.statusRepo.GetByEntity(ctx, prior.GetID(), "payment")
+	if err != nil {
+		return nil, fmt.Errorf("read status of payment %s: %w", prior.GetID(), err)
+	}
 	return status.ToAPI(), nil
 }
 

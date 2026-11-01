@@ -1314,14 +1314,15 @@ func TestPay_MethodCurrency(t *testing.T) {
 	}
 }
 
-// Whole-units rails (M-Pesa, MTN, Airtel, Yellow Card) round to integers in their
+// Whole-units rails (M-Pesa, MTN, Airtel, Yellow Card, Fincra) round to integers in their
 // integrations, so Pay and the page must refuse fractional amounts for them.
 func TestPay_MethodAmount(t *testing.T) {
 	reg, err := business.ParseMethodRegistry(`[
 		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
 		{"key":"card","name":"Card","route":"flutterwave","redirect":true},
 		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true},
-		{"key":"yellowcard","name":"Yellow Card","route":"yellowcard"}
+		{"key":"yellowcard","name":"Yellow Card","route":"yellowcard"},
+		{"key":"fincra","name":"Fincra","route":"fincra"}
 	]`)
 	require.NoError(t, err)
 
@@ -1338,6 +1339,8 @@ func TestPay_MethodAmount(t *testing.T) {
 		{name: "fractional amount via card", option: models.AmountOptionFixed, amount: "100.40", method: "card"},
 		{name: "configured whole_amounts flag", option: models.AmountOptionFixed, amount: "1.5", method: "custom_whole", wantErr: business.ErrMethodAmountUnsupported},
 		{name: "fractional amount via yellowcard", option: models.AmountOptionFixed, amount: "9758.50", method: "yellowcard", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "fractional amount via fincra", option: models.AmountOptionFixed, amount: "350.25", method: "fincra", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "whole amount via fincra", option: models.AmountOptionFixed, amount: "350.00", method: "fincra"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

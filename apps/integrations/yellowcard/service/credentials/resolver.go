@@ -89,6 +89,11 @@ func (r *Resolver) FromConnection(ctx context.Context, connection string) (*clie
 	// environment or customer type that a connection may leave unset.
 	lookup := func(key, fallback string) string { return headerOrDefault(credMap, key, fallback) }
 	creds := r.build(lookup)
+	// A connection is a separate account: its keys never come from the
+	// service's own configuration.
+	creds.APIKey = credMap[config.HeaderAPIKey]
+	creds.SecretKey = credMap[config.HeaderSecretKey]
+	creds.WebhookSecret = credMap[config.HeaderWebhookSecret]
 	creds.Connection = connection
 	creds.TenantID = credMap[config.HeaderTenantID]
 	creds.PartitionID = credMap[config.HeaderPartitionID]

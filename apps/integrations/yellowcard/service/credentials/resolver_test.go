@@ -15,8 +15,11 @@
 package credentials_test
 
 import (
+	"context"
 	"testing"
 
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
+	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/config"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/credentials"
 	"github.com/stretchr/testify/assert"
@@ -82,4 +85,32 @@ func TestDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "cfg-key", creds.APIKey)
 	assert.Equal(t, "retail", creds.CustomerType, "customer type defaults to retail")
+}
+
+type fakeSettings struct {
+	settingsv1connect.SettingsServiceClient
+	value string
+}
+
+func (f *fakeSettings) Get(_ context.Context, _ *settingsv1.GetRequest) (*settingsv1.GetResponse, error) {
+	return &settingsv1.GetResponse{Data: &settingsv1.SettingObject{Value: f.value}}, nil
+}
+
+// A connection is a separate account: it never borrows the service's keys.
+func TestFromConnection_NeverInheritsServiceKeys(t *testing.T) {
+	cfg := testConfig()
+	cfg.WebhookSecret = "cfg-webhook"
+
+	_, err := credentials.NewResolver(&fakeSettings{value: `{"X-YELLOWCARD_TENANT_ID":"t1"}`}, cfg).
+		FromConnection(t.Context(), "acme")
+	require.ErrorIs(t, err, credentials.ErrMissingCredentials)
+
+	creds, err := credentials.NewResolver(&fakeSettings{
+		value: `{"X-YELLOWCARD_API_KEY":"k","X-YELLOWCARD_SECRET_KEY":"s","X-YELLOWCARD_TENANT_ID":"t1"}`,
+	}, cfg).FromConnection(t.Context(), "acme")
+	require.NoError(t, err)
+	assert.Equal(t, "s", creds.ResolveWebhookSecret(), "the connection's own secret verifies its webhooks")
+	assert.Equal(t, "UG", creds.Country, "non-secret defaults still come from config")
+	assert.Equal(t, "acme", creds.Connection)
+	assert.Equal(t, "t1", creds.TenantID)
 }

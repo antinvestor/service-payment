@@ -17,6 +17,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -175,6 +176,9 @@ func (s *YellowcardWebhookServer) handle(w http.ResponseWriter, r *http.Request,
 	}
 
 	creds, err := s.resolveCredentials(ctx, r.URL.Query().Get("connection"))
+	if err == nil && creds.Connection != "" && creds.TenantID == "" {
+		err = errors.New("connection " + creds.Connection + " has no bound tenancy")
+	}
 	if err != nil {
 		logger.WithError(err).Error("cannot resolve credentials to verify webhook, rejecting")
 		s.metrics.WebhookRejected(ctx, metricKind, "verification_failed")
@@ -218,16 +222,15 @@ func (s *YellowcardWebhookServer) handle(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	s.process(w, r, record, &event)
+	s.process(w, r, creds, record, &event)
 }
 
+// resolveCredentials returns the named connection's credentials, or the
+// service's own account when none is named. A named connection that cannot
+// be resolved is an error, never a fallback to the service's account.
 func (s *YellowcardWebhookServer) resolveCredentials(ctx context.Context, connection string) (*client.Credentials, error) {
 	if connection != "" {
-		creds, err := s.credsResolver.FromConnection(ctx, connection)
-		if err == nil {
-			return creds, nil
-		}
-		util.Log(ctx).WithError(err).Warn("connection lookup failed, falling back to default credentials")
+		return s.credsResolver.FromConnection(ctx, connection)
 	}
 	return s.credsResolver.Default()
 }
@@ -279,14 +282,26 @@ func (s *YellowcardWebhookServer) fetch(
 	}, nil
 }
 
-func (s *YellowcardWebhookServer) process(w http.ResponseWriter, r *http.Request, v *verified, event *webhookEvent) {
+func (s *YellowcardWebhookServer) process(
+	w http.ResponseWriter,
+	r *http.Request,
+	creds *client.Credentials,
+	v *verified,
+	event *webhookEvent,
+) {
 	logger := util.Log(r.Context()).
 		WithField("type", "yellowcard.webhook."+v.kind).
 		WithField(v.kind+"_id", v.id).
 		WithField("sequence_id", v.sequenceID)
 	defer logger.Release()
 
-	ctx := injectTenant(r)
+	ctx, ok := injectTenant(r, creds)
+	if !ok {
+		logger.WithField("connection", creds.Connection).Error("webhook tenancy differs from its connection's, rejecting")
+		s.metrics.WebhookRejected(r.Context(), v.kind, "tenancy_mismatch")
+		http.Error(w, "tenancy mismatch", http.StatusForbidden)
+		return
+	}
 
 	entityType := "prompt"
 	if v.kind == kindSend {
@@ -420,20 +435,28 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-// injectTenant builds the claims context from the operator-configured
-// webhook URL query string. Yellow Card records carry no partner metadata,
-// so the query string is the only tenancy signal; the webhook has already
-// been authenticated by signature before this point.
-func injectTenant(r *http.Request) context.Context {
+// injectTenant builds the claims context the status update is recorded
+// under. A webhook verified with a tenant's own connection was signed with a
+// secret that tenant holds, so it can only speak for that connection's bound
+// tenancy: a different tenant_id / partition_id on the URL is refused. Only
+// the service's own account, whose secret no tenant holds, takes tenancy
+// from the operator-configured webhook URL.
+func injectTenant(r *http.Request, creds *client.Credentials) (context.Context, bool) {
 	ctx := r.Context()
 	tenantID := r.URL.Query().Get("tenant_id")
 	partitionID := r.URL.Query().Get("partition_id")
+	if creds.Connection != "" {
+		if (tenantID != "" && tenantID != creds.TenantID) || (partitionID != "" && partitionID != creds.PartitionID) {
+			return ctx, false
+		}
+		tenantID, partitionID = creds.TenantID, creds.PartitionID
+	}
 	if tenantID == "" && partitionID == "" {
-		return ctx
+		return ctx, true
 	}
 	claims := &security.AuthenticationClaims{
 		TenantID:    tenantID,
 		PartitionID: partitionID,
 	}
-	return claims.ClaimsToContext(ctx)
+	return claims.ClaimsToContext(ctx), true
 }

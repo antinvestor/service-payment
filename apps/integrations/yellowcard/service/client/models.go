@@ -117,6 +117,13 @@ type Credentials struct {
 	BusinessName string
 	// WebhookSecret optionally overrides SecretKey for webhook verification.
 	WebhookSecret string
+	// Connection is the settings connection the credentials came from, or
+	// "" for the service's own configured account.
+	Connection string
+	// TenantID and PartitionID are the tenancy a settings connection is
+	// bound to (set only for connections).
+	TenantID    string
+	PartitionID string
 }
 
 // ResolveBaseURL returns the Yellow Card API base URL for these credentials.

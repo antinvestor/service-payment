@@ -44,6 +44,11 @@ const (
 	HeaderBusinessName = "X-YELLOWCARD_BUSINESS_NAME"
 	// HeaderWebhookSecret is the header for the webhook signing secret override.
 	HeaderWebhookSecret = "X-YELLOWCARD_WEBHOOK_SECRET" //nolint:gosec // header name, not a credential
+	// HeaderTenantID and HeaderPartitionID bind a settings connection to the
+	// tenancy that owns it. Webhooks verified with a connection are recorded
+	// only under its bound tenancy; a connection without one is refused.
+	HeaderTenantID    = "X-YELLOWCARD_TENANT_ID"
+	HeaderPartitionID = "X-YELLOWCARD_PARTITION_ID"
 )
 
 type YellowcardConfig struct {

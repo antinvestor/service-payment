@@ -159,7 +159,12 @@ Create webhooks in the Treasury Portal (version **v2**) pointing at:
 - or one catch-all `POST https://<integration>/webhook/yellowcard?…` (dispatches on the `event` prefix)
 
 Add `&connection=<name>` to select a settings-service credential set for
-multi-tenant deployments. The handler:
+multi-tenant deployments. A connection must name the tenancy that owns it
+(`X-YELLOWCARD_TENANT_ID`, `X-YELLOWCARD_PARTITION_ID` in its settings value):
+its webhooks are recorded only under that tenancy, a different
+`tenant_id`/`partition_id` on the URL is refused (403), a connection without
+one is refused (503), and an unknown connection never falls back to the
+service's own account. URL tenancy applies only to the service's own account. The handler:
 
 1. verifies `X-YC-Signature` (base64 HMAC-SHA256 of the raw body with the
    secret key, or `YELLOWCARD_WEBHOOK_SECRET`),

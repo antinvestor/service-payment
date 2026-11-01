@@ -24,6 +24,8 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
+	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/config"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/credentials"
@@ -337,5 +339,66 @@ func TestMapStatus(t *testing.T) {
 		st, state := handlers.MapStatus(tt.status)
 		assert.Equal(t, tt.want, st, tt.status)
 		assert.Equal(t, tt.state, state, tt.status)
+	}
+}
+
+type fakeSettings struct {
+	settingsv1connect.SettingsServiceClient
+	connections map[string]string
+}
+
+func (f *fakeSettings) Get(_ context.Context, req *settingsv1.GetRequest) (*settingsv1.GetResponse, error) {
+	v, ok := f.connections[req.GetKey().GetName()]
+	if !ok {
+		return nil, errors.New("setting not found")
+	}
+	return &settingsv1.GetResponse{Data: &settingsv1.SettingObject{Value: v}}, nil
+}
+
+func TestConnectionTenancy(t *testing.T) {
+	const tenantSecret = "tenant-webhook-secret"
+	conn := func(binding string) string {
+		return `{"X-YELLOWCARD_API_KEY":"` + testAPIKey + `","X-YELLOWCARD_SECRET_KEY":"s",` +
+			`"X-YELLOWCARD_WEBHOOK_SECRET":"` + tenantSecret + `"` + binding + `}`
+	}
+	settings := &fakeSettings{connections: map[string]string{
+		"attacker": conn(`,"X-YELLOWCARD_TENANT_ID":"tenant-a","X-YELLOWCARD_PARTITION_ID":"part-a"`),
+		"unbound":  conn(""),
+	}}
+	body := receiveEvent("RECEIVE.COMPLETE", "complete")
+	sig := client.WebhookSignature(tenantSecret, []byte(body))
+
+	tests := []struct {
+		name, target string
+		signature    string
+		want         int
+		wantTenant   string
+	}{
+		{"another tenant via the URL is refused", "/webhook/yellowcard/receives?connection=attacker&tenant_id=victim", sig,
+			http.StatusForbidden, ""},
+		{"recorded under the connection's tenancy", "/webhook/yellowcard/receives?connection=attacker", sig,
+			http.StatusOK, "tenant-a"},
+		{"a connection without tenancy is refused", "/webhook/yellowcard/receives?connection=unbound&tenant_id=t1", sig,
+			http.StatusServiceUnavailable, ""},
+		{"an unknown connection never falls back", "/webhook/yellowcard/receives?connection=missing&tenant_id=t1",
+			signed(body), http.StatusServiceUnavailable, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			paymentCli := &fakePaymentClient{}
+			ycCli := &fakeYellowcardClient{receive: verifiedReceive("complete", "")}
+			resolver := credentials.NewResolver(settings, &config.YellowcardConfig{
+				APIKey: testAPIKey, SecretKey: "api-secret", WebhookSecret: testSecret, Environment: "sandbox",
+				SettingsIntegrationName: "Yellowcard", SettingsIntegrationID: "Default",
+			})
+			rr := post(t, handlers.NewYellowcardWebhookServer(paymentCli, ycCli, resolver), tt.target, body, tt.signature)
+			require.Equal(t, tt.want, rr.Code, rr.Body.String())
+			if tt.wantTenant == "" {
+				assert.Nil(t, paymentCli.statusReq)
+				return
+			}
+			assert.Equal(t, tt.wantTenant, paymentCli.claims.GetTenantID())
+			assert.Equal(t, "part-a", paymentCli.claims.GetPartitionID())
+		})
 	}
 }

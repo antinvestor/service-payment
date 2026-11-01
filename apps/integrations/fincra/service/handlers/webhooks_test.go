@@ -24,6 +24,8 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
+	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/fincra/config"
 	"github.com/antinvestor/service-payments/apps/integrations/fincra/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/fincra/service/credentials"
@@ -323,4 +325,95 @@ func TestHealthz(t *testing.T) {
 	rr := httptest.NewRecorder()
 	server.NewRouterV1().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+// fakeSettings stores credential connections by name.
+type fakeSettings struct {
+	settingsv1connect.SettingsServiceClient
+	connections map[string]string
+}
+
+func (f *fakeSettings) Get(_ context.Context, req *settingsv1.GetRequest) (*settingsv1.GetResponse, error) {
+	v, ok := f.connections[req.GetKey().GetName()]
+	if !ok {
+		return nil, errors.New("setting not found")
+	}
+	return &settingsv1.GetResponse{Data: &settingsv1.SettingObject{Value: v}}, nil
+}
+
+// tenantConnection is a tenant's own Fincra account: same fake API, but the
+// tenant holds its webhook secret.
+func tenantConnection(tenantID string) string {
+	binding := ""
+	if tenantID != "" {
+		binding = `,"X-FINCRA_TENANT_ID":"` + tenantID + `","X-FINCRA_PARTITION_ID":"` + tenantID + `-p"`
+	}
+	return `{"X-FINCRA_SECRET_KEY":"` + fincratest.SecretKey + `","X-FINCRA_BUSINESS_ID":"` + fincratest.BusinessID +
+		`","X-FINCRA_WEBHOOK_SECRET":"tenant-secret"` + binding + `}`
+}
+
+func (h *harness) postWithSettings(t *testing.T, settings *fakeSettings, target, body, signature string) *httptest.ResponseRecorder {
+	t.Helper()
+	server := handlers.NewFincraWebhookServer(h.payment, client.NewClient(), credentials.NewResolver(settings, h.cfg))
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set(client.HeaderWebhookSignature, signature)
+	rr := httptest.NewRecorder()
+	server.NewRouterV1().ServeHTTP(rr, req)
+	return rr
+}
+
+func TestConnectionTenancy(t *testing.T) {
+	tenantSigned := func(body string) string { return client.WebhookSignature("tenant-secret", []byte(body)) }
+	settings := &fakeSettings{connections: map[string]string{
+		"attacker": tenantConnection("tenant-attacker"),
+		"unbound":  tenantConnection(""),
+	}}
+	charge := func(h *harness) {
+		h.srv.PutCharge(&client.Charge{ID: "9", Reference: "prompt-victim", Status: "success", Amount: 10, Currency: "KES"})
+	}
+	body := `{"event":"charge.successful","data":{"reference":"prompt-victim"}}`
+
+	t.Run("a tenant's connection cannot speak for another tenant", func(t *testing.T) {
+		h := newHarness(t)
+		charge(h)
+		rr := h.postWithSettings(t, settings, "/webhook/fincra?connection=attacker&tenant_id=tenant-victim", body, tenantSigned(body))
+		assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
+		assert.Nil(t, h.payment.statusReq)
+	})
+
+	t.Run("metadata naming another tenant is refused too", func(t *testing.T) {
+		h := newHarness(t)
+		h.srv.PutCheckout(&client.CheckoutPayment{
+			MerchantReference: "prompt-victim", Reference: "fcr-p-1", Status: "success", Amount: 10, Currency: "KES",
+			Metadata: map[string]any{"tenant_id": "tenant-victim"},
+		})
+		rr := h.postWithSettings(t, settings, "/webhook/fincra?connection=attacker", body, tenantSigned(body))
+		assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
+		assert.Nil(t, h.payment.statusReq)
+	})
+
+	t.Run("a connection's webhook is recorded under its bound tenancy", func(t *testing.T) {
+		h := newHarness(t)
+		charge(h)
+		rr := h.postWithSettings(t, settings, "/webhook/fincra?connection=attacker", body, tenantSigned(body))
+		require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+		assert.Equal(t, "tenant-attacker", h.payment.claims.GetTenantID())
+		assert.Equal(t, "tenant-attacker-p", h.payment.claims.GetPartitionID())
+	})
+
+	t.Run("a connection with no bound tenancy is refused", func(t *testing.T) {
+		h := newHarness(t)
+		charge(h)
+		rr := h.postWithSettings(t, settings, "/webhook/fincra?connection=unbound&tenant_id=t1", body, tenantSigned(body))
+		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+		assert.Nil(t, h.payment.statusReq)
+	})
+
+	t.Run("an unknown connection never falls back to the service account", func(t *testing.T) {
+		h := newHarness(t)
+		charge(h)
+		rr := h.postWithSettings(t, settings, "/webhook/fincra?connection=missing&tenant_id=t1", body, signed(body))
+		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+		assert.Nil(t, h.payment.statusReq)
+	})
 }

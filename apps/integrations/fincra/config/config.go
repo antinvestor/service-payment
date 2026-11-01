@@ -38,6 +38,11 @@ const (
 	HeaderFeeBearer = "X-FINCRA_FEE_BEARER"
 	// HeaderCountry is the default ISO 3166-1 alpha-2 payout country.
 	HeaderCountry = "X-FINCRA_COUNTRY"
+	// HeaderTenantID and HeaderPartitionID bind a settings connection to the
+	// tenancy that owns it. Webhooks verified with a connection are recorded
+	// only under its bound tenancy; a connection without one is refused.
+	HeaderTenantID    = "X-FINCRA_TENANT_ID"
+	HeaderPartitionID = "X-FINCRA_PARTITION_ID"
 )
 
 type FincraConfig struct {

@@ -61,6 +61,13 @@ type Credentials struct {
 	FeeBearer string
 	// Country is the default payout country.
 	Country string
+	// Connection is the settings connection the credentials came from, or
+	// "" for the service's own configured account.
+	Connection string
+	// TenantID and PartitionID are the tenancy a settings connection is
+	// bound to (set only for connections).
+	TenantID    string
+	PartitionID string
 }
 
 // IsProduction reports whether the credentials target the live API.

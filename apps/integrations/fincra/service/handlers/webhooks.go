@@ -131,7 +131,7 @@ func (s *FincraWebhookServer) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	creds, err := s.resolveCredentials(ctx, r.URL.Query().Get("connection"))
-	if err != nil || creds.WebhookSecret == "" {
+	if err != nil || creds.WebhookSecret == "" || (creds.Connection != "" && creds.TenantID == "") {
 		logger.WithError(err).Error("no webhook secret to verify Fincra webhook, rejecting")
 		s.metrics.WebhookRejected(ctx, "unknown", "verification_failed")
 		http.Error(w, "webhook verification unavailable", http.StatusServiceUnavailable)
@@ -171,18 +171,49 @@ func (s *FincraWebhookServer) handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(code), code)
 		return
 	}
+	tenantID, partitionID, ok := attribute(r, creds, res)
+	if !ok {
+		logger.WithField("connection", creds.Connection).Error("webhook tenancy differs from its connection's, rejecting")
+		s.metrics.WebhookRejected(ctx, kind, "tenancy_mismatch")
+		http.Error(w, "tenancy mismatch", http.StatusForbidden)
+		return
+	}
+	res.tenantID, res.partitionID = tenantID, partitionID
 	s.record(w, r, kind, res)
 }
 
+// resolveCredentials returns the named connection's credentials, or the
+// service's own account when none is named. A named connection that cannot
+// be resolved is an error, never a fallback to the service's account.
 func (s *FincraWebhookServer) resolveCredentials(ctx context.Context, connection string) (*client.Credentials, error) {
 	if connection != "" {
-		creds, err := s.credsResolver.FromConnection(ctx, connection)
-		if err == nil {
-			return creds, nil
-		}
-		util.Log(ctx).WithError(err).Warn("connection lookup failed, falling back to default credentials")
+		return s.credsResolver.FromConnection(ctx, connection)
 	}
 	return s.credsResolver.Default()
+}
+
+// attribute decides the tenancy a verified outcome is recorded under.
+//
+// A webhook verified with a tenant's own connection was signed with a secret
+// that tenant holds, so it can only speak for that connection's bound
+// tenancy: any other tenancy in Fincra metadata or the URL is refused. Only
+// the service's own account, whose secret no tenant holds, takes tenancy
+// from the record's metadata or the webhook URL.
+func attribute(r *http.Request, creds *client.Credentials, res *outcome) (string, string, bool) {
+	tenantID, partitionID := res.tenantID, res.partitionID
+	if tenantID == "" {
+		tenantID = r.URL.Query().Get("tenant_id")
+	}
+	if partitionID == "" {
+		partitionID = r.URL.Query().Get("partition_id")
+	}
+	if creds.Connection == "" {
+		return tenantID, partitionID, true
+	}
+	if (tenantID != "" && tenantID != creds.TenantID) || (partitionID != "" && partitionID != creds.PartitionID) {
+		return "", "", false
+	}
+	return creds.TenantID, creds.PartitionID, true
 }
 
 // kindFromEvent maps a Fincra event name to what it reports on.
@@ -395,7 +426,7 @@ func (s *FincraWebhookServer) record(w http.ResponseWriter, r *http.Request, kin
 		return
 	}
 
-	ctx := tenantContext(r, res.tenantID, res.partitionID)
+	ctx := tenantContext(r.Context(), res.tenantID, res.partitionID)
 	_, err := s.paymentCli.StatusUpdate(ctx, &commonv1.StatusUpdateRequest{
 		Id:         res.entityID,
 		State:      client.StateFor(res.status),
@@ -412,21 +443,13 @@ func (s *FincraWebhookServer) record(w http.ResponseWriter, r *http.Request, kin
 	writeOK(w)
 }
 
-// tenantContext builds the claims the status update is recorded under:
-// tenancy stored on Fincra's verified record first, then the webhook URL's
-// tenant_id / partition_id. The webhook is already authenticated here.
-func tenantContext(r *http.Request, tenantID, partitionID string) context.Context {
-	if tenantID == "" {
-		tenantID = r.URL.Query().Get("tenant_id")
-	}
-	if partitionID == "" {
-		partitionID = r.URL.Query().Get("partition_id")
-	}
+// tenantContext builds the claims the status update is recorded under.
+func tenantContext(ctx context.Context, tenantID, partitionID string) context.Context {
 	if tenantID == "" && partitionID == "" {
-		return r.Context()
+		return ctx
 	}
 	claims := &security.AuthenticationClaims{TenantID: tenantID, PartitionID: partitionID}
-	return claims.ClaimsToContext(r.Context())
+	return claims.ClaimsToContext(ctx)
 }
 
 func addVariance(extras data.JSONMap, varianceType string, expected, received float64) {

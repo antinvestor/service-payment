@@ -114,7 +114,16 @@ POST https://<integration>/webhook/fincra?tenant_id=…&partition_id=…[&connec
 - `connection` selects a settings-service credential set (keys
   `X-FINCRA_SECRET_KEY`, `X-FINCRA_PUBLIC_KEY`, `X-FINCRA_BUSINESS_ID`,
   `X-FINCRA_WEBHOOK_SECRET`, `X-FINCRA_ENVIRONMENT`, `X-FINCRA_COLLECTION_MODE`,
-  `X-FINCRA_FEE_BEARER`, `X-FINCRA_COUNTRY`).
+  `X-FINCRA_FEE_BEARER`, `X-FINCRA_COUNTRY`, and the owning tenancy
+  `X-FINCRA_TENANT_ID` / `X-FINCRA_PARTITION_ID`).
+- A tenant holds its own connection's webhook secret, so a webhook verified
+  with a connection is recorded only under that connection's bound tenancy:
+  tenancy in metadata or the URL that differs is refused (403), a connection
+  without a bound tenancy is refused (503), and an unknown connection never
+  falls back to the service's own account. Metadata and URL tenancy are used
+  only for the service's own account, whose secret no tenant holds.
+- Replays need no extra guard: every outcome is re-read from Fincra, so a
+  replayed webhook records nothing Fincra does not hold.
 
 ## Mobile money operators
 

@@ -81,7 +81,11 @@ func (r *Resolver) FromConnection(ctx context.Context, connection string) (*clie
 	// Connection values are authoritative; config only fills gaps such as
 	// the environment that a connection may leave unset.
 	lookup := func(key, fallback string) string { return valueOrDefault(credMap, key, fallback) }
-	return r.validate(r.build(lookup))
+	creds := r.build(lookup)
+	creds.Connection = connection
+	creds.TenantID = credMap[config.HeaderTenantID]
+	creds.PartitionID = credMap[config.HeaderPartitionID]
+	return r.validate(creds)
 }
 
 // Default resolves credentials from configuration only. Used by the webhook

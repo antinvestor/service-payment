@@ -90,7 +90,14 @@ func TestConnectionFromSettings(t *testing.T) {
 	assert.Equal(t, "biz-conn", creds.BusinessID)
 	assert.Equal(t, "wh-conn", creds.WebhookSecret)
 	assert.True(t, creds.IsProduction())
-	assert.Equal(t, "pk-env", creds.PublicKey, "a connection may leave values to config")
+	assert.Empty(t, creds.PublicKey, "a connection never borrows the service's keys")
+	assert.Equal(t, "checkout", creds.ResolveCollectionMode(), "non-secret settings still default to config")
+}
+
+func TestConnectionWithoutKeysIsRefused(t *testing.T) {
+	settings := &fakeSettings{value: `{"X-FINCRA_TENANT_ID":"t1"}`}
+	_, err := credentials.NewResolver(settings, baseConfig()).FromConnection(context.Background(), "acme")
+	assert.ErrorIs(t, err, credentials.ErrMissingCredentials)
 }
 
 func TestConnectionErrors(t *testing.T) {

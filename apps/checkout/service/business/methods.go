@@ -44,9 +44,10 @@ type Method struct {
 }
 
 // wholeAmountRoutes are payment routes whose integrations round the charge to
-// whole units (the M-Pesa, MTN and Airtel workers send integer amounts), so a
-// fractional amount would silently be charged as a different amount.
-var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true}
+// whole units (the M-Pesa, MTN and Airtel workers send integer amounts, and
+// Yellow Card takes an integer localAmount), so a fractional amount would be
+// charged as a different amount or refused by the worker.
+var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true, "yellowcard": true}
 
 // IsEmbedded reports whether this method collects payment details on our domain.
 func (m Method) IsEmbedded() bool {

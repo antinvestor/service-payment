@@ -21,14 +21,14 @@ import (
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/settings/v1/settingsv1connect"
+	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/config"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/credentials"
 	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	frameEvents "github.com/pitabwire/frame/v2/events"
-	"github.com/pitabwire/frame/v2/queue"
+	frameEvents "github.com/pitabwire/frame/v3/events"
+	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 )
@@ -102,7 +102,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 
 	localAmount := moneyToLocalAmount(payment.GetAmount())
 	if localAmount <= 0 {
-		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number"))
+		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number of currency units"))
 		return nil
 	}
 

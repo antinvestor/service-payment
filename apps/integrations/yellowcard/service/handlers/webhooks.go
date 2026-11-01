@@ -23,14 +23,13 @@ import (
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/credentials"
 	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/pitabwire/frame/v2/data"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/data"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -113,9 +112,18 @@ type verified struct {
 	country         string
 	currency        string
 	convertedAmount float64
+	localAmount     float64
 	rate            float64
 	reference       string
 	bankInfo        *client.BankInfo
+}
+
+// paidLocalAmount is the record's amount in the local currency.
+func (v *verified) paidLocalAmount() float64 {
+	if v.convertedAmount > 0 {
+		return v.convertedAmount
+	}
+	return v.localAmount
 }
 
 // kindFromEvent maps a webhook event name to a record kind, accepting both
@@ -245,7 +253,8 @@ func (s *YellowcardWebhookServer) fetch(
 		}
 		return &verified{
 			kind: kindSend, id: snd.ID, sequenceID: snd.SequenceID, status: snd.Status, errorCode: snd.ErrorCode,
-			country: snd.Country, currency: snd.Currency, convertedAmount: snd.ConvertedAmount, rate: snd.Rate,
+			country: snd.Country, currency: snd.Currency, convertedAmount: snd.ConvertedAmount,
+			localAmount: snd.LocalAmount, rate: snd.Rate,
 			reference: snd.Reference,
 		}, nil
 	}
@@ -264,7 +273,8 @@ func (s *YellowcardWebhookServer) fetch(
 	}
 	return &verified{
 		kind: kindReceive, id: rcv.ID, sequenceID: rcv.SequenceID, status: rcv.Status, errorCode: rcv.ErrorCode,
-		country: rcv.Country, currency: rcv.Currency, convertedAmount: rcv.ConvertedAmount, rate: rcv.Rate,
+		country: rcv.Country, currency: rcv.Currency, convertedAmount: rcv.ConvertedAmount,
+		localAmount: rcv.LocalAmount, rate: rcv.Rate,
 		reference: rcv.Reference, bankInfo: rcv.BankInfo,
 	}, nil
 }
@@ -304,6 +314,11 @@ func (s *YellowcardWebhookServer) process(w http.ResponseWriter, r *http.Request
 		"rate":                    strconv.FormatFloat(v.rate, 'f', -1, 64),
 		"provider_transaction_id": v.reference,
 	}
+	// The local-currency amount Yellow Card recorded, read from its API, so
+	// checkout can confirm a success paid the session's amount.
+	if paid := v.paidLocalAmount(); paid > 0 {
+		extras["amount"] = strconv.FormatFloat(paid, 'f', -1, 64)
+	}
 	if code := firstNonEmpty(v.errorCode, event.ErrorCode); code != "" || status == commonv1.STATUS_FAILED {
 		if code == "" {
 			code = strings.ToUpper(v.status)
@@ -338,7 +353,7 @@ func (s *YellowcardWebhookServer) process(w http.ResponseWriter, r *http.Request
 		Extras:     extras.ToProtoStruct(),
 	}
 
-	if _, err := s.paymentCli.StatusUpdate(ctx, connect.NewRequest(statusReq)); err != nil {
+	if _, err := s.paymentCli.StatusUpdate(ctx, statusReq); err != nil {
 		logger.WithError(err).Error("could not update payment status")
 		s.metrics.WebhookRejected(r.Context(), v.kind, "status_update_error")
 		http.Error(w, "internal error", http.StatusInternalServerError)

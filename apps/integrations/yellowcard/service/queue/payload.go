@@ -32,8 +32,6 @@ const (
 
 	defaultReason = "other"
 
-	nanosPerUnit = 1e9
-
 	minMSISDNDigits = 7
 )
 
@@ -170,17 +168,17 @@ func resolveCorridor(
 	return out, nil
 }
 
-// moneyToLocalAmount rounds a protobuf Money to whole currency units, which
-// is what Yellow Card's integer localAmount field expects.
+// moneyToLocalAmount converts a protobuf Money to the whole currency units
+// Yellow Card's integer localAmount field expects. A fractional amount
+// returns 0: rounding it would charge or pay a different amount than asked.
 func moneyToLocalAmount(amount interface {
 	GetUnits() int64
 	GetNanos() int32
 }) int64 {
-	if amount == nil {
+	if amount == nil || amount.GetNanos() != 0 {
 		return 0
 	}
-	total := float64(amount.GetUnits()) + float64(amount.GetNanos())/nanosPerUnit
-	return int64(math.Round(total))
+	return amount.GetUnits()
 }
 
 // buildParty assembles the KYC party from portable extras. Institutions use

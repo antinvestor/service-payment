@@ -25,7 +25,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/queue"
 	"github.com/antinvestor/service-payments/pkg/events"
-	frameEvents "github.com/pitabwire/frame/v2/events"
+	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

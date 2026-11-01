@@ -94,8 +94,8 @@ func TestResolveCorridor(t *testing.T) {
 }
 
 func TestMoneyToLocalAmount(t *testing.T) {
-	assert.Equal(t, int64(10), moneyToLocalAmount(&commonv1.Money{Units: 10, Nanos: 490_000_000}))
-	assert.Equal(t, int64(11), moneyToLocalAmount(&commonv1.Money{Units: 10, Nanos: 500_000_000}))
+	assert.Equal(t, int64(0), moneyToLocalAmount(&commonv1.Money{Units: 10, Nanos: 490_000_000}))
+	assert.Equal(t, int64(0), moneyToLocalAmount(&commonv1.Money{Units: 10, Nanos: 500_000_000}))
 	assert.Equal(t, int64(5000), moneyToLocalAmount(&commonv1.Money{Units: 5000}))
 	assert.Equal(t, int64(0), moneyToLocalAmount((*commonv1.Money)(nil)))
 }

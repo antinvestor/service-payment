@@ -23,13 +23,12 @@ import (
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
-	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v1/paymentv1connect"
-	"connectrpc.com/connect"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/config"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/credentials"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/handlers"
-	"github.com/pitabwire/frame/v2/security"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,14 +50,14 @@ type fakePaymentClient struct {
 
 func (f *fakePaymentClient) StatusUpdate(
 	ctx context.Context,
-	req *connect.Request[commonv1.StatusUpdateRequest],
-) (*connect.Response[commonv1.StatusUpdateResponse], error) {
-	f.statusReq = req.Msg
+	req *commonv1.StatusUpdateRequest,
+) (*commonv1.StatusUpdateResponse, error) {
+	f.statusReq = req
 	f.claims = security.ClaimsFromContext(ctx)
 	if f.err != nil {
 		return nil, f.err
 	}
-	return connect.NewResponse(&commonv1.StatusUpdateResponse{}), nil
+	return &commonv1.StatusUpdateResponse{}, nil
 }
 
 // fakeYellowcardClient serves the verified records the webhook server fetches.
@@ -144,6 +143,8 @@ func TestReceiveWebhook_Complete(t *testing.T) {
 	assert.Equal(t, "yellowcard", ex["provider"])
 	assert.Equal(t, "RECEIVE.COMPLETE", ex["event"])
 	assert.Equal(t, "5000", ex["local_amount"])
+	assert.Equal(t, "5000", ex["amount"], "checkout verifies the paid amount from this key")
+	assert.Equal(t, "UGX", ex["currency"])
 	assert.Equal(t, "REF1", ex["provider_transaction_id"])
 	_, hasFailure := ex["failure_code"]
 	assert.False(t, hasFailure)
@@ -279,6 +280,19 @@ func TestCatchAll_DispatchesSend(t *testing.T) {
 	assert.Equal(t, "pay-1", paymentCli.statusReq.GetId())
 	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, paymentCli.statusReq.GetStatus())
 	assert.Equal(t, "payment", paymentCli.statusReq.GetExtras().AsMap()["entity_type"])
+	assert.Equal(t, "20000", paymentCli.statusReq.GetExtras().AsMap()["amount"])
+}
+
+func TestReceiveWebhook_AmountFallsBackToLocalAmount(t *testing.T) {
+	paymentCli := &fakePaymentClient{}
+	ycCli := &fakeYellowcardClient{receive: &client.Receive{
+		ID: "rcv-2", SequenceID: "prompt-2", Status: "complete", Country: "NG", Currency: "NGN", LocalAmount: 9758,
+	}}
+	body := `{"id":"rcv-2","sequenceId":"prompt-2","status":"complete","apiKey":"` + testAPIKey + `","event":"RECEIVE.COMPLETE"}`
+
+	rr := post(t, newServer(paymentCli, ycCli), "/webhook/yellowcard", body, signed(body))
+	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Equal(t, "9758", paymentCli.statusReq.GetExtras().AsMap()["amount"])
 }
 
 func TestCatchAll_LegacyEventNames(t *testing.T) {

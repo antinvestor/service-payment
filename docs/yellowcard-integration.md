@@ -49,7 +49,9 @@ Checkout / Billing collection
   → StatusUpdate(IN_PROCESS | FAILED, portable extras)
   → Webhook (X-YC-Signature verified) + re-fetch → StatusUpdate
 
-Payment Route (mode send, URI = QUEUE_YELLOWCARD_PAYMENT_URI)
+PaymentService.Send (payee named by profile + contact)
+  → route chosen by the payment's partition and contact kind (PAYMENT_ROUTES,
+    mode tx, uri = QUEUE_YELLOWCARD_PAYMENT_URI)
   → payment worker → POST /send (forceAccept) → webhook SEND.* → StatusUpdate
 ```
 
@@ -87,7 +89,7 @@ Checkout already sends `customer_name`, `customer_email`, `success_url`,
 | `country`, `currency` | override the corridor derived from the MSISDN |
 | `reason` | regulatory reason (`gift`, `bills`, … `other`) |
 | `customer_address`, `customer_dob`, `customer_id_type`, `customer_id_number`, `customer_additional_id_type`, `customer_additional_id_number` | full KYC when the product holds it |
-| `account_number`, `account_name`, `bank_code` | bank destinations for **sends** |
+| `account_number`, `account_name`, `bank_code` | bank destinations for sends, honoured by the worker but **not reachable through `PaymentService.Send`** (see below) |
 
 Status extras emitted back (consumed by checkout):
 
@@ -98,6 +100,11 @@ Status extras emitted back (consumed by checkout):
 | `checkout_url` / `auth_redirect_url` + `next_action=redirect_url` | channels that return a payment link (South Africa EFT, Ivory Coast) |
 | `failure_code`, `failure_message` | failures (Yellow Card `errorCode` or API `code`) |
 | `receive_id` / `send_id`, `rate`, `converted_amount`, `local_amount`, `expires_at` | always |
+| `amount`, `currency` | webhook results, read back from the Yellow Card API; checkout refuses to complete a session whose paid amount or currency differs |
+
+Amounts must be whole currency units: Yellow Card takes an integer
+`localAmount`, so the workers fail a fractional amount instead of rounding it,
+and checkout never offers the `yellowcard` route for a fractional amount.
 
 ## KYC
 
@@ -168,12 +175,25 @@ event names are accepted.
 | `failed`, `expired`, `cancelled`, `refunded` | FAILED (state inactive) |
 | everything else | IN_PROCESS (`refund_status` extra for refund states) |
 
+## Payout destinations
+
+`PaymentService.Send` decides where money goes from the payee's verified
+profile contact, and publishes only that contact's number. Caller extras are
+deliberately not forwarded: an `account_number` in them would let a caller
+name a verified payee and pay any account. Yellow Card payouts through Send
+are therefore mobile money to the payee's number. Bank payouts need the bank
+account to be a contact on the payee's profile first (not built yet).
+
 ## Switching providers
 
 1. Set the checkout method `route` to `yellowcard` (or add the `yellowcard`
    method to `CHECKOUT_METHODS`).
 2. Add `"yellowcard": "<prompt queue uri>"` to `INITIATE_PROMPT_ROUTE_URIS`.
-3. Nothing else changes: checkout UI and product gateways are provider-agnostic.
+3. For payouts, declare a `tx` route in the payment service's
+   `PAYMENT_ROUTES` for the partition, `route_type` `msisdn` (or `any`),
+   `uri` = `QUEUE_YELLOWCARD_PAYMENT_URI`. The payee must be a profile with
+   a resolvable contact.
+4. Nothing else changes: checkout UI and product gateways are provider-agnostic.
 
 ## Production checklist
 
@@ -182,6 +202,6 @@ event names are accepted.
 - [ ] Webhooks created (v2) with HTTPS URLs and tenant query params
 - [ ] `YELLOWCARD_ENVIRONMENT=production`
 - [ ] `INITIATE_PROMPT_ROUTE_URIS` includes `yellowcard`
-- [ ] Payout `Route.URI` equals `QUEUE_YELLOWCARD_PAYMENT_URI` (sends)
+- [ ] `PAYMENT_ROUTES` declares the partition's `tx` route with `uri` = `QUEUE_YELLOWCARD_PAYMENT_URI` (sends)
 - [ ] USD float funded in the Treasury Portal for sends
 - [ ] KYC extras supplied for NGN / ZAR / BWP and amounts over 20 USD

@@ -40,6 +40,25 @@ const (
 
 	// Method selection (adapter maps to PSP-specific payment_method.type).
 	ExtraPaymentMethodType = "payment_method_type"
+	// ExtraChannelType selects the provider rail directly: "momo" or "bank".
+	ExtraChannelType = "channel_type"
+	// ExtraNetwork names the mobile money operator or bank (id, code or name).
+	ExtraNetwork = "network"
+	// ExtraCountry / ExtraCurrency override corridor detection from the MSISDN.
+	ExtraCountry  = "country"
+	ExtraCurrency = "currency"
+	// ExtraReason is the regulatory payment reason (gift, bills, ... other).
+	ExtraReason = "reason"
+
+	// Customer KYC metadata (only what the product already holds; providers
+	// that need full KYC read these and fall back to reduced KYC when absent).
+	ExtraCustomerCountry            = "customer_country"
+	ExtraCustomerAddress            = "customer_address"
+	ExtraCustomerDOB                = "customer_dob" // mm/dd/yyyy
+	ExtraCustomerIDType             = "customer_id_type"
+	ExtraCustomerIDNumber           = "customer_id_number"
+	ExtraCustomerAdditionalIDType   = "customer_additional_id_type"
+	ExtraCustomerAdditionalIDNumber = "customer_additional_id_number"
 
 	// Embedded card (AES-GCM ciphertext + nonce) — never clear PAN in extras long-term logs.
 	ExtraEncryptedCardNumber  = "encrypted_card_number"
@@ -71,6 +90,21 @@ const (
 	ExtraProvider           = "provider"
 	ExtraAPIVersion         = "api_version"
 	ExtraMode               = "mode"
+
+	// Bank transfer instructions returned by adapters when the payer must
+	// push money to an account (checkout renders these on the confirm page).
+	ExtraBankName          = "bank_name"
+	ExtraBankAccountNumber = "bank_account_number"
+	ExtraBankAccountName   = "bank_account_name"
+	ExtraPaymentReference  = "payment_reference"
+	ExtraPaymentExpiresAt  = "payment_expires_at" // RFC3339
+)
+
+// Payment method types understood by adapters (ExtraPaymentMethodType).
+const (
+	PaymentMethodTypeCard         = "card"
+	PaymentMethodTypeMobileMoney  = "mobile_money"
+	PaymentMethodTypeBankTransfer = "bank_transfer"
 )
 
 // ActionAuthorize is the portable action value for charge authorization prompts.
@@ -78,10 +112,11 @@ const ActionAuthorize = "authorize"
 
 // NextAction types (normalized across providers).
 const (
-	NextActionRedirectURL = "redirect_url"
-	NextActionRequiresPIN = "requires_pin"
-	NextActionRequiresOTP = "requires_otp"
-	NextActionRequiresAVS = "requires_additional_fields"
+	NextActionRedirectURL  = "redirect_url"
+	NextActionRequiresPIN  = "requires_pin"
+	NextActionRequiresOTP  = "requires_otp"
+	NextActionRequiresAVS  = "requires_additional_fields"
+	NextActionBankTransfer = "requires_bank_transfer"
 )
 
 // DefaultCardRoute is the payment service route name for card collection.

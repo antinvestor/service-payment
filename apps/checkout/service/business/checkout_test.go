@@ -1314,13 +1314,14 @@ func TestPay_MethodCurrency(t *testing.T) {
 	}
 }
 
-// Whole-units rails (M-Pesa, MTN, Airtel) round to integers in their
+// Whole-units rails (M-Pesa, MTN, Airtel, Yellow Card) round to integers in their
 // integrations, so Pay and the page must refuse fractional amounts for them.
 func TestPay_MethodAmount(t *testing.T) {
 	reg, err := business.ParseMethodRegistry(`[
 		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
 		{"key":"card","name":"Card","route":"flutterwave","redirect":true},
-		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true}
+		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true},
+		{"key":"yellowcard","name":"Yellow Card","route":"yellowcard"}
 	]`)
 	require.NoError(t, err)
 
@@ -1336,6 +1337,7 @@ func TestPay_MethodAmount(t *testing.T) {
 		{name: "variable fractional amount via mpesa", option: models.AmountOptionVariable, amount: "75.50", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
 		{name: "fractional amount via card", option: models.AmountOptionFixed, amount: "100.40", method: "card"},
 		{name: "configured whole_amounts flag", option: models.AmountOptionFixed, amount: "1.5", method: "custom_whole", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "fractional amount via yellowcard", option: models.AmountOptionFixed, amount: "9758.50", method: "yellowcard", wantErr: business.ErrMethodAmountUnsupported},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2196,6 +2198,51 @@ func TestRefreshStatus_CapturesCheckoutURL(t *testing.T) {
 	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
 	require.NotNil(t, updated.Metadata)
 	assert.Equal(t, "https://polar.sh/checkout/abc123", updated.Metadata["_redirect_url"])
+}
+
+func TestRefreshStatus_CapturesBankTransferExtras(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	linkRepo := newFakeLinkRepo()
+
+	extras, err := structpb.NewStruct(map[string]any{
+		"entity_type":         "prompt",
+		"payment_instruction": "Transfer exactly NGN 9,758 to PAGA account 01234567890",
+		"bank_name":           "PAGA",
+		"bank_account_number": "01234567890",
+		"bank_account_name":   "Ken Adams",
+		"payment_reference":   "JJ8094861",
+		"payment_expires_at":  "2030-01-01T04:00:00Z",
+	})
+	require.NoError(t, err)
+
+	payCli := &fakePaymentClient{
+		statusResp: &commonv1.StatusResponse{
+			Status: commonv1.STATUS_IN_PROCESS,
+			Extras: extras,
+		},
+	}
+	b := newBusiness(defaultConfig(), redirectRegistry(), sessionRepo, linkRepo, payCli, &fakeProfileClient{})
+
+	s := &models.CheckoutSession{
+		Ref:      "sess-bank",
+		Status:   models.SessionStatusProcessing,
+		PromptID: "prompt-yc",
+		Currency: "NGN",
+	}
+	sessionRepo.sessions["sess-bank"] = s
+
+	updated, err := b.RefreshStatus(context.Background(), s)
+	require.NoError(t, err)
+	assert.Equal(t, models.SessionStatusProcessing, updated.Status)
+	require.NotNil(t, updated.Metadata)
+	assert.Equal(t, "PAGA", updated.Metadata["_bank_name"])
+	assert.Equal(t, "01234567890", updated.Metadata["_bank_account_number"])
+	assert.Equal(t, "Ken Adams", updated.Metadata["_bank_account_name"])
+	assert.Equal(t, "JJ8094861", updated.Metadata["_payment_reference"])
+	assert.Equal(t, "2030-01-01T04:00:00Z", updated.Metadata["_payment_expires_at"])
+	assert.Contains(t, updated.Metadata["_payment_instruction"], "01234567890")
+	_, hasRedirect := updated.Metadata["_redirect_url"]
+	assert.False(t, hasRedirect)
 }
 
 func TestIsExternalAuthRedirect(t *testing.T) {

@@ -44,9 +44,10 @@ type Method struct {
 }
 
 // wholeAmountRoutes are payment routes whose integrations round the charge to
-// whole units (the M-Pesa, MTN and Airtel workers send integer amounts), so a
-// fractional amount would silently be charged as a different amount.
-var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true}
+// whole units (the M-Pesa, MTN and Airtel workers send integer amounts, and
+// Yellow Card takes an integer localAmount), so a fractional amount would be
+// charged as a different amount or refused by the worker.
+var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true, "yellowcard": true}
 
 // IsEmbedded reports whether this method collects payment details on our domain.
 func (m Method) IsEmbedded() bool {
@@ -579,6 +580,28 @@ func InferCountryFromPhone(phone string) string {
 		return "GH"
 	case strings.HasPrefix(phone, "234"):
 		return "NG"
+	case strings.HasPrefix(phone, "267"):
+		return "BW"
+	case strings.HasPrefix(phone, "229"):
+		return "BJ"
+	case strings.HasPrefix(phone, "237"):
+		return "CM"
+	case strings.HasPrefix(phone, "225"):
+		return "CI"
+	case strings.HasPrefix(phone, "265"):
+		return "MW"
+	case strings.HasPrefix(phone, "228"):
+		return "TG"
+	case strings.HasPrefix(phone, "241"):
+		return "GA"
+	case strings.HasPrefix(phone, "242"):
+		return "CG"
+	case strings.HasPrefix(phone, "221"):
+		return "SN"
+	case strings.HasPrefix(phone, "223"):
+		return "ML"
+	case strings.HasPrefix(phone, "226"):
+		return "BF"
 	case strings.HasPrefix(phone, "27"):
 		return "ZA"
 	case strings.HasPrefix(phone, "1"):

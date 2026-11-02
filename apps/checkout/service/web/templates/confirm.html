@@ -2,9 +2,17 @@
 
 <h2>{{t .Lang "confirm_title"}}</h2>
 <p class="hint">{{t .Lang "confirm_hint"}}</p>
-{{if .PaymentInstruction}}
-<div class="banner info">{{.PaymentInstruction}}</div>
-{{end}}
+<div id="payment-instruction" class="banner info{{if not .PaymentInstruction}} hidden{{end}}">{{.PaymentInstruction}}</div>
+<div id="bank-transfer" class="bank-transfer{{if not .BankTransfer}} hidden{{end}}">
+  <h3>{{t .Lang "bank_transfer_title"}}</h3>
+  <dl>
+    <div><dt>{{t .Lang "bank_name"}}</dt><dd id="bt-bank">{{with .BankTransfer}}{{.BankName}}{{end}}</dd></div>
+    <div><dt>{{t .Lang "bank_account_number"}}</dt><dd id="bt-account" class="mono">{{with .BankTransfer}}{{.AccountNumber}}{{end}}</dd></div>
+    <div><dt>{{t .Lang "bank_account_name"}}</dt><dd id="bt-name">{{with .BankTransfer}}{{.AccountName}}{{end}}</dd></div>
+    <div><dt>{{t .Lang "bank_reference"}}</dt><dd id="bt-ref" class="mono">{{with .BankTransfer}}{{.Reference}}{{end}}</dd></div>
+    <div><dt>{{t .Lang "bank_expires"}}</dt><dd id="bt-expires">{{with .BankTransfer}}{{.ExpiresAt}}{{end}}</dd></div>
+  </dl>
+</div>
 <p class="hint redirect-hint">{{t .Lang "redirect_hint"}}</p>
 <div class="spinner" aria-label="loading"></div>
 

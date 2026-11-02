@@ -97,6 +97,29 @@ Checkout method key `yellowcard` (route `yellowcard`). Webhooks:
 `POST /webhook/yellowcard/receives`, `POST /webhook/yellowcard/sends` with
 `?tenant_id=…&partition_id=…`. Production needs Yellow Card IP allow-listing.
 
+### Fincra (`apps/integrations/fincra`) — dormant
+
+Not built or offered yet; see the status note in the guide.
+
+See [fincra-integration.md](./fincra-integration.md) for full setup.
+Docs: [docs.fincra.com](https://docs.fincra.com/docs/getting-started).
+
+| Variable | Purpose |
+|----------|---------|
+| `FINCRA_SECRET_KEY` / `FINCRA_PUBLIC_KEY` | `api-key` / `x-pub-key` headers |
+| `FINCRA_BUSINESS_ID` | `x-business-id` header and payout `business` |
+| `FINCRA_WEBHOOK_SECRET` | Webhook encryption key (`signature` HMAC-SHA512); required |
+| `FINCRA_ENVIRONMENT` | `sandbox` or `production` |
+| `FINCRA_COLLECTION_MODE` | `checkout` (hosted page, default) or `direct` (direct charge) |
+| `FINCRA_FEE_BEARER` | `business` (default) or `customer` |
+| `FINCRA_WEBHOOK_BASE_URL` | Public URL for direct-charge `webhookUrl` |
+| `QUEUE_FINCRA_PROMPT_URI` | Must be the `fincra` entry in `INITIATE_PROMPT_ROUTE_URIS` |
+| `QUEUE_FINCRA_PAYMENT_URI` | Must be the `uri` of the partition's `tx` route in `PAYMENT_ROUTES` |
+
+Checkout method key `fincra` (route `fincra`, whole amounts only). Webhook:
+`POST /webhook/fincra?tenant_id=…&partition_id=…`. Production needs Fincra
+IP whitelisting.
+
 Flutter UI uses the same return path via `--dart-define=CHECKOUT_RETURN_URL=…`
 and `--dart-define=BILLING_URL=…`.
 

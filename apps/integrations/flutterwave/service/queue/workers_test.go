@@ -403,3 +403,19 @@ func TestKeysFromQueueHeadersAreIgnored(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "client-id", creds.ClientID)
 }
+
+func TestAuthorizeRefusesAChargeThatProvesNoPrompt(t *testing.T) {
+	h := newHarness(t)
+	h.fw.Charges["chg_stray"] = &client.Charge{ID: "chg_stray", Reference: "someone-else", Status: "pending"}
+
+	require.NoError(t, h.prompts.Handle(context.Background(), nil,
+		authorizePayload(t, "chg_stray", map[string]any{"authorization_type": "otp", "otp": "123456"})))
+	require.Zero(t, h.statuses.count())
+	require.Zero(t, h.fw.Count("PUT /charges/chg_stray"))
+
+	// Our own reference proves it even without meta (v3 charges).
+	h.fw.Charges["chg_ref"] = &client.Charge{ID: "chg_ref", Reference: chargeReference("prompt", "prompt-auth"), Status: "pending"}
+	require.NoError(t, h.prompts.Handle(context.Background(), nil,
+		authorizePayload(t, "chg_ref", map[string]any{"authorization_type": "otp", "otp": "123456"})))
+	require.Equal(t, 1, h.fw.Count("PUT /charges/chg_ref"))
+}

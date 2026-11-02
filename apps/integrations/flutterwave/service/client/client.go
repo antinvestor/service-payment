@@ -551,7 +551,7 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 	if creds == nil || creds.ClientID == "" || creds.ClientSecret == "" {
 		return "", errors.New("flutterwave client_id and client_secret are required (v4 OAuth)")
 	}
-	key := creds.ClientID + ":" + strings.ToLower(creds.Environment)
+	key := tokenKey(creds)
 	if token, ok := c.cachedToken(key); ok {
 		return token, nil
 	}
@@ -569,6 +569,16 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 		return "", err
 	}
 	return v.(string), nil
+}
+
+// tokenKey names a token by the whole credential that earned it: a client
+// id presented with any other secret, token URL or environment never shares
+// a cached token.
+func tokenKey(creds *Credentials) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		creds.ClientID, creds.ClientSecret, creds.OAuthTokenURL, strings.ToLower(creds.Environment),
+	}, "\x00")))
+	return hex.EncodeToString(sum[:])
 }
 
 func (c *flutterwaveClient) cachedToken(key string) (string, bool) {
@@ -632,7 +642,7 @@ func (c *flutterwaveClient) invalidateToken(creds *Credentials) {
 	if creds == nil {
 		return
 	}
-	key := creds.ClientID + ":" + strings.ToLower(creds.Environment)
+	key := tokenKey(creds)
 	c.mu.Lock()
 	delete(c.tokens, key)
 	c.mu.Unlock()

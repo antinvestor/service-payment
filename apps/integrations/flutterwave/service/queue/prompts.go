@@ -425,11 +425,15 @@ func (h *promptHandler) handleAuthorize(
 		}
 		return fmt.Errorf("read charge %s: %w", chargeID, err)
 	}
-	if owner := metaString(current.Meta, MetaPromptID); owner != "" && owner != promptID {
-		logger.WithField("charge_id", chargeID).WithField("charge_prompt", owner).
-			Error("authorize step names a charge of another prompt; dropped")
+	if !chargeOfPrompt(current, promptID) {
+		logger.WithField("charge_id", chargeID).WithField("charge_prompt", metaString(current.Meta, MetaPromptID)).
+			WithField("charge_reference", current.Reference).
+			Error("authorize step names a charge this prompt did not make; dropped")
 		h.metrics.QueueFailed(ctx, "prompt", "charge_mismatch")
 		return nil
+	}
+	if recorded := ExpectationFromMeta(current.Meta); recorded.Currency != "" {
+		want = recorded
 	}
 	if isTerminalPaymentStatus(ChargeStatus(current.Status)) {
 		return h.reportCharge(ctx, logger, promptID, current, "authorize", want)
@@ -642,6 +646,17 @@ func chargeReference(kind, id string) string {
 	}
 	sum := sha256.Sum256([]byte(id))
 	return kind + "-" + hex.EncodeToString(sum[:])[:32]
+}
+
+// chargeOfPrompt reports whether a charge was made for this prompt: its
+// meta names the prompt, or its reference is the one derived from the
+// prompt id. A charge proving neither is not this prompt's.
+func chargeOfPrompt(ch *client.Charge, promptID string) bool {
+	if owner := metaString(ch.Meta, MetaPromptID); owner != "" {
+		return owner == promptID
+	}
+	return ch.Reference != "" &&
+		(ch.Reference == chargeReference("prompt", promptID) || ch.Reference == chargeReference("renew", promptID))
 }
 
 func metaString(meta map[string]any, key string) string {

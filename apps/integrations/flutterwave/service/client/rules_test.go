@@ -117,3 +117,18 @@ func TestTokensAreRequestedOncePerKey(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, 1, fw.Tokens)
 }
+
+func TestATokenIsNeverSharedAcrossSecrets(t *testing.T) {
+	fw := fwtest.New(t)
+	cli := client.NewClient()
+	fw.Charges["chg_1"] = &client.Charge{ID: "chg_1"}
+	good := fw.Credentials()
+	_, err := cli.GetCharge(context.Background(), good, "chg_1")
+	require.NoError(t, err)
+
+	other := fw.Credentials()
+	other.ClientSecret = "someone-elses-guess"
+	_, err = cli.GetCharge(context.Background(), other, "chg_1")
+	require.NoError(t, err)
+	assert.Equal(t, 2, fw.Tokens, "the second secret earned its own token")
+}

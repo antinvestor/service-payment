@@ -495,6 +495,19 @@ func (pb *paymentBusiness) StatusUpdate(
 		return nil, errors.New("entity_type must be provided in extras for status update")
 	}
 
+	// A settled outcome is final: a late, replayed or out-of-order update
+	// (a redelivered worker message, a webhook arriving after the worker's
+	// answer) must not turn a success into a failure or back to pending.
+	if latest, getErr := pb.statusRepo.GetByEntity(ctx, req.GetId(), entityType); getErr == nil && latest != nil &&
+		isTerminal(commonv1.STATUS(latest.Status)) && latest.Status != int32(req.GetStatus()) {
+		logger.WithFields(map[string]any{
+			"entity_type": entityType,
+			"settled":     commonv1.STATUS(latest.Status).String(),
+			"update":      req.GetStatus().String(),
+		}).Warn("status update after settlement ignored")
+		return latest.ToAPI(), nil
+	}
+
 	status := &models.Status{
 		EntityID:   req.GetId(),
 		EntityType: entityType,
@@ -695,12 +708,30 @@ func (pb *paymentBusiness) InitiatePrompt(
 	logger.Debug("handling initiate prompt request")
 
 	// A caller-chosen id names one prompt: asking again returns where that
-	// prompt stands instead of pushing the payer a second time.
+	// prompt stands instead of pushing the payer a second time. The one
+	// exception is an authorization step (PIN / OTP / AVS), which completes
+	// the charge the prompt already started.
 	if req.GetId() != "" {
-		if existing, getErr := pb.promptRepo.GetByID(ctx, req.GetId()); getErr == nil && existing != nil {
+		existing, getErr := pb.promptRepo.GetByID(ctx, req.GetId())
+		if getErr == nil && existing != nil {
+			if isContinuation(req) {
+				return pb.continuePrompt(ctx, existing, req)
+			}
 			logger.WithField("prompt_id", req.GetId()).Debug("prompt already raised; not sent again")
-			return existing.ToAPIStatus(), nil
+			return pb.promptStatus(ctx, existing), nil
 		}
+		if getErr != nil && !data.ErrorIsNoRows(getErr) {
+			// Unsure whether it was raised: refuse rather than push twice.
+			logger.WithError(getErr).WithField("prompt_id", req.GetId()).Warn("could not look up prompt")
+			return nil, getErr
+		}
+		if isContinuation(req) {
+			// Nothing to authorize: never start a fresh charge from a
+			// continuation, which carries no card and no payer consent.
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Sprintf("prompt %s was never raised", req.GetId()))
+		}
+	} else if isContinuation(req) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, "an authorization step names its prompt")
 	}
 
 	// Resolve the payer's number before anything is stored, so a prompt
@@ -754,6 +785,7 @@ func (pb *paymentBusiness) InitiatePrompt(
 	// Publish InitiatePromptRequest protobuf (not the ORM model) so integrators
 	// can proto.Unmarshal. Route-specific publishers take priority when registered.
 	apiPrompt := p.ToAPI(nil)
+	withTransientExtras(apiPrompt, req.GetExtra())
 	if dial != "" {
 		// Providers dial the source contact; only the published prompt
 		// carries the number, the stored prompt keeps the contact id.
@@ -807,7 +839,7 @@ func buildPromptModel(
 	transactionRef string,
 ) *models.Prompt {
 	var promptExtras data.JSONMap
-	promptExtras = promptExtras.FromProtoStruct(req.GetExtra())
+	promptExtras = storedExtras(promptExtras.FromProtoStruct(req.GetExtra()))
 
 	p := &models.Prompt{
 		SourceID:             req.GetSource().GetProfileId(),

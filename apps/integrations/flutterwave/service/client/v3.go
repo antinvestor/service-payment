@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -114,7 +113,7 @@ func (c *flutterwaveClient) createStandardPaymentV3(
 		return nil, err
 	}
 	if !strings.EqualFold(out.Status, "success") || out.Data.Link == "" {
-		retErr = fmt.Errorf("flutterwave v3 payments: status=%s message=%s", out.Status, out.Message)
+		retErr = &APIError{Op: "v3 payments", Status: out.Status, Message: out.Message}
 		return nil, retErr
 	}
 
@@ -148,7 +147,7 @@ func (c *flutterwaveClient) createMoMoChargeV3(
 
 	mm := req.PaymentMethod.MobileMoney
 	if mm == nil {
-		retErr = errors.New("mobile_money details required")
+		retErr = invalidRequest("mobile_money details required")
 		return nil, retErr
 	}
 
@@ -182,6 +181,10 @@ func (c *flutterwaveClient) createMoMoChargeV3(
 	if err := c.doV3JSON(ctx, creds, http.MethodPost, path, body, &out); err != nil {
 		retErr = err
 		return nil, err
+	}
+	if !strings.EqualFold(out.Status, "success") {
+		retErr = &APIError{Op: "v3 momo charge", Status: out.Status, Message: out.Message}
+		return nil, retErr
 	}
 
 	ch := &Charge{
@@ -277,6 +280,11 @@ func (c *flutterwaveClient) getChargeV3(
 	}
 
 	if err := c.doV3JSON(ctx, creds, http.MethodGet, path, nil, &out); err != nil {
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) && (httpErr.Status == http.StatusNotFound ||
+			(httpErr.Status == http.StatusBadRequest && strings.Contains(strings.ToLower(httpErr.Body), "no transaction"))) {
+			err = ErrNotFound
+		}
 		retErr = err
 		return nil, err
 	}
@@ -361,7 +369,7 @@ func (c *flutterwaveClient) createTransferV3(
 		return nil, err
 	}
 	if !strings.EqualFold(out.Status, "success") {
-		retErr = fmt.Errorf("flutterwave v3 transfer: %s", out.Message)
+		retErr = &APIError{Op: "v3 transfer", Status: out.Status, Message: out.Message}
 		return nil, retErr
 	}
 	return &Transfer{
@@ -380,7 +388,7 @@ func (c *flutterwaveClient) doV3JSON(
 ) error {
 	secret := creds.secretKey()
 	if secret == "" {
-		return errors.New("flutterwave secret key required")
+		return invalidRequest("flutterwave secret key required")
 	}
 
 	var body io.Reader

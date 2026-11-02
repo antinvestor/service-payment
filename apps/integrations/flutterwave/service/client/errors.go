@@ -105,6 +105,8 @@ func IsDuplicate(err error) bool {
 	if errors.As(err, &httpErr) && httpErr.Status == http.StatusConflict {
 		return true
 	}
+	// Some refusals arrive as 400 naming the reference; nothing else counts.
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "already exist")
+	return strings.Contains(msg, "reference") &&
+		(strings.Contains(msg, "duplicate") || strings.Contains(msg, "already"))
 }

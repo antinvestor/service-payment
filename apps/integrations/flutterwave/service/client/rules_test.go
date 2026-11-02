@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 
@@ -38,6 +39,7 @@ func TestIsRejected(t *testing.T) {
 		"not found":        {&client.HTTPError{Status: 404}, true},
 		"conflict":         {&client.HTTPError{Status: 409}, false},
 		"duplicate in 400": {&client.HTTPError{Status: 400, Body: "Duplicate reference"}, false},
+		"other 'already'":  {&client.HTTPError{Status: 400, Body: "recipient already exists"}, true},
 		"rate limited":     {&client.HTTPError{Status: 429}, false},
 		"timeout status":   {&client.HTTPError{Status: 408}, false},
 		"server error":     {&client.HTTPError{Status: 502}, false},
@@ -131,4 +133,30 @@ func TestATokenIsNeverSharedAcrossSecrets(t *testing.T) {
 	_, err = cli.GetCharge(context.Background(), other, "chg_1")
 	require.NoError(t, err)
 	assert.Equal(t, 2, fw.Tokens, "the second secret earned its own token")
+}
+
+func TestRevokedKeysAreARefusalNotARetry(t *testing.T) {
+	fw := fwtest.New(t)
+	fw.Fail("POST /token", http.StatusUnauthorized)
+	_, err := client.NewClient().GetCharge(context.Background(), fw.Credentials(), "chg_1")
+	require.Error(t, err)
+	assert.True(t, client.IsRejected(err), "wrong keys fail the payment instead of redelivering forever")
+}
+
+func TestAnAnswerWithoutAnIDIsUnknown(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":600}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"success","data":{}}`))
+	}))
+	t.Cleanup(srv.Close)
+	creds := &client.Credentials{
+		ClientID: "id", ClientSecret: "secret", Environment: "sandbox",
+		APIBaseURL: srv.URL, OAuthTokenURL: srv.URL + "/token",
+	}
+	_, err := client.NewClient().CreateTransfer(context.Background(), creds, map[string]any{"reference": "pay-1"})
+	require.Error(t, err)
+	assert.False(t, client.IsRejected(err), "the transfer may exist: never a definite refusal")
 }

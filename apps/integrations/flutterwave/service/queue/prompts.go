@@ -250,7 +250,12 @@ func (h *promptHandler) existingCharge(
 	ch, err := h.fwCli.FindChargeByReference(ctx, creds, reference)
 	switch {
 	case err == nil:
-		return ch, true, nil
+		// A list item may omit next_action; report the full charge.
+		full, getErr := h.fwCli.GetCharge(ctx, creds, ch.ID)
+		if getErr != nil {
+			return nil, false, fmt.Errorf("read charge %s: %w", ch.ID, getErr)
+		}
+		return full, true, nil
 	case client.IsNotFound(err):
 		return nil, false, nil
 	case client.IsRejected(err):
@@ -280,8 +285,8 @@ func (h *promptHandler) afterCreateError(
 			"error": createErr.Error(), "reference": reference,
 		})
 	}
-	ch, err := h.fwCli.FindChargeByReference(ctx, creds, reference)
-	if err != nil {
+	ch, found, err := h.existingCharge(ctx, logger, creds, reference)
+	if err != nil || !found {
 		logger.WithError(createErr).Warn("charge outcome unknown; redelivering")
 		return fmt.Errorf("charge %s outcome unknown: %w", reference, createErr)
 	}
@@ -432,8 +437,10 @@ func (h *promptHandler) handleAuthorize(
 		h.metrics.QueueFailed(ctx, "prompt", "charge_mismatch")
 		return nil
 	}
-	if recorded := ExpectationFromMeta(current.Meta); recorded.Currency != "" {
-		want = recorded
+	// The payment service's prompt is the authority on the amount; the
+	// charge's own record is used only when the prompt carries none.
+	if want.Currency == "" {
+		want = ExpectationFromMeta(current.Meta)
 	}
 	if isTerminalPaymentStatus(ChargeStatus(current.Status)) {
 		return h.reportCharge(ctx, logger, promptID, current, "authorize", want)

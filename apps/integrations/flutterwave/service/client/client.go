@@ -546,10 +546,10 @@ func (c *flutterwaveClient) doJSON(
 
 func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials) (string, error) {
 	if IsV3Credentials(creds) {
-		return "", errors.New("v3 secret-key mode does not use OAuth access tokens")
+		return "", invalidRequest("v3 secret-key mode does not use OAuth access tokens")
 	}
 	if creds == nil || creds.ClientID == "" || creds.ClientSecret == "" {
-		return "", errors.New("flutterwave client_id and client_secret are required (v4 OAuth)")
+		return "", invalidRequest("flutterwave client_id and client_secret are required (v4 OAuth)")
 	}
 	key := tokenKey(creds)
 	if token, ok := c.cachedToken(key); ok {
@@ -614,8 +614,12 @@ func (c *flutterwaveClient) requestToken(ctx context.Context, key string, creds 
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Not a refusal of the payment: the token service is unavailable or
-		// the keys are wrong. Either way nothing was charged.
+		// Nothing was charged. Wrong or revoked keys are permanent: refuse
+		// rather than redeliver forever; anything else is transient.
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized ||
+			resp.StatusCode == http.StatusForbidden {
+			return "", invalidRequest("oauth token refused (http %d): check the client id and secret", resp.StatusCode)
+		}
 		return "", fmt.Errorf("oauth token http %d: %s", resp.StatusCode, truncate(string(body), 256))
 	}
 	var tok oauthTokenResponse
@@ -663,6 +667,11 @@ func apiError(op, status, message string, errObj *struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }) error {
+	if errObj == nil && (status == "" || strings.EqualFold(status, "success")) {
+		// A 2xx without the object we asked for: the request may have been
+		// performed. Unknown, never a refusal.
+		return fmt.Errorf("flutterwave %s: answer without an id (status=%q)", op, status)
+	}
 	e := &APIError{Op: op, Status: status, Message: message}
 	if errObj != nil && errObj.Message != "" {
 		e.Message, e.Type, e.Code = errObj.Message, errObj.Type, errObj.Code

@@ -34,13 +34,14 @@ func TestIsRejected(t *testing.T) {
 		err      error
 		rejected bool
 	}{
-		"bad request":       {&client.HTTPError{Status: 400}, true},
-		"unprocessable":     {&client.HTTPError{Status: 422}, true},
+		"bad request":       {&client.HTTPError{Status: 400, Parsed: true}, true},
+		"unprocessable":     {&client.HTTPError{Status: 422, Parsed: true}, true},
 		"not found":         {&client.HTTPError{Status: 404}, true},
 		"conflict":          {&client.HTTPError{Status: 409}, false},
 		"duplicate in 400":  {&client.HTTPError{Status: 400, Message: "Duplicate reference"}, false},
-		"quoted request":    {&client.HTTPError{Status: 400, Body: `{"narration":"already paid"}`, Message: "invalid account"}, true},
+		"quoted request":    {&client.HTTPError{Status: 400, Body: `{"narration":"already paid"}`, Message: "invalid account", Parsed: true}, true},
 		"already processed": {&client.HTTPError{Status: 400, Message: "Transaction already processed"}, false},
+		"proxy page 400":    {&client.HTTPError{Status: 400, Body: "<html>bad gateway</html>"}, false},
 		"rate limited":      {&client.HTTPError{Status: 429}, false},
 		"timeout status":    {&client.HTTPError{Status: 408}, false},
 		"server error":      {&client.HTTPError{Status: 502}, false},

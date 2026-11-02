@@ -39,9 +39,11 @@ var ErrNotFound = errors.New("flutterwave: not found")
 type HTTPError struct {
 	Status int
 	Body   string
-	// Message is Flutterwave's own error message from the body, when it
-	// has one (never request values the body may quote).
+	// Message is Flutterwave's own error message, type and code from the
+	// body (never request values the body may quote).
 	Message string
+	// Parsed reports whether the body was Flutterwave's error JSON at all.
+	Parsed bool
 }
 
 func (e *HTTPError) Error() string {
@@ -91,6 +93,11 @@ func IsRejected(err error) bool {
 		case http.StatusRequestTimeout, http.StatusConflict, http.StatusTooEarly, http.StatusTooManyRequests:
 			return false
 		}
+		// A 4xx that is not Flutterwave's own error (a proxy page, an empty
+		// body) proves nothing about the charge: unknown, not refused.
+		if !httpErr.Parsed && httpErr.Status != http.StatusNotFound {
+			return false
+		}
 		return httpErr.Status >= 400 && httpErr.Status < 500 && !IsDuplicate(err)
 	}
 	return false
@@ -123,7 +130,7 @@ func IsDuplicate(err error) bool {
 		}
 		message = httpErr.Message
 	case errors.As(err, &apiErr):
-		message = apiErr.Message
+		message = apiErr.Message + " " + apiErr.Type + " " + apiErr.Code
 	default:
 		return false
 	}
@@ -156,20 +163,30 @@ func IsRefusal(err error) bool {
 	return false
 }
 
-// providerMessage is the error message Flutterwave put in a body:
-// {"message": …} or {"error": {"message": …}}.
-func providerMessage(body []byte) string {
+// providerMessage is Flutterwave's error message, type and code from a
+// body ({"message": …} or {"error": {"type", "code", "message"}}), and
+// whether the body was such an error at all.
+func providerMessage(body []byte) (string, bool) {
 	var env struct {
+		Status  string `json:"status"`
 		Message string `json:"message"`
 		Error   *struct {
+			Type    string `json:"type"`
+			Code    string `json:"code"`
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(body, &env) != nil {
-		return ""
+	if json.Unmarshal(body, &env) != nil || (env.Message == "" && env.Error == nil && env.Status == "") {
+		return "", false
 	}
-	if env.Error != nil && env.Error.Message != "" {
-		return env.Error.Message
+	parts := []string{env.Message}
+	if env.Error != nil {
+		parts = append(parts, env.Error.Message, env.Error.Type, env.Error.Code)
 	}
-	return env.Message
+	return strings.TrimSpace(strings.Join(parts, " ")), true
+}
+
+func newHTTPError(status int, body []byte) *HTTPError {
+	message, parsed := providerMessage(body)
+	return &HTTPError{Status: status, Body: truncate(string(body), 512), Message: message, Parsed: parsed}
 }

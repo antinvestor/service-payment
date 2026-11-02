@@ -533,7 +533,7 @@ func (c *flutterwaveClient) doJSON(
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &HTTPError{Status: resp.StatusCode, Body: truncate(string(respBody), 512), Message: providerMessage(respBody)}
+		return newHTTPError(resp.StatusCode, respBody)
 	}
 	if result == nil || len(respBody) == 0 {
 		return nil

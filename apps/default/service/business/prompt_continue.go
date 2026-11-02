@@ -107,6 +107,10 @@ func (pb *paymentBusiness) continuePrompt(
 		return nil, connect.NewError(connect.CodeFailedPrecondition,
 			errPromptSettled(prompt.ID, current.GetStatus()))
 	}
+	// Only the prompt's own payer authorizes its charge.
+	if strings.TrimSpace(req.GetSource().GetProfileId()) != prompt.SourceID {
+		return nil, connect.NewError(connect.CodePermissionDenied, errPromptPayer(prompt.ID))
+	}
 	if route := strings.TrimSpace(req.GetRoute()); route != "" && !strings.EqualFold(route, prompt.Route) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errPromptRoute(prompt.ID))
 	}
@@ -115,12 +119,16 @@ func (pb *paymentBusiness) continuePrompt(
 	requested = requested.FromProtoStruct(req.GetExtra())
 
 	// The charge being authorized is the one the provider reported for this
-	// prompt; a continuation naming any other charge is refused.
+	// prompt, never one the caller names: no reported charge, nothing to
+	// authorize.
 	var reported data.JSONMap
 	reported = reported.FromProtoStruct(current.GetExtras())
 	knownCharge := strings.TrimSpace(reported.GetString(collection.ExtraChargeID))
+	if knownCharge == "" {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errPromptNoCharge(prompt.ID))
+	}
 	askedCharge := strings.TrimSpace(requested.GetString(collection.ExtraChargeID))
-	if knownCharge != "" && askedCharge != "" && knownCharge != askedCharge {
+	if askedCharge != "" && askedCharge != knownCharge {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errPromptCharge(prompt.ID))
 	}
 
@@ -131,9 +139,7 @@ func (pb *paymentBusiness) continuePrompt(
 		}
 	}
 	step[collection.ExtraAction] = collection.ActionAuthorize
-	if askedCharge == "" && knownCharge != "" {
-		step[collection.ExtraChargeID] = knownCharge
-	}
+	step[collection.ExtraChargeID] = knownCharge
 
 	apiPrompt := prompt.ToAPI(step)
 	dial, err := payerNumber(ctx, pb.profileCli, apiPrompt.GetSource())
@@ -189,4 +195,12 @@ func errPromptRoute(id string) string {
 
 func errPromptCharge(id string) string {
 	return fmt.Sprintf("prompt %s authorizes only the charge its provider reported", id)
+}
+
+func errPromptNoCharge(id string) string {
+	return fmt.Sprintf("prompt %s has no charge waiting for authorization", id)
+}
+
+func errPromptPayer(id string) string {
+	return fmt.Sprintf("prompt %s is authorized only by its payer", id)
 }

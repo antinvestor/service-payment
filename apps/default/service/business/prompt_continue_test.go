@@ -239,6 +239,27 @@ func TestAuthorizeStepIsRefused(t *testing.T) {
 			code: connect.CodeInvalidArgument,
 		},
 		{
+			name:   "no charge reported yet",
+			status: commonv1.STATUS_IN_PROCESS,
+			req: func(t *testing.T) *paymentv1.InitiatePromptRequest {
+				return authorizeRequest(t, "prompt-1", map[string]any{
+					"authorization_type": "otp", "otp": "1", "charge_id": "chg_guess",
+				})
+			},
+			code: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "someone other than the payer",
+			status:   commonv1.STATUS_IN_PROCESS,
+			reported: map[string]any{"charge_id": "chg_123"},
+			req: func(t *testing.T) *paymentv1.InitiatePromptRequest {
+				r := authorizeRequest(t, "prompt-1", map[string]any{"authorization_type": "otp", "otp": "1"})
+				r.Source = &commonv1.ContactLink{ProfileId: "intruder"}
+				return r
+			},
+			code: connect.CodePermissionDenied,
+		},
+		{
 			name:   "prompt never raised",
 			status: commonv1.STATUS_IN_PROCESS,
 			req: func(t *testing.T) *paymentv1.InitiatePromptRequest {

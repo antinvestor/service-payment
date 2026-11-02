@@ -170,6 +170,16 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 				Name: splitName(beneficiary),
 			})
 		if err != nil {
+			if client.IsDuplicate(err) {
+				// A recipient this payment already made: its transfer may have
+				// gone out too (a redelivery after the idempotency window).
+				// Never fail it; leave it for the transfer webhook or an operator.
+				logger.WithError(err).Error("transfer recipient already exists; payout left in process for review")
+				return h.emitStatus(ctx, paymentID, "", commonv1.STATUS_IN_PROCESS, map[string]any{
+					"entity_type": "payment", "provider": "flutterwave", "reference": reference,
+					"transfer_status": "RECIPIENT_EXISTS", "needs_review": true,
+				})
+			}
 			if client.IsRefusal(err) {
 				logger.WithError(err).Error("transfer recipient refused")
 				return h.fail(ctx, paymentID, "provider_rejected", map[string]any{"error": err.Error()})
@@ -216,6 +226,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 			// in flight or done. Its webhook settles it; never send again.
 			logger.WithError(err).Warn("transfer already exists for this payment")
 			extras["transfer_status"] = "DUPLICATE_REFERENCE"
+			extras["needs_review"] = true
 			return h.emitStatus(ctx, paymentID, "", commonv1.STATUS_IN_PROCESS, extras)
 		case client.IsRejected(err):
 			logger.WithError(err).Error("transfer refused by Flutterwave")

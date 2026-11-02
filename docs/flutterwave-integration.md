@@ -153,7 +153,7 @@ These rules hold for every write to Flutterwave and every webhook.
 | A prompt or payout message is delivered twice | The charge reference (`prompt-<id>`, `renew-<id>`, `pay-<id>`) and the `X-Idempotency-Key` come from our id. The worker first looks the charge up by reference, and Flutterwave answers a repeated key with its original response. It is charged or paid once. |
 | A timeout, 5xx or lost response on a charge or transfer | Never reported failed. The worker looks the charge up by reference and reports it, or returns the message to the queue to be redelivered with the same key. |
 | Flutterwave refuses a request (4xx, or a failed envelope) | The prompt or payout is reported `FAILED` with `error_code=provider_rejected`. |
-| A duplicate transfer reference | Reported `IN_PROCESS`. The transfer webhook settles it; it is never sent again. |
+| A duplicate transfer reference or transfer recipient | Reported `IN_PROCESS` with `needs_review=true`. The transfer webhook settles it; it is never sent again and never reported failed. Flutterwave cannot list transfers by reference, so a payout still flagged after an hour needs an operator to check the dashboard. A duplicate is recognised only from a 409 or Flutterwave's own error message. |
 | A charge succeeds for a different amount or currency | Reported `FAILED` with `error_code=amount_mismatch`. Status extras always carry the charged `amount`/`currency` for checkout's paid-amount check. |
 | An amount that cannot be sent exactly | Refused, never rounded: more than 2 decimal places, or a fraction of UGX, RWF, XOF, XAF and similar. |
 | Mobile money in a currency the number's corridor does not use | Refused; it is never converted (e.g. USD from a +254 number). |

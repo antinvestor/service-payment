@@ -15,6 +15,7 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -38,6 +39,9 @@ var ErrNotFound = errors.New("flutterwave: not found")
 type HTTPError struct {
 	Status int
 	Body   string
+	// Message is Flutterwave's own error message from the body, when it
+	// has one (never request values the body may quote).
+	Message string
 }
 
 func (e *HTTPError) Error() string {
@@ -106,15 +110,25 @@ func IsNotFound(err error) bool {
 // is deliberately broad — mistaking a duplicate for a refusal would report
 // a payout failed that was paid, and invite paying it again.
 func IsDuplicate(err error) bool {
-	if err == nil {
+	if err == nil || errors.Is(err, ErrInvalidRequest) {
 		return false
 	}
+	var message string
 	var httpErr *HTTPError
-	if errors.As(err, &httpErr) && httpErr.Status == http.StatusConflict {
-		return true
+	var apiErr *APIError
+	switch {
+	case errors.As(err, &httpErr):
+		if httpErr.Status == http.StatusConflict {
+			return true
+		}
+		message = httpErr.Message
+	case errors.As(err, &apiErr):
+		message = apiErr.Message
+	default:
+		return false
 	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "already")
+	message = strings.ToLower(message)
+	return strings.Contains(message, "duplicate") || strings.Contains(message, "already")
 }
 
 // IsRefusal reports a definite 4xx or envelope refusal whatever its wording.
@@ -140,4 +154,22 @@ func IsRefusal(err error) bool {
 		return httpErr.Status >= 400 && httpErr.Status < 500
 	}
 	return false
+}
+
+// providerMessage is the error message Flutterwave put in a body:
+// {"message": …} or {"error": {"message": …}}.
+func providerMessage(body []byte) string {
+	var env struct {
+		Message string `json:"message"`
+		Error   *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &env) != nil {
+		return ""
+	}
+	if env.Error != nil && env.Error.Message != "" {
+		return env.Error.Message
+	}
+	return env.Message
 }

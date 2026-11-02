@@ -170,7 +170,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 				Name: splitName(beneficiary),
 			})
 		if err != nil {
-			if client.IsRejected(err) {
+			if client.IsRefusal(err) {
 				logger.WithError(err).Error("transfer recipient refused")
 				return h.fail(ctx, paymentID, "provider_rejected", map[string]any{"error": err.Error()})
 			}

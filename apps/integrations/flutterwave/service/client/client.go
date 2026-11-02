@@ -614,11 +614,11 @@ func (c *flutterwaveClient) requestToken(ctx context.Context, key string, creds 
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Nothing was charged. Wrong or revoked keys are permanent: refuse
-		// rather than redeliver forever; anything else is transient.
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized ||
 			resp.StatusCode == http.StatusForbidden {
-			return "", invalidRequest("oauth token refused (http %d): check the client id and secret", resp.StatusCode)
+			util.Log(ctx).WithField("http_status", resp.StatusCode).
+				Error("Flutterwave refused the OAuth client id/secret; payments wait until the keys are fixed")
+			return "", fmt.Errorf("%w (http %d)", ErrCredentialsRefused, resp.StatusCode)
 		}
 		return "", fmt.Errorf("oauth token http %d: %s", resp.StatusCode, truncate(string(body), 256))
 	}

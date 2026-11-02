@@ -34,19 +34,19 @@ func TestIsRejected(t *testing.T) {
 		err      error
 		rejected bool
 	}{
-		"bad request":      {&client.HTTPError{Status: 400}, true},
-		"unprocessable":    {&client.HTTPError{Status: 422}, true},
-		"not found":        {&client.HTTPError{Status: 404}, true},
-		"conflict":         {&client.HTTPError{Status: 409}, false},
-		"duplicate in 400": {&client.HTTPError{Status: 400, Body: "Duplicate reference"}, false},
-		"other 'already'":  {&client.HTTPError{Status: 400, Body: "recipient already exists"}, true},
-		"rate limited":     {&client.HTTPError{Status: 429}, false},
-		"timeout status":   {&client.HTTPError{Status: 408}, false},
-		"server error":     {&client.HTTPError{Status: 502}, false},
-		"envelope refusal": {&client.APIError{Op: "charge", Message: "declined"}, true},
-		"never sent":       {fmt.Errorf("wrap: %w", client.ErrInvalidRequest), true},
-		"transport":        {errors.New("execute request: dial tcp: i/o timeout"), false},
-		"nil":              {nil, false},
+		"bad request":       {&client.HTTPError{Status: 400}, true},
+		"unprocessable":     {&client.HTTPError{Status: 422}, true},
+		"not found":         {&client.HTTPError{Status: 404}, true},
+		"conflict":          {&client.HTTPError{Status: 409}, false},
+		"duplicate in 400":  {&client.HTTPError{Status: 400, Body: "Duplicate reference"}, false},
+		"already processed": {&client.HTTPError{Status: 400, Body: "Transaction already processed"}, false},
+		"rate limited":      {&client.HTTPError{Status: 429}, false},
+		"timeout status":    {&client.HTTPError{Status: 408}, false},
+		"server error":      {&client.HTTPError{Status: 502}, false},
+		"envelope refusal":  {&client.APIError{Op: "charge", Message: "declined"}, true},
+		"never sent":        {fmt.Errorf("wrap: %w", client.ErrInvalidRequest), true},
+		"transport":         {errors.New("execute request: dial tcp: i/o timeout"), false},
+		"nil":               {nil, false},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -135,12 +135,13 @@ func TestATokenIsNeverSharedAcrossSecrets(t *testing.T) {
 	assert.Equal(t, 2, fw.Tokens, "the second secret earned its own token")
 }
 
-func TestRevokedKeysAreARefusalNotARetry(t *testing.T) {
+func TestRevokedKeysAreAnOutageNotARefusal(t *testing.T) {
 	fw := fwtest.New(t)
 	fw.Fail("POST /token", http.StatusUnauthorized)
 	_, err := client.NewClient().GetCharge(context.Background(), fw.Credentials(), "chg_1")
-	require.Error(t, err)
-	assert.True(t, client.IsRejected(err), "wrong keys fail the payment instead of redelivering forever")
+	require.ErrorIs(t, err, client.ErrCredentialsRefused)
+	assert.False(t, client.IsRejected(err), "payments wait for the keys to be fixed; none is failed")
+	assert.True(t, client.IsRefusal(&client.HTTPError{Status: 400, Body: "recipient already exists"}))
 }
 
 func TestAnAnswerWithoutAnIDIsUnknown(t *testing.T) {

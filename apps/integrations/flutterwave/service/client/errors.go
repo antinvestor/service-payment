@@ -25,6 +25,12 @@ import (
 // reached Flutterwave, so the outcome is certain.
 var ErrInvalidRequest = errors.New("invalid flutterwave request")
 
+// ErrCredentialsRefused means Flutterwave's token service refused the
+// configured keys. It is an outage, not a refused payment: work is retried
+// until an operator fixes the keys, never failed (a charge made before the
+// keys were revoked may exist).
+var ErrCredentialsRefused = errors.New("flutterwave refused the configured credentials")
+
 // ErrNotFound is returned by lookups that find nothing.
 var ErrNotFound = errors.New("flutterwave: not found")
 
@@ -95,8 +101,10 @@ func IsNotFound(err error) bool {
 	return errors.As(err, &httpErr) && httpErr.Status == http.StatusNotFound
 }
 
-// IsDuplicate reports Flutterwave refusing a reference it already holds:
-// the earlier request reached it, so the object exists.
+// IsDuplicate reports Flutterwave refusing something it already holds: the
+// earlier request reached it, so the charge or transfer exists. The match
+// is deliberately broad — mistaking a duplicate for a refusal would report
+// a payout failed that was paid, and invite paying it again.
 func IsDuplicate(err error) bool {
 	if err == nil {
 		return false
@@ -105,8 +113,31 @@ func IsDuplicate(err error) bool {
 	if errors.As(err, &httpErr) && httpErr.Status == http.StatusConflict {
 		return true
 	}
-	// Some refusals arrive as 400 naming the reference; nothing else counts.
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "reference") &&
-		(strings.Contains(msg, "duplicate") || strings.Contains(msg, "already"))
+	return strings.Contains(msg, "duplicate") || strings.Contains(msg, "already")
+}
+
+// IsRefusal reports a definite 4xx or envelope refusal whatever its wording.
+// It suits writes that move no money (a transfer recipient), where a
+// refusal is safe to report even when it mentions an existing object.
+func IsRefusal(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrInvalidRequest) {
+		return true
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return true
+	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		switch httpErr.Status {
+		case http.StatusRequestTimeout, http.StatusTooEarly, http.StatusTooManyRequests:
+			return false
+		}
+		return httpErr.Status >= 400 && httpErr.Status < 500
+	}
+	return false
 }

@@ -495,6 +495,19 @@ func (pb *paymentBusiness) StatusUpdate(
 		return nil, errors.New("entity_type must be provided in extras for status update")
 	}
 
+	// A settled outcome is final: a late, replayed or out-of-order update
+	// (a redelivered worker message, a webhook arriving after the worker's
+	// answer) must not turn a success into a failure or back to pending.
+	if latest, getErr := pb.statusRepo.GetByEntity(ctx, req.GetId(), entityType); getErr == nil && latest != nil &&
+		isTerminal(commonv1.STATUS(latest.Status)) && latest.Status != int32(req.GetStatus()) {
+		logger.WithFields(map[string]any{
+			"entity_type": entityType,
+			"settled":     commonv1.STATUS(latest.Status).String(),
+			"update":      req.GetStatus().String(),
+		}).Warn("status update after settlement ignored")
+		return latest.ToAPI(), nil
+	}
+
 	status := &models.Status{
 		EntityID:   req.GetId(),
 		EntityType: entityType,

@@ -23,6 +23,7 @@ import (
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"connectrpc.com/connect/v2"
 	"github.com/pitabwire/frame/v3/data"
+	fevents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
 	utilmoney "github.com/pitabwire/util/moneyx"
 	"github.com/stretchr/testify/require"
@@ -330,5 +331,51 @@ func TestCardDataIsSentButNeverStored(t *testing.T) {
 	got := sent.GetExtra().AsMap()
 	for _, key := range []string{"encrypted_card_number", "encrypted_cvv", "card_nonce", "encrypted_expiry_month"} {
 		require.Contains(t, got, key)
+	}
+}
+
+// emittedStatuses records statuses handed to the event manager.
+type emittedStatuses struct {
+	fevents.Manager
+
+	saved []*models.Status
+}
+
+func (e *emittedStatuses) Emit(_ context.Context, _ string, payload any) error {
+	e.saved = append(e.saved, payload.(*models.Status))
+	return nil
+}
+
+func TestASettledStatusIsFinal(t *testing.T) {
+	update := func(status commonv1.STATUS) *commonv1.StatusUpdateRequest {
+		extra, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
+		return &commonv1.StatusUpdateRequest{Id: "prompt-1", Status: status, Extras: extra}
+	}
+	for _, tt := range []struct {
+		name    string
+		settled commonv1.STATUS
+		update  commonv1.STATUS
+		saved   bool
+	}{
+		{"failure after success", commonv1.STATUS_SUCCESSFUL, commonv1.STATUS_FAILED, false},
+		{"pending after success", commonv1.STATUS_SUCCESSFUL, commonv1.STATUS_IN_PROCESS, false},
+		{"success after failure", commonv1.STATUS_FAILED, commonv1.STATUS_SUCCESSFUL, false},
+		{"the same success again", commonv1.STATUS_SUCCESSFUL, commonv1.STATUS_SUCCESSFUL, true},
+		{"success after pending", commonv1.STATUS_IN_PROCESS, commonv1.STATUS_SUCCESSFUL, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newContinuationFixture(tt.settled, nil)
+			events := &emittedStatuses{}
+			f.pb.eventMan = events
+			resp, err := f.pb.StatusUpdate(context.Background(), update(tt.update))
+			require.NoError(t, err)
+			if tt.saved {
+				require.Len(t, events.saved, 1)
+				require.Equal(t, tt.update, resp.GetStatus())
+				return
+			}
+			require.Empty(t, events.saved, "the settled outcome stands")
+			require.Equal(t, tt.settled, resp.GetStatus())
+		})
 	}
 }

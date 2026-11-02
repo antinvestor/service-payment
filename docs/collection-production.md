@@ -74,7 +74,9 @@ Docs: [developer.flutterwave.com](https://developer.flutterwave.com/docs/getting
 
 Checkout default card route is **`flutterwave`**. Webhook: `POST /webhook/flutterwave`.
 
-### Yellow Card (`apps/integrations/yellowcard`)
+### Yellow Card (`apps/integrations/yellowcard`) — dormant
+
+Not built or offered yet; see the status note in the guide.
 
 See [yellowcard-integration.md](./yellowcard-integration.md) for full setup.
 Docs: [docs.yellowcard.engineering](https://docs.yellowcard.engineering/).

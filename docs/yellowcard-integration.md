@@ -1,5 +1,19 @@
 # Yellow Card integration
 
+> **Status: dormant.** The code is merged, compiled and tested with the rest
+> of the repository, but it is not built, released or offered:
+>
+> - its image is not built: the Dockerfile is kept as `Dockerfile.dormant`, and
+>   the release workflow only builds files named `Dockerfile`;
+> - it is not in the `Makefile` `APP_DIRS`;
+> - the checkout default `CHECKOUT_METHODS` does not list `yellowcard`, and the
+>   billing UI does not label it.
+>
+> To activate it: rename `Dockerfile.dormant` back to `Dockerfile`, add
+> `apps/integrations/yellowcard` to `APP_DIRS`, add the method to the
+> environment's `CHECKOUT_METHODS`, then follow the deployment steps below and
+> run the sandbox checklist before any production traffic.
+
 Provider service: `apps/integrations/yellowcard`  
 Official docs: [Overview](https://docs.yellowcard.engineering/) ·
 [Authentication](https://docs.yellowcard.engineering/docs/authentication-api) ·

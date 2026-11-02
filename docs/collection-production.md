@@ -97,7 +97,9 @@ Checkout method key `yellowcard` (route `yellowcard`). Webhooks:
 `POST /webhook/yellowcard/receives`, `POST /webhook/yellowcard/sends` with
 `?tenant_id=…&partition_id=…`. Production needs Yellow Card IP allow-listing.
 
-### Fincra (`apps/integrations/fincra`)
+### Fincra (`apps/integrations/fincra`) — dormant
+
+Not built or offered yet; see the status note in the guide.
 
 See [fincra-integration.md](./fincra-integration.md) for full setup.
 Docs: [docs.fincra.com](https://docs.fincra.com/docs/getting-started).

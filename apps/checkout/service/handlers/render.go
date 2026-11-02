@@ -46,7 +46,7 @@ type MethodChoice struct {
 }
 
 // BankTransferDetails are the account details shown on the confirm page for
-// push-payment rails (Yellow Card bank receives, Flutterwave bank transfer).
+// push-payment rails (Yellow Card bank receives, Fincra bank transfer).
 type BankTransferDetails struct {
 	BankName      string
 	AccountNumber string

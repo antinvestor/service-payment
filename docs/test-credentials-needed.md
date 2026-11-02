@@ -1,26 +1,26 @@
 # Test credentials & config needed from you
 
-To make **collection + Flutterwave v4 checkout + return to your app** work in the test environment, please provide the following. Copy this list and fill values (prefer a secure channel for secrets).
+To make **collection + Fincra card checkout + return to your app** work in the test environment, please provide the following. Copy this list and fill values (prefer a secure channel for secrets).
 
 ---
 
-## 1. Flutterwave (v4) — required
+## 1. Fincra — required
 
-From the [Flutterwave developer dashboard](https://developer.flutterwave.com/docs/getting-started) (sandbox / test mode):
+From the [Fincra dashboard](https://docs.fincra.com/docs/getting-started) (sandbox):
 
 | # | Item | Where to find | Example shape |
 |---|------|---------------|---------------|
-| 1 | **Client ID** | Settings → API Keys → **v4** (sandbox) | UUID-like string |
-| 2 | **Client Secret** | Same page | long secret string |
-| 3 | **Webhook secret hash** | Settings → Webhooks → secret hash | arbitrary strong string you choose |
-| 4 | **Webhook URL you will register** | We need a public HTTPS URL for the integrator | `https://…/webhook/flutterwave` |
+| 1 | **Secret key** (`api-key`) and **public key** (`x-pub-key`) | Settings → API keys (sandbox) | long strings |
+| 2 | **Business ID** (`x-business-id`) | Same page / account profile | id string |
+| 3 | **Webhook encryption key** | Settings → Webhooks | the key Fincra signs with (HMAC-SHA512) |
+| 4 | **Webhook URL you will register** | We need a public HTTPS URL for the integrator | `https://…/webhook/fincra` |
 
 Confirm:
 
-- [ ] Account is on **v4** API keys (not v3 public/secret/encryption keys)
-- [ ] Sandbox/test mode is enabled for first integration
-- [ ] Transfers enabled if you want to test **disbursements** (optional for collect-only)
-- [ ] Egress IPs whitelisted for transfers (only if testing Send/payouts)
+- [ ] Sandbox mode is enabled for first integration
+- [ ] Hosted checkout is enabled for card (and bank transfer / mobile money if wanted)
+- [ ] Payouts enabled if you want to test **disbursements** (optional for collect-only)
+- [ ] Our egress IPs are whitelisted (Fincra requires this in production)
 
 ---
 
@@ -30,7 +30,7 @@ Confirm:
 |---|------|---------|---------|
 | 5 | **Checkout public base URL** | Hosted pay page origin | `https://pay.dev.example.com` |
 | 6 | **App return URL** | After pay, browser lands here → `ConfirmPayment` | `https://admin.dev.example.com/billing/payment/return` |
-| 7 | **Flutterwave integration public base** | Webhooks + optional FW return | `https://integrations.dev.example.com` |
+| 7 | **Fincra integration public base** | Webhooks | `https://integrations.dev.example.com` |
 | 8 | **Payment core service URL** | Integrator → `StatusUpdate` | cluster DNS / `host:port` |
 | 9 | **Billing / collection API URL** | App → Collect/Start/Confirm | `https://api.dev.example.com/billing` |
 | 10 | **Profile service URL** | Checkout profile prefill | cluster DNS |
@@ -41,11 +41,11 @@ Confirm:
 
 | # | Item | Purpose | Example |
 |---|------|---------|---------|
-| 11 | **Prompt queue URI** | Core `INITIATE_PROMPT` must publish here; Flutterwave must subscribe | `nats://user:pass@nats:4222/flutterwave.prompts.dequeue` or `mem://…` for local |
-| 12 | **Payment (payout) queue URI** | Payment routes `tx` → Flutterwave | same bus, `…/flutterwave.payments.dequeue` |
+| 11 | **Prompt queue URI** | Core must publish `fincra` prompts here; Fincra must subscribe | `nats://user:pass@nats:4222/fincra.prompts.dequeue` or `mem://…` for local |
+| 12 | **Payment (payout) queue URI** | Payment routes `tx` → Fincra | same bus, `…/fincra.payments.dequeue` |
 | 13 | **NATS (or bus) credentials** | If not `mem://` | URL + user/pass or token |
 
-**Critical:** `INITIATE_PROMPT_TOPIC_URI` on **payment core** and `QUEUE_FLUTTERWAVE_PROMPT_URI` on the **Flutterwave service** must be the **same queue**.
+**Critical:** the `fincra` entry in `INITIATE_PROMPT_ROUTE_URIS` on **payment core** and `QUEUE_FINCRA_PROMPT_URI` on the **Fincra service** must be the **same queue**.
 
 ---
 
@@ -76,8 +76,8 @@ Pick **one** test profile and ensure:
 |---|------|-----|
 | 19 | **Profile ID** | Passed as payer on checkout / subscription |
 | 20 | **MSISDN contact** on that profile (E.164, e.g. `2547…`) | MoMo + prefill phone |
-| 21 | **EMAIL contact** (or `properties.email`) | Flutterwave v4 requires email |
-| 22 | **Display name** (`properties.name` or known) | Flutterwave customer name |
+| 21 | **EMAIL contact** (or `properties.email`) | Fincra requires the customer email |
+| 22 | **Display name** (`properties.name` or known) | Fincra customer name |
 
 Without 20–21, checkout still works but may ask for phone or use a placeholder email.
 
@@ -91,27 +91,27 @@ Without 20–21, checkout still works but may ask for phone or use a placeholder
 | 24 | **Issued invoice ID** | `CollectPayment` smoke test |
 | 25 | **Ledger AR / Cash account IDs** | Cash posting on confirm (can leave empty) |
 | 26 | **`CHECKOUT_PARTITION_METHODS`** JSON | Restrict methods per partition if needed |
-| 27 | **DB access** for payment `routes` seed | `mode=tx`, `uri=<payment queue URI>` for Flutterwave disbursements |
+| 27 | **DB access** for payment `routes` seed | `mode=tx`, `uri=<payment queue URI>` for Fincra disbursements |
 
 ---
 
 ## What we will set from the above (mapping)
 
 ```bash
-# Flutterwave integrator
-FLUTTERWAVE_CLIENT_ID=<1>
-FLUTTERWAVE_CLIENT_SECRET=<2>
-FLUTTERWAVE_WEBHOOK_SECRET=<3>
-FLUTTERWAVE_ENVIRONMENT=sandbox
-FLUTTERWAVE_PUBLIC_WEBHOOK_BASE=<7>
-FLUTTERWAVE_DEFAULT_REDIRECT_URL=<7>/webhook/flutterwave/return
+# Fincra integrator
+FINCRA_SECRET_KEY=<1 secret>
+FINCRA_PUBLIC_KEY=<1 public>
+FINCRA_BUSINESS_ID=<2>
+FINCRA_WEBHOOK_SECRET=<3>
+FINCRA_ENVIRONMENT=sandbox
+FINCRA_WEBHOOK_BASE_URL=<7>
+FINCRA_DEFAULT_REDIRECT_URL=<6>
 PAYMENT_SERVICE_URI=<8>
-QUEUE_FLUTTERWAVE_PROMPT_URI=<11>
-QUEUE_FLUTTERWAVE_PAYMENT_URI=<12>
+QUEUE_FINCRA_PROMPT_URI=<11>
+QUEUE_FINCRA_PAYMENT_URI=<12>
 
 # Payment core
-INITIATE_PROMPT_TOPIC_NAME=flutterwave.prompts.dequeue   # or your name
-INITIATE_PROMPT_TOPIC_URI=<11>
+INITIATE_PROMPT_ROUTE_URIS={"fincra":"<11>"}
 
 # Checkout
 CHECKOUT_PUBLIC_BASE_URL=<5>
@@ -129,7 +129,7 @@ BILLING_SETTLEMENT_SWEEP_INTERVAL_SECONDS=60
 --dart-define=CHECKOUT_RETURN_URL=<6>
 ```
 
-**Flutterwave dashboard webhook:** `POST <7>/webhook/flutterwave` with secret hash = (3).
+**Fincra dashboard webhook:** `POST <7>/webhook/fincra` signed with the encryption key (3).
 
 ---
 
@@ -137,9 +137,9 @@ BILLING_SETTLEMENT_SWEEP_INTERVAL_SECONDS=60
 
 If you want the smallest possible handoff, send **only**:
 
-1. Flutterwave **Client ID**  
-2. Flutterwave **Client Secret**  
-3. Flutterwave **webhook secret hash**  
+1. Fincra **secret + public keys**  
+2. Fincra **business ID**  
+3. Fincra **webhook encryption key**  
 4. Public base for checkout (**5**)  
 5. App return URL (**6**)  
 6. Public base for integrator webhooks (**7**) — or confirm we may use a tunnel  
@@ -155,7 +155,7 @@ Everything else can be generated or defaulted for sandbox.
 
 1. Start subscription / collect invoice → browser opens checkout.  
 2. Profile name/phone/method prefilled (no re-entry if contacts exist).  
-3. Pay with Flutterwave (card or MoMo).  
+3. Pay by card on Fincra's hosted page, or by MoMo.  
 4. Webhook marks prompt successful.  
 5. Browser returns to app `…/payment/return?session=…`.  
 6. `ConfirmPayment` shows invoice paid / subscription active.  

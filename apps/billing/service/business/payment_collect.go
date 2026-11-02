@@ -31,11 +31,11 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// SavedInstrument is a Flutterwave v4 (or portable) card-on-file reference.
+// SavedInstrument is a portable card-on-file reference.
 type SavedInstrument struct {
 	PaymentMethodID string
 	CustomerID      string
-	Provider        string // e.g. flutterwave
+	Provider        string // the provider that saved it, when known
 }
 
 // InstrumentSource resolves COF credentials for silent renewals.
@@ -44,7 +44,7 @@ type InstrumentSource interface {
 }
 
 // PaymentCollector charges an issued invoice off-session (no hosted page).
-// Implementation uses payment InitiatePrompt with payment_method_id — Flutterwave v4 only.
+// Implementation uses payment InitiatePrompt with payment_method_id on the configured route.
 type PaymentCollector interface {
 	// CollectCOF starts a token charge for the invoice. Returns prompt id for polling.
 	CollectCOF(ctx context.Context, invoice *models.Invoice, inst *SavedInstrument, route string) (promptID string, err error)
@@ -78,11 +78,7 @@ func (c *paymentCollector) CollectCOF(
 	}
 	route = strings.TrimSpace(route)
 	if route == "" {
-		route = "flutterwave"
-	}
-	// Refuse non-flutterwave routes for silent COF in this collector — v4 token path only.
-	if !strings.EqualFold(route, "flutterwave") {
-		return "", fmt.Errorf("cof collector supports flutterwave v4 only, got %q", route)
+		return "", fmt.Errorf("no payment route charges saved cards")
 	}
 
 	money, err := moneyFromDecimal(invoice.TotalAmount, invoice.Currency)
@@ -94,7 +90,6 @@ func (c *paymentCollector) CollectCOF(
 		collection.ExtraPaymentMethodID: inst.PaymentMethodID,
 		collection.ExtraCustomerID:      inst.CustomerID,
 		collection.ExtraRecurring:       "true",
-		collection.ExtraAPIVersion:      "v4",
 		collection.ExtraInvoiceID:       invoice.GetID(),
 		collection.ExtraSubscriptionID:  invoice.SubscriptionID,
 		"collection_mode":               "cof",
@@ -187,7 +182,6 @@ func (s *instrumentSource) ResolveInstrument(ctx context.Context, sub *models.Su
 	return &SavedInstrument{
 		PaymentMethodID: pmd,
 		CustomerID:      cus,
-		Provider:        "flutterwave",
 	}, nil
 }
 
@@ -203,9 +197,6 @@ func instrumentFromData(d map[string]any) *SavedInstrument {
 		return nil
 	}
 	prov, _ := d[models.SubDataPaymentProvider].(string)
-	if prov == "" {
-		prov = "flutterwave"
-	}
 	return &SavedInstrument{PaymentMethodID: pmd, CustomerID: cus, Provider: prov}
 }
 

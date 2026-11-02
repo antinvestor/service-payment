@@ -1,18 +1,12 @@
 # Fincra integration
 
-> **Status: dormant.** The code is merged, compiled and tested with the rest
-> of the repository, but it is not built, released or offered:
->
-> - its image is not built: the Dockerfile is kept as `Dockerfile.dormant`, and
->   the release workflow only builds files named `Dockerfile`;
-> - it is not in the `Makefile` `APP_DIRS`;
-> - the checkout default `CHECKOUT_METHODS` does not list `fincra`, and the
->   billing UI does not label it.
->
-> To activate it: rename `Dockerfile.dormant` back to `Dockerfile`, add
-> `apps/integrations/fincra` to `APP_DIRS`, add the method to the environment's
-> `CHECKOUT_METHODS`, then follow the deployment steps below and run the
-> sandbox checklist before any production traffic.
+> **Status: active — the card provider.** Checkout's default `card` method
+> routes to `fincra` and opens Fincra's hosted payment page (card, bank
+> transfer and mobile money). Fincra collects whole amounts only, so checkout
+> refuses fractional amounts for card. It has not yet been run against
+> Fincra's sandbox: run the sandbox checklist below before production traffic.
+> Silent saved-card renewals are off (Fincra has no card-on-file charge here);
+> renewals send the payer to the hosted page.
 
 `apps/integrations/fincra` connects the payment service to
 [Fincra](https://docs.fincra.com/docs/getting-started) for collections

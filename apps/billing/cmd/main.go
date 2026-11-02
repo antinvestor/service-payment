@@ -158,7 +158,7 @@ func main() {
 	}
 	checkoutInteg := business.NewCheckoutIntegration(checkoutCli, invoiceRepo, invoiceEng, cfg.CheckoutInvoiceReturnURL)
 
-	// Payment + profile clients for silent COF renewals (Flutterwave v4 token charges).
+	// Payment + profile clients for silent COF renewals (token charges on BILLING_RENEWAL_DEFAULT_ROUTE).
 	paymentCli, paymentErr := setupPaymentClient(ctx, cfg)
 	if paymentErr != nil {
 		log.WithError(paymentErr).Warn("payment client unavailable — COF renewals disabled until configured")

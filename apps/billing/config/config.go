@@ -49,7 +49,7 @@ type BillingConfig struct {
 	SubscriptionLifecycleTopicName string `envDefault:"subscription.lifecycle" env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_NAME"`
 	SubscriptionLifecycleTopicURI  string `env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_URI"`
 
-	// Payment service for server-side COF (card-on-file) renewals — Flutterwave v4
+	// Payment service for server-side COF (card-on-file) renewals
 	// token charges only (payment_method_id + customer_id + recurring=true).
 	PaymentServiceURI                   string `envDefault:"127.0.0.1:7000"                     env:"PAYMENT_SERVICE_URI"`
 	PaymentServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-payment"   env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
@@ -68,8 +68,10 @@ type BillingConfig struct {
 	// RenewalMaxAttempts caps collection attempts per billing period (includes first).
 	// After exhaustion the per-sub Trustage reminder is archived (past_due).
 	RenewalMaxAttempts int `envDefault:"4" env:"BILLING_RENEWAL_MAX_ATTEMPTS"`
-	// RenewalDefaultRoute is the payment route for COF charges (flutterwave v4 only).
-	RenewalDefaultRoute string `envDefault:"flutterwave" env:"BILLING_RENEWAL_DEFAULT_ROUTE"`
+	// RenewalDefaultRoute is the payment route that charges saved cards
+	// (card-on-file) silently. Empty turns silent renewals off: every
+	// renewal asks the payer to pay on the hosted payment page.
+	RenewalDefaultRoute string `env:"BILLING_RENEWAL_DEFAULT_ROUTE"`
 
 	// InternalAdminToken authenticates Trustage callers of
 	// POST /_internal/billing/subscriptions/{id}/renew and settlement.

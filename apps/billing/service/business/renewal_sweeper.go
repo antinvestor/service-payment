@@ -16,6 +16,7 @@ package business
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -244,6 +245,10 @@ func (s *renewalProcessor) shouldSkip(sub *models.Subscription, now time.Time) (
 	return false, ""
 }
 
+// errNoCardRoute: no provider charges saved cards, so every renewal is
+// paid on the hosted page.
+var errNoCardRoute = errors.New("silent card renewals are off (BILLING_RENEWAL_DEFAULT_ROUTE is empty)")
+
 func (s *renewalProcessor) processOne(
 	ctx context.Context,
 	sub *models.Subscription,
@@ -286,7 +291,11 @@ func (s *renewalProcessor) processOne(
 		models.SubDataRenewPeriodKey:     periodKey,
 	})
 
-	inst, instErr := s.instruments.ResolveInstrument(ctx, sub)
+	var inst *SavedInstrument
+	instErr := errNoCardRoute
+	if s.cfg.DefaultRoute != "" {
+		inst, instErr = s.instruments.ResolveInstrument(ctx, sub)
+	}
 	if instErr != nil || inst == nil {
 		out.hostedNeed = true
 		util.Log(ctx).WithError(instErr).WithField("subscription_id", sub.GetID()).

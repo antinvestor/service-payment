@@ -1,7 +1,7 @@
 # Production collection runbook
 
-This document covers the streamlined payment collection path (Stripe Link /
-Flutterwave style) and what must be configured in each environment.
+This document covers the streamlined payment collection path (Stripe Link
+style) and what must be configured in each environment.
 
 ## End-to-end flow
 
@@ -13,13 +13,12 @@ Product / Admin UI  (or opportunities SPA)
   Hosted checkout  https://pay.stawi.org/c/{session_ref}
   Stripe Link style:
     • Show name / email / phone already stored
-    • Prefer Card (embedded AES-GCM form)
-    • Optional saved card one-click
+    • Card first (Fincra's hosted payment page; whole amounts only)
     • MoMo chips only when locality matches
         │
         ▼
-  Payment service route (default flutterwave) → v4 orchestrator / charge
-        │  PIN/OTP on our page · 3DS bank page only if required
+  Payment service route (card → fincra hosted payment page; MoMo → mpesa/mtn/airtel)
+        │  card details are entered on Fincra's page, never on ours
         ▼
   ConfirmPayment(session_ref)   ← return page OR settlement sweeper
         │
@@ -29,8 +28,6 @@ Product / Admin UI  (or opportunities SPA)
 ```
 
 **Never trust the browser alone.** Capture is always `ConfirmPayment` / activator.
-
-**No provider multipay redirect** when card encryption + v4 OAuth are configured.
 
 ## Required configuration
 
@@ -58,22 +55,6 @@ Product / Admin UI  (or opportunities SPA)
 | `BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_NAME` | Default lifecycle queue ref | `subscription.lifecycle` |
 | `BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_URI` | Queue URI product apps subscribe to | `nats://…` / `mem://…` |
 
-### Flutterwave v4 (`apps/integrations/flutterwave`)
-
-See [flutterwave-integration.md](./flutterwave-integration.md) for full setup.
-Docs: [developer.flutterwave.com](https://developer.flutterwave.com/docs/getting-started).
-
-| Variable | Purpose |
-|----------|---------|
-| `FLUTTERWAVE_CLIENT_ID` | v4 OAuth client id |
-| `FLUTTERWAVE_CLIENT_SECRET` | v4 OAuth client secret |
-| `FLUTTERWAVE_WEBHOOK_SECRET` | Secret hash for `flutterwave-signature` (HMAC-SHA256) |
-| `FLUTTERWAVE_ENVIRONMENT` | `sandbox` or `production` |
-| `QUEUE_FLUTTERWAVE_PROMPT_URI` | Must match `INITIATE_PROMPT_TOPIC_URI` (or router) |
-| `QUEUE_FLUTTERWAVE_PAYMENT_URI` | Must match payment `Route.URI` for mode `tx` |
-
-Checkout default card route is **`flutterwave`**. Webhook: `POST /webhook/flutterwave`.
-
 ### Yellow Card (`apps/integrations/yellowcard`) — dormant
 
 Not built or offered yet; see the status note in the guide.
@@ -97,9 +78,10 @@ Checkout method key `yellowcard` (route `yellowcard`). Webhooks:
 `POST /webhook/yellowcard/receives`, `POST /webhook/yellowcard/sends` with
 `?tenant_id=…&partition_id=…`. Production needs Yellow Card IP allow-listing.
 
-### Fincra (`apps/integrations/fincra`) — dormant
+### Fincra (`apps/integrations/fincra`) — card provider
 
-Not built or offered yet; see the status note in the guide.
+Checkout's default `card` method routes here (Fincra's hosted payment page).
+Run the sandbox checklist in the guide before production traffic.
 
 See [fincra-integration.md](./fincra-integration.md) for full setup.
 Docs: [docs.fincra.com](https://docs.fincra.com/docs/getting-started).
@@ -242,10 +224,10 @@ Grant `payment_collect` to product and admin service accounts that initiate coll
 ## Payment methods
 
 - Hosted page shows methods from `CHECKOUT_METHODS`, filtered by currency, locality, partition, and session restriction.
-- **Card is first and embedded** (`embed: true`, `redirect: false`, route `flutterwave`).
+- **Card is first** and opens Fincra's hosted payment page (`redirect: true`, route `fincra`). Fincra collects whole amounts only, so fractional card amounts are refused.
 - MoMo methods require phone when selected; card only needs email (prefilled when known).
 - Merchant may pass `methods: ["card"]` or `["mpesa","card"]` on CollectPayment / StartSubscription / product CreateSession.
-- Required env for embedded card: `CHECKOUT_CARD_ENCRYPTION_KEY` (or `FLUTTERWAVE_ENCRYPTION_KEY`).
+- Silent saved-card renewals are off (`BILLING_RENEWAL_DEFAULT_ROUTE` empty): each renewal sends the payer to the hosted page.
 
 ## Health checklist
 

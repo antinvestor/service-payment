@@ -32,7 +32,8 @@ type RenewalConfig struct {
 	RetryDelays []time.Duration
 	// MaxAttempts including the first try. Exhaustion archives the Trustage reminder.
 	MaxAttempts int
-	// DefaultRoute payment route for COF (must be flutterwave for v4 token charges).
+	// DefaultRoute is the payment route that charges saved cards; empty
+	// means no silent renewals (the payer pays on the hosted page).
 	DefaultRoute string
 }
 
@@ -73,9 +74,6 @@ func NewRenewalConfigFromEnv(
 	}
 	if cfg.MaxAttempts <= 0 {
 		cfg.MaxAttempts = 4
-	}
-	if cfg.DefaultRoute == "" {
-		cfg.DefaultRoute = "flutterwave"
 	}
 	delays := ParseRetryDelaysHoursCSV(retryCSV)
 	if len(delays) == 0 {

@@ -46,7 +46,7 @@ func TestNewRenewalConfigFromEnv_Defaults(t *testing.T) {
 	cfg := business.NewRenewalConfigFromEnv(0, 0, "", "")
 	assert.Equal(t, 24*time.Hour, cfg.LeadTime)
 	assert.Equal(t, 4, cfg.MaxAttempts)
-	assert.Equal(t, "flutterwave", cfg.DefaultRoute)
+	assert.Empty(t, cfg.DefaultRoute, "no route: silent renewals are off")
 	require.Len(t, cfg.RetryDelays, 4)
 	assert.Equal(t, 0*time.Hour, cfg.RetryDelays[0])
 	assert.Equal(t, 24*time.Hour, cfg.RetryDelays[1])
@@ -56,7 +56,7 @@ func TestNewRenewalConfigFromEnv_Defaults(t *testing.T) {
 
 func TestNewRenewalConfigFromEnv_ExtendsRetries(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(12, 6, "0,24", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(12, 6, "0,24", "card-provider")
 	assert.Equal(t, 12*time.Hour, cfg.LeadTime)
 	assert.Equal(t, 6, cfg.MaxAttempts)
 	require.GreaterOrEqual(t, len(cfg.RetryDelays), 6)
@@ -67,7 +67,7 @@ func TestNewRenewalConfigFromEnv_ExtendsRetries(t *testing.T) {
 
 func TestRenewalConfig_AttemptDue_SpreadSchedule(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	periodEnd := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	// Lead: first attempt due at periodEnd - 24h = July 9 12:00
 	firstDue := periodEnd.Add(-24 * time.Hour)

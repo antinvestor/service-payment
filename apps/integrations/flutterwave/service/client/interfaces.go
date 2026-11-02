@@ -47,6 +47,10 @@ type FlutterwaveClient interface {
 	// GetCharge verifies a charge by id (GET /charges/{id}).
 	GetCharge(ctx context.Context, creds *Credentials, chargeID string) (*Charge, error)
 
+	// FindChargeByReference finds the charge made with our reference
+	// (GET /charges?reference=); ErrNotFound when there is none.
+	FindChargeByReference(ctx context.Context, creds *Credentials, reference string) (*Charge, error)
+
 	// CreateTransferRecipient creates a payout recipient (POST /transfers/recipients).
 	CreateTransferRecipient(ctx context.Context, creds *Credentials, req *TransferRecipientRequest) (recipientID string, err error)
 

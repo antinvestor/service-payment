@@ -144,12 +144,66 @@ See `apps/integrations/flutterwave/deploy/env.example`.
    (`pkg/collection` keys).
 3. Keep checkout UI and product gateways unchanged.
 
+## Money safety
+
+These rules hold for every write to Flutterwave and every webhook.
+
+| Situation | What happens |
+|-----------|--------------|
+| A prompt or payout message is delivered twice | The charge reference (`prompt-<id>`, `renew-<id>`, `pay-<id>`) and the `X-Idempotency-Key` come from our id. The worker first looks the charge up by reference, and Flutterwave answers a repeated key with its original response. It is charged or paid once. |
+| A timeout, 5xx or lost response on a charge or transfer | Never reported failed. The worker looks the charge up by reference and reports it, or returns the message to the queue to be redelivered with the same key. |
+| Flutterwave refuses a request (4xx, or a failed envelope) | The prompt or payout is reported `FAILED` with `error_code=provider_rejected`. |
+| A duplicate transfer reference | Reported `IN_PROCESS`. The transfer webhook settles it; it is never sent again. |
+| A charge succeeds for a different amount or currency | Reported `FAILED` with `error_code=amount_mismatch`. Status extras always carry the charged `amount`/`currency` for checkout's paid-amount check. |
+| An amount that cannot be sent exactly | Refused, never rounded: more than 2 decimal places, or a fraction of UGX, RWF, XOF, XAF and similar. |
+| Mobile money in a currency the number's corridor does not use | Refused; it is never converted (e.g. USD from a +254 number). |
+| A PIN / OTP / AVS step | The charge is re-read first. A redelivered step on a settled charge only reports it. A wrong OTP leaves the charge `IN_PROCESS` with `authorization_error` so the payer can retry. A step naming another prompt's charge is dropped. |
+| A webhook | Requires `FLUTTERWAVE_WEBHOOK_SECRET` (503 without it) and a valid `flutterwave-signature` (`verif-hash` only on v3 keys). The charge or transfer is re-read from the API; only that record's status, amount and meta are used, including tenancy. If Flutterwave is unreachable we answer 502 so it resends. |
+| `transfer.reversal` | Logged as an error for manual reconciliation; a payout is never re-marked. |
+| The return page | Static text only; it never calls Flutterwave or claims a payment. |
+
+Payouts go only to the payee's verified mobile money number, which the
+payment service resolves into `recipient.contact_id`. Caller extras never
+choose the destination, so bank payouts are not reachable through `Send`.
+
+## Limits
+
+- **One Flutterwave account.** Collections and payouts run on the platform's
+  credentials. The payment service never names a settings connection on a
+  prompt, and webhooks are verified against the platform account; a charge on
+  any other account is ignored.
+- **v4 OAuth in production.** v3 `FLWSECK` keys work in sandbox only
+  (production refuses to start with them). With v3 keys, payouts go to M-Pesa
+  Kenya only, and transfer webhooks cannot be verified.
+- **Abandoned charges.** Flutterwave sends webhooks for completed charges; a
+  charge the payer abandons stays pending until checkout's session expires.
+- **Reversals** need manual reconciliation.
+
 ## Production checklist
 
-- [ ] v4 Client ID + Secret (live)
-- [ ] Encryption key on checkout + flutterwave
-- [ ] Webhook HTTPS + signature verify
-- [ ] Prompt topic URI aligned with integrator queue
-- [ ] `CHECKOUT_PUBLIC_BASE_URL=https://pay.stawi.org`
-- [ ] Settlement sweeper on billing
+The service refuses to start in production unless:
+- `FLUTTERWAVE_CLIENT_ID` and `FLUTTERWAVE_CLIENT_SECRET` are v4 OAuth credentials, and `FLUTTERWAVE_SECRET_KEY` is unset;
+- `FLUTTERWAVE_WEBHOOK_SECRET` is set;
+- `QUEUE_FLUTTERWAVE_PROMPT_URI` and `QUEUE_FLUTTERWAVE_PAYMENT_URI` are shared queues, not `mem://`;
+- `FLUTTERWAVE_DEFAULT_REDIRECT_URL` is a public https URL.
+
+Before going live:
 - [ ] `FLUTTERWAVE_ENVIRONMENT=production`
+- [ ] The same secret hash is set as `FLUTTERWAVE_WEBHOOK_SECRET` and in the dashboard; the webhook URL is `https://<integrations host>/webhook/flutterwave`
+- [ ] `CHECKOUT_CARD_ENCRYPTION_KEY` equals the dashboard encryption key
+- [ ] The `flutterwave` entry in `INITIATE_PROMPT_ROUTE_URIS` equals `QUEUE_FLUTTERWAVE_PROMPT_URI`
+- [ ] The partition's `tx` route in `PAYMENT_ROUTES` uses `QUEUE_FLUTTERWAVE_PAYMENT_URI`
+- [ ] `CHECKOUT_PUBLIC_BASE_URL=https://pay.stawi.org`, and the billing settlement sweeper is on
+- [ ] The sandbox checklist below has passed
+
+### Sandbox checklist (run before the first live payment)
+
+1. A card charge with PIN, then OTP: a wrong OTP and then the right one; the checkout session completes.
+2. A card charge needing 3DS redirect; the webhook settles it.
+3. M-Pesa (KE), MTN and Airtel (UG) mobile money collections; check the `network` codes Flutterwave accepts.
+4. Send the same prompt twice: one charge, and the second request returns `X-Idempotency-Cache-Hit: true`.
+5. `GET /charges?reference=` returns the charge by reference.
+6. Make a duplicate charge or transfer reference with a new idempotency key, and record the status code Flutterwave returns (409 is assumed).
+7. A mobile money payout (UGX whole, KES with cents); the `transfer.disburse` webhook carries `meta.payment_id` on the re-read transfer.
+8. A renewal with a saved `payment_method_id` (card-on-file must be enabled on the account).
+9. A webhook with a bad signature gets 401; a valid one is applied once.

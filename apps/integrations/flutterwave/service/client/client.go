@@ -34,11 +34,13 @@ import (
 
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
 	httpClientTimeout     = 45 * time.Second
 	tokenRefreshSkew      = 60 * time.Second // refresh ≥1m before expiry (FW recommendation)
+	tokenRequestTimeout   = 15 * time.Second
 	defaultOAuthURL       = "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token"
 	defaultSandboxBase    = "https://developersandbox-api.flutterwave.com"
 	defaultProductionBase = "https://f4bexperience.flutterwave.com"
@@ -53,8 +55,9 @@ type flutterwaveClient struct {
 	httpClient *http.Client
 	metrics    *integrationobs.Metrics
 
-	mu     sync.Mutex
-	tokens map[string]*tokenEntry // key: clientID + ":" + env
+	mu      sync.Mutex
+	tokens  map[string]*tokenEntry // key: clientID + ":" + env
+	refresh singleflight.Group     // one token request per key at a time
 }
 
 // NewClient constructs a Flutterwave v4 HTTP client with OAuth token caching.
@@ -72,7 +75,7 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
 	if req == nil {
-		return nil, fmt.Errorf("orchestrator charge request is required")
+		return nil, invalidRequest("orchestrator charge request is required")
 	}
 	pmType := strings.ToLower(strings.TrimSpace(req.PaymentMethod.Type))
 	if pmType == "" {
@@ -96,7 +99,7 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	// Works with pure OAuth client_id/client_secret — no FLWSECK required.
 	if (pmType == "card" || pmType == "hosted" || pmType == "standard") && hasEncryptedCard {
 		if IsV3Credentials(creds) && !hasOAuth(creds) {
-			return nil, errors.New(
+			return nil, invalidRequest(
 				"embedded card charges need Flutterwave v4 OAuth (FLUTTERWAVE_CLIENT_ID + CLIENT_SECRET); " +
 					"FLWSECK_* alone cannot encrypt-orchestrator charge",
 			)
@@ -113,7 +116,7 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 		}
 		if hasStandardSecret(creds) || IsV3Credentials(creds) {
 			// No v3 multipay for these shapes — require OAuth.
-			return nil, fmt.Errorf("payment method %q requires Flutterwave v4 OAuth credentials", pmType)
+			return nil, invalidRequest("payment method %q requires Flutterwave v4 OAuth credentials", pmType)
 		}
 	}
 
@@ -130,7 +133,7 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 	}
 
 	if pmType == "card" || pmType == "hosted" || pmType == "standard" || pmType == "payment_link" {
-		return nil, fmt.Errorf(
+		return nil, invalidRequest(
 			"card collection requires encrypted card fields from hosted checkout " +
 				"(encrypted_card_number + card_nonce via pay.*/c/{{session}}). " +
 				"Configure CHECKOUT_CARD_ENCRYPTION_KEY / FLUTTERWAVE_ENCRYPTION_KEY and open " +
@@ -139,7 +142,7 @@ func (c *flutterwaveClient) CreateOrchestratorCharge(
 		)
 	}
 
-	return nil, fmt.Errorf("unsupported flutterwave payment method type %q", pmType)
+	return nil, invalidRequest("unsupported flutterwave payment method type %q", pmType)
 }
 
 // hasOAuth reports v4 client-credentials (UUID-style client id/secret).
@@ -168,7 +171,7 @@ func (c *flutterwaveClient) orchestratorDirectCharge(
 	req *OrchestratorChargeRequest,
 ) (*Charge, error) {
 	var out *Charge
-	err := withRetry(ctx, RetryPolicy{}, func() error {
+	err := c.write(ctx, func() error {
 		var env APIEnvelope[Charge]
 		if err := c.doJSON(ctx, creds, http.MethodPost, "/orchestration/direct-charges", req, &env); err != nil {
 			return err
@@ -219,7 +222,7 @@ func (c *flutterwaveClient) CreateCharge(
 	req *ChargeRequest,
 ) (*Charge, error) {
 	var out *Charge
-	err := withRetry(ctx, RetryPolicy{}, func() error {
+	err := c.write(ctx, func() error {
 		var env APIEnvelope[Charge]
 		if err := c.doJSON(ctx, creds, http.MethodPost, "/charges", req, &env); err != nil {
 			return err
@@ -241,17 +244,23 @@ func (c *flutterwaveClient) UpdateCharge(
 	req *UpdateChargeRequest,
 ) (*Charge, error) {
 	if strings.TrimSpace(chargeID) == "" {
-		return nil, errors.New("charge id is required")
+		return nil, invalidRequest("charge id is required")
 	}
-	var env APIEnvelope[Charge]
+	var out *Charge
 	path := "/charges/" + url.PathEscape(chargeID)
-	if err := c.doJSON(ctx, creds, http.MethodPut, path, req, &env); err != nil {
-		return nil, err
-	}
-	if env.Data.ID == "" {
-		return nil, apiError("update charge", env.Status, env.Message, env.Error)
-	}
-	return &env.Data, nil
+	err := c.write(ctx, func() error {
+		var env APIEnvelope[Charge]
+		if err := c.doJSON(ctx, creds, http.MethodPut, path, req, &env); err != nil {
+			return err
+		}
+		if env.Data.ID == "" {
+			return apiError("update charge", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
 }
 
 // hasStandardSecret reports whether credentials include a classic secret key
@@ -272,14 +281,60 @@ func (c *flutterwaveClient) GetCharge(
 	if IsV3Credentials(creds) {
 		return c.getChargeV3(ctx, creds, chargeID)
 	}
-	var env APIEnvelope[Charge]
-	if err := c.doJSON(ctx, creds, http.MethodGet, "/charges/"+url.PathEscape(chargeID), nil, &env); err != nil {
-		return nil, err
+	var out *Charge
+	err := withRetry(ctx, RetryPolicy{}, func() error {
+		var env APIEnvelope[Charge]
+		if err := c.doJSON(ctx, creds, http.MethodGet, "/charges/"+url.PathEscape(chargeID), nil, &env); err != nil {
+			return err
+		}
+		if env.Data.ID == "" {
+			return apiError("get charge", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
+}
+
+// FindChargeByReference finds the charge made with our reference. A charge
+// we may have created (a redelivered prompt, a lost response) is looked up
+// here before anything is charged again.
+func (c *flutterwaveClient) FindChargeByReference(
+	ctx context.Context,
+	creds *Credentials,
+	reference string,
+) (*Charge, error) {
+	if strings.TrimSpace(reference) == "" {
+		return nil, invalidRequest("reference is required")
 	}
-	if env.Data.ID == "" {
-		return nil, apiError("get charge", env.Status, env.Message, env.Error)
+	if IsV3Credentials(creds) {
+		ch, err := c.getChargeV3(ctx, creds, "v3:"+reference)
+		if err != nil {
+			return nil, err
+		}
+		if ch.ID == "" || ch.ID == "0" {
+			return nil, ErrNotFound
+		}
+		return ch, nil
 	}
-	return &env.Data, nil
+	var found *Charge
+	err := withRetry(ctx, RetryPolicy{}, func() error {
+		var env APIEnvelope[[]Charge]
+		path := "/charges?reference=" + url.QueryEscape(reference)
+		if err := c.doJSON(ctx, creds, http.MethodGet, path, nil, &env); err != nil {
+			return err
+		}
+		for i := range env.Data {
+			if env.Data[i].Reference == reference {
+				cp := env.Data[i]
+				found = &cp
+				return nil
+			}
+		}
+		return ErrNotFound
+	})
+	return found, err
 }
 
 func (c *flutterwaveClient) CreateTransferRecipient(
@@ -287,14 +342,19 @@ func (c *flutterwaveClient) CreateTransferRecipient(
 	creds *Credentials,
 	req *TransferRecipientRequest,
 ) (string, error) {
-	var env APIEnvelope[map[string]any]
-	if err := c.doJSON(ctx, creds, http.MethodPost, "/transfers/recipients", req, &env); err != nil {
-		return "", err
-	}
-	if id, ok := env.Data["id"].(string); ok && id != "" {
-		return id, nil
-	}
-	return "", apiError("create recipient", env.Status, env.Message, env.Error)
+	var id string
+	err := c.write(ctx, func() error {
+		var env APIEnvelope[map[string]any]
+		if err := c.doJSON(ctx, creds, http.MethodPost, "/transfers/recipients", req, &env); err != nil {
+			return err
+		}
+		if v, ok := env.Data["id"].(string); ok && v != "" {
+			id = v
+			return nil
+		}
+		return apiError("create recipient", env.Status, env.Message, env.Error)
+	})
+	return id, err
 }
 
 func (c *flutterwaveClient) CreateTransfer(
@@ -305,14 +365,20 @@ func (c *flutterwaveClient) CreateTransfer(
 	if IsV3Credentials(creds) {
 		return c.createTransferV3(ctx, creds, req)
 	}
-	var env APIEnvelope[Transfer]
-	if err := c.doJSON(ctx, creds, http.MethodPost, "/transfers", req, &env); err != nil {
-		return nil, err
-	}
-	if env.Data.ID == "" {
-		return nil, apiError("create transfer", env.Status, env.Message, env.Error)
-	}
-	return &env.Data, nil
+	var out *Transfer
+	err := c.write(ctx, func() error {
+		var env APIEnvelope[Transfer]
+		if err := c.doJSON(ctx, creds, http.MethodPost, "/transfers", req, &env); err != nil {
+			return err
+		}
+		if env.Data.ID == "" {
+			return apiError("create transfer", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
 }
 
 func (c *flutterwaveClient) CreateDirectTransfer(
@@ -335,31 +401,42 @@ func (c *flutterwaveClient) GetTransfer(
 	creds *Credentials,
 	transferID string,
 ) (*Transfer, error) {
-	var env APIEnvelope[Transfer]
-	if err := c.doJSON(ctx, creds, http.MethodGet, "/transfers/"+url.PathEscape(transferID), nil, &env); err != nil {
-		return nil, err
-	}
-	if env.Data.ID == "" {
-		return nil, apiError("get transfer", env.Status, env.Message, env.Error)
-	}
-	return &env.Data, nil
+	var out *Transfer
+	err := withRetry(ctx, RetryPolicy{}, func() error {
+		var env APIEnvelope[Transfer]
+		if err := c.doJSON(ctx, creds, http.MethodGet, "/transfers/"+url.PathEscape(transferID), nil, &env); err != nil {
+			return err
+		}
+		if env.Data.ID == "" {
+			return apiError("get transfer", env.Status, env.Message, env.Error)
+		}
+		cp := env.Data
+		out = &cp
+		return nil
+	})
+	return out, err
 }
 
-// VerifyWebhookSignature validates webhook authenticity.
-// v4: flutterwave-signature = base64(HMAC-SHA256(secret, body))
-// v3: verif-hash header may equal the secret hash exactly (also accepted when equal).
+// write performs a POST/PUT. With an idempotency key, Flutterwave performs
+// it once however often it is sent, so transient failures are retried;
+// without one a retry could act twice, so it is sent once.
+func (c *flutterwaveClient) write(ctx context.Context, fn func() error) error {
+	if idempotencyKeyFrom(ctx) == "" {
+		return fn()
+	}
+	return withRetry(ctx, RetryPolicy{}, fn)
+}
+
+// VerifyWebhookSignature checks flutterwave-signature: base64(HMAC-SHA256(
+// secret, raw body)). The secret itself is never accepted as a signature.
 func (c *flutterwaveClient) VerifyWebhookSignature(rawBody []byte, signatureHeader, secretHash string) bool {
 	if secretHash == "" || signatureHeader == "" {
 		return false
 	}
-	// Exact match (v3 verif-hash style).
-	if hmac.Equal([]byte(signatureHeader), []byte(secretHash)) {
-		return true
-	}
 	mac := hmac.New(sha256.New, []byte(secretHash))
 	_, _ = mac.Write(rawBody)
 	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	return hmac.Equal([]byte(expected), []byte(signatureHeader))
+	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(signatureHeader)))
 }
 
 // --- HTTP / OAuth ---
@@ -403,8 +480,15 @@ func (c *flutterwaveClient) doJSON(
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("X-Trace-Id", newTraceID())
-	httpReq.Header.Set("X-Idempotency-Key", newIdempotencyKey())
+	traceID := newTraceID()
+	idemKey := idempotencyKeyFrom(ctx)
+	if idemKey == "" {
+		idemKey = newIdempotencyKey()
+	}
+	httpReq.Header.Set("X-Trace-Id", traceID)
+	if method != http.MethodGet {
+		httpReq.Header.Set("X-Idempotency-Key", idemKey)
+	}
 
 	logger := util.Log(ctx).WithField("type", "flutterwave.v4.api").WithField("path", path)
 	defer logger.Release()
@@ -433,8 +517,11 @@ func (c *flutterwaveClient) doJSON(
 			httpReq2.Header.Set("Authorization", "Bearer "+token)
 			httpReq2.Header.Set("Content-Type", "application/json")
 			httpReq2.Header.Set("Accept", "application/json")
-			httpReq2.Header.Set("X-Trace-Id", newTraceID())
-			httpReq2.Header.Set("X-Idempotency-Key", newIdempotencyKey())
+			httpReq2.Header.Set("X-Trace-Id", traceID)
+			if method != http.MethodGet {
+				// The same key: the first attempt may have been performed.
+				httpReq2.Header.Set("X-Idempotency-Key", idemKey)
+			}
 			resp2, err2 := c.httpClient.Do(httpReq2)
 			if err2 != nil {
 				return fmt.Errorf("retry request: %w", err2)
@@ -446,7 +533,7 @@ func (c *flutterwaveClient) doJSON(
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("flutterwave http %d: %s", resp.StatusCode, truncate(string(respBody), 512))
+		return &HTTPError{Status: resp.StatusCode, Body: truncate(string(respBody), 512)}
 	}
 	if result == nil || len(respBody) == 0 {
 		return nil
@@ -465,14 +552,35 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 		return "", errors.New("flutterwave client_id and client_secret are required (v4 OAuth)")
 	}
 	key := creds.ClientID + ":" + strings.ToLower(creds.Environment)
+	if token, ok := c.cachedToken(key); ok {
+		return token, nil
+	}
+	// Callers of one key share a single token request; other keys (other
+	// tenants) are never held up behind it.
+	v, err, _ := c.refresh.Do(key, func() (any, error) {
+		if token, ok := c.cachedToken(key); ok {
+			return token, nil
+		}
+		reqCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), tokenRequestTimeout)
+		defer cancel()
+		return c.requestToken(reqCtx, key, creds)
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}
 
+func (c *flutterwaveClient) cachedToken(key string) (string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	if ent, ok := c.tokens[key]; ok && time.Until(ent.expiresAt) > tokenRefreshSkew {
-		return ent.accessToken, nil
+		return ent.accessToken, true
 	}
+	return "", false
+}
 
+func (c *flutterwaveClient) requestToken(ctx context.Context, key string, creds *Credentials) (string, error) {
 	tokenURL := creds.OAuthTokenURL
 	if tokenURL == "" {
 		tokenURL = defaultOAuthURL
@@ -496,6 +604,8 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Not a refusal of the payment: the token service is unavailable or
+		// the keys are wrong. Either way nothing was charged.
 		return "", fmt.Errorf("oauth token http %d: %s", resp.StatusCode, truncate(string(body), 256))
 	}
 	var tok oauthTokenResponse
@@ -509,10 +619,12 @@ func (c *flutterwaveClient) accessToken(ctx context.Context, creds *Credentials)
 	if expiresIn <= 0 {
 		expiresIn = 600
 	}
+	c.mu.Lock()
 	c.tokens[key] = &tokenEntry{
 		accessToken: tok.AccessToken,
 		expiresAt:   time.Now().Add(time.Duration(expiresIn) * time.Second),
 	}
+	c.mu.Unlock()
 	return tok.AccessToken, nil
 }
 
@@ -541,10 +653,11 @@ func apiError(op, status, message string, errObj *struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }) error {
+	e := &APIError{Op: op, Status: status, Message: message}
 	if errObj != nil && errObj.Message != "" {
-		return fmt.Errorf("flutterwave %s: %s (%s/%s)", op, errObj.Message, errObj.Type, errObj.Code)
+		e.Message, e.Type, e.Code = errObj.Message, errObj.Type, errObj.Code
 	}
-	return fmt.Errorf("flutterwave %s: status=%s message=%s", op, status, message)
+	return e
 }
 
 func newTraceID() string {

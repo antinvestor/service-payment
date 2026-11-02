@@ -16,6 +16,8 @@ package queue
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -31,21 +33,26 @@ type statusEmitter struct {
 	eventsMan frameEvents.Manager
 }
 
+// emitStatus reports an entity's status to the payment service. The error
+// is returned so a worker can redeliver rather than lose an outcome.
 func (e *statusEmitter) emitStatus(
 	ctx context.Context,
 	id, externalID string,
 	status commonv1.STATUS,
 	extras map[string]any,
-) {
+) error {
 	if extras == nil {
 		extras = map[string]any{}
 	}
-	extra, _ := structpb.NewStruct(extras)
+	extra, err := structpb.NewStruct(extras)
+	if err != nil {
+		return fmt.Errorf("status extras: %w", err)
+	}
 	state := commonv1.STATE_ACTIVE
 	if status == commonv1.STATUS_FAILED {
 		state = commonv1.STATE_INACTIVE
 	}
-	err := e.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
+	err = e.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
 		Id:         id,
 		State:      state,
 		Status:     status,
@@ -53,41 +60,54 @@ func (e *statusEmitter) emitStatus(
 		Extras:     extra,
 	})
 	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
+		util.Log(ctx).WithError(err).WithField("entity_id", id).Warn("could not emit status update")
+		return err
 	}
+	return nil
 }
 
-// formatMoneyAmount converts google.type.Money to a decimal string for Flutterwave.
-func formatMoneyAmount(amount interface {
+// wholeUnitCurrencies have no minor unit in practice: an amount with a
+// fraction cannot be charged or paid exactly.
+var wholeUnitCurrencies = map[string]bool{
+	"UGX": true, "RWF": true, "XOF": true, "XAF": true, "BIF": true, "GNF": true,
+	"KMF": true, "DJF": true, "JPY": true, "KRW": true, "VND": true, "CLP": true, "PYG": true,
+}
+
+// errInvalidAmount is an amount Flutterwave cannot be asked for exactly.
+var errInvalidAmount = errors.New(
+	"amount must be positive with at most two decimal places (whole units for UGX, RWF, XOF, XAF and similar)")
+
+const nanosPerCent = 10_000_000
+
+// providerAmount is the exact amount and currency to send. An amount that
+// cannot be sent exactly is refused, never rounded.
+func providerAmount(amount interface {
 	GetUnits() int64
 	GetNanos() int32
 	GetCurrencyCode() string
-}) (string, string) {
+}) (float64, string, error) {
 	if amount == nil {
-		return "0", ""
+		return 0, "", errInvalidAmount
 	}
-	currency := strings.ToUpper(amount.GetCurrencyCode())
-	units := amount.GetUnits()
-	nanos := amount.GetNanos()
-	// Preserve minor units when present (e.g. 10.50).
-	if nanos == 0 {
-		return strconv.FormatInt(units, 10), currency
+	currency := strings.ToUpper(strings.TrimSpace(amount.GetCurrencyCode()))
+	units, nanos := amount.GetUnits(), amount.GetNanos()
+	if currency == "" {
+		return 0, "", errors.New("amount has no currency")
 	}
-	total := float64(units) + float64(nanos)/1e9 //nolint:mnd // nanos conversion
-	// Flutterwave expects plain numbers; avoid scientific notation.
-	return strconv.FormatFloat(total, 'f', -1, 64), currency
+	if units < 0 || nanos < 0 || (units == 0 && nanos == 0) || nanos%nanosPerCent != 0 {
+		return 0, currency, errInvalidAmount
+	}
+	if nanos != 0 && wholeUnitCurrencies[currency] {
+		return 0, currency, errInvalidAmount
+	}
+	cents := units*100 + int64(nanos/nanosPerCent)                                                          //nolint:mnd // cents
+	value, _ := strconv.ParseFloat(strconv.FormatInt(cents/100, 10)+"."+fmt.Sprintf("%02d", cents%100), 64) //nolint:mnd // cents
+	return value, currency, nil
 }
 
-// moneyToWholeUnits rounds Money to whole currency units for MoMo transfers that require integers.
-func moneyToWholeUnits(amount interface {
-	GetUnits() int64
-	GetNanos() int32
-}) int64 {
-	if amount == nil {
-		return 0
-	}
-	total := float64(amount.GetUnits()) + float64(amount.GetNanos())/1e9 //nolint:mnd // nanos
-	return int64(math.Round(total))
+// sameAmount compares provider amounts to the cent.
+func sameAmount(a, b float64) bool {
+	return math.Round(a*100) == math.Round(b*100) //nolint:mnd // cents
 }
 
 func headerOrDefault(headers map[string]string, key, fallback string) string {

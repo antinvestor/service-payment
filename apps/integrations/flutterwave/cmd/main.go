@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
@@ -38,7 +39,11 @@ func main() {
 	cfg, err := config.LoadWithOIDC[aconfig.FlutterwaveConfig](ctx)
 	if err != nil {
 		util.Log(ctx).With("err", err).Error("could not process configs")
-		return
+		os.Exit(1)
+	}
+	if err = cfg.Validate(); err != nil {
+		util.Log(ctx).With("err", err).Error("refusing to start")
+		os.Exit(1)
 	}
 
 	if cfg.Name() == "" {
@@ -85,19 +90,13 @@ func main() {
 	svc.Init(ctx, serviceOptions...)
 
 	logger.Info("Initiating Flutterwave integration server operations")
-	testCreds := &client.Credentials{
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		PublicKey:    cfg.PublicKey,
-		SecretKey:    firstNonEmptyCfg(cfg.SecretKey, cfg.ClientSecret),
+	switch {
+	case cfg.WebhookSecret == "":
+		logger.Warn("FLUTTERWAVE_WEBHOOK_SECRET empty — every webhook will be refused")
+	case cfg.ClientID == "" || cfg.ClientSecret == "":
+		logger.Warn("FLUTTERWAVE_CLIENT_ID / FLUTTERWAVE_CLIENT_SECRET empty — only settings connections can charge")
 	}
-	if client.IsV3Credentials(testCreds) {
-		logger.Info("Flutterwave classic (v3) secret-key mode enabled")
-	} else if cfg.ClientID == "" || cfg.ClientSecret == "" {
-		logger.Warn("FLUTTERWAVE_CLIENT_ID / FLUTTERWAVE_CLIENT_SECRET empty — OAuth will fail until set or provided per-message")
-	} else {
-		logger.Info("Flutterwave v4 OAuth mode enabled")
-	}
+	logger.WithField("environment", cfg.Environment).Info("Flutterwave integration configured")
 
 	err = svc.Run(ctx, "")
 	if err != nil {
@@ -125,13 +124,4 @@ func setupSettingsClient(
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceSettings,
 	}, settingsv1connect.NewSettingsServiceClient)
-}
-
-func firstNonEmptyCfg(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

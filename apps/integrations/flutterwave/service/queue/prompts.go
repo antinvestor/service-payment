@@ -16,6 +16,10 @@ package queue
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -27,9 +31,20 @@ import (
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+)
+
+// Meta keys the integration writes on every charge. Flutterwave returns
+// them on the verified charge, so they are trusted only after a re-fetch.
+const (
+	MetaPromptID         = "prompt_id"
+	MetaTenantID         = "tenant_id"
+	MetaPartitionID      = "partition_id"
+	MetaExpectedAmount   = "expected_amount"
+	MetaExpectedCurrency = "expected_currency"
 )
 
 type promptHandler struct {
@@ -41,6 +56,12 @@ type promptHandler struct {
 }
 
 // NewPromptHandler handles InitiatePrompt via Flutterwave v4 orchestrator charges.
+//
+// Every write is idempotent on the prompt: the charge reference and the
+// X-Idempotency-Key are derived from the prompt id, the charge is looked up
+// before one is created, and an unknown outcome (timeout, 5xx) is never
+// reported as failed — the message is redelivered until Flutterwave's answer
+// is known.
 func NewPromptHandler(
 	eventsMan frameEvents.Manager,
 	fwCli client.FlutterwaveClient,
@@ -56,158 +77,148 @@ func NewPromptHandler(
 	}
 }
 
+// fail reports a definite failure.
+func (h *promptHandler) fail(ctx context.Context, promptID, chargeID, reason string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, "prompt", reason)
+	if extras == nil {
+		extras = map[string]any{}
+	}
+	extras["entity_type"] = "prompt"
+	extras["provider"] = "flutterwave"
+	extras["error_code"] = reason
+	return h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, extras)
+}
+
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "flutterwave.prompt")
 	defer logger.Release()
 
-	prompt := paymentv1.InitiatePromptRequest{}
-	if err := proto.Unmarshal(payload, &prompt); err != nil {
+	prompt := &paymentv1.InitiatePromptRequest{}
+	if err := proto.Unmarshal(payload, prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
 		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil
 	}
-
 	promptID := prompt.GetId()
+	if promptID == "" {
+		logger.Error("prompt without id dropped")
+		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
+		return nil
+	}
 	logger = logger.WithField("prompt_id", promptID)
 
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
+		if errors.Is(err, errCredentialsUnavailable) {
+			logger.WithError(err).Warn("credentials unavailable; redelivering")
+			return err
+		}
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "", "credentials_error", map[string]any{"error": err.Error()})
 	}
 
 	// Authorization step for an existing charge (PIN / OTP / AVS) — no new charge.
-	if action := strings.ToLower(extraString(prompt.GetExtra(), "action")); action == "authorize" {
-		return h.handleAuthorize(ctx, logger, &prompt, creds, promptID)
+	if strings.EqualFold(extraString(prompt.GetExtra(), "action"), "authorize") {
+		return h.handleAuthorize(ctx, logger, prompt, creds)
 	}
 
 	// Tokenized / subscription renewal: charge saved payment_method_id.
 	if pmd := extraString(prompt.GetExtra(), "payment_method_id"); pmd != "" {
 		if cus := extraString(prompt.GetExtra(), "customer_id"); cus != "" {
-			return h.handleTokenCharge(ctx, logger, &prompt, creds, promptID, cus, pmd, headers)
+			return h.handleTokenCharge(ctx, logger, prompt, creds, cus, pmd, headers)
 		}
 	}
+	return h.handleCharge(ctx, logger, prompt, creds, headers)
+}
 
-	amountStr, currency := formatMoneyAmount(prompt.GetAmount())
-	if currency == "" {
-		currency = "KES"
+// Expectation is what a prompt asked for; a charge is only successful when
+// Flutterwave collected exactly this.
+type Expectation struct {
+	Amount   float64
+	Currency string
+}
+
+//nolint:funlen // one charge flow: validate, look up, create, report.
+func (h *promptHandler) handleCharge(
+	ctx context.Context,
+	logger *util.LogEntry,
+	prompt *paymentv1.InitiatePromptRequest,
+	creds *client.Credentials,
+	headers map[string]string,
+) error {
+	promptID := prompt.GetId()
+	amount, currency, err := providerAmount(prompt.GetAmount())
+	if err != nil {
+		return h.fail(ctx, promptID, "", "invalid_amount", map[string]any{"error": err.Error()})
 	}
-	amount, _ := strconv.ParseFloat(amountStr, 64)
-	if amount <= 0 {
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": "invalid amount", "entity_type": "prompt",
-		})
-		return nil
+	want := Expectation{Amount: amount, Currency: currency}
+	reference := chargeReference("prompt", promptID)
+
+	// A charge already made for this prompt (redelivery, lost response) is
+	// reported, never made again.
+	if ch, done, lookupErr := h.existingCharge(ctx, logger, creds, reference); lookupErr != nil {
+		return lookupErr
+	} else if done {
+		return h.reportCharge(ctx, logger, promptID, ch, "lookup", want)
 	}
 
-	phone := prompt.GetRecipient().GetContactId()
+	phone := prompt.GetSource().GetContactId()
 	if phone == "" {
-		phone = prompt.GetSource().GetContactId()
+		phone = prompt.GetRecipient().GetContactId()
 	}
-
-	email := extraString(prompt.GetExtra(), "customer_email")
-	if email == "" {
-		email = extraString(prompt.GetExtra(), "email")
-	}
+	email := firstNonEmpty(extraString(prompt.GetExtra(), "customer_email"), extraString(prompt.GetExtra(), "email"))
 	if email == "" {
 		email = "payer+" + sanitizeRef(promptID) + "@payments.local"
 	}
-	name := extraString(prompt.GetExtra(), "customer_name")
-	if name == "" {
-		name = extraString(prompt.GetExtra(), "display_name")
-	}
+	name := firstNonEmpty(extraString(prompt.GetExtra(), "customer_name"), extraString(prompt.GetExtra(), "display_name"))
+	redirectURL := firstNonEmpty(
+		extraString(prompt.GetExtra(), "success_url"),
+		extraString(prompt.GetExtra(), "redirect_url"),
+		headerOrDefault(headers, config.HeaderRedirectURL, h.cfg.DefaultRedirectURL),
+	)
 
-	redirectURL := extraString(prompt.GetExtra(), "success_url")
-	if redirectURL == "" {
-		redirectURL = extraString(prompt.GetExtra(), "redirect_url")
-	}
-	if redirectURL == "" {
-		redirectURL = headerOrDefault(headers, config.HeaderRedirectURL, h.cfg.DefaultRedirectURL)
-	}
+	meta := h.chargeMeta(ctx, prompt, headers, want)
 
-	reference := extraString(prompt.GetExtra(), "tx_ref")
-	if reference == "" {
-		reference = "prompt-" + sanitizeRef(promptID)
-	}
-	// FW reference: 6–42 alphanumeric + hyphen
-	if len(reference) > 42 {
-		reference = reference[:42]
-	}
-
-	meta := map[string]string{
-		"prompt_id": promptID,
-		"entity":    "prompt",
-	}
-	if v := headers["tenant_id"]; v != "" {
-		meta["tenant_id"] = v
-	}
-	if v := headers["partition_id"]; v != "" {
-		meta["partition_id"] = v
-	}
-	for _, k := range []string{"session_ref", "invoice_id", "subscription_id"} {
-		if v := extraString(prompt.GetExtra(), k); v != "" {
-			meta[k] = v
-		}
-	}
-
-	// Build payment method: prefer encrypted card (embedded) → MoMo → default.
+	// Payment method: encrypted card (embedded checkout) → mobile money → default.
 	var pm client.PaymentMethodInput
-	mode := "collection"
-	if card := cardFromExtras(prompt.GetExtra()); card != nil {
+	var mode string
+	forced := strings.ToLower(extraString(prompt.GetExtra(), "payment_method_type"))
+	var corridor *MoMoCorridor
+	if digits := digitsOnly(phone); len(digits) >= 10 { //nolint:mnd // shortest international MSISDN
+		corridor = resolveMoMoCorridor(digits, currency)
+	}
+	switch card := cardFromExtras(prompt.GetExtra()); {
+	case card != nil:
 		pm = client.PaymentMethodInput{Type: "card", Card: card}
 		mode = "card"
-	} else if phone != "" {
-		if corridor := resolveMoMoCorridor(phone, currency); corridor != nil {
-			// Only prefer MoMo when the caller did not force card.
-			forced := strings.ToLower(extraString(prompt.GetExtra(), "payment_method_type"))
-			if forced == "" || forced == "mobile_money" || forced == "momo" {
-				currency = corridor.Currency
-				pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
-				mode = "mobile_money"
-			}
+	case forced == "mobile_money" || forced == "momo":
+		if corridor == nil {
+			return h.fail(ctx, promptID, "", "invalid_corridor", map[string]any{
+				"error": "no mobile money corridor charges " + currency + " for this number",
+			})
 		}
-	}
-	if pm.Type == "" {
-		pm = h.defaultCollectionMethod(&prompt, currency)
+		pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
+		mode = "mobile_money"
+	case forced == "" && corridor != nil:
+		pm = buildMoMoPaymentMethod(corridor, extraString(prompt.GetExtra(), "network"))
+		mode = "mobile_money"
+	default:
+		pm = h.defaultCollectionMethod(prompt)
 		mode = pm.Type
 	}
-	// Card without encrypted fields cannot charge on pure v4 OAuth — fail early
-	// with an actionable error (do not ask operators for FLWSECK multipay).
-	if strings.EqualFold(pm.Type, "card") && (pm.Card == nil || pm.Card.EncryptedCardNumber == "") {
-		// Allow legacy multipay only when FLWSECK is actually present.
-		if !client.IsV3Credentials(creds) && !hasStandardSecretCreds(creds) {
-			// Card fields missing and no FLWSECK multipay secret: fail clearly.
-			h.metrics.QueueFailed(ctx, "prompt", "card_encryption_required")
-			h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-				"error": "card payment requires encrypted card fields from hosted checkout " +
-					"(open pay.stawi.org session and submit the card form; " +
-					"set CHECKOUT_CARD_ENCRYPTION_KEY / FLUTTERWAVE_ENCRYPTION_KEY). " +
-					"v4 OAuth does not use FLWSECK Standard multipay",
-				"entity_type": "prompt",
-				"mode":        "card",
-				"hint":        "use_embedded_checkout",
-			})
-			return nil
-		}
+	if strings.EqualFold(pm.Type, "card") && (pm.Card == nil || pm.Card.EncryptedCardNumber == "") &&
+		!client.IsV3Credentials(creds) && !hasStandardSecretCreds(creds) {
+		return h.fail(ctx, promptID, "", "card_encryption_required", map[string]any{
+			"error": "card payment requires encrypted card fields from hosted checkout " +
+				"(set CHECKOUT_CARD_ENCRYPTION_KEY / FLUTTERWAVE_ENCRYPTION_KEY and pay on the checkout page)",
+			"mode": "card",
+			"hint": "use_embedded_checkout",
+		})
 	}
 
-	customer := client.CustomerInput{
-		Email: email,
-		Name:  splitName(name),
-		Meta:  meta,
-	}
-	if phone != "" {
-		if corridor := resolveMoMoCorridor(phone, currency); corridor != nil {
-			customer.Phone = &client.CustomerPhone{
-				CountryCode: corridor.CountryCode,
-				Number:      corridor.NationalNumber,
-			}
-		}
+	customer := client.CustomerInput{Email: email, Name: splitName(name), Meta: meta}
+	if corridor != nil {
+		customer.Phone = &client.CustomerPhone{CountryCode: corridor.CountryCode, Number: corridor.NationalNumber}
 	}
 
 	req := &client.OrchestratorChargeRequest{
@@ -219,20 +230,103 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		PaymentMethod: pm,
 		Meta:          meta,
 	}
-
-	ch, err := h.fwCli.CreateOrchestratorCharge(ctx, creds, req)
+	ch, err := h.fwCli.CreateOrchestratorCharge(client.WithIdempotencyKey(ctx, reference, "charge"), creds, req)
 	if err != nil {
-		logger.WithError(err).Error("orchestrator charge failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "prompt", "reference": reference,
-		})
-		return nil
+		return h.afterCreateError(ctx, logger, promptID, creds, reference, err, want)
 	}
+	return h.reportCharge(ctx, logger, promptID, ch, mode, want)
+}
 
-	h.emitChargeStatus(ctx, logger, promptID, ch, mode, reference)
-	h.metrics.QueueProcessed(ctx, "prompt")
-	return nil
+// existingCharge finds the charge made with reference. done is true when
+// one exists. An unanswered lookup redelivers the prompt (err), except when
+// Flutterwave refuses the lookup itself: the idempotency key still protects
+// the create.
+func (h *promptHandler) existingCharge(
+	ctx context.Context,
+	logger *util.LogEntry,
+	creds *client.Credentials,
+	reference string,
+) (*client.Charge, bool, error) {
+	ch, err := h.fwCli.FindChargeByReference(ctx, creds, reference)
+	switch {
+	case err == nil:
+		return ch, true, nil
+	case client.IsNotFound(err):
+		return nil, false, nil
+	case client.IsRejected(err):
+		logger.WithError(err).Warn("charge lookup refused; relying on the idempotency key")
+		return nil, false, nil
+	default:
+		logger.WithError(err).Warn("charge lookup failed; redelivering")
+		return nil, false, fmt.Errorf("look up charge %s: %w", reference, err)
+	}
+}
+
+// afterCreateError settles a failed create: a definite refusal fails the
+// prompt; anything else may have charged, so the charge is looked up and
+// reported, or the prompt is redelivered until it can be.
+func (h *promptHandler) afterCreateError(
+	ctx context.Context,
+	logger *util.LogEntry,
+	promptID string,
+	creds *client.Credentials,
+	reference string,
+	createErr error,
+	want Expectation,
+) error {
+	if client.IsRejected(createErr) {
+		logger.WithError(createErr).Error("charge refused by Flutterwave")
+		return h.fail(ctx, promptID, "", "provider_rejected", map[string]any{
+			"error": createErr.Error(), "reference": reference,
+		})
+	}
+	ch, err := h.fwCli.FindChargeByReference(ctx, creds, reference)
+	if err != nil {
+		logger.WithError(createErr).Warn("charge outcome unknown; redelivering")
+		return fmt.Errorf("charge %s outcome unknown: %w", reference, createErr)
+	}
+	return h.reportCharge(ctx, logger, promptID, ch, "lookup", want)
+}
+
+// chargeMeta is the charge's meta: the prompt, its tenancy and the amount
+// asked for, so a verified charge can be attributed and checked.
+func (h *promptHandler) chargeMeta(
+	ctx context.Context,
+	prompt *paymentv1.InitiatePromptRequest,
+	headers map[string]string,
+	want Expectation,
+) map[string]string {
+	tenantID, partitionID := promptTenancy(ctx, prompt.GetExtra(), headers)
+	meta := map[string]string{
+		MetaPromptID:         prompt.GetId(),
+		"entity":             "prompt",
+		MetaExpectedAmount:   strconv.FormatFloat(want.Amount, 'f', 2, 64),
+		MetaExpectedCurrency: want.Currency,
+	}
+	if tenantID != "" {
+		meta[MetaTenantID] = tenantID
+	}
+	if partitionID != "" {
+		meta[MetaPartitionID] = partitionID
+	}
+	for _, k := range []string{"session_ref", "invoice_id", "subscription_id"} {
+		if v := extraString(prompt.GetExtra(), k); v != "" {
+			meta[k] = v
+		}
+	}
+	return meta
+}
+
+// promptTenancy is the prompt's tenant and partition: as the payment service
+// stamped them on the prompt, else the message's claims, else its headers.
+func promptTenancy(ctx context.Context, extra *structpb.Struct, headers map[string]string) (string, string) {
+	tenantID := extraString(extra, "tenant_id")
+	partitionID := extraString(extra, "partition_id")
+	if claims := security.ClaimsFromContext(ctx); claims != nil {
+		tenantID = firstNonEmpty(tenantID, claims.GetTenantID())
+		partitionID = firstNonEmpty(partitionID, claims.GetPartitionID())
+	}
+	return firstNonEmpty(tenantID, headers["tenant_id"]), firstNonEmpty(partitionID, headers["partition_id"])
 }
 
 // handleTokenCharge charges a previously saved payment method (subscription renewals).
@@ -242,89 +336,53 @@ func (h *promptHandler) handleTokenCharge(
 	logger *util.LogEntry,
 	prompt *paymentv1.InitiatePromptRequest,
 	creds *client.Credentials,
-	promptID, customerID, paymentMethodID string,
+	customerID, paymentMethodID string,
 	headers map[string]string,
 ) error {
-	// Refuse classic v3 credentials for silent renewals. Token charges use
-	// POST /charges with payment_method_id (v4). Configure OAuth client_id/secret.
-	if client.IsV3Credentials(creds) && !hasOAuthCreds(creds) {
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
+	promptID := prompt.GetId()
+	if (client.IsV3Credentials(creds) && !hasOAuthCreds(creds)) ||
+		strings.EqualFold(extraString(prompt.GetExtra(), "api_version"), "v3") {
+		return h.fail(ctx, promptID, "", "validation_error", map[string]any{
 			"error":       "token charge requires Flutterwave v4 OAuth credentials (not v3 secret keys)",
-			"entity_type": "prompt",
 			"api_version": "v4",
 			"mode":        "recurring",
 		})
-		return nil
 	}
-	// Explicit api_version=v3 on extras is rejected for COF.
-	if av := strings.ToLower(extraString(prompt.GetExtra(), "api_version")); av == "v3" {
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       "token charge does not support api_version=v3",
-			"entity_type": "prompt",
-			"api_version": "v4",
-		})
-		return nil
+	amount, currency, err := providerAmount(prompt.GetAmount())
+	if err != nil {
+		return h.fail(ctx, promptID, "", "invalid_amount", map[string]any{"error": err.Error()})
+	}
+	want := Expectation{Amount: amount, Currency: currency}
+	reference := chargeReference("renew", promptID)
+
+	// A renewal charges a saved card with no payer present: it must never
+	// be charged twice.
+	if ch, done, lookupErr := h.existingCharge(ctx, logger, creds, reference); lookupErr != nil {
+		return lookupErr
+	} else if done {
+		return h.reportCharge(ctx, logger, promptID, ch, "recurring", want)
 	}
 
-	amountStr, currency := formatMoneyAmount(prompt.GetAmount())
-	if currency == "" {
-		currency = "KES"
-	}
-	amount, _ := strconv.ParseFloat(amountStr, 64)
-	if amount <= 0 {
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": "invalid amount", "entity_type": "prompt",
-		})
-		return nil
-	}
-	reference := extraString(prompt.GetExtra(), "tx_ref")
-	if reference == "" {
-		reference = "renew-" + sanitizeRef(promptID)
-	}
-	if len(reference) > 42 {
-		reference = reference[:42]
-	}
-	redirectURL := extraString(prompt.GetExtra(), "success_url")
-	if redirectURL == "" {
-		redirectURL = extraString(prompt.GetExtra(), "redirect_url")
-	}
-	meta := map[string]string{"prompt_id": promptID, "entity": "prompt", "mode": "recurring", "api_version": "v4"}
-	for _, k := range []string{"session_ref", "invoice_id", "subscription_id"} {
-		if v := extraString(prompt.GetExtra(), k); v != "" {
-			meta[k] = v
-		}
-	}
-	if v := headers["tenant_id"]; v != "" {
-		meta["tenant_id"] = v
-	}
-
-	// Recurring defaults true for token charges (subscription renewals).
+	meta := h.chargeMeta(ctx, prompt, headers, want)
+	meta["mode"] = "recurring"
+	meta["api_version"] = "v4"
 	recurring := !strings.EqualFold(extraString(prompt.GetExtra(), "recurring"), "false")
 
-	ch, err := h.fwCli.CreateCharge(ctx, creds, &client.ChargeRequest{
+	ch, err := h.fwCli.CreateCharge(client.WithIdempotencyKey(ctx, reference, "charge"), creds, &client.ChargeRequest{
 		Amount:          amount,
 		Currency:        currency,
 		Reference:       reference,
 		CustomerID:      customerID,
 		PaymentMethodID: paymentMethodID,
-		RedirectURL:     redirectURL,
-		Recurring:       recurring,
-		Meta:            meta,
+		RedirectURL: firstNonEmpty(
+			extraString(prompt.GetExtra(), "success_url"), extraString(prompt.GetExtra(), "redirect_url")),
+		Recurring: recurring,
+		Meta:      meta,
 	})
 	if err != nil {
-		logger.WithError(err).Error("token charge failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "prompt", "reference": reference, "api_version": "v4",
-		})
-		return nil
+		return h.afterCreateError(ctx, logger, promptID, creds, reference, err, want)
 	}
-	h.emitChargeStatus(ctx, logger, promptID, ch, "recurring", reference)
-	h.metrics.QueueProcessed(ctx, "prompt")
-	return nil
+	return h.reportCharge(ctx, logger, promptID, ch, "recurring", want)
 }
 
 // hasOAuthCreds mirrors client.hasOAuth without exporting it — v4 client credentials only.
@@ -338,113 +396,226 @@ func hasOAuthCreds(c *client.Credentials) bool {
 	if strings.HasPrefix(c.ClientSecret, "FLWSECK_") || strings.HasPrefix(c.ClientSecret, "FLWSECK-") {
 		return false
 	}
-	if strings.HasPrefix(c.ClientID, "FLWPUBK_") {
-		return false
-	}
-	return true
+	return !strings.HasPrefix(c.ClientID, "FLWPUBK_")
 }
 
-// handleAuthorize completes PIN / OTP / AVS on a pending charge.
+// handleAuthorize completes PIN / OTP / AVS on a pending charge. The
+// payment service only forwards a step for the charge Flutterwave reported
+// for this prompt; the charge is re-read first so a redelivered step on a
+// settled charge just reports it.
+//
+//nolint:funlen // one authorization flow: verify, build, send, report.
 func (h *promptHandler) handleAuthorize(
 	ctx context.Context,
 	logger *util.LogEntry,
 	prompt *paymentv1.InitiatePromptRequest,
 	creds *client.Credentials,
-	promptID string,
 ) error {
+	promptID := prompt.GetId()
+	want := expectationFromPrompt(prompt)
 	chargeID := extraString(prompt.GetExtra(), "charge_id")
 	if chargeID == "" {
-		chargeID = extraString(prompt.GetExtra(), "external_id")
-	}
-	if chargeID == "" {
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": "charge_id required for authorize", "entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "", "validation_error", map[string]any{"error": "charge_id required for authorize"})
 	}
 
-	authType := strings.ToLower(extraString(prompt.GetExtra(), "authorization_type"))
-	if authType == "" {
-		authType = strings.ToLower(extraString(prompt.GetExtra(), "auth_type"))
+	current, err := h.fwCli.GetCharge(ctx, creds, chargeID)
+	if err != nil {
+		if client.IsRejected(err) {
+			return h.fail(ctx, promptID, chargeID, "charge_not_found", map[string]any{"error": err.Error()})
+		}
+		return fmt.Errorf("read charge %s: %w", chargeID, err)
 	}
-	req := &client.UpdateChargeRequest{
-		Authorization: client.ChargeAuthorization{Type: authType},
+	if owner := metaString(current.Meta, MetaPromptID); owner != "" && owner != promptID {
+		logger.WithField("charge_id", chargeID).WithField("charge_prompt", owner).
+			Error("authorize step names a charge of another prompt; dropped")
+		h.metrics.QueueFailed(ctx, "prompt", "charge_mismatch")
+		return nil
 	}
+	if isTerminalPaymentStatus(ChargeStatus(current.Status)) {
+		return h.reportCharge(ctx, logger, promptID, current, "authorize", want)
+	}
+
+	authType := strings.ToLower(firstNonEmpty(
+		extraString(prompt.GetExtra(), "authorization_type"), extraString(prompt.GetExtra(), "auth_type")))
+	req := &client.UpdateChargeRequest{Authorization: client.ChargeAuthorization{Type: authType}}
+	var secret string
 	switch authType {
 	case "pin":
-		req.Authorization.PIN = &client.PINAuth{
+		pin := &client.PINAuth{
 			Nonce:        extraString(prompt.GetExtra(), "nonce"),
 			EncryptedPIN: extraString(prompt.GetExtra(), "encrypted_pin"),
 		}
-		// Server-side encrypt when clear PIN + encryption key available.
-		if req.Authorization.PIN.EncryptedPIN == "" {
-			if pin := extraString(prompt.GetExtra(), "pin"); pin != "" && creds.EncryptionKey != "" {
-				nonce, enc, err := client.EncryptPIN(pin, creds.EncryptionKey)
-				if err != nil {
-					h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
-						"error": err.Error(), "entity_type": "prompt",
-					})
-					return nil
-				}
-				req.Authorization.PIN.Nonce = nonce
-				req.Authorization.PIN.EncryptedPIN = enc
+		if pin.EncryptedPIN == "" || pin.Nonce == "" {
+			clear := extraString(prompt.GetExtra(), "pin")
+			if clear == "" || creds.EncryptionKey == "" {
+				return h.fail(ctx, promptID, chargeID, "validation_error", map[string]any{
+					"error": "an encrypted PIN and nonce are required",
+				})
 			}
+			nonce, enc, encErr := client.EncryptPIN(clear, creds.EncryptionKey)
+			if encErr != nil {
+				return h.fail(ctx, promptID, chargeID, "validation_error", map[string]any{"error": encErr.Error()})
+			}
+			pin.Nonce, pin.EncryptedPIN = nonce, enc
+			secret = clear
+		} else {
+			secret = pin.EncryptedPIN
 		}
+		req.Authorization.PIN = pin
 	case "otp":
-		req.Authorization.OTP = &client.OTPAuth{
-			Code: extraString(prompt.GetExtra(), "otp"),
-		}
+		req.Authorization.OTP = &client.OTPAuth{Code: extraString(prompt.GetExtra(), "otp")}
+		secret = req.Authorization.OTP.Code
 	case "avs":
-		req.Authorization.AVS = &client.AVSAuth{
-			Address: &client.CustomerAddress{
-				City:       extraString(prompt.GetExtra(), "avs_city"),
-				Country:    extraString(prompt.GetExtra(), "avs_country"),
-				Line1:      extraString(prompt.GetExtra(), "avs_line1"),
-				Line2:      extraString(prompt.GetExtra(), "avs_line2"),
-				PostalCode: extraString(prompt.GetExtra(), "avs_postal_code"),
-				State:      extraString(prompt.GetExtra(), "avs_state"),
-			},
+		addr := &client.CustomerAddress{
+			City:       extraString(prompt.GetExtra(), "avs_city"),
+			Country:    extraString(prompt.GetExtra(), "avs_country"),
+			Line1:      extraString(prompt.GetExtra(), "avs_line1"),
+			Line2:      extraString(prompt.GetExtra(), "avs_line2"),
+			PostalCode: extraString(prompt.GetExtra(), "avs_postal_code"),
+			State:      extraString(prompt.GetExtra(), "avs_state"),
 		}
+		req.Authorization.AVS = &client.AVSAuth{Address: addr}
+		secret = strings.Join([]string{addr.Line1, addr.Line2, addr.City, addr.State, addr.PostalCode, addr.Country}, "|")
 	default:
-		h.metrics.QueueFailed(ctx, "prompt", "validation_error")
-		h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
-			"error": "unknown authorization_type", "entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, chargeID, "validation_error", map[string]any{"error": "unknown authorization_type"})
 	}
 
-	ch, err := h.fwCli.UpdateCharge(ctx, creds, chargeID, req)
-	if err != nil {
-		logger.WithError(err).Error("authorize charge failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, chargeID, commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "prompt",
-		})
-		return nil
+	// The same step sent again (a redelivery) is performed once; a new PIN
+	// or OTP is a new step.
+	stepKey := sha256.Sum256([]byte(secret))
+	stepCtx := client.WithIdempotencyKey(ctx, "prompt", promptID, "authorize", authType, hex.EncodeToString(stepKey[:8]))
+	ch, err := h.fwCli.UpdateCharge(stepCtx, creds, chargeID, req)
+	if err == nil {
+		return h.reportCharge(ctx, logger, promptID, ch, "authorize", want)
 	}
-	h.emitChargeStatus(ctx, logger, promptID, ch, "authorize", ch.Reference)
-	h.metrics.QueueProcessed(ctx, "prompt")
-	return nil
+
+	// A refused step (a wrong OTP) or an unknown outcome leaves the charge
+	// where Flutterwave holds it: report that, so the payer can try again
+	// while it is still pending. Never fail a charge on a guess.
+	logger.WithError(err).Warn("authorize step not accepted")
+	after, getErr := h.fwCli.GetCharge(ctx, creds, chargeID)
+	if getErr != nil {
+		return fmt.Errorf("authorize %s outcome unknown: %w", chargeID, err)
+	}
+	if client.IsRejected(err) && !isTerminalPaymentStatus(ChargeStatus(after.Status)) {
+		h.metrics.QueueFailed(ctx, "prompt", "authorization_rejected")
+		return h.emitCharge(ctx, logger, promptID, after, "authorize", want, map[string]any{
+			"authorization_error": err.Error(),
+		})
+	}
+	return h.reportCharge(ctx, logger, promptID, after, "authorize", want)
 }
 
-func (h *promptHandler) emitChargeStatus(
+// reportCharge reports a charge's status.
+func (h *promptHandler) reportCharge(
 	ctx context.Context,
 	logger *util.LogEntry,
 	promptID string,
 	ch *client.Charge,
-	mode, reference string,
-) {
-	apiVersion := "v4"
+	mode string,
+	want Expectation,
+) error {
+	if err := h.emitCharge(ctx, logger, promptID, ch, mode, want, nil); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, "prompt")
+	return nil
+}
+
+// emitCharge reports a charge. A charge that succeeded for an amount or
+// currency other than the one asked for is reported as failed: the payer
+// did not pay what was owed.
+func (h *promptHandler) emitCharge(
+	ctx context.Context,
+	logger *util.LogEntry,
+	promptID string,
+	ch *client.Charge,
+	mode string,
+	want Expectation,
+	more map[string]any,
+) error {
+	status, extras := ChargeReport(ch, mode, want)
+	for k, v := range more {
+		extras[k] = v
+	}
+	if extras["error_code"] == "amount_mismatch" {
+		logger.WithField("charge_id", ch.ID).WithField("charged", ch.Amount).WithField("currency", ch.Currency).
+			Error("charge succeeded for another amount than asked")
+	}
+	logger.WithField("charge_id", ch.ID).WithField("status", ch.Status).Debug("charge reported")
+	return h.emitStatus(ctx, promptID, ch.ID, status, extras)
+}
+
+// ChargeReport is the status and extras to report for a charge. A charge
+// that succeeded for an amount or currency other than the one asked for is
+// reported as failed: the payer did not pay what was owed.
+func ChargeReport(ch *client.Charge, mode string, want Expectation) (commonv1.STATUS, map[string]any) {
+	status, extras := chargeExtras(ch, mode)
+	if status == commonv1.STATUS_SUCCESSFUL && !want.metBy(ch) {
+		status = commonv1.STATUS_FAILED
+		extras["error_code"] = "amount_mismatch"
+		extras["error"] = fmt.Sprintf("charged %s %.2f, expected %s %.2f",
+			ch.Currency, ch.Amount, want.Currency, want.Amount)
+	}
+	return status, extras
+}
+
+// metBy reports whether a charge collected what was asked. An unknown
+// expectation (none recorded) is met by any charge.
+func (e Expectation) metBy(ch *client.Charge) bool {
+	if e.Currency == "" {
+		return true
+	}
+	return strings.EqualFold(ch.Currency, e.Currency) && sameAmount(ch.Amount, e.Amount)
+}
+
+// ExpectationFromMeta is the amount a charge was created for, as recorded
+// in its meta (read back from Flutterwave, so trusted after a re-fetch).
+func ExpectationFromMeta(meta map[string]any) Expectation {
+	currency := strings.ToUpper(metaString(meta, MetaExpectedCurrency))
+	amount, err := strconv.ParseFloat(metaString(meta, MetaExpectedAmount), 64)
+	if currency == "" || err != nil {
+		return Expectation{}
+	}
+	return Expectation{Amount: amount, Currency: currency}
+}
+
+func expectationFromPrompt(prompt *paymentv1.InitiatePromptRequest) Expectation {
+	amount, currency, err := providerAmount(prompt.GetAmount())
+	if err != nil {
+		return Expectation{}
+	}
+	return Expectation{Amount: amount, Currency: currency}
+}
+
+// chargeStatus maps a Flutterwave charge status.
+func ChargeStatus(s string) commonv1.STATUS {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "succeeded", "successful", "success", "completed":
+		return commonv1.STATUS_SUCCESSFUL
+	case "failed", "voided", "cancelled", "canceled":
+		return commonv1.STATUS_FAILED
+	}
+	return commonv1.STATUS_IN_PROCESS
+}
+
+// chargeExtras are the status extras of a charge; the amount and currency
+// are what was actually charged, which checkout compares to the session.
+func chargeExtras(ch *client.Charge, mode string) (commonv1.STATUS, map[string]any) {
+	status := ChargeStatus(ch.Status)
 	extras := map[string]any{
 		"entity_type":   "prompt",
 		"provider":      "flutterwave",
-		"api_version":   apiVersion,
+		"api_version":   "v4",
 		"mode":          mode,
 		"reference":     ch.Reference,
 		"charge_id":     ch.ID,
 		"charge_status": ch.Status,
-		"tx_ref":        firstNonEmpty(ch.Reference, reference),
+		"tx_ref":        ch.Reference,
+	}
+	if ch.Currency != "" {
+		extras["amount"] = strconv.FormatFloat(ch.Amount, 'f', 2, 64)
+		extras["currency"] = strings.ToUpper(ch.Currency)
 	}
 	if ch.CustomerID != "" {
 		extras["customer_id"] = ch.CustomerID
@@ -452,73 +623,56 @@ func (h *promptHandler) emitChargeStatus(
 	if pmd := client.PaymentMethodIDFromCharge(ch); pmd != "" {
 		extras["payment_method_id"] = pmd
 	}
-
-	// Terminal statuses from provider on first response.
-	status := commonv1.STATUS_IN_PROCESS
-	switch strings.ToLower(ch.Status) {
-	case "succeeded", "successful", "success":
-		status = commonv1.STATUS_SUCCESSFUL
-	case "failed", "voided":
-		status = commonv1.STATUS_FAILED
-	}
-
-	// Only surface next_action when the charge still needs payer interaction.
-	// Flutterwave often echoes our success_url as next_action.redirect_url even
-	// after status=succeeded; that would loop pay.stawi.org confirm forever.
+	// Only surface next_action while the payer still has something to do.
+	// Flutterwave often echoes our success_url as next_action.redirect_url
+	// even after the charge succeeded; that would loop the confirm page.
 	if !isTerminalPaymentStatus(status) {
 		mergeFlutterwaveNextActionExtras(extras, ch)
 	}
-
-	nextActionLog := ""
-	if v, ok := extras["next_action"].(string); ok {
-		nextActionLog = v
-	}
-	logger.WithField("charge_id", ch.ID).WithField("status", ch.Status).
-		WithField("next_action", nextActionLog).Debug("charge initiated")
-	h.emitStatus(ctx, promptID, ch.ID, status, extras)
+	return status, extras
 }
 
-func (h *promptHandler) defaultCollectionMethod(
-	prompt *paymentv1.InitiatePromptRequest,
-	_ string,
-) client.PaymentMethodInput {
-	methodType := extraString(prompt.GetExtra(), "payment_method_type")
-	if methodType == "" {
-		methodType = h.cfg.DefaultCollectionMethod
+// chargeReference is the charge reference for an entity: derived from our
+// id only, never from caller extras, so a lookup by reference can only find
+// this entity's charge. Flutterwave allows 6–42 characters.
+func chargeReference(kind, id string) string {
+	ref := kind + "-" + sanitizeRef(id)
+	if len(ref) <= 42 { //nolint:mnd // Flutterwave reference limit
+		return ref
 	}
-	if methodType == "" {
-		methodType = "card"
+	sum := sha256.Sum256([]byte(id))
+	return kind + "-" + hex.EncodeToString(sum[:])[:32]
+}
+
+func metaString(meta map[string]any, key string) string {
+	if v, ok := meta[key].(string); ok {
+		return v
 	}
+	return ""
+}
+
+func (h *promptHandler) defaultCollectionMethod(prompt *paymentv1.InitiatePromptRequest) client.PaymentMethodInput {
+	methodType := firstNonEmpty(extraString(prompt.GetExtra(), "payment_method_type"), h.cfg.DefaultCollectionMethod, "card")
 	switch strings.ToLower(methodType) {
 	case "opay":
 		return client.PaymentMethodInput{Type: "opay"}
 	case "ussd":
-		bank := extraString(prompt.GetExtra(), "account_bank")
-		if bank == "" {
-			bank = "044" // Access Bank default for sandbox demos
-		}
 		return client.PaymentMethodInput{
 			Type: "ussd",
-			USSD: &client.USSDDetails{AccountBank: bank},
+			USSD: &client.USSDDetails{AccountBank: extraString(prompt.GetExtra(), "account_bank")},
 		}
 	case "bank_transfer", "banktransfer":
-		display := extraString(prompt.GetExtra(), "account_display_name")
-		if display == "" {
-			display = "Payment"
-		}
 		return client.PaymentMethodInput{
 			Type: "bank_transfer",
 			BankTransfer: &client.BankTransferDetails{
 				AccountType:        "dynamic",
-				AccountExpiresIn:   3600,
-				AccountDisplayName: display,
+				AccountExpiresIn:   3600, //nolint:mnd // one hour to pay
+				AccountDisplayName: firstNonEmpty(extraString(prompt.GetExtra(), "account_display_name"), "Payment"),
 			},
 		}
-	case "card", "hosted", "standard", "payment_link":
-		// Without encrypted card fields the client falls back to Standard (if FLWSECK)
-		// or returns a clear error directing operators to embedded card encryption.
-		return client.PaymentMethodInput{Type: "card"}
 	default:
+		// Without encrypted card fields the client falls back to Standard (if
+		// FLWSECK) or refuses with an actionable error.
 		return client.PaymentMethodInput{Type: "card"}
 	}
 }
@@ -527,10 +681,7 @@ func hasStandardSecretCreds(c *client.Credentials) bool {
 	if c == nil {
 		return false
 	}
-	sec := c.SecretKey
-	if sec == "" {
-		sec = c.ClientSecret
-	}
+	sec := firstNonEmpty(c.SecretKey, c.ClientSecret)
 	return strings.HasPrefix(sec, "FLWSECK_") || strings.HasPrefix(sec, "FLWSECK-")
 }
 
@@ -540,29 +691,20 @@ func cardFromExtras(extra *structpb.Struct) *client.CardDetails {
 	if extra == nil {
 		return nil
 	}
-	nonce := extraString(extra, "card_nonce")
-	if nonce == "" {
-		nonce = extraString(extra, "nonce")
-	}
+	nonce := firstNonEmpty(extraString(extra, "card_nonce"), extraString(extra, "nonce"))
 	encNum := extraString(extra, "encrypted_card_number")
-	encMon := extraString(extra, "encrypted_expiry_month")
-	encYear := extraString(extra, "encrypted_expiry_year")
-	encCVV := extraString(extra, "encrypted_cvv")
 	if encNum == "" || nonce == "" {
 		return nil
 	}
 	card := &client.CardDetails{
 		EncryptedCardNumber:  encNum,
-		EncryptedExpiryMonth: encMon,
-		EncryptedExpiryYear:  encYear,
-		EncryptedCVV:         encCVV,
+		EncryptedExpiryMonth: extraString(extra, "encrypted_expiry_month"),
+		EncryptedExpiryYear:  extraString(extra, "encrypted_expiry_year"),
+		EncryptedCVV:         extraString(extra, "encrypted_cvv"),
 		Nonce:                nonce,
 	}
 	if strings.EqualFold(extraString(extra, "cof_enabled"), "true") {
-		card.COF = &client.CardCOF{
-			Enabled:     true,
-			AgreementID: extraString(extra, "cof_agreement_id"),
-		}
+		card.COF = &client.CardCOF{Enabled: true, AgreementID: extraString(extra, "cof_agreement_id")}
 	}
 	return card
 }
@@ -575,8 +717,8 @@ func sanitizeRef(s string) string {
 		}
 	}
 	out := b.String()
-	if len(out) < 6 {
-		out = out + "xxxxxx"
+	if len(out) < 6 { //nolint:mnd // Flutterwave minimum reference length
+		out += "xxxxxx"
 	}
 	return out
 }

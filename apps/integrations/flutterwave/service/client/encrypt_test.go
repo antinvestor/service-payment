@@ -91,11 +91,17 @@ func TestEncryptCardFields(t *testing.T) {
 
 func TestIsRetryable(t *testing.T) {
 	t.Parallel()
-	if !isRetryable(errString("flutterwave http 503: unavailable")) {
+	if !isRetryable(&HTTPError{Status: 503}) {
 		t.Fatal("503 should retry")
 	}
-	if isRetryable(errString("flutterwave http 422: encryption")) {
+	if isRetryable(&HTTPError{Status: 422}) {
 		t.Fatal("422 should not retry")
+	}
+	if isRetryable(invalidRequest("bad")) {
+		t.Fatal("a request refused before sending should not retry")
+	}
+	if !isRetryable(errString("read: connection reset by peer")) {
+		t.Fatal("a reset connection should retry")
 	}
 }
 

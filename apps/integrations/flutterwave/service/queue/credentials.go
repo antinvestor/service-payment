@@ -27,6 +27,11 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
 )
 
+// errCredentialsUnavailable means the credentials could not be read right
+// now (the settings service did not answer): the message is redelivered,
+// never failed.
+var errCredentialsUnavailable = errors.New("flutterwave credentials unavailable")
+
 type credentialResolver struct {
 	settingsCli settingsv1connect.SettingsServiceClient
 	cfg         *config.FlutterwaveConfig
@@ -41,14 +46,16 @@ func (r *credentialResolver) extractCredentials(
 	}
 
 	creds := &client.Credentials{
-		ClientID:     headerOrDefault(headers, config.HeaderClientID, r.cfg.ClientID),
-		ClientSecret: headerOrDefault(headers, config.HeaderClientSecret, r.cfg.ClientSecret),
+		// Keys come from configuration only: a queue message can name a stored
+		// connection, never carry keys of its own.
+		ClientID:     r.cfg.ClientID,
+		ClientSecret: r.cfg.ClientSecret,
 		// Do not copy OAuth client_secret into SecretKey — only real FLWSECK_* is classic.
 		PublicKey:     r.cfg.PublicKey,
 		SecretKey:     r.cfg.SecretKey,
 		EncryptionKey: r.cfg.EncryptionKey,
-		WebhookSecret: headerOrDefault(headers, config.HeaderWebhookSecret, r.cfg.WebhookSecret),
-		Environment:   headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
+		WebhookSecret: r.cfg.WebhookSecret,
+		Environment:   r.cfg.Environment,
 		OAuthTokenURL: r.cfg.OAuthTokenURL,
 	}
 	// Accept dashboard v3 keys mapped into client_id/client_secret fields.
@@ -105,7 +112,7 @@ func (r *credentialResolver) credentialsFromSettings(
 	}
 	settingResp, err := r.settingsCli.Get(ctx, settingReq)
 	if err != nil {
-		return nil, fmt.Errorf("settings lookup failed: %w", err)
+		return nil, fmt.Errorf("%w: settings lookup failed: %w", errCredentialsUnavailable, err)
 	}
 	var credMap map[string]string
 	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {

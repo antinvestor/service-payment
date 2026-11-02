@@ -21,217 +21,229 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/config"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/client"
+	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/fwtest"
 	"github.com/antinvestor/service-payments/apps/integrations/flutterwave/service/handlers"
-	"github.com/stretchr/testify/assert"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/stretchr/testify/require"
 )
 
-type stubPaymentClient struct {
+const secret = "whsec"
+
+// updates records the status updates sent to the payment service and the
+// tenancy each was attributed to.
+type updates struct {
 	paymentv1connect.PaymentServiceClient
-	last *commonv1.StatusUpdateRequest
+
+	mu      sync.Mutex
+	got     []*commonv1.StatusUpdateRequest
+	tenants []string
 }
 
-func (s *stubPaymentClient) StatusUpdate(
-	_ context.Context,
-	req *commonv1.StatusUpdateRequest,
-) (*commonv1.StatusUpdateResponse, error) {
-	s.last = req
+func (u *updates) StatusUpdate(ctx context.Context, req *commonv1.StatusUpdateRequest) (*commonv1.StatusUpdateResponse, error) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	tenant := ""
+	if c := security.ClaimsFromContext(ctx); c != nil {
+		tenant = c.GetTenantID()
+	}
+	u.got = append(u.got, req)
+	u.tenants = append(u.tenants, tenant)
 	return &commonv1.StatusUpdateResponse{}, nil
 }
 
-type stubFW struct{}
-
-func (f *stubFW) CreateOrchestratorCharge(context.Context, *client.Credentials, *client.OrchestratorChargeRequest) (*client.Charge, error) {
-	return &client.Charge{}, nil
-}
-func (f *stubFW) CreateCustomer(context.Context, *client.Credentials, *client.CreateCustomerRequest) (*client.Customer, error) {
-	return &client.Customer{}, nil
-}
-func (f *stubFW) CreatePaymentMethod(context.Context, *client.Credentials, *client.PaymentMethodInput) (*client.PaymentMethod, error) {
-	return &client.PaymentMethod{}, nil
-}
-func (f *stubFW) CreateCharge(context.Context, *client.Credentials, *client.ChargeRequest) (*client.Charge, error) {
-	return &client.Charge{}, nil
-}
-func (f *stubFW) UpdateCharge(context.Context, *client.Credentials, string, *client.UpdateChargeRequest) (*client.Charge, error) {
-	return &client.Charge{}, nil
-}
-func (f *stubFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
-	return &client.Charge{}, nil
-}
-func (f *stubFW) CreateTransferRecipient(context.Context, *client.Credentials, *client.TransferRecipientRequest) (string, error) {
-	return "", nil
-}
-func (f *stubFW) CreateTransfer(context.Context, *client.Credentials, map[string]any) (*client.Transfer, error) {
-	return &client.Transfer{}, nil
-}
-func (f *stubFW) CreateDirectTransfer(context.Context, *client.Credentials, *client.DirectTransferRequest) (*client.Transfer, error) {
-	return &client.Transfer{}, nil
-}
-func (f *stubFW) GetTransfer(context.Context, *client.Credentials, string) (*client.Transfer, error) {
-	return &client.Transfer{}, nil
-}
-func (f *stubFW) VerifyWebhookSignature(rawBody []byte, signatureHeader, secretHash string) bool {
-	mac := hmac.New(sha256.New, []byte(secretHash))
-	_, _ = mac.Write(rawBody)
-	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	return expected == signatureHeader
+func (u *updates) count() int {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return len(u.got)
 }
 
-var _ client.FlutterwaveClient = (*stubFW)(nil)
+func (u *updates) last(t *testing.T) (*commonv1.StatusUpdateRequest, string) {
+	t.Helper()
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	require.NotEmpty(t, u.got, "no status update was sent")
+	return u.got[len(u.got)-1], u.tenants[len(u.tenants)-1]
+}
 
-func sign(body []byte, secret string) string {
+type fixture struct {
+	fw      *fwtest.Server
+	updates *updates
+	mux     http.Handler
+}
+
+func newFixture(t *testing.T, webhookSecret string) *fixture {
+	t.Helper()
+	fw := fwtest.New(t)
+	up := &updates{}
+	cfg := &config.FlutterwaveConfig{
+		ClientID:          "client-id",
+		ClientSecret:      "client-secret",
+		Environment:       "sandbox",
+		SandboxAPIBaseURL: fw.URL,
+		OAuthTokenURL:     fw.URL + "/token",
+		WebhookSecret:     webhookSecret,
+	}
+	srv := handlers.NewFlutterwaveWebhookServer(up, client.NewClient(), cfg)
+	return &fixture{fw: fw, updates: up, mux: srv.NewRouterV1()}
+}
+
+func sign(body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(body)
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func TestWebhook_ChargeCompleted(t *testing.T) {
-	pay := &stubPaymentClient{}
-	fw := &stubFW{}
-	cfg := &config.FlutterwaveConfig{WebhookSecret: "sekrit"}
-	srv := handlers.NewFlutterwaveWebhookServer(pay, fw, cfg)
-
-	body, _ := json.Marshal(map[string]any{
-		"webhook_id": "wbk_1",
-		"timestamp":  1,
-		"type":       "charge.completed",
-		"data": map[string]any{
-			"id":        "chg_abc",
-			"reference": "prompt-xyz",
-			"status":    "succeeded",
-			"meta":      map[string]any{"prompt_id": "xyz"},
-			"amount":    100.0,
-			"currency":  "KES",
-		},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-	req.Header.Set("Flutterwave-Signature", sign(body, "sekrit"))
-	rr := httptest.NewRecorder()
-	srv.NewRouterV1().ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	require.NotNil(t, pay.last)
-	assert.Equal(t, "xyz", pay.last.GetId())
-	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, pay.last.GetStatus())
-	assert.Equal(t, "prompt", pay.last.GetExtras().GetFields()["entity_type"].GetStringValue())
-}
-
-func TestWebhook_TransferDisburse(t *testing.T) {
-	pay := &stubPaymentClient{}
-	fw := &stubFW{}
-	cfg := &config.FlutterwaveConfig{WebhookSecret: "sekrit"}
-	srv := handlers.NewFlutterwaveWebhookServer(pay, fw, cfg)
-
-	body, _ := json.Marshal(map[string]any{
-		"webhook_id": "wbk_2",
-		"timestamp":  1,
-		"type":       "transfer.disburse",
-		"data": map[string]any{
-			"id":        "trf_1",
-			"reference": "pay-payment-xyz",
-			"status":    "SUCCESSFUL",
-			"meta":      map[string]any{"payment_id": "payment-xyz"},
-		},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-	req.Header.Set("Flutterwave-Signature", sign(body, "sekrit"))
-	rr := httptest.NewRecorder()
-	srv.NewRouterV1().ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	require.NotNil(t, pay.last)
-	assert.Equal(t, "payment-xyz", pay.last.GetId())
-	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, pay.last.GetStatus())
-}
-
-func TestWebhook_RejectsBadSignature(t *testing.T) {
-	pay := &stubPaymentClient{}
-	fw := &stubFW{}
-	cfg := &config.FlutterwaveConfig{WebhookSecret: "sekrit"}
-	srv := handlers.NewFlutterwaveWebhookServer(pay, fw, cfg)
-
-	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader([]byte(`{}`)))
-	req.Header.Set("Flutterwave-Signature", "wrong")
-	rr := httptest.NewRecorder()
-	srv.NewRouterV1().ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-}
-
-type failingGetChargeFW struct{ stubFW }
-
-func (f *failingGetChargeFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
-	return nil, errors.New("charge not found")
-}
-
-func TestWebhook_UnsignedChargeNeverTrustsBody(t *testing.T) {
-	body, _ := json.Marshal(map[string]any{
-		"type": "charge.completed",
-		"data": map[string]any{
-			"id":        "chg_forged",
-			"reference": "prompt-xyz",
-			"status":    "succeeded",
-			"meta":      map[string]any{"prompt_id": "xyz"},
-		},
-	})
-
-	tests := []struct {
-		name string
-		cfg  *config.FlutterwaveConfig
-	}{
-		{name: "no secret and no API credentials", cfg: &config.FlutterwaveConfig{}},
-		{name: "no secret and API verification fails", cfg: &config.FlutterwaveConfig{ClientID: "id", ClientSecret: "secret"}},
+func (f *fixture) post(t *testing.T, event map[string]any, headers map[string]string, query string) *httptest.ResponseRecorder {
+	t.Helper()
+	body, err := json.Marshal(event)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave"+query, bytes.NewReader(body))
+	if headers == nil {
+		headers = map[string]string{"Flutterwave-Signature": sign(body)}
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pay := &stubPaymentClient{}
-			srv := handlers.NewFlutterwaveWebhookServer(pay, &failingGetChargeFW{}, tt.cfg)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	f.mux.ServeHTTP(rec, req)
+	return rec
+}
 
-			req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-			rr := httptest.NewRecorder()
-			srv.NewRouterV1().ServeHTTP(rr, req)
-
-			assert.Equal(t, http.StatusInternalServerError, rr.Code)
-			assert.Nil(t, pay.last, "an unverified body must not update the prompt")
-		})
+// storeCharge puts a charge on the fake account as the worker would have made it.
+func (f *fixture) storeCharge(id, status string, amount float64, meta map[string]any) {
+	f.fw.Charges[id] = &client.Charge{
+		ID: id, Amount: amount, Currency: "KES", Reference: "prompt-" + id, Status: status, Meta: meta,
 	}
 }
 
-type verifiedChargeFW struct{ stubFW }
-
-func (f *verifiedChargeFW) GetCharge(context.Context, *client.Credentials, string) (*client.Charge, error) {
-	return &client.Charge{
-		ID:        "chg_real",
-		Reference: "prompt-xyz",
-		Status:    "succeeded",
-		Meta:      map[string]any{"prompt_id": "xyz"},
-	}, nil
+func promptMeta(promptID string) map[string]any {
+	return map[string]any{
+		"prompt_id": promptID, "tenant_id": "tenant-1", "partition_id": "partition-1",
+		"expected_amount": "1500.00", "expected_currency": "KES",
+	}
 }
 
-func TestWebhook_UnsignedChargeUsesVerifiedCharge(t *testing.T) {
-	pay := &stubPaymentClient{}
-	srv := handlers.NewFlutterwaveWebhookServer(pay, &verifiedChargeFW{},
-		&config.FlutterwaveConfig{ClientID: "id", ClientSecret: "secret"})
-
-	body, _ := json.Marshal(map[string]any{
+func chargeEvent(id, bodyStatus string, meta map[string]any) map[string]any {
+	return map[string]any{
 		"type": "charge.completed",
-		"data": map[string]any{"id": "chg_real", "status": "failed"},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/webhook/flutterwave", bytes.NewReader(body))
-	rr := httptest.NewRecorder()
-	srv.NewRouterV1().ServeHTTP(rr, req)
+		"data": map[string]any{"id": id, "status": bodyStatus, "meta": meta},
+	}
+}
 
-	assert.Equal(t, http.StatusOK, rr.Code)
-	require.NotNil(t, pay.last)
-	assert.Equal(t, "xyz", pay.last.GetId())
-	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, pay.last.GetStatus(), "status comes from the API, not the body")
+func TestWebhookReportsTheVerifiedCharge(t *testing.T) {
+	f := newFixture(t, secret)
+	f.storeCharge("chg_1", "succeeded", 1500, promptMeta("prompt-1"))
+
+	// The body claims failure and another tenant; only the verified charge counts.
+	forged := map[string]any{"prompt_id": "prompt-1", "tenant_id": "tenant-evil"}
+	rec := f.post(t, chargeEvent("chg_1", "failed", forged), nil, "?tenant_id=tenant-evil")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	got, tenant := f.updates.last(t)
+	require.Equal(t, "prompt-1", got.GetId())
+	require.Equal(t, commonv1.STATUS_SUCCESSFUL, got.GetStatus())
+	require.Equal(t, "chg_1", got.GetExternalId())
+	require.Equal(t, "tenant-1", tenant, "tenancy comes from the verified charge")
+	ex := got.GetExtras().AsMap()
+	require.Equal(t, "1500.00", ex["amount"])
+	require.Equal(t, "KES", ex["currency"])
+}
+
+func TestWebhookFailsAnUnderpaidCharge(t *testing.T) {
+	f := newFixture(t, secret)
+	f.storeCharge("chg_2", "succeeded", 150, promptMeta("prompt-2"))
+
+	require.Equal(t, http.StatusOK, f.post(t, chargeEvent("chg_2", "succeeded", nil), nil, "").Code)
+	got, _ := f.updates.last(t)
+	require.Equal(t, commonv1.STATUS_FAILED, got.GetStatus())
+	require.Equal(t, "amount_mismatch", got.GetExtras().AsMap()["error_code"])
+}
+
+func TestWebhookRefusals(t *testing.T) {
+	t.Run("no secret configured", func(t *testing.T) {
+		f := newFixture(t, "")
+		f.storeCharge("chg_3", "succeeded", 1500, promptMeta("prompt-3"))
+		rec := f.post(t, chargeEvent("chg_3", "succeeded", nil), map[string]string{}, "")
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.Zero(t, f.updates.count())
+	})
+	t.Run("bad signature", func(t *testing.T) {
+		f := newFixture(t, secret)
+		rec := f.post(t, chargeEvent("chg_3", "succeeded", nil), map[string]string{"Flutterwave-Signature": "bad"}, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+	t.Run("the secret itself as signature", func(t *testing.T) {
+		f := newFixture(t, secret)
+		rec := f.post(t, chargeEvent("chg_3", "succeeded", nil), map[string]string{"Flutterwave-Signature": secret}, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+	t.Run("v3 verif-hash on a v4 account", func(t *testing.T) {
+		f := newFixture(t, secret)
+		rec := f.post(t, chargeEvent("chg_3", "succeeded", nil), map[string]string{"Verif-Hash": secret}, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+	t.Run("unsigned", func(t *testing.T) {
+		f := newFixture(t, secret)
+		rec := f.post(t, chargeEvent("chg_3", "succeeded", nil), map[string]string{}, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+}
+
+func TestWebhookForAChargeNotOnTheAccountIsIgnored(t *testing.T) {
+	f := newFixture(t, secret)
+	require.Equal(t, http.StatusOK, f.post(t, chargeEvent("chg_missing", "succeeded", promptMeta("p")), nil, "").Code)
+	require.Zero(t, f.updates.count())
+}
+
+func TestWebhookIsRetriedWhileFlutterwaveIsUnreachable(t *testing.T) {
+	f := newFixture(t, secret)
+	f.storeCharge("chg_4", "succeeded", 1500, promptMeta("prompt-4"))
+	f.fw.FailN("GET /charges/chg_4", http.StatusServiceUnavailable, 3)
+
+	rec := f.post(t, chargeEvent("chg_4", "succeeded", nil), nil, "")
+	require.Equal(t, http.StatusBadGateway, rec.Code, "Flutterwave resends it")
+	require.Zero(t, f.updates.count())
+}
+
+func TestWebhookReportsTheVerifiedTransfer(t *testing.T) {
+	f := newFixture(t, secret)
+	f.fw.Transfers["trf_1"] = &client.Transfer{
+		ID: "trf_1", Reference: "pay-payment-1", Status: "SUCCESSFUL", DestinationCurrency: "UGX",
+		Amount: map[string]any{"value": 50000.0},
+		Meta:   map[string]any{"payment_id": "payment-1", "tenant_id": "tenant-1"},
+	}
+	event := map[string]any{
+		"type": "transfer.disburse",
+		"data": map[string]any{"id": "trf_1", "status": "FAILED", "meta": map[string]any{"payment_id": "payment-evil"}},
+	}
+	require.Equal(t, http.StatusOK, f.post(t, event, nil, "").Code)
+	got, tenant := f.updates.last(t)
+	require.Equal(t, "payment-1", got.GetId())
+	require.Equal(t, commonv1.STATUS_SUCCESSFUL, got.GetStatus())
+	require.Equal(t, "tenant-1", tenant)
+}
+
+func TestTransferReversalNeverRemarksAPayout(t *testing.T) {
+	f := newFixture(t, secret)
+	event := map[string]any{"type": "transfer.reversal", "data": map[string]any{"id": "trf_9", "reference": "pay-x"}}
+	require.Equal(t, http.StatusOK, f.post(t, event, nil, "").Code)
+	require.Zero(t, f.updates.count())
+}
+
+func TestReturnPageClaimsNothing(t *testing.T) {
+	f := newFixture(t, secret)
+	rec := httptest.NewRecorder()
+	f.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/webhook/flutterwave/return?charge_id=chg_1", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotContains(t, rec.Body.String(), "Payment received")
+	require.Zero(t, f.fw.Count("GET /charges/chg_1"), "a browser visit never calls Flutterwave")
 }

@@ -16,7 +16,8 @@ package queue
 
 import (
 	"context"
-	"net/url"
+	"errors"
+	"fmt"
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -55,188 +56,139 @@ func NewPaymentHandler(
 	}
 }
 
+// fail reports a definite payout failure.
+func (h *paymentHandler) fail(ctx context.Context, paymentID, reason string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, "payment", reason)
+	if extras == nil {
+		extras = map[string]any{}
+	}
+	extras["entity_type"] = "payment"
+	extras["provider"] = "flutterwave"
+	extras["error_code"] = reason
+	return h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, extras)
+}
+
+// Handle pays the payee's verified mobile money number (the recipient
+// contact the payment service resolved). Caller extras never choose the
+// destination. Every write carries an idempotency key derived from the
+// payment id, so a redelivered payout is performed once; a payout whose
+// outcome is unknown is redelivered, never reported as failed.
+//
+//nolint:funlen // one payout flow: validate, recipient, transfer, report.
 func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "flutterwave.payment")
 	defer logger.Release()
 
-	payment := paymentv1.Payment{}
-	if err := proto.Unmarshal(payload, &payment); err != nil {
+	payment := &paymentv1.Payment{}
+	if err := proto.Unmarshal(payload, payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment")
 		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil
 	}
-
 	paymentID := payment.GetId()
+	if paymentID == "" {
+		logger.Error("payment without id dropped")
+		h.metrics.QueueFailed(ctx, "payment", "validation_error")
+		return nil
+	}
 	logger = logger.WithField("payment_id", paymentID)
 
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
-		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "payment",
-		})
-		return nil
-	}
-
-	amountWhole := moneyToWholeUnits(payment.GetAmount())
-	currency := ""
-	if payment.GetAmount() != nil {
-		currency = strings.ToUpper(payment.GetAmount().GetCurrencyCode())
-	}
-	if currency == "" {
-		currency = "KES"
-	}
-	if amountWhole <= 0 {
-		h.metrics.QueueFailed(ctx, "payment", "validation_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": "invalid amount", "entity_type": "payment",
-		})
-		return nil
-	}
-
-	accountNumber := payment.GetRecipient().GetContactId()
-	if acc := extraString(payment.GetExtra(), "account_number"); acc != "" {
-		accountNumber = acc
-	}
-	bankCode := extraString(payment.GetExtra(), "account_bank")
-	if bankCode == "" {
-		bankCode = extraString(payment.GetExtra(), "bank_code")
-	}
-	beneficiaryName := extraString(payment.GetExtra(), "beneficiary_name")
-	if beneficiaryName == "" {
-		beneficiaryName = extraString(payment.GetExtra(), "recipient_name")
-	}
-
-	// MoMo payout vs bank.
-	payoutType := extraString(payment.GetExtra(), "payout_type")
-	if payoutType == "" {
-		if bankCode == "" && accountNumber != "" {
-			payoutType = "mobile_money"
-		} else {
-			payoutType = "bank"
+		if errors.Is(err, errCredentialsUnavailable) {
+			logger.WithError(err).Warn("credentials unavailable; redelivering")
+			return err
 		}
+		logger.WithError(err).Error("failed to resolve credentials")
+		return h.fail(ctx, paymentID, "credentials_error", map[string]any{"error": err.Error()})
 	}
 
-	reference := extraString(payment.GetExtra(), "reference")
-	if reference == "" {
-		reference = "pay-" + sanitizeRef(paymentID)
+	amount, currency, err := providerAmount(payment.GetAmount())
+	if err != nil {
+		return h.fail(ctx, paymentID, "invalid_amount", map[string]any{"error": err.Error()})
 	}
-	if len(reference) > 42 {
-		reference = reference[:42]
+	phone := digitsOnly(payment.GetRecipient().GetContactId())
+	corridor := resolveMoMoCorridor(phone, currency)
+	if len(phone) < 10 || corridor == nil { //nolint:mnd // shortest international MSISDN
+		return h.fail(ctx, paymentID, "invalid_recipient", map[string]any{
+			"error": "the payee's contact is not a mobile money number that receives " + currency,
+		})
 	}
-
+	beneficiary := firstNonEmptyStr(
+		extraString(payment.GetExtra(), "beneficiary_name"),
+		extraString(payment.GetExtra(), "recipient_name"),
+		"Beneficiary",
+	)
+	reference := chargeReference("pay", paymentID)
+	narration := firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement")
+	tenantID, partitionID := promptTenancy(ctx, payment.GetExtra(), headers)
+	meta := map[string]string{"payment_id": paymentID, "entity": "payment"}
+	if tenantID != "" {
+		meta[MetaTenantID] = tenantID
+	}
+	if partitionID != "" {
+		meta[MetaPartitionID] = partitionID
+	}
 	callbackURL := ""
 	if h.cfg.PublicWebhookBase != "" {
 		callbackURL = strings.TrimRight(h.cfg.PublicWebhookBase, "/") + "/webhook/flutterwave"
-		callbackURL = appendTenantParams(callbackURL, headers)
-	}
-
-	meta := map[string]string{
-		"payment_id": paymentID,
-		"entity":     "payment",
-	}
-	if v := headers["tenant_id"]; v != "" {
-		meta["tenant_id"] = v
-	}
-	if v := headers["partition_id"]; v != "" {
-		meta["partition_id"] = v
 	}
 
 	var transferReq map[string]any
-	var recipientID string
+	recipientID := ""
 	apiVersion := "v4"
 	if client.IsV3Credentials(creds) {
 		apiVersion = "v3"
-		v3 := map[string]any{
-			"amount":    amountWhole,
-			"currency":  currency,
-			"reference": reference,
-			"narration": firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement"),
-			"meta":      meta,
+		// v3 mobile money transfers are wired for M-Pesa Kenya only.
+		if corridor.Currency != "KES" || corridor.Network != "MPESA" {
+			return h.fail(ctx, paymentID, "unsupported_corridor", map[string]any{
+				"error": "v3 keys pay out to M-Pesa Kenya only; use v4 OAuth credentials",
+			})
 		}
-		if payoutType == "mobile_money" {
-			v3["account_bank"] = firstNonEmptyStr(bankCode, "MPS")
-			v3["account_number"] = digitsOnly(accountNumber)
-			v3["beneficiary_name"] = firstNonEmptyStr(beneficiaryName, "Beneficiary")
-		} else {
-			if bankCode == "" || accountNumber == "" {
-				h.metrics.QueueFailed(ctx, "payment", "validation_error")
-				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-					"error": "account_bank and account_number required", "entity_type": "payment",
-				})
-				return nil
-			}
-			v3["account_bank"] = bankCode
-			v3["account_number"] = accountNumber
-			if beneficiaryName != "" {
-				v3["beneficiary_name"] = beneficiaryName
-			}
+		transferReq = map[string]any{
+			"amount":           amount,
+			"currency":         currency,
+			"reference":        reference,
+			"narration":        narration,
+			"meta":             meta,
+			"account_bank":     "MPS",
+			"account_number":   phone,
+			"beneficiary_name": beneficiary,
 		}
 		if callbackURL != "" {
-			v3["callback_url"] = callbackURL
+			transferReq["callback_url"] = callbackURL
 		}
-		transferReq = v3
 	} else {
-		// v4: create recipient then transfer.
-		if payoutType == "mobile_money" {
-			corridor := resolveMoMoCorridor(accountNumber, currency)
-			if corridor == nil {
-				h.metrics.QueueFailed(ctx, "payment", "validation_error")
-				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-					"error": "unsupported mobile money corridor", "entity_type": "payment",
-				})
-				return nil
-			}
-			net := corridor.Network
-			if o := extraString(payment.GetExtra(), "network"); o != "" {
-				net = strings.ToUpper(o)
-			}
-			recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
+		recipientID, err = h.fwCli.CreateTransferRecipient(
+			client.WithIdempotencyKey(ctx, reference, "recipient"), creds, &client.TransferRecipientRequest{
 				Type: "mobile_money",
 				MobileMoney: &client.MobileMoneyRecipientDetails{
-					Network: net,
+					Network: corridor.Network,
 					Country: isoFromDial(corridor.CountryCode),
-					MSISDN:  digitsOnly(accountNumber),
+					MSISDN:  phone,
 				},
-				Name: splitName(beneficiaryName),
+				Name: splitName(beneficiary),
 			})
-		} else {
-			if bankCode == "" || accountNumber == "" {
-				h.metrics.QueueFailed(ctx, "payment", "validation_error")
-				h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-					"error": "account_bank and account_number required", "entity_type": "payment",
-				})
-				return nil
-			}
-			recipientID, err = h.fwCli.CreateTransferRecipient(ctx, creds, &client.TransferRecipientRequest{
-				Type: resolveRecipientType(currency),
-				Bank: &client.BankRecipientDetails{
-					AccountNumber: accountNumber,
-					Code:          bankCode,
-				},
-				Name: splitName(beneficiaryName),
-			})
-		}
 		if err != nil {
-			logger.WithError(err).Error("create transfer recipient failed")
-			h.metrics.QueueFailed(ctx, "payment", "provider_error")
-			h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-				"error": err.Error(), "entity_type": "payment",
-			})
-			return nil
+			if client.IsRejected(err) {
+				logger.WithError(err).Error("transfer recipient refused")
+				return h.fail(ctx, paymentID, "provider_rejected", map[string]any{"error": err.Error()})
+			}
+			// Nothing has been paid yet: try again later.
+			logger.WithError(err).Warn("transfer recipient not created; redelivering")
+			return fmt.Errorf("create recipient for %s: %w", paymentID, err)
 		}
 		transferReq = map[string]any{
 			"action":    "instant",
 			"reference": reference,
-			"narration": firstNonEmptyStr(extraString(payment.GetExtra(), "narration"), "Payment disbursement"),
+			"narration": narration,
 			"meta":      meta,
 			"payment_instruction": map[string]any{
 				"source_currency":      currency,
 				"destination_currency": currency,
 				"amount": map[string]any{
 					"applies_to": "destination_currency",
-					"value":      float64(amountWhole),
+					"value":      amount,
 				},
 				"recipient_id": recipientID,
 			},
@@ -246,52 +198,59 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		}
 	}
 
-	tr, err := h.fwCli.CreateTransfer(ctx, creds, transferReq)
-	if err != nil {
-		logger.WithError(err).Error("create transfer failed")
-		h.metrics.QueueFailed(ctx, "payment", "provider_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error": err.Error(), "entity_type": "payment", "reference": reference,
-		})
-		return nil
-	}
-
-	logger.WithField("transfer_id", tr.ID).WithField("status", tr.Status).Debug("transfer initiated")
 	extras := map[string]any{
-		"entity_type":     "payment",
-		"provider":        "flutterwave",
-		"api_version":     apiVersion,
-		"transfer_id":     tr.ID,
-		"transfer_status": tr.Status,
-		"reference":       tr.Reference,
+		"entity_type": "payment",
+		"provider":    "flutterwave",
+		"api_version": apiVersion,
+		"reference":   reference,
 	}
 	if recipientID != "" {
 		extras["recipient_id"] = recipientID
 	}
-	h.emitStatus(ctx, paymentID, tr.ID, commonv1.STATUS_IN_PROCESS, extras)
-	h.metrics.QueueProcessed(ctx, "payment")
-	return nil
+
+	tr, err := h.fwCli.CreateTransfer(client.WithIdempotencyKey(ctx, reference, "transfer"), creds, transferReq)
+	if err != nil {
+		switch {
+		case client.IsDuplicate(err):
+			// Flutterwave already holds a transfer with this reference: it is
+			// in flight or done. Its webhook settles it; never send again.
+			logger.WithError(err).Warn("transfer already exists for this payment")
+			extras["transfer_status"] = "DUPLICATE_REFERENCE"
+			return h.emitStatus(ctx, paymentID, "", commonv1.STATUS_IN_PROCESS, extras)
+		case client.IsRejected(err):
+			logger.WithError(err).Error("transfer refused by Flutterwave")
+			extras["error"] = err.Error()
+			return h.fail(ctx, paymentID, "provider_rejected", extras)
+		default:
+			// The transfer may have been made. The redelivered message sends
+			// the same idempotency key and gets Flutterwave's original answer.
+			logger.WithError(err).Warn("transfer outcome unknown; redelivering")
+			return fmt.Errorf("transfer %s outcome unknown: %w", paymentID, err)
+		}
+	}
+
+	status := TransferStatus(tr.Status)
+	extras["transfer_id"] = tr.ID
+	extras["transfer_status"] = tr.Status
+	if status == commonv1.STATUS_FAILED {
+		extras["error"] = "transfer " + strings.ToLower(tr.Status)
+		h.metrics.QueueFailed(ctx, "payment", "transfer_failed")
+	} else {
+		h.metrics.QueueProcessed(ctx, "payment")
+	}
+	logger.WithField("transfer_id", tr.ID).WithField("status", tr.Status).Debug("transfer initiated")
+	return h.emitStatus(ctx, paymentID, tr.ID, status, extras)
 }
 
-func appendTenantParams(callbackURL string, headers map[string]string) string {
-	tenantID := headers["tenant_id"]
-	partitionID := headers["partition_id"]
-	if tenantID == "" && partitionID == "" {
-		return callbackURL
+// transferStatus maps a Flutterwave transfer status.
+func TransferStatus(s string) commonv1.STATUS {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "SUCCESSFUL", "SUCCESS", "SUCCEEDED":
+		return commonv1.STATUS_SUCCESSFUL
+	case "FAILED", "CANCELLED", "CANCELED":
+		return commonv1.STATUS_FAILED
 	}
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return callbackURL
-	}
-	q := u.Query()
-	if tenantID != "" {
-		q.Set("tenant_id", tenantID)
-	}
-	if partitionID != "" {
-		q.Set("partition_id", partitionID)
-	}
-	u.RawQuery = q.Encode()
-	return u.String()
+	return commonv1.STATUS_IN_PROCESS
 }
 
 func firstNonEmptyStr(vals ...string) string {

@@ -86,30 +86,30 @@ func isRetryable(err error) bool {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		switch httpErr.Status {
+		case 408, 425, 429, 500, 502, 503, 504: //nolint:mnd // transient HTTP statuses
+			return true
+		}
+		return false
+	}
+	if errors.Is(err, ErrInvalidRequest) || errors.Is(err, ErrNotFound) {
+		return false
+	}
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return false
+	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return true
 	}
 	msg := strings.ToLower(err.Error())
-	// HTTP status phrases we surface from doJSON.
-	for _, needle := range []string{
-		"http 408", "http 425", "http 429",
-		"http 500", "http 502", "http 503", "http 504",
-		"timeout", "temporary", "connection reset", "eof",
-	} {
+	for _, needle := range []string{"timeout", "temporary", "connection reset", "eof"} {
 		if strings.Contains(msg, needle) {
 			return true
 		}
-	}
-	// Permanent client encryption / validation must not retry.
-	if strings.Contains(msg, "client_encryption") ||
-		strings.Contains(msg, "validation") ||
-		strings.Contains(msg, "http 400") ||
-		strings.Contains(msg, "http 401") ||
-		strings.Contains(msg, "http 403") ||
-		strings.Contains(msg, "http 404") ||
-		strings.Contains(msg, "http 422") {
-		return false
 	}
 	return false
 }

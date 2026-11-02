@@ -29,45 +29,69 @@ type MoMoCorridor struct {
 	NationalNumber string
 }
 
-// resolveMoMoCorridor maps MSISDN + currency to Flutterwave v4 mobile_money.
-func resolveMoMoCorridor(phone, currency string) *MoMoCorridor {
-	phone = digitsOnly(phone)
-	currency = strings.ToUpper(strings.TrimSpace(currency))
+// momoRules are the mobile money corridors, by country calling code. The
+// corridor's currency is the only one its wallets are charged in.
+var momoRules = []struct {
+	prefix, network, currency string
+}{
+	{"254", "MPESA", "KES"},
+	{"233", "MTN", "GHS"},
+	{"256", "MTN", "UGX"},
+	{"255", "VODACOM", "TZS"},
+	{"250", "MTN", "RWF"},
+	{"234", "MTN", "NGN"},
+	{"260", "MTN", "ZMW"},
+}
 
-	type rule struct {
-		prefix, countryCode, network, currency string
-	}
-	rules := []rule{
-		{"254", "254", "SAFARICOM", "KES"}, // M-Pesa Kenya — network label per FW dashboard
-		{"233", "233", "MTN", "GHS"},
-		{"256", "256", "MTN", "UGX"},
-		{"255", "255", "VODACOM", "TZS"},
-		{"250", "250", "MTN", "RWF"},
-		{"234", "234", "MTN", "NGN"},
-		{"260", "260", "MTN", "ZMW"},
-	}
-	for _, r := range rules {
-		if strings.HasPrefix(phone, r.prefix) || currency == r.currency {
-			if currency != "" && currency != r.currency && !strings.HasPrefix(phone, r.prefix) {
-				continue
+// networkPrefixes names the network of a national number's leading digits
+// (longest prefix wins); the corridor's default network applies otherwise.
+var networkPrefixes = map[string]map[string]string{
+	"254": {
+		"73": "AIRTEL", "750": "AIRTEL", "751": "AIRTEL", "752": "AIRTEL", "753": "AIRTEL", "754": "AIRTEL",
+		"755": "AIRTEL", "756": "AIRTEL", "762": "AIRTEL", "78": "AIRTEL", "100": "AIRTEL", "101": "AIRTEL",
+		"102": "AIRTEL",
+	},
+	"256": {"77": "MTN", "78": "MTN", "76": "MTN", "39": "MTN", "70": "AIRTEL", "75": "AIRTEL", "74": "AIRTEL", "20": "AIRTEL"},
+	"233": {
+		"24": "MTN", "54": "MTN", "55": "MTN", "59": "MTN", "25": "MTN", "53": "MTN",
+		"20": "VODAFONE", "50": "VODAFONE",
+		"26": "AIRTELTIGO", "56": "AIRTELTIGO", "27": "AIRTELTIGO", "57": "AIRTELTIGO",
+	},
+	"260": {"96": "MTN", "76": "MTN", "97": "AIRTEL", "77": "AIRTEL", "95": "ZAMTEL", "75": "ZAMTEL"},
+	"255": {
+		"74": "VODACOM", "75": "VODACOM", "76": "VODACOM",
+		"68": "AIRTEL", "69": "AIRTEL", "78": "AIRTEL",
+		"65": "TIGO", "67": "TIGO", "71": "TIGO",
+	},
+	"250": {"78": "MTN", "79": "MTN", "72": "AIRTEL", "73": "AIRTEL"},
+}
+
+// resolveMoMoCorridor maps an international MSISDN to its mobile money
+// corridor. It never changes the currency: a number whose corridor charges
+// another currency than the one asked for has no corridor (nil).
+func resolveMoMoCorridor(phone, currency string) *MoMoCorridor {
+	phone = strings.TrimLeft(digitsOnly(phone), "0")
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	for _, r := range momoRules {
+		if !strings.HasPrefix(phone, r.prefix) {
+			continue
+		}
+		if currency != "" && currency != r.currency {
+			return nil
+		}
+		national := strings.TrimPrefix(strings.TrimPrefix(phone, r.prefix), "0")
+		network := r.network
+		best := 0
+		for prefix, name := range networkPrefixes[r.prefix] {
+			if len(prefix) > best && strings.HasPrefix(national, prefix) {
+				best, network = len(prefix), name
 			}
-			national := phone
-			if strings.HasPrefix(phone, r.prefix) {
-				national = strings.TrimPrefix(phone, r.prefix)
-			}
-			// Drop leading 0 if present on national part.
-			national = strings.TrimPrefix(national, "0")
-			net := r.network
-			// KE often uses M-PESA branding; allow SAFARICOM/MPESA.
-			if r.currency == "KES" {
-				net = "MPESA"
-			}
-			return &MoMoCorridor{
-				CountryCode:    r.countryCode,
-				Network:        net,
-				Currency:       r.currency,
-				NationalNumber: national,
-			}
+		}
+		return &MoMoCorridor{
+			CountryCode:    r.prefix,
+			Network:        network,
+			Currency:       r.currency,
+			NationalNumber: national,
 		}
 	}
 	return nil
@@ -86,26 +110,6 @@ func buildMoMoPaymentMethod(c *MoMoCorridor, networkOverride string) client.Paym
 			Network:     net,
 			PhoneNumber: c.NationalNumber,
 		},
-	}
-}
-
-// resolveRecipientType picks transfers/recipients type for a currency.
-func resolveRecipientType(currency string) string {
-	switch strings.ToUpper(currency) {
-	case "NGN":
-		return "bank_ngn"
-	case "KES":
-		return "bank_kes"
-	case "GHS":
-		return "bank_ghs"
-	case "UGX":
-		return "bank_ugx"
-	case "TZS":
-		return "bank_tzs"
-	case "ZAR":
-		return "bank_zar"
-	default:
-		return "bank_" + strings.ToLower(currency)
 	}
 }
 

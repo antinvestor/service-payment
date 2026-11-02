@@ -121,4 +121,4 @@ const (
 
 // DefaultCardRoute is the payment service route name for card collection.
 // Override per tenant/partition via checkout method registry Route field.
-const DefaultCardRoute = "flutterwave"
+const DefaultCardRoute = "fincra"

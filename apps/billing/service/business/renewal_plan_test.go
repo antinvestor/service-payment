@@ -38,7 +38,7 @@ func TestTrustageRenewWorkflowName(t *testing.T) {
 
 func TestPlanRenewalReminder_EnsureNextPeriod(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	periodEnd := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
 	now := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	sub := &models.Subscription{
@@ -57,7 +57,7 @@ func TestPlanRenewalReminder_EnsureNextPeriod(t *testing.T) {
 
 func TestPlanRenewalReminder_RetrySpread(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	periodEnd := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
 	firstDue := periodEnd.Add(-24 * time.Hour) // Aug 19 12:00
 	// Attempt index 1 is due at firstDue+24h = Aug 20 12:00. Plan while still before that.
@@ -76,7 +76,7 @@ func TestPlanRenewalReminder_RetrySpread(t *testing.T) {
 
 func TestPlanRenewalReminder_MaxAttemptsCancels(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	sub := &models.Subscription{
 		State: models.SubscriptionStateActive,
 		Data: data.JSONMap{
@@ -91,7 +91,7 @@ func TestPlanRenewalReminder_MaxAttemptsCancels(t *testing.T) {
 
 func TestPlanRenewalReminder_SoftCancel(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	pe := time.Now().UTC().Add(10 * 24 * time.Hour)
 	sub := &models.Subscription{
 		State: models.SubscriptionStateActive,
@@ -108,7 +108,7 @@ func TestPlanRenewalReminder_SoftCancel(t *testing.T) {
 
 func TestPlanRenewalReminder_NotActive(t *testing.T) {
 	t.Parallel()
-	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "flutterwave")
+	cfg := business.NewRenewalConfigFromEnv(24, 4, "0,24,72,168", "card-provider")
 	sub := &models.Subscription{State: models.SubscriptionStateCancelled}
 	plan := business.PlanRenewalReminder(sub, cfg, time.Now().UTC())
 	assert.Equal(t, business.ReminderCancel, plan.Action)

@@ -361,7 +361,7 @@ func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 
 // applyPayer enriches a session with prefill data from the payer + optional profile.
 //
-// Prefill is the source of truth for checkout UI and provider prompts (Flutterwave, etc.):
+// Prefill is the source of truth for checkout UI and provider prompts (Fincra, etc.):
 // display name, email, MSISDN contacts, last-used method, and country — so the payer
 // does not re-type identity they already have on their profile.
 //
@@ -973,7 +973,7 @@ func (b *CheckoutBusiness) checkMethodRestriction(
 // sendPrompt builds the prompt request, calls the payment service, and returns the promptID.
 //
 // Prefill identity (email, name) and return URLs are forwarded in Extra so provider
-// integrations (Flutterwave v4) can build the customer object without re-prompting.
+// integrations (Fincra) can build the customer object without re-prompting.
 // Encrypted card fields are portable keys so the payment route can switch PSPs.
 //
 //nolint:gocognit,funlen // Builds prompt extras from prefill, metadata, card, and success URL.
@@ -1125,7 +1125,7 @@ func (b *CheckoutBusiness) Authorize(
 	}
 	chargeID := ""
 	methodKey := "card"
-	route := "flutterwave"
+	route := collection.DefaultCardRoute
 	if session.Metadata != nil {
 		if v, _ := session.Metadata["_charge_id"].(string); v != "" {
 			chargeID = v
@@ -1551,7 +1551,7 @@ func ensureMetadata(meta data.JSONMap) data.JSONMap {
 
 // paidAmountMismatch compares the amount/currency a SUCCESSFUL prompt status
 // reports with the session. Providers record them under different keys:
-// M-Pesa "Amount" (callback) and "requested_amount", Flutterwave and MTN
+// M-Pesa "Amount" (callback) and "requested_amount", Fincra and MTN
 // "amount"/"currency" (confirmed by their APIs), Airtel "requested_amount"/
 // "requested_currency". Returns "" when they match or nothing is reported.
 func paidAmountMismatch(session *models.CheckoutSession, extras *structpb.Struct) string {

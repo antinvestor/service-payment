@@ -46,7 +46,7 @@ type internalCreateSessionRequest struct {
 
 // HandleInternalCreateSession creates a hosted checkout session for trusted
 // in-cluster callers and returns {ref, page_url} so the SPA can redirect to
-// pay.stawi.org/c/{ref} without Flutterwave multipay.
+// pay.stawi.org/c/{ref} without a provider-built payment link.
 func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

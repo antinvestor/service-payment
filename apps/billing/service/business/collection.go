@@ -478,8 +478,6 @@ func (b *collectionBusiness) bootstrapPeriodAndInstrument(
 			patch[models.SubDataProviderCustomerID] = inst.CustomerID
 			if inst.Provider != "" {
 				patch[models.SubDataPaymentProvider] = inst.Provider
-			} else {
-				patch[models.SubDataPaymentProvider] = "flutterwave"
 			}
 		}
 	}

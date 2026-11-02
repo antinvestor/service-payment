@@ -75,7 +75,7 @@ func (e *PaymentStatusUpdate) Execute(ctx context.Context, payload any) error {
 	if err != nil {
 		// Return the error so queue delivery retries. Swallowing it left
 		// checkout sessions stuck in "processing" after provider success
-		// (e.g. Flutterwave charged, StatusUpdate denied on missing ReBAC).
+		// (e.g. the provider charged, StatusUpdate denied on missing ReBAC).
 		logger.WithError(err).Error("could not update status")
 		return err
 	}

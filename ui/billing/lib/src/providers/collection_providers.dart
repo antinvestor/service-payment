@@ -22,8 +22,8 @@ const knownPaymentMethods = <String, String>{
   'mtn_momo': 'MTN MoMo',
   'airtel_money': 'Airtel Money',
   'pawapay': 'Mobile Money (pawaPay)',
-  'flutterwave': 'Flutterwave',
-  'card': 'Card (Flutterwave)',
+  'fincra': 'Card / Bank / Mobile Money (Fincra)',
+  'card': 'Card (Fincra)',
 };
 
 final collectionClientProvider = Provider<CollectionClient>((ref) {

@@ -51,7 +51,7 @@ const (
 	SubDataIntegrationRouteID = "integrationRouteId"
 	// SubDataSignupInvoiceID links the first-charge invoice (existing).
 	SubDataSignupInvoiceID = "signupInvoiceId"
-	// Card-on-file instrument (Flutterwave v4 pmd_* / cus_*) for silent renewals.
+	// Card-on-file instrument (provider payment method / customer ids) for silent renewals.
 	SubDataPaymentMethodID    = "paymentMethodId"
 	SubDataProviderCustomerID = "providerCustomerId"
 	SubDataPaymentProvider    = "paymentProvider"

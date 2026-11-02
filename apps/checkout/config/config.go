@@ -56,9 +56,9 @@ type CheckoutConfig struct {
 	//  1. Filter by partition allowlist + session methods[] + currency + location
 	//  2. Preselect: profile last-used → guest cookie → phone/country → default
 	//
-	// Card is first and embedded (redirect=false, embed=true): PAN is AES-GCM
-	// encrypted in the browser and charged via Flutterwave v4 on our domain.
-	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"card\",\"name\":\"Card\",\"route\":\"flutterwave\",\"prefixes\":[],\"currencies\":[],\"countries\":[],\"redirect\":false,\"embed\":true},{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"],\"countries\":[\"KE\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"],\"countries\":[\"UG\",\"ZM\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"],\"countries\":[\"TZ\",\"UG\"]}]"`
+	// Card is first and goes to Fincra's hosted payment page (redirect=true):
+	// card details are entered on Fincra's page, never on ours.
+	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"card\",\"name\":\"Card\",\"route\":\"fincra\",\"prefixes\":[],\"currencies\":[],\"countries\":[],\"redirect\":true,\"embed\":false},{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"],\"countries\":[\"KE\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"],\"countries\":[\"UG\",\"ZM\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"],\"countries\":[\"TZ\",\"UG\"]}]"`
 
 	// PartitionMethodsJSON optionally restricts methods per partition.
 	// Format: {"partition-uuid":["mpesa","card"],"*":["card"]}
@@ -66,11 +66,11 @@ type CheckoutConfig struct {
 	// Empty = no partition-level filtering (only currency/locality/session).
 	PartitionMethodsJSON string `env:"CHECKOUT_PARTITION_METHODS"`
 
-	// CardEncryptionKey is the base64 AES-256 key from the Flutterwave dashboard.
-	// Served to the browser for client-side encryption — raw PAN never hits our servers.
+	// CardEncryptionKey is the base64 AES-256 key of a card provider that
+	// takes encrypted card fields, for an embedded card method (embed=true).
+	// Served to the browser for client-side encryption — raw PAN never hits
+	// our servers. Unused while card payments go to a hosted page.
 	CardEncryptionKey string `env:"CHECKOUT_CARD_ENCRYPTION_KEY"`
-	// CardEncryptionKeyAlt accepts the same value under the Flutterwave env name.
-	CardEncryptionKeyAlt string `env:"FLUTTERWAVE_ENCRYPTION_KEY"`
 }
 
 // ResolvedCardEncryptionKey returns the encryption key for client-side AES-GCM.
@@ -78,10 +78,7 @@ func (c *CheckoutConfig) ResolvedCardEncryptionKey() string {
 	if c == nil {
 		return ""
 	}
-	if strings.TrimSpace(c.CardEncryptionKey) != "" {
-		return strings.TrimSpace(c.CardEncryptionKey)
-	}
-	return strings.TrimSpace(c.CardEncryptionKeyAlt)
+	return strings.TrimSpace(c.CardEncryptionKey)
 }
 
 // ResolvedInternalToken returns the shared secret for internal session create.

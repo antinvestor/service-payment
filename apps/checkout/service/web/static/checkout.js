@@ -217,7 +217,7 @@
   }
   filterMethodsForContact();
 
-  // --- card encryption on submit (AES-GCM, Flutterwave v4) ---
+  // --- card encryption on submit (AES-GCM, for providers that take encrypted card fields) ---
   var form = document.getElementById('pay-form');
   if (form) {
     form.addEventListener('submit', function (ev) {

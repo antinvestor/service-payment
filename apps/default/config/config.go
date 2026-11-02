@@ -33,7 +33,7 @@ type PaymentConfig struct {
 	// InitiatePromptRouteURIs is optional JSON map of route key → NATS/mem URI.
 	// When set, InitiatePrompt publishes to the matching route publisher instead of
 	// (or in addition to configuring) the single default INITIATE_PROMPT_TOPIC_URI.
-	// Example: {"mpesa":"nats://…mpesa.prompts","flutterwave":"nats://…flutterwave.prompts"}
+	// Example: {"mpesa":"nats://…mpesa.prompts","fincra":"nats://…fincra.prompts"}
 	// Publisher reference becomes "prompt.<route>". Unlisted routes fall back to default.
 	InitiatePromptRouteURIs string `env:"INITIATE_PROMPT_ROUTE_URIS"`
 	// PaymentRoutes is the JSON list of payment routes the setup Job writes

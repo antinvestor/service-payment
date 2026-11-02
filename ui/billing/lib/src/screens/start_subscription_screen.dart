@@ -9,7 +9,7 @@ import '../providers/catalog_providers.dart';
 import '../providers/collection_providers.dart';
 import '../widgets/payment_method_picker.dart';
 
-/// Streamlined "subscribe + pay" screen (Stripe/Flutterwave style entry).
+/// Streamlined "subscribe + pay" screen (Stripe Link style entry).
 ///
 /// Creates the subscription and opens hosted checkout when an upfront fee exists.
 class StartSubscriptionScreen extends ConsumerStatefulWidget {

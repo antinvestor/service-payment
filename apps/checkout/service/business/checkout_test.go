@@ -1259,7 +1259,7 @@ func TestPay_MethodCurrency(t *testing.T) {
 	reg, err := business.ParseMethodRegistry(`[
 		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
 		{"key":"mtn_momo","name":"MTN MoMo","route":"mtn","prefixes":["256"],"currencies":["UGX"]},
-		{"key":"card","name":"Card","route":"flutterwave","redirect":true}
+		{"key":"card","name":"Card","route":"fincra","redirect":true}
 	]`)
 	require.NoError(t, err)
 
@@ -1319,7 +1319,7 @@ func TestPay_MethodCurrency(t *testing.T) {
 func TestPay_MethodAmount(t *testing.T) {
 	reg, err := business.ParseMethodRegistry(`[
 		{"key":"mpesa","name":"M-PESA","route":"mpesa","prefixes":["254"],"currencies":["KES"]},
-		{"key":"card","name":"Card","route":"flutterwave","redirect":true},
+		{"key":"card","name":"Card","route":"fincra","redirect":true},
 		{"key":"custom_whole","name":"Whole","route":"other","whole_amounts":true},
 		{"key":"yellowcard","name":"Yellow Card","route":"yellowcard"},
 		{"key":"fincra","name":"Fincra","route":"fincra"}
@@ -1336,7 +1336,8 @@ func TestPay_MethodAmount(t *testing.T) {
 		{name: "fixed whole amount via mpesa", option: models.AmountOptionFixed, amount: "100.00", method: "mpesa"},
 		{name: "fixed fractional amount via mpesa", option: models.AmountOptionFixed, amount: "100.40", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
 		{name: "variable fractional amount via mpesa", option: models.AmountOptionVariable, amount: "75.50", method: "mpesa", wantErr: business.ErrMethodAmountUnsupported},
-		{name: "fractional amount via card", option: models.AmountOptionFixed, amount: "100.40", method: "card"},
+		{name: "fractional amount via card on fincra", option: models.AmountOptionFixed, amount: "100.40", method: "card", wantErr: business.ErrMethodAmountUnsupported},
+		{name: "whole amount via card on fincra", option: models.AmountOptionFixed, amount: "100.00", method: "card"},
 		{name: "configured whole_amounts flag", option: models.AmountOptionFixed, amount: "1.5", method: "custom_whole", wantErr: business.ErrMethodAmountUnsupported},
 		{name: "fractional amount via yellowcard", option: models.AmountOptionFixed, amount: "9758.50", method: "yellowcard", wantErr: business.ErrMethodAmountUnsupported},
 		{name: "fractional amount via fincra", option: models.AmountOptionFixed, amount: "350.25", method: "fincra", wantErr: business.ErrMethodAmountUnsupported},

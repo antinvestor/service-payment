@@ -22,6 +22,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
+	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
 
@@ -29,13 +30,18 @@ import (
 // Used by product services (e.g. opportunities matching) that open pay.* for
 // the payer. Authenticated with X-Checkout-Internal-Token — not Connect RPC.
 type internalCreateSessionRequest struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Amount      string            `json:"amount"`   // major units decimal, e.g. "10.00"
-	Currency    string            `json:"currency"` // ISO 4217
-	OrderRef    string            `json:"order_ref"`
-	ReturnURL   string            `json:"return_url"`
-	Methods     []string          `json:"methods"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Amount      string   `json:"amount"`   // major units decimal, e.g. "10.00"
+	Currency    string   `json:"currency"` // ISO 4217
+	OrderRef    string   `json:"order_ref"`
+	ReturnURL   string   `json:"return_url"`
+	CancelURL   string   `json:"cancel_url"`
+	Methods     []string `json:"methods"`
+	// TenantID / PartitionID scope the session like an authenticated RPC
+	// would (partition method allowlists, provider credential routing).
+	TenantID    string            `json:"tenant_id"`
+	PartitionID string            `json:"partition_id"`
 	Metadata    map[string]string `json:"metadata"`
 	ProfileID   string            `json:"profile_id"`
 	DisplayName string            `json:"display_name"`
@@ -95,7 +101,15 @@ func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	session, err := s.business.CreateSession(r.Context(), business.CreateSessionInput{
+	ctx := r.Context()
+	if strings.TrimSpace(in.TenantID) != "" || strings.TrimSpace(in.PartitionID) != "" {
+		claims := &security.AuthenticationClaims{
+			TenantID:    strings.TrimSpace(in.TenantID),
+			PartitionID: strings.TrimSpace(in.PartitionID),
+		}
+		ctx = claims.ClaimsToContext(ctx)
+	}
+	session, err := s.business.CreateSession(ctx, business.CreateSessionInput{
 		Name:         in.Name,
 		Description:  in.Description,
 		Amount:       in.Amount,
@@ -103,6 +117,7 @@ func (s *WebServer) HandleInternalCreateSession(w http.ResponseWriter, r *http.R
 		AmountOption: models.AmountOptionFixed,
 		OrderRef:     in.OrderRef,
 		ReturnURL:    in.ReturnURL,
+		CancelURL:    in.CancelURL,
 		Metadata:     meta,
 		Payer:        payer,
 		Methods:      in.Methods,

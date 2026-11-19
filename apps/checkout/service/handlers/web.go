@@ -379,31 +379,10 @@ func methodChoices(available []business.Method, selected business.Method) []Meth
 			Selected: m.Key == selected.Key,
 			Embed:    m.IsEmbedded(),
 			Redirect: m.Redirect,
+			Card:     m.IsCard(),
 		})
 	}
 	return choices
-}
-
-// restrictionKeys extracts the restriction key list from a session's Methods JSONMap.
-func restrictionKeys(methods map[string]any) []string {
-	if methods == nil {
-		return nil
-	}
-	keysRaw, hasKeys := methods["keys"]
-	if !hasKeys {
-		return nil
-	}
-	list, isList := keysRaw.([]any)
-	if !isList {
-		return nil
-	}
-	keys := make([]string, 0, len(list))
-	for _, k := range list {
-		if ks, isStr := k.(string); isStr {
-			keys = append(keys, ks)
-		}
-	}
-	return keys
 }
 
 // guestHintsFromCookie reads the co_hints cookie and decodes it.
@@ -469,21 +448,18 @@ func (s *WebServer) buildMethods(
 		country = strings.ToUpper(strings.TrimSpace(hints.Country))
 	}
 
-	amount := ""
-	if session.AmountOption != models.AmountOptionVariable {
-		amount = session.Amount
+	// One definition of "what this session may pay with" (business), plus
+	// the request-only signals: geo headers, device cookie, clue phone.
+	filter := s.business.MethodFilterFor(session, phone)
+	filter.Phone = phone
+	if len(contactPhones) > 0 {
+		filter.Phones = append(filter.Phones, contactPhones...)
 	}
-	filter := business.MethodFilter{
-		Currency:           session.Currency,
-		Amount:             amount,
-		Phone:              phone,
-		Phones:             contactPhones,
-		Country:            country,
-		SessionRestriction: restrictionKeys(session.Methods),
-		PartitionAllowlist: s.partitions.ForPartition(session.PartitionID),
-		ClueMethod:         clueKey,
-		GuestMethod:        guestMethod,
+	if country != "" {
+		filter.Country = country
 	}
+	filter.ClueMethod = clueKey
+	filter.GuestMethod = guestMethod
 
 	resolved := s.registry.Resolve(filter)
 	if len(resolved.Available) == 0 {
@@ -524,6 +500,7 @@ func (s *WebServer) pageDataFor(session *models.CheckoutSession, r *http.Request
 		CSRF:         CSRFToken(s.signingSecret(), ref),
 		Status:       session.Status,
 		AssetVersion: web.AssetVersion,
+		CancelURL:    cancelURLFor(session, ref),
 	}
 
 	// AmountDisplay: only for fixed, non-empty amounts
@@ -694,6 +671,7 @@ func (s *WebServer) HandlePage(w http.ResponseWriter, r *http.Request) {
 	case models.SessionStatusCompleted:
 		data := s.pageDataFor(session, r)
 		data.RedirectURL = buildReturnURL(session.ReturnURL, ref, "completed")
+		data.ReturnURL = data.RedirectURL
 		s.renderPage(w, r, http.StatusOK, "done", data)
 
 	case models.SessionStatusExpired:
@@ -719,8 +697,26 @@ func (s *WebServer) HandlePage(w http.ResponseWriter, r *http.Request) {
 
 	default: // pending
 		data := s.pageDataFor(session, r)
+		if r.URL.Query().Get("cancelled") == "1" {
+			data.FailureReason = T(data.Lang, "cancelled_title")
+		}
 		s.renderPage(w, r, http.StatusOK, "pay", data)
 	}
+}
+
+// cancelURLFor is the page's "cancel and return" target: the merchant's
+// cancel_url, else its return_url flagged cancelled, else nothing.
+func cancelURLFor(session *models.CheckoutSession, ref string) string {
+	if session == nil {
+		return ""
+	}
+	if session.CancelURL != "" {
+		return buildReturnURL(session.CancelURL, ref, "cancelled")
+	}
+	if session.ReturnURL != "" {
+		return buildReturnURL(session.ReturnURL, ref, "cancelled")
+	}
+	return ""
 }
 
 // ---------------------------------------------------------------------------
@@ -888,13 +884,7 @@ func (s *WebServer) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Refresh if processing
-	if session.Status == models.SessionStatusProcessing {
-		if refreshed, refreshErr := s.business.RefreshStatus(r.Context(), session); refreshErr == nil {
-			session = refreshed
-		}
-	}
-
+	// GetSessionByRef already refreshed a live prompt; no second poll here.
 	payload := map[string]any{
 		"status": session.Status,
 	}

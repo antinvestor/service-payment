@@ -49,6 +49,7 @@ type CheckoutSession struct {
 	OrderRef       string       `gorm:"type:varchar(250);index"                           json:"order_ref"`
 	Metadata       data.JSONMap `gorm:"type:jsonb"                                        json:"metadata"`
 	ReturnURL      string       `gorm:"type:varchar(500)"                                 json:"return_url"`
+	CancelURL      string       `gorm:"type:varchar(500)"                                 json:"cancel_url"`
 	PayerProfileID string       `gorm:"type:varchar(50);index"                            json:"payer_profile_id"`
 	Prefill        data.JSONMap `gorm:"type:jsonb"                                        json:"prefill"`
 	Methods        data.JSONMap `gorm:"type:jsonb"                                        json:"methods"` // {"keys": [...]} restriction
@@ -80,6 +81,7 @@ type CheckoutLink struct {
 	OrderRef     string       `gorm:"type:varchar(250)"                         json:"order_ref"`
 	Metadata     data.JSONMap `gorm:"type:jsonb"                                json:"metadata"`
 	ReturnURL    string       `gorm:"type:varchar(500)"                         json:"return_url"`
+	CancelURL    string       `gorm:"type:varchar(500)"                         json:"cancel_url"`
 	ExpiresAt    *time.Time   `                                                 json:"expires_at"`
 	Active       bool         `gorm:"not null;default:true"                     json:"active"`
 }

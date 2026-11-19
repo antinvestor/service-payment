@@ -29,6 +29,16 @@ abstract final class CheckoutService {
     idempotency: connect.Idempotency.noSideEffects,
   );
 
+  /// ListPaymentMethods returns the rails available for the caller's
+  /// partition and the given currency / amount / locality.
+  static const listPaymentMethods = connect.Spec(
+    '/$name/ListPaymentMethods',
+    connect.StreamType.unary,
+    checkoutv1checkout.ListPaymentMethodsRequest.new,
+    checkoutv1checkout.ListPaymentMethodsResponse.new,
+    idempotency: connect.Idempotency.noSideEffects,
+  );
+
   /// CreateCheckoutLink creates a reusable, shareable link that spawns a
   /// fresh checkout session per visitor.
   static const createCheckoutLink = connect.Spec(

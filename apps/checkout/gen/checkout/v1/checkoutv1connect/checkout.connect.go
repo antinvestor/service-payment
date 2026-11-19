@@ -44,6 +44,9 @@ const (
 	// CheckoutServiceGetCheckoutSessionProcedure is the procedure name of the CheckoutService's
 	// GetCheckoutSession RPC.
 	CheckoutServiceGetCheckoutSessionProcedure = "/checkout.v1.CheckoutService/GetCheckoutSession"
+	// CheckoutServiceListPaymentMethodsProcedure is the procedure name of the CheckoutService's
+	// ListPaymentMethods RPC.
+	CheckoutServiceListPaymentMethodsProcedure = "/checkout.v1.CheckoutService/ListPaymentMethods"
 	// CheckoutServiceCreateCheckoutLinkProcedure is the procedure name of the CheckoutService's
 	// CreateCheckoutLink RPC.
 	CheckoutServiceCreateCheckoutLinkProcedure = "/checkout.v1.CheckoutService/CreateCheckoutLink"
@@ -65,6 +68,14 @@ var (
 			IdempotencyLevel: connect.IdempotencyNoSideEffects,
 		}
 	})
+	checkoutServiceListPaymentMethodsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_checkout_v1_checkout_proto.Services().ByName("CheckoutService").Methods().ByName("ListPaymentMethods"),
+			Procedure:        CheckoutServiceListPaymentMethodsProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
 	checkoutServiceCreateCheckoutLinkSpec = sync.OnceValue(func() connect.Spec {
 		return connect.Spec{
 			StreamType: connect.StreamTypeUnary,
@@ -82,6 +93,9 @@ type CheckoutServiceClient interface {
 	// GetCheckoutSession returns the current state of a checkout session;
 	// merchants poll this as one source of payment truth.
 	GetCheckoutSession(context.Context, *v1.GetCheckoutSessionRequest) (*v1.GetCheckoutSessionResponse, error)
+	// ListPaymentMethods returns the rails available for the caller's
+	// partition and the given currency / amount / locality.
+	ListPaymentMethods(context.Context, *v1.ListPaymentMethodsRequest) (*v1.ListPaymentMethodsResponse, error)
 	// CreateCheckoutLink creates a reusable, shareable link that spawns a
 	// fresh checkout session per visitor.
 	CreateCheckoutLink(context.Context, *v1.CreateCheckoutLinkRequest) (*v1.CreateCheckoutLinkResponse, error)
@@ -101,6 +115,9 @@ type CheckoutServiceHandler interface {
 	// GetCheckoutSession returns the current state of a checkout session;
 	// merchants poll this as one source of payment truth.
 	GetCheckoutSession(context.Context, *v1.GetCheckoutSessionRequest) (*v1.GetCheckoutSessionResponse, error)
+	// ListPaymentMethods returns the rails available for the caller's
+	// partition and the given currency / amount / locality.
+	ListPaymentMethods(context.Context, *v1.ListPaymentMethodsRequest) (*v1.ListPaymentMethodsResponse, error)
 	// CreateCheckoutLink creates a reusable, shareable link that spawns a
 	// fresh checkout session per visitor.
 	CreateCheckoutLink(context.Context, *v1.CreateCheckoutLinkRequest) (*v1.CreateCheckoutLinkResponse, error)
@@ -113,6 +130,7 @@ func RegisterCheckoutServiceHandler(server *connect.Server, svc CheckoutServiceH
 	server.Register(
 		connect.Method{Spec: checkoutServiceCreateCheckoutSessionSpec(), Handler: adapter.createCheckoutSession},
 		connect.Method{Spec: checkoutServiceGetCheckoutSessionSpec(), Handler: adapter.getCheckoutSession},
+		connect.Method{Spec: checkoutServiceListPaymentMethodsSpec(), Handler: adapter.listPaymentMethods},
 		connect.Method{Spec: checkoutServiceCreateCheckoutLinkSpec(), Handler: adapter.createCheckoutLink},
 	)
 }
@@ -126,6 +144,10 @@ func (UnimplementedCheckoutServiceHandler) CreateCheckoutSession(context.Context
 
 func (UnimplementedCheckoutServiceHandler) GetCheckoutSession(context.Context, *v1.GetCheckoutSessionRequest) (*v1.GetCheckoutSessionResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "checkout.v1.CheckoutService.GetCheckoutSession is not implemented")
+}
+
+func (UnimplementedCheckoutServiceHandler) ListPaymentMethods(context.Context, *v1.ListPaymentMethodsRequest) (*v1.ListPaymentMethodsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "checkout.v1.CheckoutService.ListPaymentMethods is not implemented")
 }
 
 func (UnimplementedCheckoutServiceHandler) CreateCheckoutLink(context.Context, *v1.CreateCheckoutLinkRequest) (*v1.CreateCheckoutLinkResponse, error) {
@@ -147,6 +169,14 @@ func (c *checkoutServiceClient) CreateCheckoutSession(ctx context.Context, req *
 func (c *checkoutServiceClient) GetCheckoutSession(ctx context.Context, req *v1.GetCheckoutSessionRequest) (*v1.GetCheckoutSessionResponse, error) {
 	var res v1.GetCheckoutSessionResponse
 	if err := c.client.CallUnary(ctx, checkoutServiceGetCheckoutSessionSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *checkoutServiceClient) ListPaymentMethods(ctx context.Context, req *v1.ListPaymentMethodsRequest) (*v1.ListPaymentMethodsResponse, error) {
+	var res v1.ListPaymentMethodsResponse
+	if err := c.client.CallUnary(ctx, checkoutServiceListPaymentMethodsSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -180,6 +210,18 @@ func (h checkoutServiceHandler) getCheckoutSession(ctx context.Context, _ connec
 		return err
 	}
 	res, err := h.svc.GetCheckoutSession(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h checkoutServiceHandler) listPaymentMethods(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ListPaymentMethodsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListPaymentMethods(ctx, &req)
 	if err != nil {
 		return err
 	}

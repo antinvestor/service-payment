@@ -191,11 +191,13 @@ func (x *PayerContact) GetMsisdn() string {
 }
 
 type PayerPrefill struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProfileId     string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
-	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Language      string                 `protobuf:"bytes,3,opt,name=language,proto3" json:"language,omitempty"`
-	Contacts      []*PayerContact        `protobuf:"bytes,4,rep,name=contacts,proto3" json:"contacts,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ProfileId   string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	DisplayName string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Language    string                 `protobuf:"bytes,3,opt,name=language,proto3" json:"language,omitempty"`
+	Contacts    []*PayerContact        `protobuf:"bytes,4,rep,name=contacts,proto3" json:"contacts,omitempty"`
+	// Email used for card customers when the profile has no EMAIL contact.
+	Email         string `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -258,29 +260,165 @@ func (x *PayerPrefill) GetContacts() []*PayerContact {
 	return nil
 }
 
+func (x *PayerPrefill) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+// PaymentMethod is one rail the hosted page can offer.
+type PaymentMethod struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Registry key passed in CreateCheckoutSessionRequest.methods.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Display name.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Payment service route (integration) that collects on this rail.
+	Route string `protobuf:"bytes,3,opt,name=route,proto3" json:"route,omitempty"`
+	// card | mobile_money | bank_transfer.
+	MethodType string `protobuf:"bytes,4,opt,name=method_type,json=methodType,proto3" json:"method_type,omitempty"`
+	// push (prompt on the payer's phone), redirect (provider page) or embed.
+	Flow string `protobuf:"bytes,5,opt,name=flow,proto3" json:"flow,omitempty"`
+	// ISO 4217 currencies accepted (empty = any).
+	Currencies []string `protobuf:"bytes,6,rep,name=currencies,proto3" json:"currencies,omitempty"`
+	// ISO 3166-1 alpha-2 countries served (empty = any).
+	Countries []string `protobuf:"bytes,7,rep,name=countries,proto3" json:"countries,omitempty"`
+	// Only whole currency units can be charged.
+	WholeAmounts bool `protobuf:"varint,8,opt,name=whole_amounts,json=wholeAmounts,proto3" json:"whole_amounts,omitempty"`
+	// The provider manages recurring billing itself (Polar, Stripe).
+	Subscriptions bool `protobuf:"varint,9,opt,name=subscriptions,proto3" json:"subscriptions,omitempty"`
+	// A provider product reference (product_id metadata) is required.
+	RequiresProductId bool `protobuf:"varint,10,opt,name=requires_product_id,json=requiresProductId,proto3" json:"requires_product_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PaymentMethod) Reset() {
+	*x = PaymentMethod{}
+	mi := &file_checkout_v1_checkout_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaymentMethod) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaymentMethod) ProtoMessage() {}
+
+func (x *PaymentMethod) ProtoReflect() protoreflect.Message {
+	mi := &file_checkout_v1_checkout_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaymentMethod.ProtoReflect.Descriptor instead.
+func (*PaymentMethod) Descriptor() ([]byte, []int) {
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PaymentMethod) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *PaymentMethod) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PaymentMethod) GetRoute() string {
+	if x != nil {
+		return x.Route
+	}
+	return ""
+}
+
+func (x *PaymentMethod) GetMethodType() string {
+	if x != nil {
+		return x.MethodType
+	}
+	return ""
+}
+
+func (x *PaymentMethod) GetFlow() string {
+	if x != nil {
+		return x.Flow
+	}
+	return ""
+}
+
+func (x *PaymentMethod) GetCurrencies() []string {
+	if x != nil {
+		return x.Currencies
+	}
+	return nil
+}
+
+func (x *PaymentMethod) GetCountries() []string {
+	if x != nil {
+		return x.Countries
+	}
+	return nil
+}
+
+func (x *PaymentMethod) GetWholeAmounts() bool {
+	if x != nil {
+		return x.WholeAmounts
+	}
+	return false
+}
+
+func (x *PaymentMethod) GetSubscriptions() bool {
+	if x != nil {
+		return x.Subscriptions
+	}
+	return false
+}
+
+func (x *PaymentMethod) GetRequiresProductId() bool {
+	if x != nil {
+		return x.RequiresProductId
+	}
+	return false
+}
+
 type CheckoutSession struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Amount        *v1.Money              `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
-	AmountOption  AmountOption           `protobuf:"varint,5,opt,name=amount_option,json=amountOption,proto3,enum=checkout.v1.AmountOption" json:"amount_option,omitempty"`
-	OrderRef      string                 `protobuf:"bytes,6,opt,name=order_ref,json=orderRef,proto3" json:"order_ref,omitempty"`
-	Metadata      map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	ReturnUrl     string                 `protobuf:"bytes,8,opt,name=return_url,json=returnUrl,proto3" json:"return_url,omitempty"`
-	Payer         *PayerPrefill          `protobuf:"bytes,9,opt,name=payer,proto3" json:"payer,omitempty"`
-	Status        SessionStatus          `protobuf:"varint,10,opt,name=status,proto3,enum=checkout.v1.SessionStatus" json:"status,omitempty"`
-	PromptId      string                 `protobuf:"bytes,11,opt,name=prompt_id,json=promptId,proto3" json:"prompt_id,omitempty"`
-	PageUrl       string                 `protobuf:"bytes,12,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
-	ExpiresAt     string                 `protobuf:"bytes,13,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339
-	PaymentId     string                 `protobuf:"bytes,14,opt,name=payment_id,json=paymentId,proto3" json:"payment_id,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Ref          string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	Name         string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description  string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Amount       *v1.Money              `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	AmountOption AmountOption           `protobuf:"varint,5,opt,name=amount_option,json=amountOption,proto3,enum=checkout.v1.AmountOption" json:"amount_option,omitempty"`
+	OrderRef     string                 `protobuf:"bytes,6,opt,name=order_ref,json=orderRef,proto3" json:"order_ref,omitempty"`
+	Metadata     map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ReturnUrl    string                 `protobuf:"bytes,8,opt,name=return_url,json=returnUrl,proto3" json:"return_url,omitempty"`
+	Payer        *PayerPrefill          `protobuf:"bytes,9,opt,name=payer,proto3" json:"payer,omitempty"`
+	Status       SessionStatus          `protobuf:"varint,10,opt,name=status,proto3,enum=checkout.v1.SessionStatus" json:"status,omitempty"`
+	PromptId     string                 `protobuf:"bytes,11,opt,name=prompt_id,json=promptId,proto3" json:"prompt_id,omitempty"`
+	PageUrl      string                 `protobuf:"bytes,12,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
+	ExpiresAt    string                 `protobuf:"bytes,13,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339
+	PaymentId    string                 `protobuf:"bytes,14,opt,name=payment_id,json=paymentId,proto3" json:"payment_id,omitempty"`
+	// Browser landing when the payer abandons the page (optional).
+	CancelUrl     string `protobuf:"bytes,15,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CheckoutSession) Reset() {
 	*x = CheckoutSession{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[2]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -292,7 +430,7 @@ func (x *CheckoutSession) String() string {
 func (*CheckoutSession) ProtoMessage() {}
 
 func (x *CheckoutSession) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[2]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -305,7 +443,7 @@ func (x *CheckoutSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckoutSession.ProtoReflect.Descriptor instead.
 func (*CheckoutSession) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{2}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CheckoutSession) GetRef() string {
@@ -406,6 +544,13 @@ func (x *CheckoutSession) GetPaymentId() string {
 	return ""
 }
 
+func (x *CheckoutSession) GetCancelUrl() string {
+	if x != nil {
+		return x.CancelUrl
+	}
+	return ""
+}
+
 type CheckoutLink struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ref           string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
@@ -419,13 +564,14 @@ type CheckoutLink struct {
 	PageUrl       string                 `protobuf:"bytes,9,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
 	ExpiresAt     string                 `protobuf:"bytes,10,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339, empty = no expiry
 	Active        bool                   `protobuf:"varint,11,opt,name=active,proto3" json:"active,omitempty"`
+	CancelUrl     string                 `protobuf:"bytes,12,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CheckoutLink) Reset() {
 	*x = CheckoutLink{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[3]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +583,7 @@ func (x *CheckoutLink) String() string {
 func (*CheckoutLink) ProtoMessage() {}
 
 func (x *CheckoutLink) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[3]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +596,7 @@ func (x *CheckoutLink) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckoutLink.ProtoReflect.Descriptor instead.
 func (*CheckoutLink) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{3}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CheckoutLink) GetRef() string {
@@ -530,24 +676,33 @@ func (x *CheckoutLink) GetActive() bool {
 	return false
 }
 
+func (x *CheckoutLink) GetCancelUrl() string {
+	if x != nil {
+		return x.CancelUrl
+	}
+	return ""
+}
+
 type CreateCheckoutSessionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	Amount        *v1.Money              `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
-	AmountOption  AmountOption           `protobuf:"varint,4,opt,name=amount_option,json=amountOption,proto3,enum=checkout.v1.AmountOption" json:"amount_option,omitempty"`
-	OrderRef      string                 `protobuf:"bytes,5,opt,name=order_ref,json=orderRef,proto3" json:"order_ref,omitempty"`
-	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	ReturnUrl     string                 `protobuf:"bytes,7,opt,name=return_url,json=returnUrl,proto3" json:"return_url,omitempty"`
-	Payer         *PayerPrefill          `protobuf:"bytes,8,opt,name=payer,proto3" json:"payer,omitempty"`
-	Methods       []string               `protobuf:"bytes,9,rep,name=methods,proto3" json:"methods,omitempty"` // optional restriction; method registry keys
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Name         string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description  string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Amount       *v1.Money              `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	AmountOption AmountOption           `protobuf:"varint,4,opt,name=amount_option,json=amountOption,proto3,enum=checkout.v1.AmountOption" json:"amount_option,omitempty"`
+	OrderRef     string                 `protobuf:"bytes,5,opt,name=order_ref,json=orderRef,proto3" json:"order_ref,omitempty"`
+	Metadata     map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ReturnUrl    string                 `protobuf:"bytes,7,opt,name=return_url,json=returnUrl,proto3" json:"return_url,omitempty"`
+	Payer        *PayerPrefill          `protobuf:"bytes,8,opt,name=payer,proto3" json:"payer,omitempty"`
+	Methods      []string               `protobuf:"bytes,9,rep,name=methods,proto3" json:"methods,omitempty"` // optional restriction; method registry keys
+	// Optional browser landing when the payer abandons the page.
+	CancelUrl     string `protobuf:"bytes,10,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateCheckoutSessionRequest) Reset() {
 	*x = CreateCheckoutSessionRequest{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[4]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -559,7 +714,7 @@ func (x *CreateCheckoutSessionRequest) String() string {
 func (*CreateCheckoutSessionRequest) ProtoMessage() {}
 
 func (x *CreateCheckoutSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[4]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -572,7 +727,7 @@ func (x *CreateCheckoutSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCheckoutSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateCheckoutSessionRequest) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{4}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateCheckoutSessionRequest) GetName() string {
@@ -638,6 +793,13 @@ func (x *CreateCheckoutSessionRequest) GetMethods() []string {
 	return nil
 }
 
+func (x *CreateCheckoutSessionRequest) GetCancelUrl() string {
+	if x != nil {
+		return x.CancelUrl
+	}
+	return ""
+}
+
 type CreateCheckoutSessionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Data          *CheckoutSession       `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
@@ -647,7 +809,7 @@ type CreateCheckoutSessionResponse struct {
 
 func (x *CreateCheckoutSessionResponse) Reset() {
 	*x = CreateCheckoutSessionResponse{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[5]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +821,7 @@ func (x *CreateCheckoutSessionResponse) String() string {
 func (*CreateCheckoutSessionResponse) ProtoMessage() {}
 
 func (x *CreateCheckoutSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[5]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -672,7 +834,7 @@ func (x *CreateCheckoutSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCheckoutSessionResponse.ProtoReflect.Descriptor instead.
 func (*CreateCheckoutSessionResponse) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{5}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CreateCheckoutSessionResponse) GetData() *CheckoutSession {
@@ -691,7 +853,7 @@ type GetCheckoutSessionRequest struct {
 
 func (x *GetCheckoutSessionRequest) Reset() {
 	*x = GetCheckoutSessionRequest{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[6]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -703,7 +865,7 @@ func (x *GetCheckoutSessionRequest) String() string {
 func (*GetCheckoutSessionRequest) ProtoMessage() {}
 
 func (x *GetCheckoutSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[6]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -716,7 +878,7 @@ func (x *GetCheckoutSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCheckoutSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetCheckoutSessionRequest) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{6}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetCheckoutSessionRequest) GetRef() string {
@@ -735,7 +897,7 @@ type GetCheckoutSessionResponse struct {
 
 func (x *GetCheckoutSessionResponse) Reset() {
 	*x = GetCheckoutSessionResponse{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[7]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -747,7 +909,7 @@ func (x *GetCheckoutSessionResponse) String() string {
 func (*GetCheckoutSessionResponse) ProtoMessage() {}
 
 func (x *GetCheckoutSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[7]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -760,7 +922,7 @@ func (x *GetCheckoutSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCheckoutSessionResponse.ProtoReflect.Descriptor instead.
 func (*GetCheckoutSessionResponse) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{7}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetCheckoutSessionResponse) GetData() *CheckoutSession {
@@ -780,13 +942,14 @@ type CreateCheckoutLinkRequest struct {
 	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ReturnUrl     string                 `protobuf:"bytes,7,opt,name=return_url,json=returnUrl,proto3" json:"return_url,omitempty"`
 	ExpiresAt     string                 `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339, empty = no expiry
+	CancelUrl     string                 `protobuf:"bytes,9,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateCheckoutLinkRequest) Reset() {
 	*x = CreateCheckoutLinkRequest{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[8]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -798,7 +961,7 @@ func (x *CreateCheckoutLinkRequest) String() string {
 func (*CreateCheckoutLinkRequest) ProtoMessage() {}
 
 func (x *CreateCheckoutLinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[8]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -811,7 +974,7 @@ func (x *CreateCheckoutLinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCheckoutLinkRequest.ProtoReflect.Descriptor instead.
 func (*CreateCheckoutLinkRequest) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{8}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateCheckoutLinkRequest) GetName() string {
@@ -870,6 +1033,159 @@ func (x *CreateCheckoutLinkRequest) GetExpiresAt() string {
 	return ""
 }
 
+func (x *CreateCheckoutLinkRequest) GetCancelUrl() string {
+	if x != nil {
+		return x.CancelUrl
+	}
+	return ""
+}
+
+// ListPaymentMethodsRequest asks which rails a session with these
+// properties would be offered, so product apps can show choices or pick
+// methods[] before creating a session.
+type ListPaymentMethodsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ISO 4217 currency (empty = any).
+	Currency string `protobuf:"bytes,1,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Decimal amount; filters whole-unit rails (empty = any).
+	Amount string `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	// ISO 3166-1 alpha-2 payer country (empty = unknown).
+	Country string `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	// Payer MSISDNs for phone-local rails.
+	Phones []string `protobuf:"bytes,4,rep,name=phones,proto3" json:"phones,omitempty"`
+	// Restrict to these keys (empty = all).
+	Methods []string `protobuf:"bytes,5,rep,name=methods,proto3" json:"methods,omitempty"`
+	// Metadata the session would carry (product_id enables product rails).
+	Metadata      map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPaymentMethodsRequest) Reset() {
+	*x = ListPaymentMethodsRequest{}
+	mi := &file_checkout_v1_checkout_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPaymentMethodsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPaymentMethodsRequest) ProtoMessage() {}
+
+func (x *ListPaymentMethodsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_checkout_v1_checkout_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPaymentMethodsRequest.ProtoReflect.Descriptor instead.
+func (*ListPaymentMethodsRequest) Descriptor() ([]byte, []int) {
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListPaymentMethodsRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *ListPaymentMethodsRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *ListPaymentMethodsRequest) GetCountry() string {
+	if x != nil {
+		return x.Country
+	}
+	return ""
+}
+
+func (x *ListPaymentMethodsRequest) GetPhones() []string {
+	if x != nil {
+		return x.Phones
+	}
+	return nil
+}
+
+func (x *ListPaymentMethodsRequest) GetMethods() []string {
+	if x != nil {
+		return x.Methods
+	}
+	return nil
+}
+
+func (x *ListPaymentMethodsRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type ListPaymentMethodsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Data  []*PaymentMethod       `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	// Key the hosted page would preselect.
+	Selected      string `protobuf:"bytes,2,opt,name=selected,proto3" json:"selected,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPaymentMethodsResponse) Reset() {
+	*x = ListPaymentMethodsResponse{}
+	mi := &file_checkout_v1_checkout_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPaymentMethodsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPaymentMethodsResponse) ProtoMessage() {}
+
+func (x *ListPaymentMethodsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_checkout_v1_checkout_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPaymentMethodsResponse.ProtoReflect.Descriptor instead.
+func (*ListPaymentMethodsResponse) Descriptor() ([]byte, []int) {
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListPaymentMethodsResponse) GetData() []*PaymentMethod {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ListPaymentMethodsResponse) GetSelected() string {
+	if x != nil {
+		return x.Selected
+	}
+	return ""
+}
+
 type CreateCheckoutLinkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Data          *CheckoutLink          `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
@@ -879,7 +1195,7 @@ type CreateCheckoutLinkResponse struct {
 
 func (x *CreateCheckoutLinkResponse) Reset() {
 	*x = CreateCheckoutLinkResponse{}
-	mi := &file_checkout_v1_checkout_proto_msgTypes[9]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -891,7 +1207,7 @@ func (x *CreateCheckoutLinkResponse) String() string {
 func (*CreateCheckoutLinkResponse) ProtoMessage() {}
 
 func (x *CreateCheckoutLinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_checkout_v1_checkout_proto_msgTypes[9]
+	mi := &file_checkout_v1_checkout_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -904,7 +1220,7 @@ func (x *CreateCheckoutLinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCheckoutLinkResponse.ProtoReflect.Descriptor instead.
 func (*CreateCheckoutLinkResponse) Descriptor() ([]byte, []int) {
-	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{9}
+	return file_checkout_v1_checkout_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateCheckoutLinkResponse) GetData() *CheckoutLink {
@@ -922,13 +1238,29 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\fPayerContact\x12\x1d\n" +
 	"\n" +
 	"contact_id\x18\x01 \x01(\tR\tcontactId\x12\x16\n" +
-	"\x06msisdn\x18\x02 \x01(\tR\x06msisdn\"\xa3\x01\n" +
+	"\x06msisdn\x18\x02 \x01(\tR\x06msisdn\"\xb9\x01\n" +
 	"\fPayerPrefill\x12\x1d\n" +
 	"\n" +
 	"profile_id\x18\x01 \x01(\tR\tprofileId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1a\n" +
 	"\blanguage\x18\x03 \x01(\tR\blanguage\x125\n" +
-	"\bcontacts\x18\x04 \x03(\v2\x19.checkout.v1.PayerContactR\bcontacts\"\xdf\x04\n" +
+	"\bcontacts\x18\x04 \x03(\v2\x19.checkout.v1.PayerContactR\bcontacts\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\"\xb9\x02\n" +
+	"\rPaymentMethod\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05route\x18\x03 \x01(\tR\x05route\x12\x1f\n" +
+	"\vmethod_type\x18\x04 \x01(\tR\n" +
+	"methodType\x12\x12\n" +
+	"\x04flow\x18\x05 \x01(\tR\x04flow\x12\x1e\n" +
+	"\n" +
+	"currencies\x18\x06 \x03(\tR\n" +
+	"currencies\x12\x1c\n" +
+	"\tcountries\x18\a \x03(\tR\tcountries\x12#\n" +
+	"\rwhole_amounts\x18\b \x01(\bR\fwholeAmounts\x12$\n" +
+	"\rsubscriptions\x18\t \x01(\bR\rsubscriptions\x12.\n" +
+	"\x13requires_product_id\x18\n" +
+	" \x01(\bR\x11requiresProductId\"\xfe\x04\n" +
 	"\x0fCheckoutSession\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -947,10 +1279,12 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\r \x01(\tR\texpiresAt\x12\x1d\n" +
 	"\n" +
-	"payment_id\x18\x0e \x01(\tR\tpaymentId\x1a;\n" +
+	"payment_id\x18\x0e \x01(\tR\tpaymentId\x12\x1d\n" +
+	"\n" +
+	"cancel_url\x18\x0f \x01(\tR\tcancelUrl\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd0\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xef\x03\n" +
 	"\fCheckoutLink\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -965,10 +1299,12 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\n" +
 	" \x01(\tR\texpiresAt\x12\x16\n" +
-	"\x06active\x18\v \x01(\bR\x06active\x1a;\n" +
+	"\x06active\x18\v \x01(\bR\x06active\x12\x1d\n" +
+	"\n" +
+	"cancel_url\x18\f \x01(\tR\tcancelUrl\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x80\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xac\x04\n" +
 	"\x1cCreateCheckoutSessionRequest\x12\x1d\n" +
 	"\x04name\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x03\x18dR\x04name\x12*\n" +
 	"\vdescription\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\vdescription\x12(\n" +
@@ -979,7 +1315,10 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
 	"return_url\x18\a \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\treturnUrl\x12/\n" +
 	"\x05payer\x18\b \x01(\v2\x19.checkout.v1.PayerPrefillR\x05payer\x12\x18\n" +
-	"\amethods\x18\t \x03(\tR\amethods\x1a;\n" +
+	"\amethods\x18\t \x03(\tR\amethods\x12*\n" +
+	"\n" +
+	"cancel_url\x18\n" +
+	" \x01(\tB\v\xbaH\b\xd8\x01\x01r\x03\x88\x01\x01R\tcancelUrl\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
@@ -988,7 +1327,7 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\x19GetCheckoutSessionRequest\x12\x1b\n" +
 	"\x03ref\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\b\x18@R\x03ref\"N\n" +
 	"\x1aGetCheckoutSessionResponse\x120\n" +
-	"\x04data\x18\x01 \x01(\v2\x1c.checkout.v1.CheckoutSessionR\x04data\"\xce\x03\n" +
+	"\x04data\x18\x01 \x01(\v2\x1c.checkout.v1.CheckoutSessionR\x04data\"\xfa\x03\n" +
 	"\x19CreateCheckoutLinkRequest\x12\x1d\n" +
 	"\x04name\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x03\x18dR\x04name\x12*\n" +
 	"\vdescription\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\vdescription\x12(\n" +
@@ -999,10 +1338,25 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
 	"return_url\x18\a \x01(\tB\b\xbaH\x05r\x03\x88\x01\x01R\treturnUrl\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\b \x01(\tR\texpiresAt\x1a;\n" +
+	"expires_at\x18\b \x01(\tR\texpiresAt\x12*\n" +
+	"\n" +
+	"cancel_url\x18\t \x01(\tB\v\xbaH\b\xd8\x01\x01r\x03\x88\x01\x01R\tcancelUrl\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"K\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc5\x02\n" +
+	"\x19ListPaymentMethodsRequest\x12#\n" +
+	"\bcurrency\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x18\x03R\bcurrency\x12\x1f\n" +
+	"\x06amount\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x18(R\x06amount\x12!\n" +
+	"\acountry\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18\x02R\acountry\x12\x16\n" +
+	"\x06phones\x18\x04 \x03(\tR\x06phones\x12\x18\n" +
+	"\amethods\x18\x05 \x03(\tR\amethods\x12P\n" +
+	"\bmetadata\x18\x06 \x03(\v24.checkout.v1.ListPaymentMethodsRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"h\n" +
+	"\x1aListPaymentMethodsResponse\x12.\n" +
+	"\x04data\x18\x01 \x03(\v2\x1a.checkout.v1.PaymentMethodR\x04data\x12\x1a\n" +
+	"\bselected\x18\x02 \x01(\tR\bselected\"K\n" +
 	"\x1aCreateCheckoutLinkResponse\x12-\n" +
 	"\x04data\x18\x01 \x01(\v2\x19.checkout.v1.CheckoutLinkR\x04data*O\n" +
 	"\fAmountOption\x12#\n" +
@@ -1013,11 +1367,13 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\x19SESSION_STATUS_PROCESSING\x10\x01\x12\x1c\n" +
 	"\x18SESSION_STATUS_COMPLETED\x10\x02\x12\x19\n" +
 	"\x15SESSION_STATUS_FAILED\x10\x03\x12\x1a\n" +
-	"\x16SESSION_STATUS_EXPIRED\x10\x042\xd7\x04\n" +
+	"\x16SESSION_STATUS_EXPIRED\x10\x042\xdf\x05\n" +
 	"\x0fCheckoutService\x12\x8d\x01\n" +
 	"\x15CreateCheckoutSession\x12).checkout.v1.CreateCheckoutSessionRequest\x1a*.checkout.v1.CreateCheckoutSessionResponse\"\x1d\x82\xb5\x18\x19\n" +
 	"\x17checkout_session_create\x12\x85\x01\n" +
 	"\x12GetCheckoutSession\x12&.checkout.v1.GetCheckoutSessionRequest\x1a'.checkout.v1.GetCheckoutSessionResponse\"\x1e\x82\xb5\x18\x17\n" +
+	"\x15checkout_session_view\x90\x02\x01\x12\x85\x01\n" +
+	"\x12ListPaymentMethods\x12&.checkout.v1.ListPaymentMethodsRequest\x1a'.checkout.v1.ListPaymentMethodsResponse\"\x1e\x82\xb5\x18\x17\n" +
 	"\x15checkout_session_view\x90\x02\x01\x12\x81\x01\n" +
 	"\x12CreateCheckoutLink\x12&.checkout.v1.CreateCheckoutLinkRequest\x1a'.checkout.v1.CreateCheckoutLinkResponse\"\x1a\x82\xb5\x18\x16\n" +
 	"\x14checkout_link_create\x1a\xa7\x01\x82\xb5\x18\xa2\x01\n" +
@@ -1037,57 +1393,65 @@ func file_checkout_v1_checkout_proto_rawDescGZIP() []byte {
 }
 
 var file_checkout_v1_checkout_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_checkout_v1_checkout_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_checkout_v1_checkout_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_checkout_v1_checkout_proto_goTypes = []any{
 	(AmountOption)(0),                     // 0: checkout.v1.AmountOption
 	(SessionStatus)(0),                    // 1: checkout.v1.SessionStatus
 	(*PayerContact)(nil),                  // 2: checkout.v1.PayerContact
 	(*PayerPrefill)(nil),                  // 3: checkout.v1.PayerPrefill
-	(*CheckoutSession)(nil),               // 4: checkout.v1.CheckoutSession
-	(*CheckoutLink)(nil),                  // 5: checkout.v1.CheckoutLink
-	(*CreateCheckoutSessionRequest)(nil),  // 6: checkout.v1.CreateCheckoutSessionRequest
-	(*CreateCheckoutSessionResponse)(nil), // 7: checkout.v1.CreateCheckoutSessionResponse
-	(*GetCheckoutSessionRequest)(nil),     // 8: checkout.v1.GetCheckoutSessionRequest
-	(*GetCheckoutSessionResponse)(nil),    // 9: checkout.v1.GetCheckoutSessionResponse
-	(*CreateCheckoutLinkRequest)(nil),     // 10: checkout.v1.CreateCheckoutLinkRequest
-	(*CreateCheckoutLinkResponse)(nil),    // 11: checkout.v1.CreateCheckoutLinkResponse
-	nil,                                   // 12: checkout.v1.CheckoutSession.MetadataEntry
-	nil,                                   // 13: checkout.v1.CheckoutLink.MetadataEntry
-	nil,                                   // 14: checkout.v1.CreateCheckoutSessionRequest.MetadataEntry
-	nil,                                   // 15: checkout.v1.CreateCheckoutLinkRequest.MetadataEntry
-	(*v1.Money)(nil),                      // 16: common.v1.Money
+	(*PaymentMethod)(nil),                 // 4: checkout.v1.PaymentMethod
+	(*CheckoutSession)(nil),               // 5: checkout.v1.CheckoutSession
+	(*CheckoutLink)(nil),                  // 6: checkout.v1.CheckoutLink
+	(*CreateCheckoutSessionRequest)(nil),  // 7: checkout.v1.CreateCheckoutSessionRequest
+	(*CreateCheckoutSessionResponse)(nil), // 8: checkout.v1.CreateCheckoutSessionResponse
+	(*GetCheckoutSessionRequest)(nil),     // 9: checkout.v1.GetCheckoutSessionRequest
+	(*GetCheckoutSessionResponse)(nil),    // 10: checkout.v1.GetCheckoutSessionResponse
+	(*CreateCheckoutLinkRequest)(nil),     // 11: checkout.v1.CreateCheckoutLinkRequest
+	(*ListPaymentMethodsRequest)(nil),     // 12: checkout.v1.ListPaymentMethodsRequest
+	(*ListPaymentMethodsResponse)(nil),    // 13: checkout.v1.ListPaymentMethodsResponse
+	(*CreateCheckoutLinkResponse)(nil),    // 14: checkout.v1.CreateCheckoutLinkResponse
+	nil,                                   // 15: checkout.v1.CheckoutSession.MetadataEntry
+	nil,                                   // 16: checkout.v1.CheckoutLink.MetadataEntry
+	nil,                                   // 17: checkout.v1.CreateCheckoutSessionRequest.MetadataEntry
+	nil,                                   // 18: checkout.v1.CreateCheckoutLinkRequest.MetadataEntry
+	nil,                                   // 19: checkout.v1.ListPaymentMethodsRequest.MetadataEntry
+	(*v1.Money)(nil),                      // 20: common.v1.Money
 }
 var file_checkout_v1_checkout_proto_depIdxs = []int32{
 	2,  // 0: checkout.v1.PayerPrefill.contacts:type_name -> checkout.v1.PayerContact
-	16, // 1: checkout.v1.CheckoutSession.amount:type_name -> common.v1.Money
+	20, // 1: checkout.v1.CheckoutSession.amount:type_name -> common.v1.Money
 	0,  // 2: checkout.v1.CheckoutSession.amount_option:type_name -> checkout.v1.AmountOption
-	12, // 3: checkout.v1.CheckoutSession.metadata:type_name -> checkout.v1.CheckoutSession.MetadataEntry
+	15, // 3: checkout.v1.CheckoutSession.metadata:type_name -> checkout.v1.CheckoutSession.MetadataEntry
 	3,  // 4: checkout.v1.CheckoutSession.payer:type_name -> checkout.v1.PayerPrefill
 	1,  // 5: checkout.v1.CheckoutSession.status:type_name -> checkout.v1.SessionStatus
-	16, // 6: checkout.v1.CheckoutLink.amount:type_name -> common.v1.Money
+	20, // 6: checkout.v1.CheckoutLink.amount:type_name -> common.v1.Money
 	0,  // 7: checkout.v1.CheckoutLink.amount_option:type_name -> checkout.v1.AmountOption
-	13, // 8: checkout.v1.CheckoutLink.metadata:type_name -> checkout.v1.CheckoutLink.MetadataEntry
-	16, // 9: checkout.v1.CreateCheckoutSessionRequest.amount:type_name -> common.v1.Money
+	16, // 8: checkout.v1.CheckoutLink.metadata:type_name -> checkout.v1.CheckoutLink.MetadataEntry
+	20, // 9: checkout.v1.CreateCheckoutSessionRequest.amount:type_name -> common.v1.Money
 	0,  // 10: checkout.v1.CreateCheckoutSessionRequest.amount_option:type_name -> checkout.v1.AmountOption
-	14, // 11: checkout.v1.CreateCheckoutSessionRequest.metadata:type_name -> checkout.v1.CreateCheckoutSessionRequest.MetadataEntry
+	17, // 11: checkout.v1.CreateCheckoutSessionRequest.metadata:type_name -> checkout.v1.CreateCheckoutSessionRequest.MetadataEntry
 	3,  // 12: checkout.v1.CreateCheckoutSessionRequest.payer:type_name -> checkout.v1.PayerPrefill
-	4,  // 13: checkout.v1.CreateCheckoutSessionResponse.data:type_name -> checkout.v1.CheckoutSession
-	4,  // 14: checkout.v1.GetCheckoutSessionResponse.data:type_name -> checkout.v1.CheckoutSession
-	16, // 15: checkout.v1.CreateCheckoutLinkRequest.amount:type_name -> common.v1.Money
+	5,  // 13: checkout.v1.CreateCheckoutSessionResponse.data:type_name -> checkout.v1.CheckoutSession
+	5,  // 14: checkout.v1.GetCheckoutSessionResponse.data:type_name -> checkout.v1.CheckoutSession
+	20, // 15: checkout.v1.CreateCheckoutLinkRequest.amount:type_name -> common.v1.Money
 	0,  // 16: checkout.v1.CreateCheckoutLinkRequest.amount_option:type_name -> checkout.v1.AmountOption
-	15, // 17: checkout.v1.CreateCheckoutLinkRequest.metadata:type_name -> checkout.v1.CreateCheckoutLinkRequest.MetadataEntry
-	5,  // 18: checkout.v1.CreateCheckoutLinkResponse.data:type_name -> checkout.v1.CheckoutLink
-	6,  // 19: checkout.v1.CheckoutService.CreateCheckoutSession:input_type -> checkout.v1.CreateCheckoutSessionRequest
-	8,  // 20: checkout.v1.CheckoutService.GetCheckoutSession:input_type -> checkout.v1.GetCheckoutSessionRequest
-	10, // 21: checkout.v1.CheckoutService.CreateCheckoutLink:input_type -> checkout.v1.CreateCheckoutLinkRequest
-	7,  // 22: checkout.v1.CheckoutService.CreateCheckoutSession:output_type -> checkout.v1.CreateCheckoutSessionResponse
-	9,  // 23: checkout.v1.CheckoutService.GetCheckoutSession:output_type -> checkout.v1.GetCheckoutSessionResponse
-	11, // 24: checkout.v1.CheckoutService.CreateCheckoutLink:output_type -> checkout.v1.CreateCheckoutLinkResponse
-	22, // [22:25] is the sub-list for method output_type
-	19, // [19:22] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	18, // 17: checkout.v1.CreateCheckoutLinkRequest.metadata:type_name -> checkout.v1.CreateCheckoutLinkRequest.MetadataEntry
+	19, // 18: checkout.v1.ListPaymentMethodsRequest.metadata:type_name -> checkout.v1.ListPaymentMethodsRequest.MetadataEntry
+	4,  // 19: checkout.v1.ListPaymentMethodsResponse.data:type_name -> checkout.v1.PaymentMethod
+	6,  // 20: checkout.v1.CreateCheckoutLinkResponse.data:type_name -> checkout.v1.CheckoutLink
+	7,  // 21: checkout.v1.CheckoutService.CreateCheckoutSession:input_type -> checkout.v1.CreateCheckoutSessionRequest
+	9,  // 22: checkout.v1.CheckoutService.GetCheckoutSession:input_type -> checkout.v1.GetCheckoutSessionRequest
+	12, // 23: checkout.v1.CheckoutService.ListPaymentMethods:input_type -> checkout.v1.ListPaymentMethodsRequest
+	11, // 24: checkout.v1.CheckoutService.CreateCheckoutLink:input_type -> checkout.v1.CreateCheckoutLinkRequest
+	8,  // 25: checkout.v1.CheckoutService.CreateCheckoutSession:output_type -> checkout.v1.CreateCheckoutSessionResponse
+	10, // 26: checkout.v1.CheckoutService.GetCheckoutSession:output_type -> checkout.v1.GetCheckoutSessionResponse
+	13, // 27: checkout.v1.CheckoutService.ListPaymentMethods:output_type -> checkout.v1.ListPaymentMethodsResponse
+	14, // 28: checkout.v1.CheckoutService.CreateCheckoutLink:output_type -> checkout.v1.CreateCheckoutLinkResponse
+	25, // [25:29] is the sub-list for method output_type
+	21, // [21:25] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_checkout_v1_checkout_proto_init() }
@@ -1101,7 +1465,7 @@ func file_checkout_v1_checkout_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_checkout_v1_checkout_proto_rawDesc), len(file_checkout_v1_checkout_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   14,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

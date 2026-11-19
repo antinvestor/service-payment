@@ -101,6 +101,40 @@ func (rs *RepositorySuite) TestListUnexpiredWithPrompt() {
 	})
 }
 
+func (rs *RepositorySuite) TestListExpiredBefore() {
+	rs.WithTestDependencies(rs.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := rs.CreateService(t, dep)
+		sessionRepo := resources.SessionRepository
+		now := time.Now()
+
+		mk := func(status string, expiresAt time.Time) *models.CheckoutSession {
+			s := &models.CheckoutSession{
+				Ref:       util.RandomAlphaNumericString(32),
+				Name:      "order",
+				Amount:    "10",
+				Currency:  "KES",
+				Status:    status,
+				ExpiresAt: expiresAt,
+			}
+			require.NoError(t, sessionRepo.Create(ctx, s))
+			return s
+		}
+		oldest := mk(models.SessionStatusProcessing, now.Add(-20*time.Minute))
+		older := mk(models.SessionStatusPending, now.Add(-10*time.Minute))
+		mk(models.SessionStatusCompleted, now.Add(-30*time.Minute))
+		mk(models.SessionStatusPending, now.Add(10*time.Minute))
+
+		got, err := sessionRepo.ListExpiredBefore(ctx,
+			[]string{models.SessionStatusPending, models.SessionStatusProcessing}, now, 50)
+		require.NoError(t, err)
+		refs := make([]string, 0, len(got))
+		for _, s := range got {
+			refs = append(refs, s.Ref)
+		}
+		assert.Equal(t, []string{oldest.Ref, older.Ref}, refs, "oldest expiry first, completed never")
+	})
+}
+
 func (rs *RepositorySuite) TestLinkSaveAndGetByRef() {
 	rs.WithTestDependencies(rs.T(), func(t *testing.T, dep *definition.DependencyOption) {
 		ctx, _, resources := rs.CreateService(t, dep)

@@ -34,6 +34,11 @@ type SessionRepository interface {
 	ListUnexpiredWithPrompt(
 		ctx context.Context, status string, now time.Time, limit int,
 	) ([]*models.CheckoutSession, error)
+	// ListExpiredBefore returns sessions in the given statuses whose
+	// expires_at is before now, oldest expiry first.
+	ListExpiredBefore(
+		ctx context.Context, statuses []string, now time.Time, limit int,
+	) ([]*models.CheckoutSession, error)
 }
 
 // LinkRepository manages CheckoutLink persistence.

@@ -84,7 +84,7 @@
     <label class="chip{{if .Selected}} chip-selected{{end}}"
            data-embed="{{if .Embed}}1{{else}}0{{end}}"
            data-key="{{.Key}}"
-           data-card="{{if or .Embed (eq .Key "card")}}1{{else}}0{{end}}">
+           data-card="{{if or .Card .Embed}}1{{else}}0{{end}}">
       <input type="radio" name="method" value="{{.Key}}"{{if .Selected}} checked{{end}}>
       {{.Name}}
     </label>
@@ -124,5 +124,6 @@
     {{t .Lang "pay_button"}}{{if not .Variable}} {{.AmountDisplay}}{{end}}
   </button>
 </form>
+{{if .CancelURL}}<a href="{{.CancelURL}}" class="return-link cancel-link">{{t .Lang "cancel_return"}}</a>{{end}}
 
 {{template "layout_bottom" .}}

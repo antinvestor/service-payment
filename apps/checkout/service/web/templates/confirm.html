@@ -47,5 +47,6 @@
 </div>
 
 <a href="/c/{{.SessionRef}}" class="retry-link">{{t .Lang "retry"}}</a>
+{{if .CancelURL}}<a href="{{.CancelURL}}" class="return-link cancel-link">{{t .Lang "cancel_return"}}</a>{{end}}
 
 {{template "layout_bottom" .}}

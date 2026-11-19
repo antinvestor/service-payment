@@ -91,10 +91,13 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 		return
 	}
 
-	registry, err := business.ParseMethodRegistry(cfg.MethodsJSON)
+	registry, err := business.BuildMethodRegistry(cfg.Routes, cfg.MethodsJSON)
 	if err != nil {
-		log.WithError(err).Error("invalid CHECKOUT_METHODS")
+		log.WithError(err).Error("invalid CHECKOUT_ROUTES / CHECKOUT_METHODS")
 		return
+	}
+	for _, m := range registry.Methods {
+		log.WithField("method", m.Key).WithField("route", m.Route).Info("checkout method enabled")
 	}
 	partitionAllowlists, err := business.ParsePartitionAllowlists(cfg.PartitionMethodsJSON)
 	if err != nil {
@@ -120,7 +123,8 @@ func main() { //nolint:funlen // service wiring is sequential bootstrap
 		return
 	}
 
-	checkoutBiz := business.NewCheckoutBusiness(&cfg, registry, sessionRepo, linkRepo, paymentCli, profileCli, workMan)
+	checkoutBiz := business.NewCheckoutBusiness(&cfg, registry, sessionRepo, linkRepo, paymentCli, profileCli, workMan).
+		WithPartitionAllowlists(partitionAllowlists)
 
 	renderer, err := handlers.NewRenderer([]byte(cfg.SigningSecret))
 	if err != nil {

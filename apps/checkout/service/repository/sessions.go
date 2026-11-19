@@ -99,3 +99,18 @@ func (r *sessionRepository) ListByStatus(
 	}
 	return sessions, nil
 }
+
+func (r *sessionRepository) ListExpiredBefore(
+	ctx context.Context, statuses []string, now time.Time, limit int,
+) ([]*models.CheckoutSession, error) {
+	var sessions []*models.CheckoutSession
+	err := r.Pool().DB(ctx, true).
+		Where("status IN ? AND expires_at < ? AND deleted_at IS NULL", statuses, now).
+		Order("expires_at ASC").
+		Limit(limit).
+		Find(&sessions).Error
+	if err != nil {
+		return nil, fmt.Errorf("list expired checkout sessions: %w", err)
+	}
+	return sessions, nil
+}

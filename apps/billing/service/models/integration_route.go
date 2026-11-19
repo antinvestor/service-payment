@@ -70,6 +70,34 @@ const (
 	// Lifecycle event for failed rebill (product past_due UX).
 	SubscriptionEventPaymentFailed = "subscription.payment_failed"
 	SubscriptionEventPastDue       = "subscription.past_due"
+
+	// Provider-managed subscriptions (Polar, Stripe charge the payer).
+	// SubDataCollectionMode is CollectionModeProvider for those rows.
+	SubDataCollectionMode  = "collectionMode"
+	CollectionModeProvider = "provider"
+	// SubDataExternalSubscriptionID / SubDataExternalProductID are the
+	// provider's ids; SubDataProviderCustomerID (above) holds its customer.
+	SubDataExternalSubscriptionID = "externalSubscriptionId"
+	SubDataExternalProductID      = "providerProductId"
+	// SubDataProviderStatus is the last normalized provider status.
+	SubDataProviderStatus = "providerStatus"
+	// SubDataProviderEventAt is the provider timestamp of the last applied
+	// status event (RFC3339); older events are ignored.
+	SubDataProviderEventAt = "providerEventAt"
+	// SubDataLastProviderOrderID is the last provider charge recorded.
+	SubDataLastProviderOrderID = "lastProviderOrderId"
+	// SubDataCheckoutSessionRef links the hosted checkout that opened the
+	// subscription (provider-managed plans have no signup invoice).
+	SubDataCheckoutSessionRef = "checkoutSessionRef"
+)
+
+// Plan.Data keys that hand collection to a provider.
+const (
+	// PlanDataPaymentProvider is the payment route that charges the plan
+	// (polar, stripe). Empty = billing collects the plan itself.
+	PlanDataPaymentProvider = "paymentProvider"
+	// PlanDataProviderProductID is the provider's product / price id.
+	PlanDataProviderProductID = "providerProductId"
 )
 
 // IntegrationRoute routes billing lifecycle events to external entity queues,

@@ -200,8 +200,10 @@ func (ts *PolarSubscriptionSuite) TestStartPolarSubscription_PolarPlan_CreatesPe
 		assert.Equal(t, plan.GetID(), result.Subscription.PlanID)
 
 		sub := result.Subscription
-		assert.Equal(t, "polar", sub.Data[business.PolarDataKeyCollectionMode])
+		assert.Equal(t, models.CollectionModeProvider, sub.Data[business.PolarDataKeyCollectionMode])
+		assert.Equal(t, "polar", sub.Data[models.SubDataPaymentProvider])
 		assert.Equal(t, "prod_polar_abc", sub.Data[business.PolarDataKeyProductID])
+		assert.Equal(t, "prod_polar_abc", sub.Data[models.SubDataExternalProductID])
 	})
 }
 
@@ -308,7 +310,7 @@ func (ts *PolarSubscriptionSuite) TestMirrorSubscriptionState_CanceledFuturePeri
 		require.NotNil(t, sub)
 		assert.Equal(t, models.SubscriptionStateActive, sub.State,
 			"should remain ACTIVE when period end is in the future")
-		assert.Equal(t, "true", sub.Data[business.PolarDataKeyCancelAtPeriodEnd],
+		assert.Equal(t, true, sub.Data[business.PolarDataKeyCancelAtPeriodEnd],
 			"cancelAtPeriodEnd flag must be set")
 	})
 }

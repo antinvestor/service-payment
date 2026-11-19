@@ -221,7 +221,8 @@ func newCheckoutTestHarness(t *testing.T) *checkoutTestHarness {
 		PublicBaseURL:          "http://localhost:8080",
 	}
 
-	reg, err := checkoutBusiness.ParseMethodRegistry(cfg.MethodsJSON)
+	// M-PESA from the descriptor plus Polar so provider plans can open checkout.
+	reg, err := checkoutBusiness.BuildMethodRegistry("mpesa,polar", "")
 	require.NoError(t, err)
 
 	biz := checkoutBusiness.NewCheckoutBusiness(cfg, reg, sessionRepo, linkRepo, payCli, profCli, nil)

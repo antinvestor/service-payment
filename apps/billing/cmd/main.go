@@ -40,6 +40,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/billing/service/handlers"
 	"github.com/antinvestor/service-payments/apps/billing/service/repository"
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
+	"github.com/antinvestor/service-payments/pkg/collection"
 
 	// Ledger integration dependencies.
 	"buf.build/gen/go/antinvestor/workflow/connectrpc/go/v2/v1/workflowv1connect"
@@ -143,6 +144,13 @@ func main() {
 	// Create billing business layers
 	catalogBus := business.NewCatalogBusiness(workMan, catalogVersionRepo, planRepo, componentRepo, tierRepo)
 	subscriptionBus := business.NewSubscriptionBusiness(workMan, subscriptionRepo, lifecycleNotifier)
+	// Provider-managed subscriptions (Polar, Stripe charge; billing mirrors).
+	providerSubs := business.NewPolarSubscriptionBusiness(workMan, subscriptionRepo, lifecycleNotifier)
+	providerCommandURIs, pcErr := business.ParseProviderCommandURIs(cfg.ProviderCommandURIs)
+	if pcErr != nil {
+		log.WithError(pcErr).Fatal("invalid BILLING_PROVIDER_COMMAND_URIS")
+	}
+	providerCommands := business.NewProviderCommandPublisher(qMan, providerCommandURIs)
 	usageIngestionBus := business.NewUsageIngestionBusiness(workMan, usageEventRepo)
 	meteringEng := business.NewMeteringEngine(workMan, usageEventRepo, meteredUsageRepo)
 	pricingEng := business.NewPricingEngine()
@@ -218,9 +226,11 @@ func main() {
 		planRepo, componentRepo, billingRunRepo, pricingEng,
 		ledgerInteg, ledgerAccounts,
 		business.CollectionOptions{
-			Instruments:         instrumentSrc,
-			Scheduler:           renewalScheduler,
-			SettlementScheduler: settlementScheduler,
+			Instruments:           instrumentSrc,
+			Scheduler:             renewalScheduler,
+			SettlementScheduler:   settlementScheduler,
+			ProviderSubscriptions: providerSubs,
+			ProviderCommands:      providerCommands,
 		},
 	)
 	settlementProcessor := business.NewSettlementProcessor(
@@ -237,7 +247,7 @@ func main() {
 		catalogBus, subscriptionBus, usageIngestionBus, meteringEng, pricingEng,
 		discountEng, creditEng, invoiceEng, billingWorkflow, ledgerInteg,
 		catalogVersionRepo, usageEventRepo, invoiceRepo, discountRepo, subscriptionRepo)
-	collectionServer := handlers.NewCollectionServer(collectionBiz)
+	collectionServer := handlers.NewCollectionServer(collectionBiz, providerSubs)
 
 	// Handle database migration if requested
 	// Setup Connect server with both BillingService and CollectionService
@@ -258,6 +268,13 @@ func main() {
 			cfg.SubscriptionLifecycleTopicName,
 			cfg.SubscriptionLifecycleTopicURI,
 		))
+	}
+	// One command publisher per provider integration (cancel at provider).
+	for provider, uri := range providerCommandURIs {
+		serviceOptions = append(serviceOptions, frame.WithRegisterPublisher(
+			collection.CommandPublisherRef(provider), uri,
+		))
+		log.WithField("provider", provider).Info("provider command queue registered")
 	}
 	service.Init(ctx, serviceOptions...)
 

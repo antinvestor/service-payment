@@ -124,7 +124,7 @@ func (w *billingWorkflow) RunBilling(
 	if err != nil {
 		return nil, fmt.Errorf("RunBilling: load plan for polar-check: %w", err)
 	}
-	if IsPolarCollected(plan) {
+	if IsProviderCollected(plan) || IsProviderManaged(sub) {
 		return w.completePolarRun(ctx, subscriptionID, sub, periodStart, periodEnd)
 	}
 

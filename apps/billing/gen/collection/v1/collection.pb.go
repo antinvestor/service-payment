@@ -21,7 +21,7 @@
 package collectionv1
 
 import (
-	_ "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	v1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -641,11 +641,254 @@ func (x *CancelSubscriptionResponse) GetVoidedInvoiceId() string {
 	return ""
 }
 
+// CollectionService is the merchant-facing simplified payment collection API.
+// SyncProviderSubscriptionRequest mirrors a provider-managed subscription
+// (Polar, Stripe) into billing. Integration workers call it from provider
+// webhooks; billing keeps the subscription row, lifecycle fan-out and
+// renewal bookkeeping in step with the provider.
+type SyncProviderSubscriptionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Payment route of the provider (polar, stripe).
+	Provider string `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	// Normalized event: subscription.updated, subscription.billed,
+	// subscription.payment_failed.
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// Provider ids.
+	ExternalSubscriptionId string `protobuf:"bytes,3,opt,name=external_subscription_id,json=externalSubscriptionId,proto3" json:"external_subscription_id,omitempty"`
+	ExternalCustomerId     string `protobuf:"bytes,4,opt,name=external_customer_id,json=externalCustomerId,proto3" json:"external_customer_id,omitempty"`
+	ExternalProductId      string `protobuf:"bytes,5,opt,name=external_product_id,json=externalProductId,proto3" json:"external_product_id,omitempty"`
+	// Normalized status: active, trialing, past_due, incomplete,
+	// incomplete_expired, canceled, revoked, unpaid, paused.
+	Status            string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	CancelAtPeriodEnd bool   `protobuf:"varint,7,opt,name=cancel_at_period_end,json=cancelAtPeriodEnd,proto3" json:"cancel_at_period_end,omitempty"`
+	// RFC3339 period bounds when the provider reports them.
+	CurrentPeriodStart string `protobuf:"bytes,8,opt,name=current_period_start,json=currentPeriodStart,proto3" json:"current_period_start,omitempty"`
+	CurrentPeriodEnd   string `protobuf:"bytes,9,opt,name=current_period_end,json=currentPeriodEnd,proto3" json:"current_period_end,omitempty"`
+	// Billing subscription id, when the provider metadata carries it
+	// (checkout sessions set subscription_id). Preferred lookup key.
+	SubscriptionId string `protobuf:"bytes,10,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// Fallbacks when subscription_id is unknown.
+	ProfileId string `protobuf:"bytes,11,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	PlanId    string `protobuf:"bytes,12,opt,name=plan_id,json=planId,proto3" json:"plan_id,omitempty"`
+	// Billed events: provider order / invoice id and amount charged.
+	ExternalOrderId string    `protobuf:"bytes,13,opt,name=external_order_id,json=externalOrderId,proto3" json:"external_order_id,omitempty"`
+	Amount          *v1.Money `protobuf:"bytes,14,opt,name=amount,proto3" json:"amount,omitempty"`
+	// RFC3339 provider timestamp; older events never overwrite newer state.
+	OccurredAt string `protobuf:"bytes,15,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	// Free-form provider metadata (never used for lookup).
+	Metadata      map[string]string `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncProviderSubscriptionRequest) Reset() {
+	*x = SyncProviderSubscriptionRequest{}
+	mi := &file_collection_v1_collection_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncProviderSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncProviderSubscriptionRequest) ProtoMessage() {}
+
+func (x *SyncProviderSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_collection_v1_collection_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncProviderSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*SyncProviderSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_collection_v1_collection_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SyncProviderSubscriptionRequest) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetExternalSubscriptionId() string {
+	if x != nil {
+		return x.ExternalSubscriptionId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetExternalCustomerId() string {
+	if x != nil {
+		return x.ExternalCustomerId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetExternalProductId() string {
+	if x != nil {
+		return x.ExternalProductId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetCancelAtPeriodEnd() bool {
+	if x != nil {
+		return x.CancelAtPeriodEnd
+	}
+	return false
+}
+
+func (x *SyncProviderSubscriptionRequest) GetCurrentPeriodStart() string {
+	if x != nil {
+		return x.CurrentPeriodStart
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetCurrentPeriodEnd() string {
+	if x != nil {
+		return x.CurrentPeriodEnd
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetProfileId() string {
+	if x != nil {
+		return x.ProfileId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetPlanId() string {
+	if x != nil {
+		return x.PlanId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetExternalOrderId() string {
+	if x != nil {
+		return x.ExternalOrderId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetAmount() *v1.Money {
+	if x != nil {
+		return x.Amount
+	}
+	return nil
+}
+
+func (x *SyncProviderSubscriptionRequest) GetOccurredAt() string {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type SyncProviderSubscriptionResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	SubscriptionState string                 `protobuf:"bytes,2,opt,name=subscription_state,json=subscriptionState,proto3" json:"subscription_state,omitempty"`
+	// False when the event was ignored (stale, unknown subscription).
+	Applied       bool `protobuf:"varint,3,opt,name=applied,proto3" json:"applied,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncProviderSubscriptionResponse) Reset() {
+	*x = SyncProviderSubscriptionResponse{}
+	mi := &file_collection_v1_collection_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncProviderSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncProviderSubscriptionResponse) ProtoMessage() {}
+
+func (x *SyncProviderSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_collection_v1_collection_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncProviderSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*SyncProviderSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_collection_v1_collection_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SyncProviderSubscriptionResponse) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionResponse) GetSubscriptionState() string {
+	if x != nil {
+		return x.SubscriptionState
+	}
+	return ""
+}
+
+func (x *SyncProviderSubscriptionResponse) GetApplied() bool {
+	if x != nil {
+		return x.Applied
+	}
+	return false
+}
+
 var File_collection_v1_collection_proto protoreflect.FileDescriptor
 
 const file_collection_v1_collection_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecollection/v1/collection.proto\x12\rcollection.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1bcommon/v1/permissions.proto\"\xc1\x01\n" +
+	"\x1ecollection/v1/collection.proto\x12\rcollection.v1\x1a\x1bbuf/validate/validate.proto\x1a\x15common/v1/money.proto\x1a\x1bcommon/v1/permissions.proto\"\xc1\x01\n" +
 	"\x10CollectionResult\x12\x19\n" +
 	"\bpage_url\x18\x01 \x01(\tR\apageUrl\x12\x1f\n" +
 	"\vsession_ref\x18\x02 \x01(\tR\n" +
@@ -697,14 +940,43 @@ const file_collection_v1_collection_proto_rawDesc = "" +
 	"\x1aCancelSubscriptionResponse\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12-\n" +
 	"\x12subscription_state\x18\x02 \x01(\tR\x11subscriptionState\x12*\n" +
-	"\x11voided_invoice_id\x18\x03 \x01(\tR\x0fvoidedInvoiceId2\x8a\x04\n" +
+	"\x11voided_invoice_id\x18\x03 \x01(\tR\x0fvoidedInvoiceId\"\xa2\x06\n" +
+	"\x1fSyncProviderSubscriptionRequest\x12#\n" +
+	"\bprovider\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bprovider\x12\x1d\n" +
+	"\x05event\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x05event\x12A\n" +
+	"\x18external_subscription_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x16externalSubscriptionId\x120\n" +
+	"\x14external_customer_id\x18\x04 \x01(\tR\x12externalCustomerId\x12.\n" +
+	"\x13external_product_id\x18\x05 \x01(\tR\x11externalProductId\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12/\n" +
+	"\x14cancel_at_period_end\x18\a \x01(\bR\x11cancelAtPeriodEnd\x120\n" +
+	"\x14current_period_start\x18\b \x01(\tR\x12currentPeriodStart\x12,\n" +
+	"\x12current_period_end\x18\t \x01(\tR\x10currentPeriodEnd\x12'\n" +
+	"\x0fsubscription_id\x18\n" +
+	" \x01(\tR\x0esubscriptionId\x12\x1d\n" +
+	"\n" +
+	"profile_id\x18\v \x01(\tR\tprofileId\x12\x17\n" +
+	"\aplan_id\x18\f \x01(\tR\x06planId\x12*\n" +
+	"\x11external_order_id\x18\r \x01(\tR\x0fexternalOrderId\x12(\n" +
+	"\x06amount\x18\x0e \x01(\v2\x10.common.v1.MoneyR\x06amount\x12\x1f\n" +
+	"\voccurred_at\x18\x0f \x01(\tR\n" +
+	"occurredAt\x12X\n" +
+	"\bmetadata\x18\x10 \x03(\v2<.collection.v1.SyncProviderSubscriptionRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x94\x01\n" +
+	" SyncProviderSubscriptionResponse\x12'\n" +
+	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12-\n" +
+	"\x12subscription_state\x18\x02 \x01(\tR\x11subscriptionState\x12\x18\n" +
+	"\aapplied\x18\x03 \x01(\bR\aapplied2\xaa\x05\n" +
 	"\x11CollectionService\x12t\n" +
 	"\x0eCollectPayment\x12$.collection.v1.CollectPaymentRequest\x1a%.collection.v1.CollectPaymentResponse\"\x15\x82\xb5\x18\x11\n" +
 	"\x0fpayment_collect\x12\x81\x01\n" +
 	"\x11StartSubscription\x12'.collection.v1.StartSubscriptionRequest\x1a(.collection.v1.StartSubscriptionResponse\"\x19\x82\xb5\x18\x15\n" +
 	"\x13subscription_manage\x12t\n" +
 	"\x0eConfirmPayment\x12$.collection.v1.ConfirmPaymentRequest\x1a%.collection.v1.ConfirmPaymentResponse\"\x15\x82\xb5\x18\x11\n" +
-	"\x0fpayment_collect\x12\x84\x01\n" +
+	"\x0fpayment_collect\x12\x9d\x01\n" +
+	"\x18SyncProviderSubscription\x12..collection.v1.SyncProviderSubscriptionRequest\x1a/.collection.v1.SyncProviderSubscriptionResponse\" \x82\xb5\x18\x1c\n" +
+	"\x1aprovider_subscription_sync\x12\x84\x01\n" +
 	"\x12CancelSubscription\x12(.collection.v1.CancelSubscriptionRequest\x1a).collection.v1.CancelSubscriptionResponse\"\x19\x82\xb5\x18\x15\n" +
 	"\x13subscription_manageB\xce\x01\n" +
 	"\x11com.collection.v1B\x0fCollectionProtoP\x01ZSgithub.com/antinvestor/service-payments/apps/billing/gen/collection/v1;collectionv1\xa2\x02\x03CXX\xaa\x02\rCollection.V1\xca\x02\rCollection\\V1\xe2\x02\x19Collection\\V1\\GPBMetadata\xea\x02\x0eCollection::V1b\x06proto3"
@@ -721,36 +993,44 @@ func file_collection_v1_collection_proto_rawDescGZIP() []byte {
 	return file_collection_v1_collection_proto_rawDescData
 }
 
-var file_collection_v1_collection_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_collection_v1_collection_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_collection_v1_collection_proto_goTypes = []any{
-	(*CollectionResult)(nil),           // 0: collection.v1.CollectionResult
-	(*CollectPaymentRequest)(nil),      // 1: collection.v1.CollectPaymentRequest
-	(*CollectPaymentResponse)(nil),     // 2: collection.v1.CollectPaymentResponse
-	(*StartSubscriptionRequest)(nil),   // 3: collection.v1.StartSubscriptionRequest
-	(*StartSubscriptionResponse)(nil),  // 4: collection.v1.StartSubscriptionResponse
-	(*ConfirmPaymentRequest)(nil),      // 5: collection.v1.ConfirmPaymentRequest
-	(*ConfirmPaymentResponse)(nil),     // 6: collection.v1.ConfirmPaymentResponse
-	(*CancelSubscriptionRequest)(nil),  // 7: collection.v1.CancelSubscriptionRequest
-	(*CancelSubscriptionResponse)(nil), // 8: collection.v1.CancelSubscriptionResponse
-	nil,                                // 9: collection.v1.StartSubscriptionRequest.MetadataEntry
+	(*CollectionResult)(nil),                 // 0: collection.v1.CollectionResult
+	(*CollectPaymentRequest)(nil),            // 1: collection.v1.CollectPaymentRequest
+	(*CollectPaymentResponse)(nil),           // 2: collection.v1.CollectPaymentResponse
+	(*StartSubscriptionRequest)(nil),         // 3: collection.v1.StartSubscriptionRequest
+	(*StartSubscriptionResponse)(nil),        // 4: collection.v1.StartSubscriptionResponse
+	(*ConfirmPaymentRequest)(nil),            // 5: collection.v1.ConfirmPaymentRequest
+	(*ConfirmPaymentResponse)(nil),           // 6: collection.v1.ConfirmPaymentResponse
+	(*CancelSubscriptionRequest)(nil),        // 7: collection.v1.CancelSubscriptionRequest
+	(*CancelSubscriptionResponse)(nil),       // 8: collection.v1.CancelSubscriptionResponse
+	(*SyncProviderSubscriptionRequest)(nil),  // 9: collection.v1.SyncProviderSubscriptionRequest
+	(*SyncProviderSubscriptionResponse)(nil), // 10: collection.v1.SyncProviderSubscriptionResponse
+	nil,                                      // 11: collection.v1.StartSubscriptionRequest.MetadataEntry
+	nil,                                      // 12: collection.v1.SyncProviderSubscriptionRequest.MetadataEntry
+	(*v1.Money)(nil),                         // 13: common.v1.Money
 }
 var file_collection_v1_collection_proto_depIdxs = []int32{
-	0, // 0: collection.v1.CollectPaymentResponse.data:type_name -> collection.v1.CollectionResult
-	9, // 1: collection.v1.StartSubscriptionRequest.metadata:type_name -> collection.v1.StartSubscriptionRequest.MetadataEntry
-	0, // 2: collection.v1.StartSubscriptionResponse.data:type_name -> collection.v1.CollectionResult
-	1, // 3: collection.v1.CollectionService.CollectPayment:input_type -> collection.v1.CollectPaymentRequest
-	3, // 4: collection.v1.CollectionService.StartSubscription:input_type -> collection.v1.StartSubscriptionRequest
-	5, // 5: collection.v1.CollectionService.ConfirmPayment:input_type -> collection.v1.ConfirmPaymentRequest
-	7, // 6: collection.v1.CollectionService.CancelSubscription:input_type -> collection.v1.CancelSubscriptionRequest
-	2, // 7: collection.v1.CollectionService.CollectPayment:output_type -> collection.v1.CollectPaymentResponse
-	4, // 8: collection.v1.CollectionService.StartSubscription:output_type -> collection.v1.StartSubscriptionResponse
-	6, // 9: collection.v1.CollectionService.ConfirmPayment:output_type -> collection.v1.ConfirmPaymentResponse
-	8, // 10: collection.v1.CollectionService.CancelSubscription:output_type -> collection.v1.CancelSubscriptionResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: collection.v1.CollectPaymentResponse.data:type_name -> collection.v1.CollectionResult
+	11, // 1: collection.v1.StartSubscriptionRequest.metadata:type_name -> collection.v1.StartSubscriptionRequest.MetadataEntry
+	0,  // 2: collection.v1.StartSubscriptionResponse.data:type_name -> collection.v1.CollectionResult
+	13, // 3: collection.v1.SyncProviderSubscriptionRequest.amount:type_name -> common.v1.Money
+	12, // 4: collection.v1.SyncProviderSubscriptionRequest.metadata:type_name -> collection.v1.SyncProviderSubscriptionRequest.MetadataEntry
+	1,  // 5: collection.v1.CollectionService.CollectPayment:input_type -> collection.v1.CollectPaymentRequest
+	3,  // 6: collection.v1.CollectionService.StartSubscription:input_type -> collection.v1.StartSubscriptionRequest
+	5,  // 7: collection.v1.CollectionService.ConfirmPayment:input_type -> collection.v1.ConfirmPaymentRequest
+	9,  // 8: collection.v1.CollectionService.SyncProviderSubscription:input_type -> collection.v1.SyncProviderSubscriptionRequest
+	7,  // 9: collection.v1.CollectionService.CancelSubscription:input_type -> collection.v1.CancelSubscriptionRequest
+	2,  // 10: collection.v1.CollectionService.CollectPayment:output_type -> collection.v1.CollectPaymentResponse
+	4,  // 11: collection.v1.CollectionService.StartSubscription:output_type -> collection.v1.StartSubscriptionResponse
+	6,  // 12: collection.v1.CollectionService.ConfirmPayment:output_type -> collection.v1.ConfirmPaymentResponse
+	10, // 13: collection.v1.CollectionService.SyncProviderSubscription:output_type -> collection.v1.SyncProviderSubscriptionResponse
+	8,  // 14: collection.v1.CollectionService.CancelSubscription:output_type -> collection.v1.CancelSubscriptionResponse
+	10, // [10:15] is the sub-list for method output_type
+	5,  // [5:10] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_collection_v1_collection_proto_init() }
@@ -764,7 +1044,7 @@ func file_collection_v1_collection_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_collection_v1_collection_proto_rawDesc), len(file_collection_v1_collection_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

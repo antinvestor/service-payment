@@ -15,6 +15,8 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+import '../../common/v1/money.pbjson.dart' as $0;
+
 @$core.Deprecated('Use collectionResultDescriptor instead')
 const CollectionResult$json = {
   '1': 'CollectionResult',
@@ -260,6 +262,138 @@ final $typed_data.Uint8List cancelSubscriptionResponseDescriptor =
         'N1YnNjcmlwdGlvbklkEi0KEnN1YnNjcmlwdGlvbl9zdGF0ZRgCIAEoCVIRc3Vic2NyaXB0aW9u'
         'U3RhdGUSKgoRdm9pZGVkX2ludm9pY2VfaWQYAyABKAlSD3ZvaWRlZEludm9pY2VJZA==');
 
+@$core.Deprecated('Use syncProviderSubscriptionRequestDescriptor instead')
+const SyncProviderSubscriptionRequest$json = {
+  '1': 'SyncProviderSubscriptionRequest',
+  '2': [
+    {'1': 'provider', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'provider'},
+    {'1': 'event', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'event'},
+    {
+      '1': 'external_subscription_id',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '8': {},
+      '10': 'externalSubscriptionId'
+    },
+    {
+      '1': 'external_customer_id',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'externalCustomerId'
+    },
+    {
+      '1': 'external_product_id',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'externalProductId'
+    },
+    {'1': 'status', '3': 6, '4': 1, '5': 9, '10': 'status'},
+    {
+      '1': 'cancel_at_period_end',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '10': 'cancelAtPeriodEnd'
+    },
+    {
+      '1': 'current_period_start',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '10': 'currentPeriodStart'
+    },
+    {
+      '1': 'current_period_end',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '10': 'currentPeriodEnd'
+    },
+    {'1': 'subscription_id', '3': 10, '4': 1, '5': 9, '10': 'subscriptionId'},
+    {'1': 'profile_id', '3': 11, '4': 1, '5': 9, '10': 'profileId'},
+    {'1': 'plan_id', '3': 12, '4': 1, '5': 9, '10': 'planId'},
+    {
+      '1': 'external_order_id',
+      '3': 13,
+      '4': 1,
+      '5': 9,
+      '10': 'externalOrderId'
+    },
+    {
+      '1': 'amount',
+      '3': 14,
+      '4': 1,
+      '5': 11,
+      '6': '.common.v1.Money',
+      '10': 'amount'
+    },
+    {'1': 'occurred_at', '3': 15, '4': 1, '5': 9, '10': 'occurredAt'},
+    {
+      '1': 'metadata',
+      '3': 16,
+      '4': 3,
+      '5': 11,
+      '6': '.collection.v1.SyncProviderSubscriptionRequest.MetadataEntry',
+      '10': 'metadata'
+    },
+  ],
+  '3': [SyncProviderSubscriptionRequest_MetadataEntry$json],
+};
+
+@$core.Deprecated('Use syncProviderSubscriptionRequestDescriptor instead')
+const SyncProviderSubscriptionRequest_MetadataEntry$json = {
+  '1': 'MetadataEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `SyncProviderSubscriptionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List syncProviderSubscriptionRequestDescriptor = $convert.base64Decode(
+    'Ch9TeW5jUHJvdmlkZXJTdWJzY3JpcHRpb25SZXF1ZXN0EiMKCHByb3ZpZGVyGAEgASgJQge6SA'
+    'RyAhABUghwcm92aWRlchIdCgVldmVudBgCIAEoCUIHukgEcgIQAVIFZXZlbnQSQQoYZXh0ZXJu'
+    'YWxfc3Vic2NyaXB0aW9uX2lkGAMgASgJQge6SARyAhABUhZleHRlcm5hbFN1YnNjcmlwdGlvbk'
+    'lkEjAKFGV4dGVybmFsX2N1c3RvbWVyX2lkGAQgASgJUhJleHRlcm5hbEN1c3RvbWVySWQSLgoT'
+    'ZXh0ZXJuYWxfcHJvZHVjdF9pZBgFIAEoCVIRZXh0ZXJuYWxQcm9kdWN0SWQSFgoGc3RhdHVzGA'
+    'YgASgJUgZzdGF0dXMSLwoUY2FuY2VsX2F0X3BlcmlvZF9lbmQYByABKAhSEWNhbmNlbEF0UGVy'
+    'aW9kRW5kEjAKFGN1cnJlbnRfcGVyaW9kX3N0YXJ0GAggASgJUhJjdXJyZW50UGVyaW9kU3Rhcn'
+    'QSLAoSY3VycmVudF9wZXJpb2RfZW5kGAkgASgJUhBjdXJyZW50UGVyaW9kRW5kEicKD3N1YnNj'
+    'cmlwdGlvbl9pZBgKIAEoCVIOc3Vic2NyaXB0aW9uSWQSHQoKcHJvZmlsZV9pZBgLIAEoCVIJcH'
+    'JvZmlsZUlkEhcKB3BsYW5faWQYDCABKAlSBnBsYW5JZBIqChFleHRlcm5hbF9vcmRlcl9pZBgN'
+    'IAEoCVIPZXh0ZXJuYWxPcmRlcklkEigKBmFtb3VudBgOIAEoCzIQLmNvbW1vbi52MS5Nb25leV'
+    'IGYW1vdW50Eh8KC29jY3VycmVkX2F0GA8gASgJUgpvY2N1cnJlZEF0ElgKCG1ldGFkYXRhGBAg'
+    'AygLMjwuY29sbGVjdGlvbi52MS5TeW5jUHJvdmlkZXJTdWJzY3JpcHRpb25SZXF1ZXN0Lk1ldG'
+    'FkYXRhRW50cnlSCG1ldGFkYXRhGjsKDU1ldGFkYXRhRW50cnkSEAoDa2V5GAEgASgJUgNrZXkS'
+    'FAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
+
+@$core.Deprecated('Use syncProviderSubscriptionResponseDescriptor instead')
+const SyncProviderSubscriptionResponse$json = {
+  '1': 'SyncProviderSubscriptionResponse',
+  '2': [
+    {'1': 'subscription_id', '3': 1, '4': 1, '5': 9, '10': 'subscriptionId'},
+    {
+      '1': 'subscription_state',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'subscriptionState'
+    },
+    {'1': 'applied', '3': 3, '4': 1, '5': 8, '10': 'applied'},
+  ],
+};
+
+/// Descriptor for `SyncProviderSubscriptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List syncProviderSubscriptionResponseDescriptor =
+    $convert.base64Decode(
+        'CiBTeW5jUHJvdmlkZXJTdWJzY3JpcHRpb25SZXNwb25zZRInCg9zdWJzY3JpcHRpb25faWQYAS'
+        'ABKAlSDnN1YnNjcmlwdGlvbklkEi0KEnN1YnNjcmlwdGlvbl9zdGF0ZRgCIAEoCVIRc3Vic2Ny'
+        'aXB0aW9uU3RhdGUSGAoHYXBwbGllZBgDIAEoCFIHYXBwbGllZA==');
+
 const $core.Map<$core.String, $core.dynamic> CollectionServiceBase$json = {
   '1': 'CollectionService',
   '2': [
@@ -279,6 +413,12 @@ const $core.Map<$core.String, $core.dynamic> CollectionServiceBase$json = {
       '1': 'ConfirmPayment',
       '2': '.collection.v1.ConfirmPaymentRequest',
       '3': '.collection.v1.ConfirmPaymentResponse',
+      '4': {}
+    },
+    {
+      '1': 'SyncProviderSubscription',
+      '2': '.collection.v1.SyncProviderSubscriptionRequest',
+      '3': '.collection.v1.SyncProviderSubscriptionResponse',
       '4': {}
     },
     {
@@ -302,6 +442,13 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
   '.collection.v1.StartSubscriptionResponse': StartSubscriptionResponse$json,
   '.collection.v1.ConfirmPaymentRequest': ConfirmPaymentRequest$json,
   '.collection.v1.ConfirmPaymentResponse': ConfirmPaymentResponse$json,
+  '.collection.v1.SyncProviderSubscriptionRequest':
+      SyncProviderSubscriptionRequest$json,
+  '.common.v1.Money': $0.Money$json,
+  '.collection.v1.SyncProviderSubscriptionRequest.MetadataEntry':
+      SyncProviderSubscriptionRequest_MetadataEntry$json,
+  '.collection.v1.SyncProviderSubscriptionResponse':
+      SyncProviderSubscriptionResponse$json,
   '.collection.v1.CancelSubscriptionRequest': CancelSubscriptionRequest$json,
   '.collection.v1.CancelSubscriptionResponse': CancelSubscriptionResponse$json,
 };
@@ -314,7 +461,10 @@ final $typed_data.Uint8List collectionServiceDescriptor = $convert.base64Decode(
     'VjdGlvbi52MS5TdGFydFN1YnNjcmlwdGlvblJlcXVlc3QaKC5jb2xsZWN0aW9uLnYxLlN0YXJ0'
     'U3Vic2NyaXB0aW9uUmVzcG9uc2UiGYK1GBUKE3N1YnNjcmlwdGlvbl9tYW5hZ2USdAoOQ29uZm'
     'lybVBheW1lbnQSJC5jb2xsZWN0aW9uLnYxLkNvbmZpcm1QYXltZW50UmVxdWVzdBolLmNvbGxl'
-    'Y3Rpb24udjEuQ29uZmlybVBheW1lbnRSZXNwb25zZSIVgrUYEQoPcGF5bWVudF9jb2xsZWN0Eo'
-    'QBChJDYW5jZWxTdWJzY3JpcHRpb24SKC5jb2xsZWN0aW9uLnYxLkNhbmNlbFN1YnNjcmlwdGlv'
-    'blJlcXVlc3QaKS5jb2xsZWN0aW9uLnYxLkNhbmNlbFN1YnNjcmlwdGlvblJlc3BvbnNlIhmCtR'
-    'gVChNzdWJzY3JpcHRpb25fbWFuYWdl');
+    'Y3Rpb24udjEuQ29uZmlybVBheW1lbnRSZXNwb25zZSIVgrUYEQoPcGF5bWVudF9jb2xsZWN0Ep'
+    '0BChhTeW5jUHJvdmlkZXJTdWJzY3JpcHRpb24SLi5jb2xsZWN0aW9uLnYxLlN5bmNQcm92aWRl'
+    'clN1YnNjcmlwdGlvblJlcXVlc3QaLy5jb2xsZWN0aW9uLnYxLlN5bmNQcm92aWRlclN1YnNjcm'
+    'lwdGlvblJlc3BvbnNlIiCCtRgcChpwcm92aWRlcl9zdWJzY3JpcHRpb25fc3luYxKEAQoSQ2Fu'
+    'Y2VsU3Vic2NyaXB0aW9uEiguY29sbGVjdGlvbi52MS5DYW5jZWxTdWJzY3JpcHRpb25SZXF1ZX'
+    'N0GikuY29sbGVjdGlvbi52MS5DYW5jZWxTdWJzY3JpcHRpb25SZXNwb25zZSIZgrUYFQoTc3Vi'
+    'c2NyaXB0aW9uX21hbmFnZQ==');

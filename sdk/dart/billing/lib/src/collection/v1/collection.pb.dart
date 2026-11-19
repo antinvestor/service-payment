@@ -15,6 +15,8 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+import '../../common/v1/money.pb.dart' as $0;
+
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 /// CollectionResult is returned when starting collection for an invoice or subscription.
@@ -845,6 +847,359 @@ class CancelSubscriptionResponse extends $pb.GeneratedMessage {
 }
 
 /// CollectionService is the merchant-facing simplified payment collection API.
+/// SyncProviderSubscriptionRequest mirrors a provider-managed subscription
+/// (Polar, Stripe) into billing. Integration workers call it from provider
+/// webhooks; billing keeps the subscription row, lifecycle fan-out and
+/// renewal bookkeeping in step with the provider.
+class SyncProviderSubscriptionRequest extends $pb.GeneratedMessage {
+  factory SyncProviderSubscriptionRequest({
+    $core.String? provider,
+    $core.String? event,
+    $core.String? externalSubscriptionId,
+    $core.String? externalCustomerId,
+    $core.String? externalProductId,
+    $core.String? status,
+    $core.bool? cancelAtPeriodEnd,
+    $core.String? currentPeriodStart,
+    $core.String? currentPeriodEnd,
+    $core.String? subscriptionId,
+    $core.String? profileId,
+    $core.String? planId,
+    $core.String? externalOrderId,
+    $0.Money? amount,
+    $core.String? occurredAt,
+    $core.Iterable<$core.MapEntry<$core.String, $core.String>>? metadata,
+  }) {
+    final result = SyncProviderSubscriptionRequest._();
+    if (provider != null) result.provider = provider;
+    if (event != null) result.event = event;
+    if (externalSubscriptionId != null)
+      result.externalSubscriptionId = externalSubscriptionId;
+    if (externalCustomerId != null)
+      result.externalCustomerId = externalCustomerId;
+    if (externalProductId != null) result.externalProductId = externalProductId;
+    if (status != null) result.status = status;
+    if (cancelAtPeriodEnd != null) result.cancelAtPeriodEnd = cancelAtPeriodEnd;
+    if (currentPeriodStart != null)
+      result.currentPeriodStart = currentPeriodStart;
+    if (currentPeriodEnd != null) result.currentPeriodEnd = currentPeriodEnd;
+    if (subscriptionId != null) result.subscriptionId = subscriptionId;
+    if (profileId != null) result.profileId = profileId;
+    if (planId != null) result.planId = planId;
+    if (externalOrderId != null) result.externalOrderId = externalOrderId;
+    if (amount != null) result.amount = amount;
+    if (occurredAt != null) result.occurredAt = occurredAt;
+    if (metadata != null) result.metadata.addEntries(metadata);
+    return result;
+  }
+
+  SyncProviderSubscriptionRequest._();
+
+  factory SyncProviderSubscriptionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SyncProviderSubscriptionRequest()..mergeFromBuffer(data, registry);
+  factory SyncProviderSubscriptionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SyncProviderSubscriptionRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SyncProviderSubscriptionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'collection.v1'),
+      createEmptyInstance: SyncProviderSubscriptionRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'provider')
+    ..aOS(2, _omitFieldNames ? '' : 'event')
+    ..aOS(3, _omitFieldNames ? '' : 'externalSubscriptionId')
+    ..aOS(4, _omitFieldNames ? '' : 'externalCustomerId')
+    ..aOS(5, _omitFieldNames ? '' : 'externalProductId')
+    ..aOS(6, _omitFieldNames ? '' : 'status')
+    ..aOB(7, _omitFieldNames ? '' : 'cancelAtPeriodEnd')
+    ..aOS(8, _omitFieldNames ? '' : 'currentPeriodStart')
+    ..aOS(9, _omitFieldNames ? '' : 'currentPeriodEnd')
+    ..aOS(10, _omitFieldNames ? '' : 'subscriptionId')
+    ..aOS(11, _omitFieldNames ? '' : 'profileId')
+    ..aOS(12, _omitFieldNames ? '' : 'planId')
+    ..aOS(13, _omitFieldNames ? '' : 'externalOrderId')
+    ..aOM<$0.Money>(14, _omitFieldNames ? '' : 'amount',
+        subBuilder: $0.Money.$_createMessage)
+    ..aOS(15, _omitFieldNames ? '' : 'occurredAt')
+    ..m<$core.String, $core.String>(16, _omitFieldNames ? '' : 'metadata',
+        entryClassName: 'SyncProviderSubscriptionRequest.MetadataEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OS,
+        packageName: const $pb.PackageName('collection.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncProviderSubscriptionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncProviderSubscriptionRequest copyWith(
+          void Function(SyncProviderSubscriptionRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as SyncProviderSubscriptionRequest))
+          as SyncProviderSubscriptionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SyncProviderSubscriptionRequest() / SyncProviderSubscriptionRequest.new instead')
+  static SyncProviderSubscriptionRequest create() =>
+      SyncProviderSubscriptionRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SyncProviderSubscriptionRequest._();
+  @$core.override
+  SyncProviderSubscriptionRequest createEmptyInstance() =>
+      SyncProviderSubscriptionRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SyncProviderSubscriptionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SyncProviderSubscriptionRequest>(
+          SyncProviderSubscriptionRequest.$_createMessage);
+  static SyncProviderSubscriptionRequest? _defaultInstance;
+
+  /// Payment route of the provider (polar, stripe).
+  @$pb.TagNumber(1)
+  $core.String get provider => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set provider($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasProvider() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearProvider() => $_clearField(1);
+
+  /// Normalized event: subscription.updated, subscription.billed,
+  /// subscription.payment_failed.
+  @$pb.TagNumber(2)
+  $core.String get event => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set event($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEvent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEvent() => $_clearField(2);
+
+  /// Provider ids.
+  @$pb.TagNumber(3)
+  $core.String get externalSubscriptionId => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set externalSubscriptionId($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasExternalSubscriptionId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearExternalSubscriptionId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get externalCustomerId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set externalCustomerId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasExternalCustomerId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearExternalCustomerId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get externalProductId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set externalProductId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasExternalProductId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearExternalProductId() => $_clearField(5);
+
+  /// Normalized status: active, trialing, past_due, incomplete,
+  /// incomplete_expired, canceled, revoked, unpaid, paused.
+  @$pb.TagNumber(6)
+  $core.String get status => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set status($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get cancelAtPeriodEnd => $_getBF(6);
+  @$pb.TagNumber(7)
+  set cancelAtPeriodEnd($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasCancelAtPeriodEnd() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearCancelAtPeriodEnd() => $_clearField(7);
+
+  /// RFC3339 period bounds when the provider reports them.
+  @$pb.TagNumber(8)
+  $core.String get currentPeriodStart => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set currentPeriodStart($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasCurrentPeriodStart() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearCurrentPeriodStart() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get currentPeriodEnd => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set currentPeriodEnd($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCurrentPeriodEnd() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCurrentPeriodEnd() => $_clearField(9);
+
+  /// Billing subscription id, when the provider metadata carries it
+  /// (checkout sessions set subscription_id). Preferred lookup key.
+  @$pb.TagNumber(10)
+  $core.String get subscriptionId => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set subscriptionId($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSubscriptionId() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearSubscriptionId() => $_clearField(10);
+
+  /// Fallbacks when subscription_id is unknown.
+  @$pb.TagNumber(11)
+  $core.String get profileId => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set profileId($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasProfileId() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearProfileId() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get planId => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set planId($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasPlanId() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearPlanId() => $_clearField(12);
+
+  /// Billed events: provider order / invoice id and amount charged.
+  @$pb.TagNumber(13)
+  $core.String get externalOrderId => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set externalOrderId($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasExternalOrderId() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearExternalOrderId() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $0.Money get amount => $_getN(13);
+  @$pb.TagNumber(14)
+  set amount($0.Money value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasAmount() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearAmount() => $_clearField(14);
+  @$pb.TagNumber(14)
+  $0.Money ensureAmount() => $_ensure(13);
+
+  /// RFC3339 provider timestamp; older events never overwrite newer state.
+  @$pb.TagNumber(15)
+  $core.String get occurredAt => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set occurredAt($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasOccurredAt() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearOccurredAt() => $_clearField(15);
+
+  /// Free-form provider metadata (never used for lookup).
+  @$pb.TagNumber(16)
+  $pb.PbMap<$core.String, $core.String> get metadata => $_getMap(15);
+}
+
+class SyncProviderSubscriptionResponse extends $pb.GeneratedMessage {
+  factory SyncProviderSubscriptionResponse({
+    $core.String? subscriptionId,
+    $core.String? subscriptionState,
+    $core.bool? applied,
+  }) {
+    final result = SyncProviderSubscriptionResponse._();
+    if (subscriptionId != null) result.subscriptionId = subscriptionId;
+    if (subscriptionState != null) result.subscriptionState = subscriptionState;
+    if (applied != null) result.applied = applied;
+    return result;
+  }
+
+  SyncProviderSubscriptionResponse._();
+
+  factory SyncProviderSubscriptionResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SyncProviderSubscriptionResponse()..mergeFromBuffer(data, registry);
+  factory SyncProviderSubscriptionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SyncProviderSubscriptionResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SyncProviderSubscriptionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'collection.v1'),
+      createEmptyInstance: SyncProviderSubscriptionResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'subscriptionId')
+    ..aOS(2, _omitFieldNames ? '' : 'subscriptionState')
+    ..aOB(3, _omitFieldNames ? '' : 'applied')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncProviderSubscriptionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SyncProviderSubscriptionResponse copyWith(
+          void Function(SyncProviderSubscriptionResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as SyncProviderSubscriptionResponse))
+          as SyncProviderSubscriptionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SyncProviderSubscriptionResponse() / SyncProviderSubscriptionResponse.new instead')
+  static SyncProviderSubscriptionResponse create() =>
+      SyncProviderSubscriptionResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SyncProviderSubscriptionResponse._();
+  @$core.override
+  SyncProviderSubscriptionResponse createEmptyInstance() =>
+      SyncProviderSubscriptionResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SyncProviderSubscriptionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SyncProviderSubscriptionResponse>(
+          SyncProviderSubscriptionResponse.$_createMessage);
+  static SyncProviderSubscriptionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get subscriptionId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set subscriptionId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSubscriptionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSubscriptionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get subscriptionState => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set subscriptionState($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSubscriptionState() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSubscriptionState() => $_clearField(2);
+
+  /// False when the event was ignored (stale, unknown subscription).
+  @$pb.TagNumber(3)
+  $core.bool get applied => $_getBF(2);
+  @$pb.TagNumber(3)
+  set applied($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasApplied() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearApplied() => $_clearField(3);
+}
+
 class CollectionServiceApi {
   final $pb.RpcClient _client;
 
@@ -870,6 +1225,18 @@ class CollectionServiceApi {
           $pb.ClientContext? ctx, ConfirmPaymentRequest request) =>
       _client.invoke<ConfirmPaymentResponse>(ctx, 'CollectionService',
           'ConfirmPayment', request, ConfirmPaymentResponse());
+
+  /// SyncProviderSubscription mirrors provider-managed subscription state
+  /// (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+  /// to integration service accounts only.
+  $async.Future<SyncProviderSubscriptionResponse> syncProviderSubscription(
+          $pb.ClientContext? ctx, SyncProviderSubscriptionRequest request) =>
+      _client.invoke<SyncProviderSubscriptionResponse>(
+          ctx,
+          'CollectionService',
+          'SyncProviderSubscription',
+          request,
+          SyncProviderSubscriptionResponse());
 
   /// CancelSubscription cancels a subscription (and voids unpaid first invoices).
   $async.Future<CancelSubscriptionResponse> cancelSubscription(

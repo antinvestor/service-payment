@@ -7,7 +7,6 @@ import "package:connectrpc/connect.dart" as connect;
 import "collection.pb.dart" as collectionv1collection;
 import "collection.connect.spec.dart" as specs;
 
-/// CollectionService is the merchant-facing simplified payment collection API.
 extension type CollectionServiceClient (connect.Transport _transport) {
   /// CollectPayment opens hosted checkout for an issued invoice.
   /// Redirect the end user to data.page_url, then call ConfirmPayment with data.session_ref.
@@ -58,6 +57,26 @@ extension type CollectionServiceClient (connect.Transport _transport) {
   }) {
     return connect.Client(_transport).unary(
       specs.CollectionService.confirmPayment,
+      input,
+      signal: signal,
+      headers: headers,
+      onHeader: onHeader,
+      onTrailer: onTrailer,
+    );
+  }
+
+  /// SyncProviderSubscription mirrors provider-managed subscription state
+  /// (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+  /// to integration service accounts only.
+  Future<collectionv1collection.SyncProviderSubscriptionResponse> syncProviderSubscription(
+    collectionv1collection.SyncProviderSubscriptionRequest input, {
+    connect.Headers? headers,
+    connect.AbortSignal? signal,
+    Function(connect.Headers)? onHeader,
+    Function(connect.Headers)? onTrailer,
+  }) {
+    return connect.Client(_transport).unary(
+      specs.CollectionService.syncProviderSubscription,
       input,
       signal: signal,
       headers: headers,

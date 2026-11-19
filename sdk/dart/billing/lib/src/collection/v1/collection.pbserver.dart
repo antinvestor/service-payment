@@ -15,31 +15,35 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import 'collection.pb.dart' as $0;
+import 'collection.pb.dart' as $1;
 import 'collection.pbjson.dart';
 
 export 'collection.pb.dart';
 
 abstract class CollectionServiceBase extends $pb.GeneratedService {
-  $async.Future<$0.CollectPaymentResponse> collectPayment(
-      $pb.ServerContext ctx, $0.CollectPaymentRequest request);
-  $async.Future<$0.StartSubscriptionResponse> startSubscription(
-      $pb.ServerContext ctx, $0.StartSubscriptionRequest request);
-  $async.Future<$0.ConfirmPaymentResponse> confirmPayment(
-      $pb.ServerContext ctx, $0.ConfirmPaymentRequest request);
-  $async.Future<$0.CancelSubscriptionResponse> cancelSubscription(
-      $pb.ServerContext ctx, $0.CancelSubscriptionRequest request);
+  $async.Future<$1.CollectPaymentResponse> collectPayment(
+      $pb.ServerContext ctx, $1.CollectPaymentRequest request);
+  $async.Future<$1.StartSubscriptionResponse> startSubscription(
+      $pb.ServerContext ctx, $1.StartSubscriptionRequest request);
+  $async.Future<$1.ConfirmPaymentResponse> confirmPayment(
+      $pb.ServerContext ctx, $1.ConfirmPaymentRequest request);
+  $async.Future<$1.SyncProviderSubscriptionResponse> syncProviderSubscription(
+      $pb.ServerContext ctx, $1.SyncProviderSubscriptionRequest request);
+  $async.Future<$1.CancelSubscriptionResponse> cancelSubscription(
+      $pb.ServerContext ctx, $1.CancelSubscriptionRequest request);
 
   $pb.GeneratedMessage createRequest($core.String methodName) {
     switch (methodName) {
       case 'CollectPayment':
-        return $0.CollectPaymentRequest();
+        return $1.CollectPaymentRequest();
       case 'StartSubscription':
-        return $0.StartSubscriptionRequest();
+        return $1.StartSubscriptionRequest();
       case 'ConfirmPayment':
-        return $0.ConfirmPaymentRequest();
+        return $1.ConfirmPaymentRequest();
+      case 'SyncProviderSubscription':
+        return $1.SyncProviderSubscriptionRequest();
       case 'CancelSubscription':
-        return $0.CancelSubscriptionRequest();
+        return $1.CancelSubscriptionRequest();
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }
@@ -49,13 +53,16 @@ abstract class CollectionServiceBase extends $pb.GeneratedService {
       $core.String methodName, $pb.GeneratedMessage request) {
     switch (methodName) {
       case 'CollectPayment':
-        return collectPayment(ctx, request as $0.CollectPaymentRequest);
+        return collectPayment(ctx, request as $1.CollectPaymentRequest);
       case 'StartSubscription':
-        return startSubscription(ctx, request as $0.StartSubscriptionRequest);
+        return startSubscription(ctx, request as $1.StartSubscriptionRequest);
       case 'ConfirmPayment':
-        return confirmPayment(ctx, request as $0.ConfirmPaymentRequest);
+        return confirmPayment(ctx, request as $1.ConfirmPaymentRequest);
+      case 'SyncProviderSubscription':
+        return syncProviderSubscription(
+            ctx, request as $1.SyncProviderSubscriptionRequest);
       case 'CancelSubscription':
-        return cancelSubscription(ctx, request as $0.CancelSubscriptionRequest);
+        return cancelSubscription(ctx, request as $1.CancelSubscriptionRequest);
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }

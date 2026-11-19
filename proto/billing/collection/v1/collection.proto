@@ -23,6 +23,7 @@ package collection.v1;
 // Zero-amount subscriptions skip checkout and activate immediately.
 
 import "buf/validate/validate.proto";
+import "common/v1/money.proto";
 import "common/v1/permissions.proto";
 
 // CollectionResult is returned when starting collection for an invoice or subscription.
@@ -132,6 +133,49 @@ message CancelSubscriptionResponse {
 }
 
 // CollectionService is the merchant-facing simplified payment collection API.
+// SyncProviderSubscriptionRequest mirrors a provider-managed subscription
+// (Polar, Stripe) into billing. Integration workers call it from provider
+// webhooks; billing keeps the subscription row, lifecycle fan-out and
+// renewal bookkeeping in step with the provider.
+message SyncProviderSubscriptionRequest {
+  // Payment route of the provider (polar, stripe).
+  string provider = 1 [(buf.validate.field).string.min_len = 1];
+  // Normalized event: subscription.updated, subscription.billed,
+  // subscription.payment_failed.
+  string event = 2 [(buf.validate.field).string.min_len = 1];
+  // Provider ids.
+  string external_subscription_id = 3 [(buf.validate.field).string.min_len = 1];
+  string external_customer_id = 4;
+  string external_product_id = 5;
+  // Normalized status: active, trialing, past_due, incomplete,
+  // incomplete_expired, canceled, revoked, unpaid, paused.
+  string status = 6;
+  bool cancel_at_period_end = 7;
+  // RFC3339 period bounds when the provider reports them.
+  string current_period_start = 8;
+  string current_period_end = 9;
+  // Billing subscription id, when the provider metadata carries it
+  // (checkout sessions set subscription_id). Preferred lookup key.
+  string subscription_id = 10;
+  // Fallbacks when subscription_id is unknown.
+  string profile_id = 11;
+  string plan_id = 12;
+  // Billed events: provider order / invoice id and amount charged.
+  string external_order_id = 13;
+  common.v1.Money amount = 14;
+  // RFC3339 provider timestamp; older events never overwrite newer state.
+  string occurred_at = 15;
+  // Free-form provider metadata (never used for lookup).
+  map<string, string> metadata = 16;
+}
+
+message SyncProviderSubscriptionResponse {
+  string subscription_id = 1;
+  string subscription_state = 2;
+  // False when the event was ignored (stale, unknown subscription).
+  bool applied = 3;
+}
+
 service CollectionService {
   // CollectPayment opens hosted checkout for an issued invoice.
   // Redirect the end user to data.page_url, then call ConfirmPayment with data.session_ref.
@@ -157,6 +201,14 @@ service CollectionService {
     };
   }
 
+  // SyncProviderSubscription mirrors provider-managed subscription state
+  // (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+  // to integration service accounts only.
+  rpc SyncProviderSubscription(SyncProviderSubscriptionRequest) returns (SyncProviderSubscriptionResponse) {
+    option (common.v1.method_permissions) = {
+      permissions: ["provider_subscription_sync"]
+    };
+  }
   // CancelSubscription cancels a subscription (and voids unpaid first invoices).
   rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse) {
     option (common.v1.method_permissions) = {

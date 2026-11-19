@@ -16,12 +16,18 @@ package client_test
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,7 +68,7 @@ func TestGetSubscription(t *testing.T) {
 	}))
 	defer server.Close()
 
-	polarCli := client.NewClient()
+	polarCli := client.NewClient(context.Background())
 	sub, err := polarCli.GetSubscription(context.Background(), testCreds(server.URL), subID)
 
 	require.NoError(t, err)
@@ -84,7 +90,7 @@ func TestGetSubscription_Error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	polarCli := client.NewClient()
+	polarCli := client.NewClient(context.Background())
 	sub, err := polarCli.GetSubscription(context.Background(), testCreds(server.URL), "missing-id")
 
 	require.Error(t, err)
@@ -125,7 +131,7 @@ func TestCancelSubscription_AtPeriodEnd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	polarCli := client.NewClient()
+	polarCli := client.NewClient(context.Background())
 	sub, err := polarCli.CancelSubscription(context.Background(), testCreds(server.URL), subID, true)
 
 	require.NoError(t, err)
@@ -160,7 +166,7 @@ func TestCancelSubscription_Immediate(t *testing.T) {
 	}))
 	defer server.Close()
 
-	polarCli := client.NewClient()
+	polarCli := client.NewClient(context.Background())
 	sub, err := polarCli.CancelSubscription(context.Background(), testCreds(server.URL), subID, false)
 
 	require.NoError(t, err)
@@ -177,10 +183,100 @@ func TestCancelSubscription_Error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	polarCli := client.NewClient()
+	polarCli := client.NewClient(context.Background())
 	sub, err := polarCli.CancelSubscription(context.Background(), testCreds(server.URL), "sub_01abc", true)
 
 	require.Error(t, err)
 	assert.Nil(t, sub)
 	assert.Contains(t, err.Error(), "422")
+}
+
+func TestCreateCheckout_PayloadAndErrors(t *testing.T) {
+	var got map[string]any
+	var auth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/v1/checkouts/", r.URL.Path)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"chk_1","url":"https://polar.sh/c/chk_1","status":"open"}`))
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(context.Background())
+	resp, err := c.CreateCheckout(context.Background(), testCreds(srv.URL), &client.CheckoutRequest{
+		ProductIDs: []string{"prod_1"}, CustomerEmail: "a@b.c", ExternalCustomerID: "prof-1",
+		SuccessURL: "https://pay/c/s", Metadata: map[string]string{"prompt_id": "p1"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "chk_1", resp.ID)
+	assert.Equal(t, "Bearer test-api-key", auth)
+	assert.Equal(t, []any{"prod_1"}, got["products"])
+	assert.Equal(t, "prof-1", got["external_customer_id"])
+	_, hasAmount := got["amount"]
+	assert.False(t, hasAmount, "amount is only sent for pay-what-you-want")
+
+	_, err = c.CreateCheckout(context.Background(), testCreds(srv.URL), &client.CheckoutRequest{})
+	require.Error(t, err)
+}
+
+func TestClient_ErrorClassification(t *testing.T) {
+	status := http.StatusBadGateway
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(`{"error":"x"}`))
+	}))
+	defer srv.Close()
+	c := client.NewClient(context.Background())
+
+	_, err := c.GetSubscription(context.Background(), testCreds(srv.URL), "sub")
+	require.Error(t, err)
+	assert.True(t, collection.IsUncertain(err), "5xx leaves the outcome unknown")
+
+	status = http.StatusNotFound
+	_, err = c.GetSubscription(context.Background(), testCreds(srv.URL), "sub")
+	require.Error(t, err)
+	assert.False(t, collection.IsUncertain(err))
+	assert.True(t, client.IsNotFound(err))
+}
+
+func TestVerifyWebhookSignature(t *testing.T) {
+	c := client.NewClient(context.Background())
+	body := []byte(`{"type":"checkout.updated","data":{"id":"c"}}`)
+	sign := func(secret []byte, id, ts string) string {
+		mac := hmac.New(sha256.New, secret)
+		mac.Write([]byte(id + "." + ts + "." + string(body)))
+		return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	}
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	headers := func(sig string) map[string]string {
+		return map[string]string{"Webhook-Id": "m1", "webhook-timestamp": ts, "WEBHOOK-SIGNATURE": sig}
+	}
+
+	ev, err := c.VerifyWebhookSignature(body, headers("v1,"+sign([]byte("plain"), "m1", ts)), "plain")
+	require.NoError(t, err)
+	assert.Equal(t, "checkout.updated", ev.Type)
+	assert.Equal(t, "m1", ev.ID)
+	assert.NotEmpty(t, ev.Timestamp)
+
+	// Several signatures, one of them ours; the version tag must be v1.
+	_, err = c.VerifyWebhookSignature(body, headers("v1,AAAA v1,"+sign([]byte("plain"), "m1", ts)), "plain")
+	require.NoError(t, err)
+	_, err = c.VerifyWebhookSignature(body, headers("v2,"+sign([]byte("plain"), "m1", ts)), "plain")
+	require.Error(t, err)
+	_, err = c.VerifyWebhookSignature(body, headers("v1,"+sign([]byte("other"), "m1", ts)), "plain")
+	require.Error(t, err)
+	_, err = c.VerifyWebhookSignature(body, headers("v1,"+sign([]byte("plain"), "m1", ts)), "")
+	require.Error(t, err, "an empty secret never verifies")
+
+	old := strconv.FormatInt(time.Now().Add(-10*time.Minute).Unix(), 10)
+	h := headers("v1," + sign([]byte("plain"), "m1", old))
+	h["webhook-timestamp"] = old
+	_, err = c.VerifyWebhookSignature(body, h, "plain")
+	require.Error(t, err, "replayed timestamps are refused")
+
+	raw := []byte("raw-key")
+	_, err = c.VerifyWebhookSignature(body, headers("v1,"+sign(raw, "m1", ts)), "whsec_"+base64.StdEncoding.EncodeToString(raw))
+	require.NoError(t, err)
 }

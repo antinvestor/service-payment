@@ -27,11 +27,62 @@ import (
 // CollectionServer implements the simplified CollectionService Connect RPC handler.
 type CollectionServer struct {
 	Collection business.CollectionBusiness
+	Providers  business.PolarSubscriptionBusiness
 }
 
-// NewCollectionServer creates a CollectionService handler.
-func NewCollectionServer(collection business.CollectionBusiness) collectionv1connect.CollectionServiceHandler {
-	return &CollectionServer{Collection: collection}
+// NewCollectionServer creates a CollectionService handler. providers may be
+// omitted, in which case SyncProviderSubscription answers Unimplemented.
+func NewCollectionServer(
+	collection business.CollectionBusiness,
+	providers ...business.PolarSubscriptionBusiness,
+) collectionv1connect.CollectionServiceHandler {
+	s := &CollectionServer{Collection: collection}
+	for _, p := range providers {
+		if p != nil {
+			s.Providers = p
+		}
+	}
+	return s
+}
+
+// SyncProviderSubscription mirrors provider-managed subscription state.
+func (s *CollectionServer) SyncProviderSubscription(
+	ctx context.Context,
+	req *collectionv1.SyncProviderSubscriptionRequest,
+) (*collectionv1.SyncProviderSubscriptionResponse, error) {
+	if s.Providers == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, "provider subscriptions are not configured")
+	}
+	sub, err := s.Providers.MirrorSubscriptionState(ctx, business.MirrorInput{
+		Provider:            req.GetProvider(),
+		Event:               req.GetEvent(),
+		SubscriptionID:      req.GetSubscriptionId(),
+		PolarSubscriptionID: req.GetExternalSubscriptionId(),
+		ExternalCustomerID:  req.GetExternalCustomerId(),
+		ExternalProductID:   req.GetExternalProductId(),
+		ProfileID:           req.GetProfileId(),
+		PlanID:              req.GetPlanId(),
+		PolarStatus:         req.GetStatus(),
+		CancelAtPeriodEnd:   req.GetCancelAtPeriodEnd(),
+		CurrentPeriodStart:  req.GetCurrentPeriodStart(),
+		CurrentPeriodEnd:    req.GetCurrentPeriodEnd(),
+		ExternalOrderID:     req.GetExternalOrderId(),
+		OccurredAt:          req.GetOccurredAt(),
+	})
+	if err != nil {
+		if errors.Is(err, business.ErrStaleProviderEvent) && sub != nil {
+			return &collectionv1.SyncProviderSubscriptionResponse{
+				SubscriptionId: sub.GetID(), SubscriptionState: sub.State, Applied: false,
+			}, nil
+		}
+		if errors.Is(err, business.ErrPolarSubscriptionNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err.Error()).WithCause(err)
+		}
+		return nil, toConnectError(err)
+	}
+	return &collectionv1.SyncProviderSubscriptionResponse{
+		SubscriptionId: sub.GetID(), SubscriptionState: sub.State, Applied: true,
+	}, nil
 }
 
 func (s *CollectionServer) CollectPayment(

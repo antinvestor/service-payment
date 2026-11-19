@@ -47,6 +47,9 @@ const (
 	// CollectionServiceConfirmPaymentProcedure is the procedure name of the CollectionService's
 	// ConfirmPayment RPC.
 	CollectionServiceConfirmPaymentProcedure = "/collection.v1.CollectionService/ConfirmPayment"
+	// CollectionServiceSyncProviderSubscriptionProcedure is the procedure name of the
+	// CollectionService's SyncProviderSubscription RPC.
+	CollectionServiceSyncProviderSubscriptionProcedure = "/collection.v1.CollectionService/SyncProviderSubscription"
 	// CollectionServiceCancelSubscriptionProcedure is the procedure name of the CollectionService's
 	// CancelSubscription RPC.
 	CollectionServiceCancelSubscriptionProcedure = "/collection.v1.CollectionService/CancelSubscription"
@@ -74,6 +77,13 @@ var (
 			Procedure:  CollectionServiceConfirmPaymentProcedure,
 		}
 	})
+	collectionServiceSyncProviderSubscriptionSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_collection_v1_collection_proto.Services().ByName("CollectionService").Methods().ByName("SyncProviderSubscription"),
+			Procedure:  CollectionServiceSyncProviderSubscriptionProcedure,
+		}
+	})
 	collectionServiceCancelSubscriptionSpec = sync.OnceValue(func() connect.Spec {
 		return connect.Spec{
 			StreamType: connect.StreamTypeUnary,
@@ -94,6 +104,10 @@ type CollectionServiceClient interface {
 	// ConfirmPayment captures a completed checkout session into billing.
 	// Source of truth is the checkout session status — never trust browser redirects alone.
 	ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error)
+	// SyncProviderSubscription mirrors provider-managed subscription state
+	// (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+	// to integration service accounts only.
+	SyncProviderSubscription(context.Context, *v1.SyncProviderSubscriptionRequest) (*v1.SyncProviderSubscriptionResponse, error)
 	// CancelSubscription cancels a subscription (and voids unpaid first invoices).
 	CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error)
 }
@@ -115,6 +129,10 @@ type CollectionServiceHandler interface {
 	// ConfirmPayment captures a completed checkout session into billing.
 	// Source of truth is the checkout session status — never trust browser redirects alone.
 	ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error)
+	// SyncProviderSubscription mirrors provider-managed subscription state
+	// (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+	// to integration service accounts only.
+	SyncProviderSubscription(context.Context, *v1.SyncProviderSubscriptionRequest) (*v1.SyncProviderSubscriptionResponse, error)
 	// CancelSubscription cancels a subscription (and voids unpaid first invoices).
 	CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error)
 }
@@ -127,6 +145,7 @@ func RegisterCollectionServiceHandler(server *connect.Server, svc CollectionServ
 		connect.Method{Spec: collectionServiceCollectPaymentSpec(), Handler: adapter.collectPayment},
 		connect.Method{Spec: collectionServiceStartSubscriptionSpec(), Handler: adapter.startSubscription},
 		connect.Method{Spec: collectionServiceConfirmPaymentSpec(), Handler: adapter.confirmPayment},
+		connect.Method{Spec: collectionServiceSyncProviderSubscriptionSpec(), Handler: adapter.syncProviderSubscription},
 		connect.Method{Spec: collectionServiceCancelSubscriptionSpec(), Handler: adapter.cancelSubscription},
 	)
 }
@@ -144,6 +163,10 @@ func (UnimplementedCollectionServiceHandler) StartSubscription(context.Context, 
 
 func (UnimplementedCollectionServiceHandler) ConfirmPayment(context.Context, *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.ConfirmPayment is not implemented")
+}
+
+func (UnimplementedCollectionServiceHandler) SyncProviderSubscription(context.Context, *v1.SyncProviderSubscriptionRequest) (*v1.SyncProviderSubscriptionResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "collection.v1.CollectionService.SyncProviderSubscription is not implemented")
 }
 
 func (UnimplementedCollectionServiceHandler) CancelSubscription(context.Context, *v1.CancelSubscriptionRequest) (*v1.CancelSubscriptionResponse, error) {
@@ -173,6 +196,14 @@ func (c *collectionServiceClient) StartSubscription(ctx context.Context, req *v1
 func (c *collectionServiceClient) ConfirmPayment(ctx context.Context, req *v1.ConfirmPaymentRequest) (*v1.ConfirmPaymentResponse, error) {
 	var res v1.ConfirmPaymentResponse
 	if err := c.client.CallUnary(ctx, collectionServiceConfirmPaymentSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *collectionServiceClient) SyncProviderSubscription(ctx context.Context, req *v1.SyncProviderSubscriptionRequest) (*v1.SyncProviderSubscriptionResponse, error) {
+	var res v1.SyncProviderSubscriptionResponse
+	if err := c.client.CallUnary(ctx, collectionServiceSyncProviderSubscriptionSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -218,6 +249,18 @@ func (h collectionServiceHandler) confirmPayment(ctx context.Context, _ connect.
 		return err
 	}
 	res, err := h.svc.ConfirmPayment(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h collectionServiceHandler) syncProviderSubscription(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SyncProviderSubscriptionRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.SyncProviderSubscription(ctx, &req)
 	if err != nil {
 		return err
 	}

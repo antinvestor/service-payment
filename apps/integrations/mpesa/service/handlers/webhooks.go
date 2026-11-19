@@ -177,8 +177,19 @@ func (s *MpesaWebhookServer) loadStatus(ctx context.Context, entityID, entityTyp
 		return nil, fmt.Errorf("load %s status: %w", entityType, err)
 	}
 	var stored data.JSONMap
-	return stored.FromProtoStruct(resp.GetExtras()), nil
+	stored = stored.FromProtoStruct(resp.GetExtras())
+	if stored == nil {
+		stored = data.JSONMap{}
+	}
+	// The record's own status rides along so handlers can refuse to
+	// rewrite a settled prompt or payment.
+	stored[extraStoredStatus] = resp.GetStatus().String()
+	return stored, nil
 }
+
+// extraStoredStatus carries the record's status in the map loadStatus
+// returns; it is never written back (carryBinding ignores it).
+const extraStoredStatus = "_stored_status"
 
 // --- STK push ---
 
@@ -398,10 +409,11 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 // BillRefNumber (409 otherwise). It settles that prompt SUCCESSFUL only
 // when the source allowlist (MPESA_CALLBACK_ALLOWED_CIDRS) is configured,
 // this request passed it, and the amount and currency match the request.
-// In every other case the prompt is recorded IN_PROCESS with
-// verification=c2b_unverified and 200 is returned: a reconciliation against
-// Daraja's Transaction Status API has to confirm the receipt before the
-// prompt is treated as paid.
+// An unverified confirmation (no allowlist, or source outside it) writes
+// nothing to the prompt: it is logged and acknowledged (202), and a
+// reconciliation against Daraja's Transaction Status API has to confirm the
+// receipt. An amount mismatch is refused (409). A settled prompt is never
+// rewritten.
 func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *http.Request) {
 	ctx := injectTenantFromQuery(r.Context(), r)
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.c2b.confirmation")
@@ -444,27 +456,37 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 	}
 	carryBinding(extras, stored)
 
-	status := commonv1.STATUS_IN_PROCESS
-	extras["verification"] = "c2b_unverified"
-	amountErr := matchesStored(stored, req.TransAmount, client.Currency)
-	switch {
-	case !s.guard.Configured() || !sourceVerified(ctx):
-		logger.Warn("C2B confirmation from an unverified source; prompt left unsettled pending reconciliation")
-	case amountErr != nil:
+	// A terminal prompt is never rewritten by a confirmation.
+	if st := stored.GetString(extraStoredStatus); st == commonv1.STATUS_SUCCESSFUL.String() || st == commonv1.STATUS_FAILED.String() {
+		logger.Info("C2B confirmation for a settled prompt ignored")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	// Unverified confirmations never write to the prompt: they are logged
+	// for reconciliation and acknowledged so Safaricom stops retrying.
+	if !s.guard.Configured() || !sourceVerified(ctx) {
+		logger.WithField("verification", "c2b_unverified").
+			Warn("C2B confirmation from an unverified source; not recorded, reconcile with Transaction Status")
+		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "verification_failed")
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	if amountErr := matchesStored(stored, req.TransAmount, client.Currency); amountErr != nil {
 		logger.WithError(amountErr).WithFields(map[string]any{
 			"requested_amount": stored.GetString(client.ExtraRequestedAmount),
 			"trans_amount":     req.TransAmount,
-		}).Warn("C2B confirmation amount does not match the request; prompt left unsettled")
-	default:
-		status = commonv1.STATUS_SUCCESSFUL
-		extras["verification"] = "c2b_source_amount"
-		extras["amount"] = req.TransAmount
-		extras["currency"] = client.Currency
+		}).Warn("C2B confirmation amount does not match the request; not recorded")
+		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "verification_failed")
+		http.Error(w, "amount mismatch", http.StatusConflict)
+		return
 	}
+	extras["verification"] = "c2b_source_amount"
+	extras["amount"] = req.TransAmount
+	extras["currency"] = client.Currency
 
 	s.record(ctx, w, logger, "c2b_confirmation", &commonv1.StatusUpdateRequest{
 		Id:         billRef,
-		Status:     status,
+		Status:     commonv1.STATUS_SUCCESSFUL,
 		ExternalId: req.TransID,
 		Extras:     extras.ToProtoStruct(),
 	})

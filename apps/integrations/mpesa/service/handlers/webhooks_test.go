@@ -55,9 +55,13 @@ func (s *stubPaymentClient) Status(
 	if want := req.GetExtras().GetFields()["entity_type"].GetStringValue(); want != "" && extras.GetString("entity_type") != want {
 		return nil, connect.NewError(connect.CodeNotFound, "record not found")
 	}
+	status := commonv1.STATUS_IN_PROCESS
+	if v, ok := commonv1.STATUS_value[extras.GetString("status")]; ok {
+		status = commonv1.STATUS(v)
+	}
 	return &commonv1.StatusResponse{
 		Id:     req.GetId(),
-		Status: commonv1.STATUS_IN_PROCESS,
+		Status: status,
 		Extras: extras.ToProtoStruct(),
 	}, nil
 }
@@ -389,16 +393,17 @@ func postFrom(srv *handlers.MpesaWebhookServer, target, remoteAddr string, body 
 func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 	prompt := data.JSONMap{"entity_type": "prompt", client.ExtraRequestedAmount: "100", client.ExtraRequestedCurrency: "KES"}
 	tests := []struct {
-		name       string
-		stored     map[string]data.JSONMap
-		statusErr  error
-		guard      *handlers.SourceGuard
-		remote     string
-		billRef    string
-		amount     string
-		wantHTTP   int
-		wantStatus commonv1.STATUS
-		wantVerify string
+		name        string
+		stored      map[string]data.JSONMap
+		statusErr   error
+		guard       *handlers.SourceGuard
+		remote      string
+		billRef     string
+		amount      string
+		wantHTTP    int
+		wantStatus  commonv1.STATUS
+		wantVerify  string
+		wantIgnored bool
 	}{
 		{
 			name: "allowlisted source with matching amount settles", stored: map[string]data.JSONMap{"prompt-1": prompt},
@@ -406,19 +411,24 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "c2b_source_amount",
 		},
 		{
-			name: "no allowlist configured: unverified", stored: map[string]data.JSONMap{"prompt-1": prompt},
+			name: "no allowlist configured: acknowledged, nothing written", stored: map[string]data.JSONMap{"prompt-1": prompt},
 			remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
-			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_IN_PROCESS, wantVerify: "c2b_unverified",
+			wantHTTP: http.StatusAccepted,
 		},
 		{
-			name: "allowlisted source but amount differs: unverified", stored: map[string]data.JSONMap{"prompt-1": prompt},
+			name: "allowlisted source but amount differs: refused", stored: map[string]data.JSONMap{"prompt-1": prompt},
 			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "10",
-			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_IN_PROCESS, wantVerify: "c2b_unverified",
+			wantHTTP: http.StatusConflict,
 		},
 		{
-			name: "allowlisted source but no recorded amount: unverified", stored: map[string]data.JSONMap{"prompt-1": {"entity_type": "prompt"}},
+			name: "allowlisted source but no recorded amount: refused", stored: map[string]data.JSONMap{"prompt-1": {"entity_type": "prompt"}},
 			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
-			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_IN_PROCESS, wantVerify: "c2b_unverified",
+			wantHTTP: http.StatusConflict,
+		},
+		{
+			name: "settled prompt is never rewritten", stored: map[string]data.JSONMap{"prompt-1": {"entity_type": "prompt", client.ExtraRequestedAmount: "100", "status": "SUCCESSFUL"}},
+			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
+			wantHTTP: http.StatusOK, wantIgnored: true,
 		},
 		{
 			name: "source outside allowlist is refused", stored: map[string]data.JSONMap{"prompt-1": prompt},
@@ -455,8 +465,8 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 			rr := postFrom(srv, "/webhook/mpesa/c2b/confirmation?tenant_id=t1", tt.remote, c2bBody(t, tt.billRef, tt.amount))
 
 			require.Equal(t, tt.wantHTTP, rr.Code, rr.Body.String())
-			if tt.wantHTTP != http.StatusOK {
-				assert.Empty(t, pay.updates)
+			if tt.wantHTTP != http.StatusOK || tt.wantIgnored {
+				assert.Empty(t, pay.updates, "nothing may be written to the prompt")
 				return
 			}
 			require.Len(t, pay.updates, 1)

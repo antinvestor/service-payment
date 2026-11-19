@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,14 +26,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
+	frameclient "github.com/pitabwire/frame/v3/client"
 	"github.com/pitabwire/util"
 )
 
 const (
 	httpTimeout       = 30 * time.Second
-	tokenExpiryBuffer = 60 // seconds to subtract from token expiry
-	nanosPerUnit      = 1e9
+	tokenExpiryBuffer = 60 * time.Second // refresh before the token actually expires
+	maxResponseBytes  = 1 << 20
 )
 
 type tokenEntry struct {
@@ -43,82 +46,161 @@ type tokenEntry struct {
 type airtelClient struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
-	tokens     map[string]*tokenEntry // keyed by clientID
+	tokens     map[string]*tokenEntry // keyed by environment:clientID
 	metrics    *integrationobs.Metrics
 }
 
-// NewClient creates a new Airtel Money API client.
-func NewClient() AirtelClient {
+// NewClient creates an Airtel Money client on a frame HTTP client with a
+// fixed outbound timeout (set once here, never per call).
+func NewClient(ctx context.Context) AirtelClient {
+	return NewClientWithHTTP(frameclient.NewHTTPClient(ctx, frameclient.WithHTTPTimeout(httpTimeout)))
+}
+
+// NewClientWithHTTP wraps a caller-supplied HTTP client (tests).
+func NewClientWithHTTP(httpClient *http.Client) AirtelClient {
 	return &airtelClient{
-		httpClient: &http.Client{
-			Timeout: httpTimeout,
-		},
-		tokens:  make(map[string]*tokenEntry),
-		metrics: integrationobs.NewMetrics("airtel"),
+		httpClient: httpClient,
+		tokens:     make(map[string]*tokenEntry),
+		metrics:    integrationobs.NewMetrics("airtel"),
 	}
 }
 
+// generateToken returns a cached bearer token for the client id and
+// environment, fetching a new one when none is valid. The HTTP call runs
+// outside the lock so other credentials are not blocked by a slow token
+// endpoint.
 func (c *airtelClient) generateToken(ctx context.Context, creds *AirtelCredentials) (string, error) {
-	cacheKey := creds.ClientID
+	cacheKey := creds.Environment + ":" + creds.ClientID
 
 	c.mu.RLock()
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
-		token := entry.token
-		c.mu.RUnlock()
-		return token, nil
-	}
+	entry, ok := c.tokens[cacheKey]
 	c.mu.RUnlock()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
+	if ok && time.Now().Before(entry.expiry) {
 		return entry.token, nil
 	}
 
-	url := creds.BaseURL() + "/auth/oauth2/token"
+	token, expiry, err := c.fetchToken(ctx, creds)
+	if err != nil {
+		return "", err
+	}
 
-	payload := map[string]string{
+	c.mu.Lock()
+	c.tokens[cacheKey] = &tokenEntry{token: token, expiry: expiry}
+	c.mu.Unlock()
+	return token, nil
+}
+
+func (c *airtelClient) fetchToken(ctx context.Context, creds *AirtelCredentials) (string, time.Time, error) {
+	body, err := json.Marshal(map[string]string{
 		"client_id":     creds.ClientID,
 		"client_secret": creds.ClientSecret,
 		"grant_type":    "client_credentials",
-	}
-
-	body, err := json.Marshal(payload)
+	})
 	if err != nil {
-		return "", fmt.Errorf("marshal token payload: %w", err)
+		return "", time.Time{}, fmt.Errorf("marshal token payload: %w", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, creds.BaseURL()+"/auth/oauth2/token", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("create token request: %w", err)
+		return "", time.Time{}, fmt.Errorf("create token request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 
+	status, respBody, err := c.send(req)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("token request: %w", err)
+	}
+	if err = httpStatusError("token", status, respBody); err != nil {
+		return "", time.Time{}, err
+	}
+	var tokenResp TokenResponse
+	if err = json.Unmarshal(respBody, &tokenResp); err != nil {
+		return "", time.Time{}, fmt.Errorf("decode token response: %w", err)
+	}
+	if tokenResp.AccessToken == "" {
+		return "", time.Time{}, errors.New("token response carried no access token")
+	}
+	expiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second - tokenExpiryBuffer)
+	return tokenResp.AccessToken, expiry, nil
+}
+
+// send performs a request; transport failures and unreadable bodies are
+// outcome-unknown (collection.Uncertain).
+func (c *airtelClient) send(req *http.Request) (int, []byte, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("execute token request: %w", err)
+		return 0, nil, collection.Uncertain(fmt.Errorf("execute request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(respBody))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return 0, nil, collection.Uncertain(fmt.Errorf("read response: %w", err))
 	}
+	return resp.StatusCode, body, nil
+}
 
-	var tokenResp TokenResponse
-	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
+// httpStatusError classifies an Airtel HTTP status: 5xx is outcome-unknown
+// and wrapped as collection.Uncertain; any other non-2xx answer is an
+// APIError (IsNotFound, IsRejected).
+func httpStatusError(operation string, status int, body []byte) error {
+	if status >= http.StatusOK && status < http.StatusMultipleChoices {
+		return nil
 	}
-
-	expiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn-tokenExpiryBuffer) * time.Second)
-
-	c.tokens[cacheKey] = &tokenEntry{
-		token:  tokenResp.AccessToken,
-		expiry: expiry,
+	apiErr := &APIError{Operation: operation, StatusCode: status, Message: string(body)}
+	if status >= http.StatusInternalServerError {
+		return collection.Uncertain(apiErr)
 	}
+	return apiErr
+}
 
-	return tokenResp.AccessToken, nil
+// postJSON sends an authenticated JSON request with Airtel's market headers
+// and decodes the answer into out.
+func (c *airtelClient) postJSON(
+	ctx context.Context,
+	creds *AirtelCredentials,
+	operation, path, country, currency string,
+	payload, out any,
+) error {
+	logger := util.Log(ctx).WithField("type", "airtel."+operation)
+	defer logger.Release()
+
+	token, err := c.generateToken(ctx, creds)
+	if err != nil {
+		return fmt.Errorf("generate token: %w", err)
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal %s payload: %w", operation, err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, creds.BaseURL()+path, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create %s request: %w", operation, err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-Country", country)
+	httpReq.Header.Set("X-Currency", currency)
+
+	status, respBody, err := c.send(httpReq)
+	if err != nil {
+		return fmt.Errorf("%s: %w", operation, err)
+	}
+	logger.WithFields(map[string]any{"status": status, "response": string(respBody)}).Debug(operation + " response")
+	if err = httpStatusError(operation, status, respBody); err != nil {
+		return err
+	}
+	if err = json.Unmarshal(respBody, out); err != nil {
+		return fmt.Errorf("decode %s response: %w", operation, err)
+	}
+	return nil
+}
+
+// resultError turns a 2xx answer whose status.success is false into a
+// rejection.
+func resultError(operation string, success bool, code, message string) error {
+	if success {
+		return nil
+	}
+	return &APIError{Operation: operation, StatusCode: http.StatusOK, Code: code, Message: message}
 }
 
 //nolint:nonamedreturns // named retErr captured by deferred metrics done callback
@@ -129,13 +211,6 @@ func (c *airtelClient) CollectionPush(
 ) (_ *CollectionResponse, retErr error) {
 	ctx, done := c.metrics.ObserveProviderCall(ctx, "collection_push")
 	defer func() { done(retErr) }()
-	logger := util.Log(ctx).WithField("type", "airtel.collection_push")
-	defer logger.Release()
-
-	token, err := c.generateToken(ctx, creds)
-	if err != nil {
-		return nil, fmt.Errorf("generate token: %w", err)
-	}
 
 	payload := collectionPayload{
 		Reference: req.Reference,
@@ -151,43 +226,13 @@ func (c *airtelClient) CollectionPush(
 			ID:       req.Reference,
 		},
 	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal collection payload: %w", err)
-	}
-
-	url := creds.BaseURL() + "/merchant/v2/payments/"
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create collection request: %w", err)
-	}
-
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Country", req.CountryCode)
-	httpReq.Header.Set("X-Currency", req.Currency)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("execute collection request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{
-		"status":   resp.StatusCode,
-		"response": string(respBody),
-	}).Debug("collection response")
-
 	var collResp CollectionResponse
-	if err = json.Unmarshal(respBody, &collResp); err != nil {
-		return nil, fmt.Errorf("decode collection response: %w", err)
+	if err := c.postJSON(ctx, creds, "collection_push", "/merchant/v2/payments/", req.CountryCode, req.Currency, payload, &collResp); err != nil {
+		return nil, err
 	}
-
-	if !collResp.Status.Success {
-		return &collResp, fmt.Errorf("collection failed: %s - %s", collResp.Status.Code, collResp.Status.Message)
+	if err := resultError("collection_push", collResp.Status.Success, collResp.Status.Code, collResp.Status.Message); err != nil {
+		return &collResp, err
 	}
-
 	return &collResp, nil
 }
 
@@ -199,19 +244,14 @@ func (c *airtelClient) Disburse(
 ) (_ *DisbursementResponse, retErr error) {
 	ctx, done := c.metrics.ObserveProviderCall(ctx, "disburse")
 	defer func() { done(retErr) }()
-	logger := util.Log(ctx).WithField("type", "airtel.disburse")
-	defer logger.Release()
 
-	token, err := c.generateToken(ctx, creds)
-	if err != nil {
-		return nil, fmt.Errorf("generate token: %w", err)
+	if req.EncryptedPin == "" {
+		return nil, ErrPinNotConfigured
 	}
-
 	payload := disbursementPayload{
-		Payee: payeePayload{
-			Msisdn: req.PhoneNumber,
-		},
+		Payee:     payeePayload{Msisdn: req.PhoneNumber},
 		Reference: req.Reference,
+		Pin:       req.EncryptedPin,
 		Transaction: transactionPayload{
 			Amount:   req.Amount,
 			Country:  req.CountryCode,
@@ -219,43 +259,13 @@ func (c *airtelClient) Disburse(
 			ID:       req.Reference,
 		},
 	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal disbursement payload: %w", err)
-	}
-
-	url := creds.BaseURL() + "/standard/v2/disbursements/"
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create disbursement request: %w", err)
-	}
-
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Country", req.CountryCode)
-	httpReq.Header.Set("X-Currency", req.Currency)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("execute disbursement request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	respBody, _ := io.ReadAll(resp.Body)
-	logger.WithFields(map[string]any{
-		"status":   resp.StatusCode,
-		"response": string(respBody),
-	}).Debug("disbursement response")
-
 	var disbResp DisbursementResponse
-	if err = json.Unmarshal(respBody, &disbResp); err != nil {
-		return nil, fmt.Errorf("decode disbursement response: %w", err)
+	if err := c.postJSON(ctx, creds, "disburse", "/standard/v2/disbursements/", req.CountryCode, req.Currency, payload, &disbResp); err != nil {
+		return nil, err
 	}
-
-	if !disbResp.Status.Success {
-		return &disbResp, fmt.Errorf("disbursement failed: %s - %s", disbResp.Status.Code, disbResp.Status.Message)
+	if err := resultError("disburse", disbResp.Status.Success, disbResp.Status.Code, disbResp.Status.Message); err != nil {
+		return &disbResp, err
 	}
-
 	return &disbResp, nil
 }
 
@@ -294,25 +304,23 @@ func (c *airtelClient) getStatus(
 	if err != nil {
 		return nil, fmt.Errorf("create status request: %w", err)
 	}
-
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("X-Country", creds.CountryCode)
 	req.Header.Set("X-Currency", creds.Currency)
 
-	resp, err := c.httpClient.Do(req)
+	status, respBody, err := c.send(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute status request: %w", err)
+		return nil, fmt.Errorf("%s: %w", metricName, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status check failed with status %d: %s", resp.StatusCode, string(respBody))
+	if err = httpStatusError(metricName, status, respBody); err != nil {
+		return nil, err
 	}
-
 	var statusResp StatusResponse
-	if err = json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
+	if err = json.Unmarshal(respBody, &statusResp); err != nil {
 		return nil, fmt.Errorf("decode status response: %w", err)
 	}
-
+	if err = resultError(metricName, statusResp.Status.Success, statusResp.Status.Code, statusResp.Status.Message); err != nil {
+		return nil, err
+	}
 	return &statusResp, nil
 }

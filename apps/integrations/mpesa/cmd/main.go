@@ -61,12 +61,12 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	mpesaCli := client.NewClient()
+	mpesaCli := client.NewClient(ctx)
 
 	webhookServer := handlers.NewMpesaWebhookServer(
 		paymentCli, mpesaCli, queue.NewCredentialResolver(settingsCli, &cfg).Resolve,
 	)
-	paymentWorker := queue.NewPaymentHandler(eventsMan, mpesaCli, settingsCli, &cfg)
+	paymentWorker := queue.NewPaymentHandler(eventsMan, mpesaCli, settingsCli, &cfg, paymentCli)
 	promptWorker := queue.NewPromptHandler(eventsMan, mpesaCli, settingsCli, &cfg, paymentCli)
 
 	serviceOptions := []frame.Option{

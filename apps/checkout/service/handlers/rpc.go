@@ -276,6 +276,10 @@ func toProtoSession(s *models.CheckoutSession, baseURL string) *checkoutv1.Check
 		PageUrl:     baseURL + "/c/" + s.Ref,
 		ExpiresAt:   s.ExpiresAt.Format(time.RFC3339),
 	}
+	if s.Metadata != nil {
+		proto.PaidMethod, _ = s.Metadata["_method"].(string)
+		proto.PaidRoute, _ = s.Metadata["_route"].(string)
+	}
 
 	// Amount
 	if s.Amount != "" {

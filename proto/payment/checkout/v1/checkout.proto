@@ -88,6 +88,11 @@ message CheckoutSession {
   string payment_id = 14;
   // Browser landing when the payer abandons the page (optional).
   string cancel_url = 15;
+  // Method key and payment route of the latest payment attempt (empty
+  // before the payer pays). Lets product apps verify a completed session
+  // was paid on the rail they expected.
+  string paid_method = 16;
+  string paid_route = 17;
 }
 
 message CheckoutLink {

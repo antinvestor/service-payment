@@ -111,7 +111,9 @@ func TestCheckoutSuccess(t *testing.T) {
 	h := newHarness(t)
 	h.checkout("success", "", 100)
 
-	rr := h.post(t, "/webhook/fincra?tenant_id=tenant-query&partition_id=partition-query", chargeSuccessful, signed(chargeSuccessful))
+	// The dashboard-configured checkout webhook URL carries no tenancy; the
+	// checkout's metadata fills it in.
+	rr := h.post(t, "/webhook/fincra", chargeSuccessful, signed(chargeSuccessful))
 
 	require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	st := h.payment.statusReq
@@ -127,7 +129,7 @@ func TestCheckoutSuccess(t *testing.T) {
 	assert.Equal(t, "NGN", ex["currency"])
 
 	require.NotNil(t, h.payment.claims)
-	assert.Equal(t, "tenant-meta", h.payment.claims.GetTenantID(), "tenancy stored on Fincra's record wins")
+	assert.Equal(t, "tenant-meta", h.payment.claims.GetTenantID(), "tenancy stored on Fincra's record fills in")
 	assert.Equal(t, "partition-meta", h.payment.claims.GetPartitionID())
 }
 
@@ -188,6 +190,57 @@ func TestDirectChargeVerifiedByMerchantReference(t *testing.T) {
 	assert.Equal(t, "600", ex["amount"])
 	assert.Equal(t, "fcr-ch-9", ex["provider_transaction_id"])
 	assert.Equal(t, "t1", h.payment.claims.GetTenantID(), "direct charges take tenancy from the webhook URL")
+}
+
+func TestDirectChargeTenancyFromMetadata(t *testing.T) {
+	body := `{"event":"charge.successful","data":{"id":2587,"status":"success","reference":"prompt-3","type":"mobile_money"}}`
+	tests := []struct {
+		name          string
+		target        string
+		wantHTTP      int
+		wantTenant    string
+		wantPartition string
+	}{
+		{
+			name: "metadata fills in a webhook URL without tenancy", target: "/webhook/fincra",
+			wantHTTP: http.StatusOK, wantTenant: "tenant-meta", wantPartition: "partition-meta",
+		},
+		{
+			name: "metadata fills in only the missing part", target: "/webhook/fincra?tenant_id=tenant-meta",
+			wantHTTP: http.StatusOK, wantTenant: "tenant-meta", wantPartition: "partition-meta",
+		},
+		{
+			name: "URL tenancy that agrees with metadata is kept", target: "/webhook/fincra?tenant_id=tenant-meta&partition_id=partition-meta",
+			wantHTTP: http.StatusOK, wantTenant: "tenant-meta", wantPartition: "partition-meta",
+		},
+		{
+			name: "URL tenancy that disagrees with metadata is refused", target: "/webhook/fincra?tenant_id=t1&partition_id=p1",
+			wantHTTP: http.StatusForbidden,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.srv.PutCharge(&client.Charge{
+				ID: "2587", Reference: "prompt-3", Status: "success", Amount: 600, AmountExpected: 600,
+				Currency: "KES", Type: "mobile_money", ChargeReference: "fcr-ch-10",
+				Metadata: map[string]any{"prompt_id": "prompt-3", "tenant_id": "tenant-meta", "partition_id": "partition-meta"},
+			})
+
+			rr := h.post(t, tt.target, body, signed(body))
+
+			require.Equal(t, tt.wantHTTP, rr.Code, rr.Body.String())
+			if tt.wantHTTP != http.StatusOK {
+				assert.Nil(t, h.payment.statusReq, "a refused webhook records nothing")
+				return
+			}
+			assert.Equal(t, "prompt-3", h.payment.statusReq.GetId())
+			assert.Equal(t, commonv1.STATUS_SUCCESSFUL, h.payment.statusReq.GetStatus())
+			require.NotNil(t, h.payment.claims)
+			assert.Equal(t, tt.wantTenant, h.payment.claims.GetTenantID())
+			assert.Equal(t, tt.wantPartition, h.payment.claims.GetPartitionID())
+		})
+	}
 }
 
 func TestDirectChargeWithCustomerFeesStatesNoAmount(t *testing.T) {

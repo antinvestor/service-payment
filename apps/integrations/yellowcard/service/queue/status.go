@@ -16,6 +16,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/pkg/events"
@@ -34,7 +35,7 @@ func (e *statusEmitter) emitStatus(
 	id, externalID string,
 	status commonv1.STATUS,
 	extras map[string]any,
-) {
+) error {
 	if extras == nil {
 		extras = map[string]any{}
 	}
@@ -43,18 +44,18 @@ func (e *statusEmitter) emitStatus(
 		util.Log(ctx).WithError(err).Warn("could not encode status extras")
 		extra, _ = structpb.NewStruct(map[string]any{"entity_type": extras["entity_type"]})
 	}
-	state := commonv1.STATE_ACTIVE
-	if status == commonv1.STATUS_FAILED {
-		state = commonv1.STATE_INACTIVE
-	}
 	err = e.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
 		Id:         id,
-		State:      state,
+		State:      events.StateFor(status),
 		Status:     status,
 		ExternalId: externalID,
 		Extras:     extra,
 	})
 	if err != nil {
+		// Returned so the message is redelivered: the workers look their
+		// sequence id up first, so a redelivery reports instead of resending.
 		util.Log(ctx).WithError(err).Warn("could not emit status update")
+		return fmt.Errorf("emit status for %s: %w", id, err)
 	}
+	return nil
 }

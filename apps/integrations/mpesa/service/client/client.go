@@ -19,19 +19,24 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
+	frameclient "github.com/pitabwire/frame/v3/client"
 	"github.com/pitabwire/util"
 )
 
 const (
 	httpTimeout      = 30 * time.Second
 	tokenCachePeriod = 50 * time.Minute // tokens last ~60min, refresh early
+	maxResponseBytes = 1 << 20
 )
 
 type tokenEntry struct {
@@ -42,71 +47,92 @@ type tokenEntry struct {
 type client struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
-	tokens     map[string]*tokenEntry // keyed by consumerKey
+	tokens     map[string]*tokenEntry // keyed by environment:consumerKey
 	metrics    *integrationobs.Metrics
 }
 
-// NewClient creates a new M-Pesa Daraja API client.
-func NewClient() MpesaClient {
+// NewClient creates a Daraja client on a frame HTTP client with a fixed
+// outbound timeout (set once here, never per call).
+func NewClient(ctx context.Context) MpesaClient {
+	return NewClientWithHTTP(frameclient.NewHTTPClient(ctx, frameclient.WithHTTPTimeout(httpTimeout)))
+}
+
+// NewClientWithHTTP wraps a caller-supplied HTTP client (tests).
+func NewClientWithHTTP(httpClient *http.Client) MpesaClient {
 	return &client{
-		httpClient: &http.Client{
-			Timeout: httpTimeout,
-		},
-		tokens:  make(map[string]*tokenEntry),
-		metrics: integrationobs.NewMetrics("mpesa"),
+		httpClient: httpClient,
+		tokens:     make(map[string]*tokenEntry),
+		metrics:    integrationobs.NewMetrics("mpesa"),
 	}
 }
 
+// generateToken returns a cached bearer token, fetching a new one when none
+// is valid. The HTTP call runs outside the lock so other credentials are not
+// blocked by a slow token endpoint.
 func (c *client) generateToken(ctx context.Context, creds *MpesaCredentials) (string, error) {
-	cacheKey := creds.ConsumerKey
+	cacheKey := creds.Environment + ":" + creds.ConsumerKey
 
 	c.mu.RLock()
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
-		token := entry.token
-		c.mu.RUnlock()
-		return token, nil
-	}
+	entry, ok := c.tokens[cacheKey]
 	c.mu.RUnlock()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
+	if ok && time.Now().Before(entry.expiry) {
 		return entry.token, nil
 	}
 
-	url := creds.BaseURL() + "/oauth/v1/generate?grant_type=client_credentials"
+	token, err := c.fetchToken(ctx, creds)
+	if err != nil {
+		return "", err
+	}
 
+	c.mu.Lock()
+	c.tokens[cacheKey] = &tokenEntry{token: token, expiry: time.Now().Add(tokenCachePeriod)}
+	c.mu.Unlock()
+	return token, nil
+}
+
+func (c *client) fetchToken(ctx context.Context, creds *MpesaCredentials) (string, error) {
+	url := creds.BaseURL() + "/oauth/v1/generate?grant_type=client_credentials"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("create token request: %w", err)
 	}
-
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
 	req.Header.Set("Authorization", "Basic "+auth)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("execute token request: %w", err)
+		return "", collection.Uncertain(fmt.Errorf("execute token request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return "", collection.Uncertain(fmt.Errorf("read token response: %w", err))
 	}
-
+	if err = statusError("token", resp.StatusCode, body); err != nil {
+		return "", err
+	}
 	var tokenResp TokenResponse
-	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err = json.Unmarshal(body, &tokenResp); err != nil {
 		return "", fmt.Errorf("decode token response: %w", err)
 	}
-
-	c.tokens[cacheKey] = &tokenEntry{
-		token:  tokenResp.AccessToken,
-		expiry: time.Now().Add(tokenCachePeriod),
+	if tokenResp.AccessToken == "" {
+		return "", errors.New("token response carried no access token")
 	}
-
 	return tokenResp.AccessToken, nil
+}
+
+// statusError classifies a Daraja HTTP status: 5xx is outcome-unknown (the
+// request may have been applied) and wrapped as collection.Uncertain; any
+// other non-200 answer is an APIError the worker may fail on.
+func statusError(operation string, status int, body []byte) error {
+	if status == http.StatusOK {
+		return nil
+	}
+	apiErr := &APIError{Operation: operation, StatusCode: status, Body: string(body)}
+	if status >= http.StatusInternalServerError {
+		return collection.Uncertain(apiErr)
+	}
+	return apiErr
 }
 
 // doAuthenticatedPost handles the common pattern of: generate token, marshal payload,
@@ -147,23 +173,33 @@ func (c *client) doAuthenticatedPost(
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("execute %s request: %w", logType, err)
+		return collection.Uncertain(fmt.Errorf("execute %s request: %w", logType, err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return collection.Uncertain(fmt.Errorf("read %s response: %w", logType, err))
+	}
 	logger.WithFields(map[string]any{
 		"status":   resp.StatusCode,
 		"response": string(respBody),
 	}).Debug(logType + " response")
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s failed with status %d: %s", logType, resp.StatusCode, string(respBody))
+	if err = statusError(logType, resp.StatusCode, respBody); err != nil {
+		return err
 	}
-
 	if err = json.Unmarshal(respBody, result); err != nil {
 		return fmt.Errorf("decode %s response: %w", logType, err)
 	}
+	return nil
+}
 
+// acceptedError turns a 200 answer whose ResponseCode is not "0" into a
+// rejection: Daraja did not queue the request.
+func acceptedError(operation, responseCode, description string) error {
+	if code := strings.TrimSpace(responseCode); code != "" && code != "0" {
+		return &APIError{Operation: operation, StatusCode: http.StatusOK, ResponseCode: code, Body: description}
+	}
 	return nil
 }
 
@@ -189,7 +225,9 @@ func (c *client) STKPush(ctx context.Context, creds *MpesaCredentials, req *STKP
 	if err != nil {
 		return nil, err
 	}
-
+	if err = acceptedError("stk push", stkResp.ResponseCode, stkResp.ResponseDescription); err != nil {
+		return nil, err
+	}
 	return &stkResp, nil
 }
 
@@ -227,6 +265,27 @@ func (c *client) B2CPayment(ctx context.Context, creds *MpesaCredentials, req *B
 	if err := c.doAuthenticatedPost(ctx, creds, "/mpesa/b2c/v1/paymentrequest", payload, &b2cResp, "b2c"); err != nil {
 		return nil, err
 	}
-
+	if err := acceptedError("b2c", b2cResp.ResponseCode, b2cResp.ResponseDescription); err != nil {
+		return nil, err
+	}
 	return &b2cResp, nil
+}
+
+// TransactionStatus submits a Transaction Status query
+// (POST /mpesa/transactionstatus/v1/query). Daraja only acknowledges it;
+// the status itself is posted to req.ResultURL later.
+func (c *client) TransactionStatus(
+	ctx context.Context,
+	creds *MpesaCredentials,
+	req *TransactionStatusRequest,
+) (*TransactionStatusResponse, error) {
+	var resp TransactionStatusResponse
+	err := c.doAuthenticatedPost(ctx, creds, "/mpesa/transactionstatus/v1/query", req, &resp, "transaction status")
+	if err != nil {
+		return nil, err
+	}
+	if err = acceptedError("transaction status", string(resp.ResponseCode), resp.ResponseDescription); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

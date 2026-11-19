@@ -373,6 +373,8 @@ class CheckoutSession extends $pb.GeneratedMessage {
     $core.String? expiresAt,
     $core.String? paymentId,
     $core.String? cancelUrl,
+    $core.String? paidMethod,
+    $core.String? paidRoute,
   }) {
     final result = CheckoutSession._();
     if (ref != null) result.ref = ref;
@@ -390,6 +392,8 @@ class CheckoutSession extends $pb.GeneratedMessage {
     if (expiresAt != null) result.expiresAt = expiresAt;
     if (paymentId != null) result.paymentId = paymentId;
     if (cancelUrl != null) result.cancelUrl = cancelUrl;
+    if (paidMethod != null) result.paidMethod = paidMethod;
+    if (paidRoute != null) result.paidRoute = paidRoute;
     return result;
   }
 
@@ -429,6 +433,8 @@ class CheckoutSession extends $pb.GeneratedMessage {
     ..aOS(13, _omitFieldNames ? '' : 'expiresAt')
     ..aOS(14, _omitFieldNames ? '' : 'paymentId')
     ..aOS(15, _omitFieldNames ? '' : 'cancelUrl')
+    ..aOS(16, _omitFieldNames ? '' : 'paidMethod')
+    ..aOS(17, _omitFieldNames ? '' : 'paidRoute')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -586,6 +592,27 @@ class CheckoutSession extends $pb.GeneratedMessage {
   $core.bool hasCancelUrl() => $_has(14);
   @$pb.TagNumber(15)
   void clearCancelUrl() => $_clearField(15);
+
+  /// Method key and payment route of the latest payment attempt (empty
+  /// before the payer pays). Lets product apps verify a completed session
+  /// was paid on the rail they expected.
+  @$pb.TagNumber(16)
+  $core.String get paidMethod => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set paidMethod($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasPaidMethod() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearPaidMethod() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.String get paidRoute => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set paidRoute($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasPaidRoute() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearPaidRoute() => $_clearField(17);
 }
 
 class CheckoutLink extends $pb.GeneratedMessage {

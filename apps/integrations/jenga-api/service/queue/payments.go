@@ -16,142 +16,58 @@ package queue
 
 import (
 	"context"
-	"fmt"
 
-	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/config"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
-	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
-	utilmoney "github.com/pitabwire/util/moneyx"
 	"google.golang.org/protobuf/proto"
 )
 
+// failurePayoutUnsupported is reported for every payout: the Jenga client
+// only offers tills pay (a payment to a merchant till), which is not a
+// payout to a person's mobile money or bank account.
+const (
+	failurePayoutUnsupported        = "PAYOUT_NOT_SUPPORTED"
+	failurePayoutUnsupportedMessage = "Payouts are not supported on the Jenga route; only STK collection prompts are"
+)
+
 type paymentHandler struct {
-	credentialResolver
-	statusEmitter
-	jengaCli coreapi.JengaApiClient
-	metrics  *integrationobs.Metrics
+	emitter *events.StatusEmitter
+	metrics *integrationobs.Metrics
 }
 
-// NewPaymentHandler creates a queue worker for handling disbursement payments via Jenga tills-pay.
-func NewPaymentHandler(
-	eventsMan frameEvents.Manager,
-	jengaCli coreapi.JengaApiClient,
-	settingsCli settingsv1connect.SettingsServiceClient,
-	cfg *config.JengaConfig,
-) queue.SubscribeWorker {
+// NewPaymentHandler creates the queue worker for payouts. Jenga's tills pay
+// endpoint pays a merchant till, not a recipient contact, so until a proper
+// send-money endpoint is wired every payout is failed with a clear reason
+// rather than paying a till by mistake.
+func NewPaymentHandler(eventsMan frameEvents.Manager) queue.SubscribeWorker {
 	return &paymentHandler{
-		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
-		statusEmitter:      statusEmitter{eventsMan: eventsMan},
-		jengaCli:           jengaCli,
-		metrics:            integrationobs.NewMetrics("jenga"),
+		emitter: events.NewStatusEmitter(eventsMan),
+		metrics: integrationobs.NewMetrics(providerName),
 	}
 }
 
-func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
+func (h *paymentHandler) Handle(ctx context.Context, _ map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("handler", "jenga.payment")
 	defer logger.Release()
 
-	payment := paymentv1.Payment{}
-	if err := proto.Unmarshal(payload, &payment); err != nil {
-		logger.WithError(err).Error("failed to unmarshal payment protobuf")
+	payment := &paymentv1.Payment{}
+	if err := proto.Unmarshal(payload, payment); err != nil {
+		logger.WithError(err).Error("failed to unmarshal payment")
 		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil // non-retriable
 	}
-
 	paymentID := payment.GetId()
-	logger = logger.WithFields(map[string]any{
-		"payment_id": paymentID,
-		"recipient":  payment.GetRecipient().GetContactId(),
+	logger.WithField("payment_id", paymentID).Error("payout requested on the Jenga route, which has no payout endpoint")
+
+	h.metrics.QueueFailed(ctx, "payment", "rejected")
+	return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID, failurePayoutUnsupportedMessage, map[string]any{
+		collection.ExtraProvider: providerName,
+		"failure_code":           failurePayoutUnsupported,
+		"failure_message":        failurePayoutUnsupportedMessage,
 	})
-	logger.Info("processing payment disbursement")
-
-	jengaCreds, err := h.extractCredentials(ctx, headers)
-	if err != nil {
-		logger.WithError(err).Error("failed to resolve Jenga credentials")
-		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "payment",
-		})
-		return nil
-	}
-
-	apiCreds := toAPICreds(jengaCreds)
-
-	// Convert protobuf Money to exact decimal string via utilmoney (no float64 intermediate)
-	amountDecimal := utilmoney.FromMoney(payment.GetAmount())
-	amount := amountDecimal.String()
-	currency := payment.GetAmount().GetCurrencyCode()
-	if currency == "" {
-		currency = "KES"
-	}
-
-	tillsReq := models.TillsPayRequest{
-		Merchant: models.TillsPayMerchant{
-			Till: jengaCreds.MerchantCode,
-		},
-		Payment: models.TillsPayPayment{
-			Ref:      paymentID,
-			Amount:   amount,
-			Currency: currency,
-		},
-		Partner: models.TillsPayPartner{
-			ID:  payment.GetRecipient().GetContactId(),
-			Ref: paymentID,
-		},
-	}
-
-	token, err := h.jengaCli.GenerateBearerToken(ctx, apiCreds)
-	if err != nil {
-		logger.WithError(err).Error("failed to generate bearer token for disbursement")
-		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       fmt.Sprintf("generate bearer token: %v", err),
-			"entity_type": "payment",
-		})
-		return nil
-	}
-
-	resp, err := h.jengaCli.InitiateTillsPay(ctx, apiCreds, tillsReq, token.AccessToken)
-	if err != nil {
-		logger.WithError(err).Error("tills pay disbursement failed")
-		h.metrics.QueueFailed(ctx, "payment", "provider_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       fmt.Sprintf("tills pay: %v", err),
-			"entity_type": "payment",
-		})
-		return nil
-	}
-
-	logger.WithFields(map[string]any{
-		"transaction_id": resp.TransactionID,
-		"merchant_name":  resp.MerchantName,
-	}).Info("tills pay disbursement initiated")
-
-	h.emitStatus(ctx, paymentID, resp.TransactionID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"transaction_id": resp.TransactionID,
-		"merchant_name":  resp.MerchantName,
-		"entity_type":    "payment",
-	})
-
-	h.metrics.QueueProcessed(ctx, "payment")
-	return nil
-}
-
-// toAPICreds converts queue JengaCredentials to the coreapi.Credentials used by the API client.
-func toAPICreds(creds *JengaCredentials) *coreapi.Credentials {
-	return &coreapi.Credentials{
-		MerchantCode:   creds.MerchantCode,
-		ConsumerSecret: creds.ConsumerSecret,
-		APIKey:         creds.APIKey,
-		Environment:    creds.Environment,
-		PrivateKeyPath: creds.PrivateKeyPath,
-	}
 }

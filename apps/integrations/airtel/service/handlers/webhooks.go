@@ -19,12 +19,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/airtel/service/client"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/frame/v3/security"
@@ -83,6 +86,12 @@ func (s *AirtelWebhookServer) HandleDisbursementCallback(w http.ResponseWriter, 
 // errNotBound means the callback does not match a request we issued.
 var errNotBound = errors.New("callback does not match an issued request")
 
+// maxWebhookBodyBytes bounds a callback body; Airtel callbacks are a few hundred bytes.
+const maxWebhookBodyBytes = 1 << 20
+
+// amountTolerance absorbs decimal formatting differences ("5000" vs "5000.00").
+const amountTolerance = 0.005
+
 // handleCallback is the shared logic for processing Airtel callbacks.
 func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request, logType, entityType string) {
 	ctx := injectTenantFromQuery(r.Context(), r)
@@ -90,7 +99,7 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 	defer logger.Release()
 
 	var callback client.CollectionCallbackBody
-	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode callback")
 		s.metrics.WebhookRejected(ctx, entityType, "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -100,7 +109,7 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 	entityID := strings.TrimSpace(callback.Transaction.ID)
 	logger = logger.WithField("transaction_id", entityID)
 	if entityID == "" {
-		s.metrics.WebhookRejected(ctx, entityType, "missing_transaction_id")
+		s.metrics.WebhookRejected(ctx, entityType, "missing_id")
 		http.Error(w, "missing transaction id", http.StatusBadRequest)
 		return
 	}
@@ -118,11 +127,6 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 	}
 
 	status := mapAirtelStatus(txn.Status)
-	state := commonv1.STATE_ACTIVE
-	if status == commonv1.STATUS_FAILED {
-		state = commonv1.STATE_INACTIVE
-	}
-
 	extras := data.JSONMap{
 		"transaction_id":                  entityID,
 		"message":                         txn.Message,
@@ -135,9 +139,31 @@ func (s *AirtelWebhookServer) handleCallback(w http.ResponseWriter, r *http.Requ
 		client.ExtraCredentialsConnection: stored.GetString(client.ExtraCredentialsConnection),
 	}
 
+	// Airtel's enquiry answer carries the amount only in some markets; the
+	// callback body may carry it too. Whichever is present is checked
+	// against the amount requested; a success for a different amount is
+	// recorded as failed so it is never settled as paid.
+	reported := firstNonEmpty(txn.Amount, string(callback.Transaction.Amount))
+	if reported != "" {
+		extras["amount"] = reported
+		extras["currency"] = stored.GetString(client.ExtraRequestedCurrency)
+	}
+	if status == commonv1.STATUS_SUCCESSFUL && reported != "" &&
+		!amountsEqual(stored.GetString(client.ExtraRequestedAmount), reported) {
+		logger.WithFields(map[string]any{
+			"requested_amount": stored.GetString(client.ExtraRequestedAmount),
+			"reported_amount":  reported,
+		}).Error("Airtel reported a different amount than requested")
+		status = commonv1.STATUS_FAILED
+		extras["verification"] = "amount_mismatch"
+		extras[events.ExtraError] = "paid amount differs from the requested amount"
+	} else if status == commonv1.STATUS_FAILED {
+		extras[events.ExtraError] = txn.Message
+	}
+
 	statusReq := &commonv1.StatusUpdateRequest{
 		Id:         entityID,
-		State:      state,
+		State:      events.StateFor(status),
 		Status:     status,
 		ExternalId: txn.AirtelMoneyID,
 		Extras:     extras.ToProtoStruct(),
@@ -164,12 +190,12 @@ func (s *AirtelWebhookServer) reject(
 ) {
 	if errors.Is(err, errNotBound) {
 		logger.WithError(err).Warn("Airtel callback rejected")
-		s.metrics.WebhookRejected(ctx, entityType, "not_bound")
+		s.metrics.WebhookRejected(ctx, entityType, "unknown_payment")
 		http.Error(w, "callback does not match request", http.StatusConflict)
 		return
 	}
 	logger.WithError(err).Error("could not verify Airtel callback")
-	s.metrics.WebhookRejected(ctx, entityType, "verification_error")
+	s.metrics.WebhookRejected(ctx, entityType, "verification_failed")
 	http.Error(w, "could not verify callback", http.StatusServiceUnavailable)
 }
 
@@ -195,7 +221,26 @@ func (s *AirtelWebhookServer) loadRequest(ctx context.Context, entityID, entityT
 
 // airtelTxn is Airtel's authoritative view of a transaction.
 type airtelTxn struct {
-	Status, Message, AirtelMoneyID string
+	Status, Message, AirtelMoneyID, Amount string
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// amountsEqual compares decimal amount strings (e.g. "5000" and "5000.00").
+func amountsEqual(a, b string) bool {
+	x, errA := strconv.ParseFloat(strings.TrimSpace(a), 64)
+	y, errB := strconv.ParseFloat(strings.TrimSpace(b), 64)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return math.Abs(x-y) < amountTolerance
 }
 
 // query asks Airtel for the transaction's current state.
@@ -230,7 +275,7 @@ func (s *AirtelWebhookServer) query(
 	if t.Status == "" {
 		return nil, errors.New("airtel status query returned no transaction status")
 	}
-	return &airtelTxn{Status: t.Status, Message: t.Message, AirtelMoneyID: t.AirtelMoneyID}, nil
+	return &airtelTxn{Status: t.Status, Message: t.Message, AirtelMoneyID: string(t.AirtelMoneyID), Amount: string(t.Amount)}, nil
 }
 
 // mapAirtelStatus maps Airtel status codes to internal status enum.

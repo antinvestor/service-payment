@@ -14,6 +14,14 @@
 
 package client
 
+import (
+	"errors"
+	"fmt"
+	"net/http"
+
+	"github.com/google/uuid"
+)
+
 // MtnCredentials holds the per-request credentials for MTN MoMo API calls.
 type MtnCredentials struct {
 	SubscriptionKey string
@@ -22,15 +30,77 @@ type MtnCredentials struct {
 	CallbackURL     string
 	Currency        string
 	Environment     string // sandbox or production
+	// TargetEnvironment is the X-Target-Environment market code ("sandbox",
+	// "mtnuganda", …).
+	TargetEnvironment string
+
+	baseURL string
+}
+
+// SetBaseURL points the credentials at another API host (tests).
+func (c *MtnCredentials) SetBaseURL(u string) { c.baseURL = u }
+
+// referenceNamespace is the fixed UUID v5 namespace reference ids are derived
+// in. Changing it would change every in-flight reference id.
+var referenceNamespace = uuid.MustParse("4f4d4f4d-6d74-6e2d-7265-66657265ac1d")
+
+// ReferenceID is the X-Reference-Id for an entity. MTN uses it as the
+// idempotency key of requestToPay and transfer, so it is derived
+// deterministically (UUID v5) from the entity kind and id: a redelivered
+// queue message reissues the same reference and MTN answers 409 instead of
+// charging or paying a second time.
+func ReferenceID(entityType, id string) string {
+	return uuid.NewSHA1(referenceNamespace, []byte(entityType+":"+id)).String()
+}
+
+// APIError is a non-2xx answer from MTN.
+type APIError struct {
+	Operation  string
+	StatusCode int
+	Body       string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%s failed with status %d: %s", e.Operation, e.StatusCode, e.Body)
+}
+
+// IsNotFound reports whether MTN knows no transaction for the reference.
+func IsNotFound(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
+}
+
+// IsDuplicate reports whether MTN already holds a request with the same
+// X-Reference-Id (409 Conflict).
+func IsDuplicate(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusConflict
+}
+
+// IsRejected reports whether MTN refused the request outright (4xx other
+// than a duplicate): nothing was applied, so the worker may fail the entity.
+func IsRejected(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode >= http.StatusBadRequest &&
+		apiErr.StatusCode < http.StatusInternalServerError &&
+		apiErr.StatusCode != http.StatusConflict
 }
 
 // BaseURL returns the MTN MoMo API base URL based on environment.
 func (c *MtnCredentials) BaseURL() string {
-	if c.Environment == "production" {
+	if c.baseURL != "" {
+		return c.baseURL
+	}
+	if c.Environment == environmentProduction {
 		return "https://proxy.momoapi.mtn.com"
 	}
 	return "https://sandbox.momodeveloper.mtn.com"
 }
+
+const environmentProduction = "production"
 
 // RequestToPayRequest represents a request-to-pay (collection) request.
 type RequestToPayRequest struct {

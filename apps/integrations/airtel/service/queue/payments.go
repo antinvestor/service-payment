@@ -16,9 +16,8 @@ package queue
 
 import (
 	"context"
-	"math"
-	"net/url"
-	"strconv"
+	"errors"
+	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
@@ -31,17 +30,18 @@ import (
 	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type paymentHandler struct {
 	credentialResolver
-	eventsMan frameEvents.Manager
+	emitter   *events.StatusEmitter
 	airtelCli client.AirtelClient
 	metrics   *integrationobs.Metrics
 }
 
-// NewPaymentHandler creates a queue worker for handling disbursement payments.
+// NewPaymentHandler creates the queue worker for disbursements. The payment
+// id is Airtel's transaction id, so a redelivered payout finds the one
+// already sent (DisbursementStatus) instead of paying twice.
 func NewPaymentHandler(
 	eventsMan frameEvents.Manager,
 	airtelCli client.AirtelClient,
@@ -49,141 +49,109 @@ func NewPaymentHandler(
 	cfg *config.AirtelConfig,
 ) queue.SubscribeWorker {
 	return &paymentHandler{
-		credentialResolver: credentialResolver{
-			settingsCli: settingsCli,
-			cfg:         cfg,
-		},
-		eventsMan: eventsMan,
-		airtelCli: airtelCli,
-		metrics:   integrationobs.NewMetrics("airtel"),
+		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
+		emitter:            events.NewStatusEmitter(eventsMan),
+		airtelCli:          airtelCli,
+		metrics:            integrationobs.NewMetrics(providerName),
 	}
+}
+
+func (h *paymentHandler) fail(ctx context.Context, paymentID, reason, message string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, kindPayment, reason)
+	return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID, message, extras)
 }
 
 func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "airtel.payment")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
 		logger.WithError(err).Error("failed to unmarshal payment")
-		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
+		h.metrics.QueueFailed(ctx, kindPayment, "unmarshal_error")
 		return nil
 	}
-
 	paymentID := payment.GetId()
 	logger = logger.WithField("payment_id", paymentID)
 
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "payment",
-		})
-		return nil
+		return h.fail(ctx, paymentID, "credentials_error", err.Error(), nil)
 	}
 
-	phoneNumber := payment.GetRecipient().GetContactId()
-	amount := formatMoneyAmount(payment.GetAmount())
+	amount, err := airtelAmount(payment.GetAmount())
+	if err != nil {
+		logger.WithError(err).Error("payout amount cannot be sent to Airtel")
+		return h.fail(ctx, paymentID, "rejected", "invalid amount: "+err.Error(), nil)
+	}
+	currency := requestCurrency(payment.GetAmount(), creds)
+	extras := withRequestBinding(map[string]any{}, amount, currency, headers)
 
-	currency := creds.Currency
-	if payment.GetAmount() != nil && payment.GetAmount().GetCurrencyCode() != "" {
-		currency = payment.GetAmount().GetCurrencyCode()
+	// A redelivered payout answers with the disbursement already sent.
+	if existing, getErr := h.airtelCli.DisbursementStatus(ctx, creds, paymentID); getErr == nil && existing.Data.Transaction.Status != "" {
+		logger.Debug("disbursement already sent")
+		return h.emitKnown(ctx, paymentID, existing, extras)
+	} else if getErr != nil && !client.IsNotFound(getErr) {
+		logger.WithError(getErr).Warn("disbursement lookup failed, sending")
+	}
+
+	// Airtel's v2 disbursement needs the wallet PIN encrypted with Airtel's
+	// public key; without both there is nothing to send.
+	encryptedPin, err := client.EncryptPin(creds.DisbursementPin, creds.PublicKey)
+	if err != nil {
+		logger.WithError(err).Error("cannot authorise Airtel disbursement")
+		reason := "credentials_error"
+		if !errors.Is(err, client.ErrPinNotConfigured) {
+			reason = "rejected"
+		}
+		return h.fail(ctx, paymentID, reason, "Airtel disbursement not configured: "+err.Error(), nil)
 	}
 
 	req := &client.DisbursementRequest{
-		Reference:   paymentID,
-		PhoneNumber: phoneNumber,
-		Amount:      amount,
-		Currency:    currency,
-		CountryCode: creds.CountryCode,
+		Reference:    paymentID,
+		PhoneNumber:  payment.GetRecipient().GetContactId(),
+		Amount:       amount,
+		Currency:     currency,
+		CountryCode:  creds.CountryCode,
+		EncryptedPin: encryptedPin,
 	}
 
 	resp, err := h.airtelCli.Disburse(ctx, creds, req)
 	if err != nil {
-		logger.WithError(err).Error("disbursement failed")
-		h.metrics.QueueFailed(ctx, "payment", "provider_error")
-		h.emitStatus(ctx, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "payment",
-		})
-		return nil
+		if client.IsRejected(err) {
+			logger.WithError(err).Error("disbursement refused by Airtel")
+			return h.fail(ctx, paymentID, "provider_error", err.Error(), extras)
+		}
+		// Unknown outcome (timeout, 5xx): Airtel may hold the disbursement.
+		// Report what it holds, or redeliver until it can be found.
+		existing, getErr := h.airtelCli.DisbursementStatus(ctx, creds, paymentID)
+		if getErr != nil || existing.Data.Transaction.Status == "" {
+			logger.WithError(err).Warn("disbursement outcome unknown; redelivering")
+			h.metrics.QueueFailed(ctx, kindPayment, "provider_error")
+			return fmt.Errorf("disbursement %s outcome unknown: %w", paymentID, err)
+		}
+		return h.emitKnown(ctx, paymentID, existing, extras)
 	}
 
 	externalID := resp.Data.Transaction.ID
 	logger.WithField("transaction_id", externalID).Debug("disbursement initiated")
-
-	h.emitStatus(ctx, paymentID, externalID, commonv1.STATUS_IN_PROCESS, withRequestBinding(map[string]any{
-		"transaction_id": externalID,
-		"reference_id":   resp.Data.Transaction.ReferenceID,
-		"status_code":    resp.Status.Code,
-		"message":        resp.Status.Message,
-		"entity_type":    "payment",
-	}, amount, currency, headers))
-
-	h.metrics.QueueProcessed(ctx, "payment")
+	extras[client.ExtraTransactionID] = externalID
+	extras["reference_id"] = resp.Data.Transaction.ReferenceID
+	extras["status_code"] = resp.Status.Code
+	extras["message"] = resp.Status.Message
+	if err = h.emitter.Emit(ctx, events.EntityTypePayment, paymentID, externalID, commonv1.STATUS_IN_PROCESS, extras); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, kindPayment)
 	return nil
 }
 
-// appendTenantParams appends tenant_id and partition_id query params to a callback URL.
-func appendTenantParams(callbackURL string, headers map[string]string) string {
-	tenantID := headers["tenant_id"]
-	partitionID := headers["partition_id"]
-	if tenantID == "" && partitionID == "" {
-		return callbackURL
+func (h *paymentHandler) emitKnown(ctx context.Context, paymentID string, st *client.StatusResponse, extras map[string]any) error {
+	if mapAirtelStatus(st.Data.Transaction.Status) == commonv1.STATUS_FAILED {
+		h.metrics.QueueFailed(ctx, kindPayment, "rejected")
+	} else {
+		h.metrics.QueueProcessed(ctx, kindPayment)
 	}
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return callbackURL
-	}
-	q := u.Query()
-	if tenantID != "" {
-		q.Set("tenant_id", tenantID)
-	}
-	if partitionID != "" {
-		q.Set("partition_id", partitionID)
-	}
-	u.RawQuery = q.Encode()
-	return u.String()
-}
-
-func formatMoneyAmount(amount interface {
-	GetUnits() int64
-	GetNanos() int32
-}) string {
-	if amount == nil {
-		return "0"
-	}
-	units := amount.GetUnits()
-	nanos := amount.GetNanos()
-	total := float64(units) + float64(nanos)/1e9 //nolint:mnd // nanos to units conversion
-	return strconv.FormatInt(int64(math.Round(total)), 10)
-}
-
-func headerOrDefault(headers map[string]string, key, fallback string) string {
-	if v, ok := headers[key]; ok && v != "" {
-		return v
-	}
-	return fallback
-}
-
-func (h *paymentHandler) emitStatus(
-	ctx context.Context,
-	id, externalID string,
-	status commonv1.STATUS,
-	extras map[string]any,
-) {
-	extra, _ := structpb.NewStruct(extras)
-	err := h.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
-		Id:         id,
-		State:      commonv1.STATE_ACTIVE,
-		Status:     status,
-		ExternalId: externalID,
-		Extras:     extra,
-	})
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
-	}
+	return emitKnown(ctx, h.emitter, events.EntityTypePayment, paymentID, st, extras)
 }

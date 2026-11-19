@@ -411,7 +411,12 @@ type CheckoutSession struct {
 	ExpiresAt    string                 `protobuf:"bytes,13,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // RFC3339
 	PaymentId    string                 `protobuf:"bytes,14,opt,name=payment_id,json=paymentId,proto3" json:"payment_id,omitempty"`
 	// Browser landing when the payer abandons the page (optional).
-	CancelUrl     string `protobuf:"bytes,15,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
+	CancelUrl string `protobuf:"bytes,15,opt,name=cancel_url,json=cancelUrl,proto3" json:"cancel_url,omitempty"`
+	// Method key and payment route of the latest payment attempt (empty
+	// before the payer pays). Lets product apps verify a completed session
+	// was paid on the rail they expected.
+	PaidMethod    string `protobuf:"bytes,16,opt,name=paid_method,json=paidMethod,proto3" json:"paid_method,omitempty"`
+	PaidRoute     string `protobuf:"bytes,17,opt,name=paid_route,json=paidRoute,proto3" json:"paid_route,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -547,6 +552,20 @@ func (x *CheckoutSession) GetPaymentId() string {
 func (x *CheckoutSession) GetCancelUrl() string {
 	if x != nil {
 		return x.CancelUrl
+	}
+	return ""
+}
+
+func (x *CheckoutSession) GetPaidMethod() string {
+	if x != nil {
+		return x.PaidMethod
+	}
+	return ""
+}
+
+func (x *CheckoutSession) GetPaidRoute() string {
+	if x != nil {
+		return x.PaidRoute
 	}
 	return ""
 }
@@ -1260,7 +1279,7 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\rwhole_amounts\x18\b \x01(\bR\fwholeAmounts\x12$\n" +
 	"\rsubscriptions\x18\t \x01(\bR\rsubscriptions\x12.\n" +
 	"\x13requires_product_id\x18\n" +
-	" \x01(\bR\x11requiresProductId\"\xfe\x04\n" +
+	" \x01(\bR\x11requiresProductId\"\xbe\x05\n" +
 	"\x0fCheckoutSession\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -1281,7 +1300,11 @@ const file_checkout_v1_checkout_proto_rawDesc = "" +
 	"\n" +
 	"payment_id\x18\x0e \x01(\tR\tpaymentId\x12\x1d\n" +
 	"\n" +
-	"cancel_url\x18\x0f \x01(\tR\tcancelUrl\x1a;\n" +
+	"cancel_url\x18\x0f \x01(\tR\tcancelUrl\x12\x1f\n" +
+	"\vpaid_method\x18\x10 \x01(\tR\n" +
+	"paidMethod\x12\x1d\n" +
+	"\n" +
+	"paid_route\x18\x11 \x01(\tR\tpaidRoute\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xef\x03\n" +

@@ -20,12 +20,53 @@ type StripeCredentials struct {
 	WebhookSecret string
 }
 
+// Checkout Session modes (https://docs.stripe.com/api/checkout/sessions/create#create_checkout_session-mode).
+const (
+	CheckoutModePayment      = "payment"
+	CheckoutModeSubscription = "subscription"
+)
+
+// CheckoutSessionRequest describes a hosted Checkout Session.
+//
+// Exactly one of PriceID (a catalog price, "price_…") or Amount+Currency
+// (ad-hoc price_data) is used for the single line item.
+type CheckoutSessionRequest struct {
+	// IdempotencyKey is sent as Idempotency-Key so a redelivered prompt
+	// returns the session Stripe already created.
+	IdempotencyKey string
+	Mode           string
+	PriceID        string
+	// Amount is in the currency's minor units; ignored when PriceID is set.
+	Amount   int64
+	Currency string
+	// ProductName is the customer-facing line item name for ad-hoc prices.
+	ProductName       string
+	SuccessURL        string
+	CancelURL         string
+	CustomerEmail     string
+	ClientReferenceID string
+	// Metadata is set on the session and copied to the subscription
+	// (subscription mode) or payment intent (payment mode) so their
+	// webhooks carry the same correlation keys.
+	Metadata map[string]string
+}
+
+// CheckoutSessionResponse is the subset of a Checkout Session the workers use.
+type CheckoutSessionResponse struct {
+	ID        string
+	URL       string
+	Status    string
+	Mode      string
+	ExpiresAt int64
+}
+
 // PaymentIntentRequest represents a request to create a PaymentIntent.
 type PaymentIntentRequest struct {
-	Amount      int64
-	Currency    string
-	Description string
-	Metadata    map[string]string
+	IdempotencyKey string
+	Amount         int64
+	Currency       string
+	Description    string
+	Metadata       map[string]string
 }
 
 // PaymentIntentResponse represents the response from creating a PaymentIntent.
@@ -39,11 +80,12 @@ type PaymentIntentResponse struct {
 
 // PayoutRequest represents a request to create a Payout.
 type PayoutRequest struct {
-	Amount      int64
-	Currency    string
-	Destination string
-	Description string
-	Metadata    map[string]string
+	IdempotencyKey string
+	Amount         int64
+	Currency       string
+	Destination    string
+	Description    string
+	Metadata       map[string]string
 }
 
 // PayoutResponse represents the response from creating a Payout.
@@ -54,9 +96,10 @@ type PayoutResponse struct {
 	Currency string
 }
 
-// WebhookEvent represents a parsed Stripe webhook event.
-type WebhookEvent struct {
-	ID   string
-	Type string
-	Data map[string]any
+// SubscriptionResponse is the subset of a Stripe subscription the command
+// worker reports.
+type SubscriptionResponse struct {
+	ID                string
+	Status            string
+	CancelAtPeriodEnd bool
 }

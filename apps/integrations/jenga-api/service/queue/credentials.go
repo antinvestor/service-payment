@@ -36,6 +36,8 @@ type JengaCredentials struct {
 	APIKey         string
 	CallbackURL    string
 	Environment    string
+	BaseURL        string
+	PrivateKeyPEM  string
 	PrivateKeyPath string
 }
 
@@ -80,7 +82,9 @@ func (r *credentialResolver) extractCredentials(
 		ConsumerSecret: headerOrDefault(headers, config.HeaderConsumerSecret, r.cfg.ConsumerSecret),
 		APIKey:         headerOrDefault(headers, config.HeaderAPIKey, r.cfg.ApiKey),
 		CallbackURL:    headerOrDefault(headers, config.HeaderCallbackURL, r.cfg.JengaCallbackURL),
-		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Env),
+		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
+		BaseURL:        headerOrDefault(headers, config.HeaderBaseURL, r.cfg.BaseURL),
+		PrivateKeyPEM:  headerOrDefault(headers, config.HeaderPrivateKeyPEM, r.cfg.JengaPrivateKeyPEM),
 		PrivateKeyPath: headerOrDefault(headers, config.HeaderPrivateKeyPath, r.cfg.JengaPrivateKey),
 	}
 
@@ -155,7 +159,23 @@ func (r *credentialResolver) credentialsFromSettings(
 		APIKey:         credMap[config.HeaderAPIKey],
 		CallbackURL:    credMap[config.HeaderCallbackURL],
 		Environment:    credMap[config.HeaderEnvironment],
+		BaseURL:        credMap[config.HeaderBaseURL],
+		PrivateKeyPEM:  credMap[config.HeaderPrivateKeyPEM],
 		PrivateKeyPath: credMap[config.HeaderPrivateKeyPath],
+	}
+	// A tenant setting may omit the signing key and environment; the
+	// service defaults then apply.
+	if creds.PrivateKeyPEM == "" && creds.PrivateKeyPath == "" {
+		creds.PrivateKeyPEM, creds.PrivateKeyPath = r.cfg.JengaPrivateKeyPEM, r.cfg.JengaPrivateKey
+	}
+	if creds.Environment == "" {
+		creds.Environment = r.cfg.Environment
+	}
+	if creds.BaseURL == "" {
+		creds.BaseURL = r.cfg.BaseURL
+	}
+	if creds.CallbackURL == "" {
+		creds.CallbackURL = r.cfg.JengaCallbackURL
 	}
 
 	return creds, nil

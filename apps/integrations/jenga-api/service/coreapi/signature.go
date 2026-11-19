@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -44,51 +45,115 @@ func IsTestMode() bool {
 	return testMode.Load()
 }
 
-// GenerateSignature generates a SHA-256 signature with RSA private key.
-//
+// ErrNoSigningKey is returned when credentials carry neither a PEM nor a path.
+var ErrNoSigningKey = errors.New("jenga signing key is not configured (private key PEM or path)")
 
-func GenerateSignature(message, privateKeyPath string) (string, error) {
-	// For tests, return a dummy signature to avoid actual RSA key parsing
+// signer parses and caches RSA private keys keyed by their source.
+type signer struct {
+	mu   sync.RWMutex
+	keys map[string]*rsa.PrivateKey
+}
+
+func newSigner() *signer {
+	return &signer{keys: map[string]*rsa.PrivateKey{}}
+}
+
+// keyFor returns the parsed RSA key for the credentials: the PEM when
+// given, else the file at PrivateKeyPath.
+func (s *signer) keyFor(creds *Credentials) (*rsa.PrivateKey, error) {
+	pemData := strings.TrimSpace(creds.PrivateKeyPEM)
+	path := strings.TrimSpace(creds.PrivateKeyPath)
+	cacheKey := pemData
+	if cacheKey == "" {
+		cacheKey = "path:" + path
+	}
+	s.mu.RLock()
+	key, ok := s.keys[cacheKey]
+	s.mu.RUnlock()
+	if ok {
+		return key, nil
+	}
+
+	var raw []byte
+	switch {
+	case pemData != "":
+		raw = []byte(pemData)
+	case path != "":
+		// SECURITY: the path comes from config or settings and must not traverse.
+		if strings.Contains(path, "..") {
+			return nil, errors.New("invalid private key path")
+		}
+		var err error
+		raw, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read private key: %w", err)
+		}
+	default:
+		return nil, ErrNoSigningKey
+	}
+
+	key, err := parseRSAPrivateKey(raw)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.keys[cacheKey] = key
+	s.mu.Unlock()
+	return key, nil
+}
+
+// sign produces Jenga's base64 RSA-SHA256 signature of the concatenated fields.
+func (s *signer) sign(creds *Credentials, fields ...string) (string, error) {
 	if IsTestMode() {
 		return "TEST_SIGNATURE_FOR_UNIT_TESTS", nil
 	}
-
-	// SECURITY: The privateKeyPath is set from config (env var) and must not contain path traversal.
-	if privateKeyPath == "" || strings.Contains(privateKeyPath, "..") {
-		return "", errors.New("invalid private key path")
-	}
-
-	privateKeyBytes, err := os.ReadFile(privateKeyPath)
+	key, err := s.keyFor(creds)
 	if err != nil {
-		return "", fmt.Errorf("failed to read private key: %w", err)
+		return "", err
 	}
+	return signMessage(key, strings.Join(fields, ""))
+}
 
-	// Decode PEM format
-	block, _ := pem.Decode(privateKeyBytes)
+func parseRSAPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(raw)
 	if block == nil {
-		return "", errors.New("failed to decode private key PEM")
+		return nil, errors.New("failed to decode private key PEM")
 	}
-
-	// Parse RSA private key
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if key, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		privateKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, errors.New("failed to cast parsed key to RSA private key")
+		}
+		return privateKey, nil
+	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse RSA private key: %w", err)
+		return nil, fmt.Errorf("failed to parse RSA private key: %w", err)
 	}
+	return privateKey, nil
+}
 
-	privateKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", errors.New("failed to cast parsed key to RSA private key")
-	}
-
-	// Compute SHA-256 hash
+func signMessage(key *rsa.PrivateKey, message string) (string, error) {
 	hashed := sha256.Sum256([]byte(message))
-
-	// Sign the hash using RSA PKCS1v15
-	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed[:])
+	signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, hashed[:])
 	if err != nil {
 		return "", fmt.Errorf("failed to sign data: %w", err)
 	}
-
-	// Encode to Base64
 	return base64.StdEncoding.EncodeToString(signature), nil
+}
+
+// GenerateSignature generates a SHA-256 signature with the RSA private key
+// read from privateKeyPath.
+func GenerateSignature(message, privateKeyPath string) (string, error) {
+	if IsTestMode() {
+		return "TEST_SIGNATURE_FOR_UNIT_TESTS", nil
+	}
+	if privateKeyPath == "" {
+		return "", ErrNoSigningKey
+	}
+	key, err := newSigner().keyFor(&Credentials{PrivateKeyPath: privateKeyPath})
+	if err != nil {
+		return "", err
+	}
+	return signMessage(key, message)
 }

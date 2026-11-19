@@ -14,6 +14,14 @@
 
 package client
 
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+)
+
 // AirtelCredentials holds per-request credentials for Airtel Money API.
 type AirtelCredentials struct {
 	ClientID     string
@@ -22,10 +30,22 @@ type AirtelCredentials struct {
 	CountryCode  string
 	Currency     string
 	Environment  string
+	// DisbursementPin is the wallet PIN disbursements are authorised with;
+	// it is sent RSA-encrypted with PublicKey (see EncryptPin).
+	DisbursementPin string
+	PublicKey       string
+
+	baseURL string
 }
+
+// SetBaseURL points the credentials at another API host (tests).
+func (c *AirtelCredentials) SetBaseURL(u string) { c.baseURL = u }
 
 // BaseURL returns the Airtel Money API base URL based on environment.
 func (c *AirtelCredentials) BaseURL() string {
+	if c.baseURL != "" {
+		return c.baseURL
+	}
 	if c.Environment == "production" {
 		return "https://openapi.airtel.africa"
 	}
@@ -39,14 +59,49 @@ type TokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
+// APIError is an Airtel answer that is not a success: a non-2xx HTTP status,
+// or a 2xx whose status.success is false.
+type APIError struct {
+	Operation  string
+	StatusCode int
+	Code       string
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	if e.Code != "" || e.Message != "" {
+		return fmt.Sprintf("%s refused: %s - %s", e.Operation, e.Code, e.Message)
+	}
+	return fmt.Sprintf("%s failed with status %d: %s", e.Operation, e.StatusCode, e.Message)
+}
+
+// IsNotFound reports whether Airtel knows no transaction for the id.
+func IsNotFound(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
+}
+
+// IsRejected reports whether Airtel refused the request (4xx, or a 2xx with
+// success=false): nothing was applied, so the worker may fail the entity.
+func IsRejected(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode < http.StatusInternalServerError
+}
+
 // CollectionRequest represents a USSD push collection request.
+//
+// Airtel's USSD push (POST /merchant/v2/payments/) takes no callback URL:
+// the collection callback endpoint is registered on the Airtel developer
+// portal per application, so none is carried here.
 type CollectionRequest struct {
 	Reference   string
 	PhoneNumber string
 	Amount      string
 	Currency    string
 	CountryCode string
-	CallbackURL string
 }
 
 // collectionPayload is the JSON payload sent to the Airtel API.
@@ -85,13 +140,16 @@ type CollectionResponse struct {
 	} `json:"status"`
 }
 
-// DisbursementRequest represents a disbursement request.
+// DisbursementRequest represents a disbursement request. EncryptedPin is
+// the wallet PIN RSA-encrypted with Airtel's public key (EncryptPin); the
+// v2 API refuses a disbursement without it.
 type DisbursementRequest struct {
-	Reference   string
-	PhoneNumber string
-	Amount      string
-	Currency    string
-	CountryCode string
+	Reference    string
+	PhoneNumber  string
+	Amount       string
+	Currency     string
+	CountryCode  string
+	EncryptedPin string
 }
 
 // disbursementPayload is the JSON payload sent to the Airtel API.
@@ -124,14 +182,17 @@ type DisbursementResponse struct {
 	} `json:"status"`
 }
 
-// StatusResponse represents the transaction status API response.
+// StatusResponse represents the transaction status API response. Amount is
+// not documented on every enquiry answer; when present it is checked
+// against the requested amount.
 type StatusResponse struct {
 	Data struct {
 		Transaction struct {
-			AirtelMoneyID string `json:"airtel_money_id"`
-			ID            string `json:"id"`
-			Message       string `json:"message"`
-			Status        string `json:"status"`
+			AirtelMoneyID FlexID     `json:"airtel_money_id"`
+			ID            string     `json:"id"`
+			Message       string     `json:"message"`
+			Status        string     `json:"status"`
+			Amount        FlexString `json:"amount"`
 		} `json:"transaction"`
 	} `json:"data"`
 	Status struct {
@@ -142,28 +203,73 @@ type StatusResponse struct {
 	} `json:"status"`
 }
 
-// CollectionCallbackBody represents the callback payload from Airtel for collections.
+// CollectionCallbackBody represents the callback payload from Airtel for
+// collections and disbursements. Airtel documents airtel_money_id as a
+// string; FlexID also accepts the {"id": "..."} object form seen in some
+// markets. Amount is optional and only checked when present.
 type CollectionCallbackBody struct {
 	Transaction struct {
-		ID          string `json:"id"`
-		Message     string `json:"message"`
-		StatusCode  string `json:"status_code"`
-		AirtelMoney struct {
-			ID string `json:"id"`
-		} `json:"airtel_money_id"`
+		ID            string     `json:"id"`
+		Message       string     `json:"message"`
+		StatusCode    string     `json:"status_code"`
+		AirtelMoneyID FlexID     `json:"airtel_money_id"`
+		Amount        FlexString `json:"amount"`
 	} `json:"transaction"`
 }
 
-// DisbursementCallbackBody represents the callback payload from Airtel for disbursements.
-type DisbursementCallbackBody struct {
-	Transaction struct {
-		ID          string `json:"id"`
-		Message     string `json:"message"`
-		StatusCode  string `json:"status_code"`
-		AirtelMoney struct {
-			ID string `json:"id"`
-		} `json:"airtel_money_id"`
-	} `json:"transaction"`
+// DisbursementCallbackBody is the disbursement callback payload (same shape
+// as a collection callback).
+type DisbursementCallbackBody = CollectionCallbackBody
+
+// FlexID decodes an id Airtel sends either as a string or as {"id": "..."}.
+type FlexID string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *FlexID) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		*f = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*f = FlexID(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err == nil {
+		*f = FlexID(n.String())
+		return nil
+	}
+	var obj struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return fmt.Errorf("airtel_money_id is neither a string nor an object: %w", err)
+	}
+	*f = FlexID(obj.ID)
+	return nil
+}
+
+// FlexString decodes a JSON string or number into a string.
+type FlexString string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (f *FlexString) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		*f = ""
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*f = FlexString(strings.TrimSpace(s))
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*f = FlexString(n.String())
+	return nil
 }
 
 // Status extras shared between the queue workers and the callback handler.

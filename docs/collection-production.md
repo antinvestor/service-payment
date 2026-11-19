@@ -37,7 +37,8 @@ Product / Admin UI  (or opportunities SPA)
 |----------|---------|---------|
 | `CHECKOUT_PUBLIC_BASE_URL` | Public origin for page URLs | `https://pay.stawi.org` |
 | `CHECKOUT_SIGNING_SECRET` | CSRF + guest cookie HMAC | strong random |
-| `CHECKOUT_METHODS` | Method registry JSON | default includes MoMo + card |
+| `CHECKOUT_ROUTES` | Payment routes offered (provider descriptors) | `fincra,mpesa,mtn,airtel` |
+| `CHECKOUT_METHODS` | Optional per-key override of the derived catalog | empty |
 | `PAYMENT_SERVICE_URI` | Core payment service | cluster DNS |
 | `PROFILE_SERVICE_URI` | Profile prefill/clues | cluster DNS |
 
@@ -54,6 +55,7 @@ Product / Admin UI  (or opportunities SPA)
 | `BILLING_LEDGER_REVENUE_ACCOUNT_ID` | Revenue on invoice issue | ledger account id |
 | `BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_NAME` | Default lifecycle queue ref | `subscription.lifecycle` |
 | `BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_URI` | Queue URI product apps subscribe to | `nats://…` / `mem://…` |
+| `BILLING_PROVIDER_COMMAND_URIS` | Provider command queues (cancel at Polar/Stripe) | `{"polar":"nats://…/polar.subscriptions.dequeue"}` |
 
 ### Yellow Card (`apps/integrations/yellowcard`) — dormant
 
@@ -77,6 +79,12 @@ Docs: [docs.yellowcard.engineering](https://docs.yellowcard.engineering/).
 Checkout method key `yellowcard` (route `yellowcard`). Webhooks:
 `POST /webhook/yellowcard/receives`, `POST /webhook/yellowcard/sends` with
 `?tenant_id=…&partition_id=…`. Production needs Yellow Card IP allow-listing.
+
+### Polar (`apps/integrations/polar`) — provider-managed subscriptions
+
+See [provider-subscriptions.md](./provider-subscriptions.md) for the flow,
+plan configuration, billing's `SyncProviderSubscription` RPC and the
+`provider_subscription_sync` grant.
 
 ### Fincra (`apps/integrations/fincra`) — card provider
 
@@ -136,6 +144,31 @@ route messages to provider integrations.
 Payload JSON includes subscription id, profile, plan, state, external entity, invoice id (when billed), partition/tenant, and full `data`.
 
 Product services subscribe to the queue (same pattern as M-Pesa/MTN payment workers) and grant or revoke entitlements. Delivery is best-effort and never rolls back billing state.
+
+## Integration workers: shared behaviour and new settings
+
+Every worker now follows one contract (`pkg/events.StatusEmitter`,
+`pkg/collection`): a FAILED status carries `STATE_INACTIVE` and an `error`
+extra; a provider answer whose outcome is unknown (timeout, 5xx) is never
+recorded as FAILED, the message is redelivered and the worker looks the
+record up first; fractional amounts on whole-unit rails fail with a reason
+instead of being rounded; webhook bodies are capped at 1 MiB; an
+unauthenticated callback can only update a record it is bound to (stored
+reference, amount and currency must match).
+
+| Integration | New / changed setting | Purpose |
+|-------------|-----------------------|---------|
+| mpesa | `?payment_id=` on B2C result/timeout URLs, `?prompt_id=` on STK URL (set by the workers) | Callbacks bind to the payout / prompt we sent; callbacks without them are refused |
+| mtn | `MTN_TARGET_ENVIRONMENT` | Market code sent as `X-Target-Environment` (`sandbox` outside production; required in production, e.g. `mtnuganda`) |
+| airtel | `AIRTEL_DISBURSEMENT_PIN`, `AIRTEL_PUBLIC_KEY` | Disbursements need the RSA-encrypted PIN; payouts fail with a clear reason when unset |
+| jenga | `JENGA_ENV` (`sandbox`/`production`), `JENGA_BASE_URL`, `JENGA_PRIVATE_KEY_PEM`, `JENGA_CALLBACK_URL` (service base) | The private key no longer ships in the image; callbacks carry a per-prompt secret; payouts are unsupported (tills-pay only) |
+| stripe | `STRIPE_WEBHOOK_SECRET` (required), `BILLING_SERVICE_URI`, `QUEUE_STRIPE_SUBSCRIPTION_URI`, headers `X-STRIPE_*` | Hosted Checkout Sessions, subscription mirror into billing; settings connections keyed `X-API_*` must be re-saved |
+| polar | `POLAR_WEBHOOK_SECRET` (required), `BILLING_SERVICE_URI`, `QUEUE_POLAR_SUBSCRIPTION_URI`, headers `X-POLAR_*` | See provider-subscriptions.md |
+
+Known limits: Daraja's Transaction Status API is asynchronous, so a B2C
+result is accepted on binding + amount match (the query is available for
+reconciliation); Jenga exposes no transaction query, so an STK success is
+recorded on callback secret + amount match only.
 
 ## Gateway exposure (Colony / Gateway API)
 
@@ -223,11 +256,33 @@ Grant `payment_collect` to product and admin service accounts that initiate coll
 
 ## Payment methods
 
-- Hosted page shows methods from `CHECKOUT_METHODS`, filtered by currency, locality, partition, and session restriction.
-- **Card is first** and opens Fincra's hosted payment page (`redirect: true`, route `fincra`). Fincra collects whole amounts only, so fractional card amounts are refused.
-- MoMo methods require phone when selected; card only needs email (prefilled when known).
-- Merchant may pass `methods: ["card"]` or `["mpesa","card"]` on CollectPayment / StartSubscription / product CreateSession.
-- Silent saved-card renewals are off (`BILLING_RENEWAL_DEFAULT_ROUTE` empty): each renewal sends the payer to the hosted page.
+Checkout derives its catalog from the deployed payment routes:
+
+- `CHECKOUT_ROUTES` (default `fincra,mpesa,mtn,airtel`) lists the routes this
+  deployment offers, in display order. Each is a provider descriptor in
+  `pkg/collection/providers.go`: name, currencies, countries, phone prefixes,
+  flow (push / redirect), whole-amount rule, subscription support.
+- `CHECKOUT_METHODS` optionally overrides or extends entries by key
+  (unset fields inherit from the descriptor).
+- `CHECKOUT_PARTITION_METHODS` restricts keys per partition; disjoint
+  session/partition allowlists offer nothing.
+- Every route in `CHECKOUT_ROUTES` needs a prompt queue in the payment
+  service's `INITIATE_PROMPT_ROUTE_URIS`; the payment service refuses a
+  prompt on a route it has no queue for (FailedPrecondition) instead of
+  queueing it where nobody listens.
+
+On the page: card is first and opens the provider's hosted page; MoMo rails
+appear when the payer's currency and locality match; product rails (Polar)
+appear only on sessions carrying `product_id` metadata. The submitted method
+is validated with the same resolution the page used, so a crafted POST cannot
+pick an excluded rail. Product apps can ask `CheckoutService.ListPaymentMethods`
+which rails a session would be offered. Sessions take a `cancel_url`;
+`paid_method` / `paid_route` on a completed session say which rail paid.
+
+Silent saved-card renewals are off (`BILLING_RENEWAL_DEFAULT_ROUTE` empty):
+each renewal sends the payer to the hosted page. Provider-managed plans
+(Polar, Stripe) never renew through billing: see
+[provider-subscriptions.md](./provider-subscriptions.md).
 
 ## Health checklist
 
@@ -238,3 +293,5 @@ Grant `payment_collect` to product and admin service accounts that initiate coll
 - [ ] Gateway routes for pay.* and collection/billing APIs  
 - [ ] Keto grants for `payment_collect`  
 - [ ] Provider integrations subscribed to prompt queues  
+- [ ] `CHECKOUT_ROUTES` ⊆ keys of `INITIATE_PROMPT_ROUTE_URIS`  
+- [ ] Integration service accounts granted `provider_subscription_sync` (Polar/Stripe)  

@@ -926,6 +926,22 @@ func (b *collectionBusiness) startProviderSubscription(
 		return &CollectionResult{SubscriptionID: sub.GetID(), AlreadyComplete: true}, nil
 	}
 
+	// A pending subscription whose hosted session is still open is sent
+	// back to that session: one open checkout per subscription, and the
+	// session bound on the row stays the one ConfirmPayment accepts.
+	if ref, _ := sub.Data[models.SubDataCheckoutSessionRef].(string); ref != "" {
+		if state, stateErr := b.checkout.SessionState(ctx, ref); stateErr == nil {
+			switch state.Status {
+			case "pending", "processing", "failed":
+				return &CollectionResult{PageURL: state.PageURL, SessionRef: ref, SubscriptionID: sub.GetID()}, nil
+			case "completed":
+				if actErr := b.activateSubscriptionIfPending(ctx, sub.GetID()); actErr == nil {
+					return &CollectionResult{SubscriptionID: sub.GetID(), AlreadyComplete: true}, nil
+				}
+			}
+		}
+	}
+
 	money, err := moneyFromDecimal(&upfront, in.Currency)
 	if err != nil {
 		return nil, fmt.Errorf("cannot build checkout amount: %w", err)
@@ -958,9 +974,16 @@ func (b *collectionBusiness) startProviderSubscription(
 	}, nil
 }
 
+// ErrCheckoutSessionNotBound is returned when a completed session does not
+// belong to the subscription it names.
+var ErrCheckoutSessionNotBound = errors.New("checkout session is not the one opened for this subscription")
+
 // confirmProviderSubscription activates a provider-managed subscription
-// whose hosted checkout completed. The provider webhook carries the
-// authoritative state later; this only removes the wait for it.
+// whose hosted checkout completed. Session metadata only names the
+// candidate: the subscription row must be provider-managed, must have
+// opened exactly this session, and the session must have completed on the
+// provider's own rail. The provider webhook carries the authoritative state
+// later; this only removes the wait for it.
 func (b *collectionBusiness) confirmProviderSubscription(
 	ctx context.Context,
 	state *CheckoutSessionState,
@@ -972,13 +995,27 @@ func (b *collectionBusiness) confirmProviderSubscription(
 	if subID == "" {
 		return nil, apperrors.ErrUnspecifiedReference
 	}
+	sub, err := b.subBiz.GetSubscription(ctx, subID)
+	if err != nil {
+		return nil, err
+	}
+	if !IsProviderManaged(sub) {
+		return nil, ErrCheckoutSessionNotBound
+	}
+	if bound, _ := sub.Data[models.SubDataCheckoutSessionRef].(string); bound != state.Ref {
+		return nil, ErrCheckoutSessionNotBound
+	}
 	if !state.Completed {
 		return nil, ErrCheckoutNotCompleted
+	}
+	provider := SubscriptionProvider(sub)
+	if state.PaidRoute != "" && state.PaidRoute != provider {
+		return nil, fmt.Errorf("%w: paid on %s, expected %s", ErrCheckoutSessionNotBound, state.PaidRoute, provider)
 	}
 	if actErr := b.activateSubscriptionIfPending(ctx, subID); actErr != nil {
 		return nil, actErr
 	}
-	sub, err := b.subBiz.GetSubscription(ctx, subID)
+	sub, err = b.subBiz.GetSubscription(ctx, subID)
 	if err != nil {
 		return nil, err
 	}

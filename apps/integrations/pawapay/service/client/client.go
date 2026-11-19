@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
@@ -133,7 +134,8 @@ func (c *client) doRequest(
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("execute %s request: %w", logType, err)
+		// The request may have reached pawaPay: the outcome is unknown.
+		return collection.Uncertain(fmt.Errorf("execute %s request: %w", logType, err))
 	}
 	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
@@ -142,6 +144,12 @@ func (c *client) doRequest(
 		"response": string(respBody),
 	}).Debug(logType + " response")
 
+	if resp.StatusCode >= http.StatusInternalServerError {
+		// A 5xx says nothing about whether pawaPay applied the request.
+		return collection.Uncertain(
+			fmt.Errorf("%s failed with status %d: %s", logType, resp.StatusCode, string(respBody)),
+		)
+	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("%s failed with status %d: %s", logType, resp.StatusCode, string(respBody))
 	}

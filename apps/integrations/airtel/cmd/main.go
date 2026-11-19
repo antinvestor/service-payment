@@ -61,7 +61,7 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	airtelCli := client.NewClient()
+	airtelCli := client.NewClient(ctx)
 
 	webhookServer := handlers.NewAirtelWebhookServer(
 		paymentCli, airtelCli, queue.NewCredentialResolver(settingsCli, &cfg),

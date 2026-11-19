@@ -16,6 +16,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
@@ -28,17 +29,18 @@ import (
 	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type promptHandler struct {
 	credentialResolver
-	eventsMan frameEvents.Manager
+	emitter   *events.StatusEmitter
 	airtelCli client.AirtelClient
 	metrics   *integrationobs.Metrics
 }
 
-// NewPromptHandler creates a queue worker for handling USSD push collection prompts.
+// NewPromptHandler creates the queue worker for USSD push collections. The
+// prompt id is Airtel's transaction id, so a redelivered prompt finds the
+// push already sent (TransactionStatus) instead of prompting twice.
 func NewPromptHandler(
 	eventsMan frameEvents.Manager,
 	airtelCli client.AirtelClient,
@@ -46,103 +48,99 @@ func NewPromptHandler(
 	cfg *config.AirtelConfig,
 ) queue.SubscribeWorker {
 	return &promptHandler{
-		credentialResolver: credentialResolver{
-			settingsCli: settingsCli,
-			cfg:         cfg,
-		},
-		eventsMan: eventsMan,
-		airtelCli: airtelCli,
-		metrics:   integrationobs.NewMetrics("airtel"),
+		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
+		emitter:            events.NewStatusEmitter(eventsMan),
+		airtelCli:          airtelCli,
+		metrics:            integrationobs.NewMetrics(providerName),
 	}
+}
+
+func (h *promptHandler) fail(ctx context.Context, promptID, reason, message string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, kindPrompt, reason)
+	return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID, message, extras)
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "airtel.prompt")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
-		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
+		h.metrics.QueueFailed(ctx, kindPrompt, "unmarshal_error")
 		return nil
 	}
-
 	promptID := prompt.GetId()
 	logger = logger.WithField("prompt_id", promptID)
 
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "credentials_error", err.Error(), nil)
+	}
+
+	amount, err := airtelAmount(prompt.GetAmount())
+	if err != nil {
+		logger.WithError(err).Error("prompt amount cannot be sent to Airtel")
+		return h.fail(ctx, promptID, "rejected", "invalid amount: "+err.Error(), nil)
+	}
+	currency := requestCurrency(prompt.GetAmount(), creds)
+	extras := withRequestBinding(map[string]any{}, amount, currency, headers)
+
+	// A redelivered prompt answers with the push already sent.
+	if existing, getErr := h.airtelCli.TransactionStatus(ctx, creds, promptID); getErr == nil && existing.Data.Transaction.Status != "" {
+		logger.Debug("collection push already sent")
+		return h.emitKnown(ctx, promptID, existing, extras)
+	} else if getErr != nil && !client.IsNotFound(getErr) {
+		logger.WithError(getErr).Warn("collection lookup failed, sending")
 	}
 
 	phoneNumber := prompt.GetRecipient().GetContactId()
 	if phoneNumber == "" {
 		phoneNumber = prompt.GetSource().GetContactId()
 	}
-
-	amount := formatMoneyAmount(prompt.GetAmount())
-
-	currency := creds.Currency
-	if prompt.GetAmount() != nil && prompt.GetAmount().GetCurrencyCode() != "" {
-		currency = prompt.GetAmount().GetCurrencyCode()
-	}
-
 	req := &client.CollectionRequest{
 		Reference:   promptID,
 		PhoneNumber: phoneNumber,
 		Amount:      amount,
 		Currency:    currency,
 		CountryCode: creds.CountryCode,
-		CallbackURL: appendTenantParams(creds.CallbackURL+"/webhook/airtel/collection", headers),
 	}
 
 	resp, err := h.airtelCli.CollectionPush(ctx, creds, req)
 	if err != nil {
-		logger.WithError(err).Error("collection push failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		if client.IsRejected(err) {
+			logger.WithError(err).Error("collection push refused by Airtel")
+			return h.fail(ctx, promptID, "provider_error", err.Error(), extras)
+		}
+		// Unknown outcome (timeout, 5xx): Airtel may have pushed the prompt.
+		// Report what it holds, or redeliver until it can be found.
+		existing, getErr := h.airtelCli.TransactionStatus(ctx, creds, promptID)
+		if getErr != nil || existing.Data.Transaction.Status == "" {
+			logger.WithError(err).Warn("collection push outcome unknown; redelivering")
+			h.metrics.QueueFailed(ctx, kindPrompt, "provider_error")
+			return fmt.Errorf("collection push %s outcome unknown: %w", promptID, err)
+		}
+		return h.emitKnown(ctx, promptID, existing, extras)
 	}
 
 	externalID := resp.Data.Transaction.ID
 	logger.WithField("transaction_id", externalID).Debug("collection push initiated")
-
-	h.emitStatus(ctx, promptID, externalID, commonv1.STATUS_IN_PROCESS, withRequestBinding(map[string]any{
-		"transaction_id": externalID,
-		"status_code":    resp.Status.Code,
-		"message":        resp.Status.Message,
-		"entity_type":    "prompt",
-	}, amount, currency, headers))
-
-	h.metrics.QueueProcessed(ctx, "prompt")
+	extras[client.ExtraTransactionID] = externalID
+	extras["status_code"] = resp.Status.Code
+	extras["message"] = resp.Status.Message
+	if err = h.emitter.Emit(ctx, events.EntityTypePrompt, promptID, externalID, commonv1.STATUS_IN_PROCESS, extras); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, kindPrompt)
 	return nil
 }
 
-func (h *promptHandler) emitStatus(
-	ctx context.Context,
-	id, externalID string,
-	status commonv1.STATUS,
-	extras map[string]any,
-) {
-	extra, _ := structpb.NewStruct(extras)
-	err := h.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
-		Id:         id,
-		State:      commonv1.STATE_ACTIVE,
-		Status:     status,
-		ExternalId: externalID,
-		Extras:     extra,
-	})
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
+func (h *promptHandler) emitKnown(ctx context.Context, promptID string, st *client.StatusResponse, extras map[string]any) error {
+	if mapAirtelStatus(st.Data.Transaction.Status) == commonv1.STATUS_FAILED {
+		h.metrics.QueueFailed(ctx, kindPrompt, "rejected")
+	} else {
+		h.metrics.QueueProcessed(ctx, kindPrompt)
 	}
+	return emitKnown(ctx, h.emitter, events.EntityTypePrompt, promptID, st, extras)
 }

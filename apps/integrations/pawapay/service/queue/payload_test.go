@@ -115,13 +115,17 @@ func TestSanitizeCustomerMessage(t *testing.T) {
 }
 
 func TestPaymentMetadata(t *testing.T) {
-	md := paymentMetadata("payment", "pay-123", map[string]string{
-		"tenant_id":    "tenant-1",
-		"partition_id": "partition-1",
-	})
+	md := paymentMetadata("payment", "pay-123",
+		&commonv1.Money{CurrencyCode: "ZMW", Units: 15, Nanos: 500_000_000},
+		map[string]string{
+			"tenant_id":    "tenant-1",
+			"partition_id": "partition-1",
+		})
 
 	assert.Equal(t, "payment", md["entityType"])
 	assert.Equal(t, "pay-123", md["paymentId"])
+	assert.Equal(t, "15.5", md["amount"])
+	assert.Equal(t, "ZMW", md["currency"])
 	assert.Equal(t, "tenant-1", md["tenantId"])
 	assert.Equal(t, "partition-1", md["partitionId"])
 }

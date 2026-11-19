@@ -290,6 +290,12 @@ func (s *Server) createCharge(w http.ResponseWriter, r *http.Request) {
 		Currency: req.Currency, Status: client.StatusPending, Reference: req.Reference, Type: req.Type,
 		Customer: req.Customer, ChargeReference: s.id("fcr-ch-"),
 	}
+	if len(req.Metadata) > 0 {
+		ch.Metadata = map[string]any{}
+		for k, v := range req.Metadata {
+			ch.Metadata[k] = v
+		}
+	}
 	switch req.Type {
 	case client.ChargeTypeMobileMoney:
 		if req.Phone == "" || req.Operator == "" {

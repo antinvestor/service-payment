@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/antinvestor/service-payments/apps/billing/service/models"
 	"github.com/antinvestor/service-payments/apps/billing/service/observability"
@@ -72,8 +73,16 @@ type SubscriptionCheckoutInput struct {
 type CheckoutSessionState struct {
 	Ref       string
 	Completed bool
-	OrderRef  string
-	Metadata  map[string]string
+	// Status is the checkout session status name (pending, processing,
+	// completed, failed, expired).
+	Status   string
+	PageURL  string
+	OrderRef string
+	Metadata map[string]string
+	// PaidMethod / PaidRoute are the method key and payment route the
+	// completed payment went through (empty until a payment is made).
+	PaidMethod string
+	PaidRoute  string
 }
 
 type CheckoutIntegration interface {
@@ -212,12 +221,23 @@ func (c *checkoutIntegration) CreateSubscriptionCheckout(
 	if in.Provider == "" || in.ProductID == "" {
 		return nil, ErrPlanNotPolarCollected
 	}
-	methods := in.Options.Methods
-	if len(methods) == 0 {
-		if p, ok := collection.ProviderByRoute(in.Provider); ok {
-			methods = []string{p.MethodKey}
-		} else {
-			methods = []string{in.Provider}
+	// Only the provider's own rail can open a provider-managed subscription:
+	// a caller may narrow the list, never widen it onto another rail.
+	providerKey := in.Provider
+	if p, ok := collection.ProviderByRoute(in.Provider); ok {
+		providerKey = p.MethodKey
+	}
+	methods := []string{providerKey}
+	if len(in.Options.Methods) > 0 {
+		allowed := false
+		for _, m := range in.Options.Methods {
+			if strings.EqualFold(strings.TrimSpace(m), providerKey) {
+				allowed = true
+			}
+		}
+		if !allowed {
+			return nil, fmt.Errorf("%w: plan is charged by %s, methods must include %q",
+				ErrPlanNotPolarCollected, in.Provider, providerKey)
 		}
 	}
 	name := "Subscription"
@@ -280,11 +300,31 @@ func (c *checkoutIntegration) SessionState(ctx context.Context, sessionRef strin
 	}
 	session := resp.GetData()
 	return &CheckoutSessionState{
-		Ref:       session.GetRef(),
-		Completed: session.GetStatus() == checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED,
-		OrderRef:  session.GetOrderRef(),
-		Metadata:  session.GetMetadata(),
+		Ref:        session.GetRef(),
+		Completed:  session.GetStatus() == checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED,
+		Status:     sessionStatusName(session.GetStatus()),
+		PageURL:    session.GetPageUrl(),
+		OrderRef:   session.GetOrderRef(),
+		Metadata:   session.GetMetadata(),
+		PaidMethod: session.GetPaidMethod(),
+		PaidRoute:  session.GetPaidRoute(),
 	}, nil
+}
+
+// sessionStatusName maps the proto enum to the checkout status names.
+func sessionStatusName(s checkoutv1.SessionStatus) string {
+	switch s {
+	case checkoutv1.SessionStatus_SESSION_STATUS_PROCESSING:
+		return "processing"
+	case checkoutv1.SessionStatus_SESSION_STATUS_COMPLETED:
+		return "completed"
+	case checkoutv1.SessionStatus_SESSION_STATUS_FAILED:
+		return "failed"
+	case checkoutv1.SessionStatus_SESSION_STATUS_EXPIRED:
+		return "expired"
+	default:
+		return "pending"
+	}
 }
 
 // SettleFromCheckout verifies that a checkout session is completed, matches

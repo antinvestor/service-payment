@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/config"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/google/uuid"
@@ -107,13 +108,20 @@ func sanitizeCustomerMessage(msg string) string {
 
 // paymentMetadata builds the metadata attached to every pawaPay payment so
 // callbacks can be correlated back to the originating record, tenant and
-// credential connection. The webhook server treats callbacks as untrusted
-// notifications and re-fetches the payment from pawaPay; these values are
-// only trusted once they come back on that verified record.
-func paymentMetadata(entityType, internalID string, headers map[string]string) map[string]string {
+// credential connection, and the amount requested can be checked against
+// the amount pawaPay reports. The webhook server treats callbacks as
+// untrusted notifications and re-fetches the payment from pawaPay; these
+// values are only trusted once they come back on that verified record.
+func paymentMetadata(
+	entityType, internalID string,
+	amount *commonv1.Money,
+	headers map[string]string,
+) map[string]string {
 	return map[string]string{
 		"entityType":  entityType,
 		"paymentId":   internalID,
+		"amount":      formatMoneyAmount(amount),
+		"currency":    amount.GetCurrencyCode(),
 		"tenantId":    headers["tenant_id"],
 		"partitionId": headers["partition_id"],
 		"connection":  headers[config.HeaderConnectionCredentials],

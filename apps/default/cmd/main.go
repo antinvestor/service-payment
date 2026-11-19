@@ -39,6 +39,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/default/service/events"
 	"github.com/antinvestor/service-payments/apps/default/service/handlers"
 	"github.com/antinvestor/service-payments/apps/default/service/repository"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/pitabwire/frame/v3"
 	"github.com/pitabwire/frame/v3/config"
 	"github.com/pitabwire/frame/v3/datastore"
@@ -139,6 +140,9 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	if err != nil {
 		util.Log(ctx).WithError(err).Fatal("could not initialize payment business")
 	}
+	if routes := promptRouteKeys(ctx, cfg); len(routes) > 0 {
+		paymentBusiness = paymentBusiness.WithPromptRoutes(routes)
+	}
 
 	// Setup Connect server
 	connectHandler := setupConnectServer(
@@ -193,25 +197,48 @@ func main() { //nolint:funlen // service wiring requires sequential setup
 	}
 }
 
-// registerPromptRoutePublishers parses INITIATE_PROMPT_ROUTE_URIS JSON and
-// registers one publisher per route as "prompt.<route>".
-func registerPromptRoutePublishers(ctx context.Context, cfg aconfig.PaymentConfig) []frame.Option {
+// promptRouteURIs parses INITIATE_PROMPT_ROUTE_URIS: route key → queue URI.
+func promptRouteURIs(ctx context.Context, cfg aconfig.PaymentConfig) map[string]string {
 	raw := strings.TrimSpace(cfg.InitiatePromptRouteURIs)
 	if raw == "" {
 		return nil
 	}
 	var routes map[string]string
 	if err := json.Unmarshal([]byte(raw), &routes); err != nil {
-		util.Log(ctx).WithError(err).Error("INITIATE_PROMPT_ROUTE_URIS is not valid JSON — ignoring route fan-out")
+		util.Log(ctx).WithError(err).Fatal("INITIATE_PROMPT_ROUTE_URIS is not valid JSON")
 		return nil
 	}
-	opts := make([]frame.Option, 0, len(routes))
+	out := make(map[string]string, len(routes))
 	for route, uri := range routes {
 		route = strings.TrimSpace(strings.ToLower(route))
 		uri = strings.TrimSpace(uri)
 		if route == "" || uri == "" {
 			continue
 		}
+		if _, known := collection.ProviderByRoute(route); !known {
+			util.Log(ctx).WithField("route", route).Warn("INITIATE_PROMPT_ROUTE_URIS names a route with no provider descriptor in pkg/collection")
+		}
+		out[route] = uri
+	}
+	return out
+}
+
+// promptRouteKeys lists the routes with a dedicated prompt queue.
+func promptRouteKeys(ctx context.Context, cfg aconfig.PaymentConfig) []string {
+	uris := promptRouteURIs(ctx, cfg)
+	keys := make([]string, 0, len(uris))
+	for route := range uris {
+		keys = append(keys, route)
+	}
+	return keys
+}
+
+// registerPromptRoutePublishers registers one publisher per route as
+// "prompt.<route>" so InitiatePrompt publishes to the integration's queue.
+func registerPromptRoutePublishers(ctx context.Context, cfg aconfig.PaymentConfig) []frame.Option {
+	uris := promptRouteURIs(ctx, cfg)
+	opts := make([]frame.Option, 0, len(uris))
+	for route, uri := range uris {
 		ref := "prompt." + route
 		util.Log(ctx).WithField("route", route).WithField("publisher", ref).Info("registering initiate-prompt route publisher")
 		opts = append(opts, frame.WithRegisterPublisher(ref, uri))

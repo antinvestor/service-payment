@@ -162,3 +162,47 @@ func (ts *CollectionProviderSuite) TestConfirmPayment_ProviderSession_NotComplet
 		require.ErrorIs(t, err, business.ErrCheckoutNotCompleted)
 	})
 }
+
+func (ts *CollectionProviderSuite) TestConfirmPayment_RefusesUnboundOrForeignSessions() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		ch := newCheckoutTestHarness(t)
+		profileID := util.IDString()
+		ctx = ts.WithAuthClaims(ctx, util.IDString(), util.IDString(), profileID)
+		cvID, planID := makeProviderPlan(t, ctx, resources)
+		coll := newProviderCollectionBiz(resources, ch, &recordingCommands{})
+
+		result, err := coll.StartSubscription(ctx, business.StartSubscriptionInput{
+			ProfileID: profileID, PlanID: planID, CatalogVersionID: cvID, Currency: "KES",
+		})
+		require.NoError(t, err)
+
+		// A completed session crafted by another caller that merely names the
+		// subscription in its metadata must not activate it.
+		forged := &checkoutModels.CheckoutSession{
+			Ref: "forged-session-ref-000000000000000", Name: "x", Amount: "1.00", Currency: "KES",
+			AmountOption: checkoutModels.AmountOptionFixed, Status: checkoutModels.SessionStatusCompleted,
+			OrderRef: result.SubscriptionID,
+			Metadata: map[string]any{"subscriptionId": result.SubscriptionID, models.SubDataCollectionMode: models.CollectionModeProvider},
+		}
+		ch.sessionRepo.sessions[forged.Ref] = forged
+		_, err = coll.ConfirmPayment(ctx, forged.Ref)
+		require.ErrorIs(t, err, business.ErrCheckoutSessionNotBound)
+		sub, err := resources.SubscriptionBusiness.GetSubscription(ctx, result.SubscriptionID)
+		require.NoError(t, err)
+		assert.Equal(t, models.SubscriptionStatePending, sub.State)
+
+		// The real session, but paid on another rail: refused as well.
+		real := ch.sessionRepo.sessions[result.SessionRef]
+		real.Status = checkoutModels.SessionStatusCompleted
+		real.Metadata["_route"] = "mpesa"
+		_, err = coll.ConfirmPayment(ctx, result.SessionRef)
+		require.ErrorIs(t, err, business.ErrCheckoutSessionNotBound)
+
+		// A caller cannot widen the rail onto M-PESA for a Polar plan.
+		_, err = coll.StartSubscription(ctx, business.StartSubscriptionInput{
+			ProfileID: util.IDString(), PlanID: planID, CatalogVersionID: cvID, Currency: "KES", Methods: []string{"mpesa"},
+		})
+		require.Error(t, err)
+	})
+}

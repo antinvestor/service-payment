@@ -51,6 +51,10 @@ func main() {
 	logger := svc.Log(ctx)
 	eventsMan := svc.EventsManager()
 
+	if err = cfg.Validate(ctx); err != nil {
+		logger.WithError(err).Fatal("invalid MTN configuration")
+	}
+
 	paymentCli, err := setupPaymentClient(ctx, cfg)
 	if err != nil {
 		logger.WithError(err).Fatal("could not setup payment client")
@@ -61,7 +65,7 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	mtnCli := client.NewClient()
+	mtnCli := client.NewClient(ctx)
 
 	webhookServer := handlers.NewMtnWebhookServer(
 		paymentCli, mtnCli, queue.NewCredentialResolver(settingsCli, &cfg),

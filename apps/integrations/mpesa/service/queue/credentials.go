@@ -65,6 +65,9 @@ func (r *credentialResolver) credentialsFromSettings(
 	ctx context.Context,
 	connection string,
 ) (*client.MpesaCredentials, error) {
+	if r.settingsCli == nil {
+		return nil, errors.New("settings client not configured; cannot resolve connection credentials")
+	}
 	settingReq := &settingsv1.GetRequest{
 		Key: &settingsv1.Setting{
 			Name:     connection,
@@ -94,7 +97,12 @@ func (r *credentialResolver) credentialsFromSettings(
 		SecurityCredential: credMap[config.HeaderSecurityCredential],
 		Environment:        credMap[config.HeaderEnvironment],
 	}
-
+	if creds.Environment == "" {
+		creds.Environment = r.cfg.Environment
+	}
+	if creds.ConsumerKey == "" || creds.ConsumerSecret == "" {
+		return nil, errors.New("settings connection has no M-Pesa consumer key/secret")
+	}
 	return creds, nil
 }
 

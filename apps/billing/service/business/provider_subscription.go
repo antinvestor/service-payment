@@ -195,6 +195,11 @@ type PolarSubscriptionBusiness interface {
 // ErrStaleProviderEvent marks an event older than the state already applied.
 var ErrStaleProviderEvent = errors.New("provider event is older than the applied state")
 
+// ErrProviderSubscriptionMismatch is returned when a provider event names a
+// billing subscription that belongs to another provider, product or
+// provider subscription: webhook metadata can never re-point a row.
+var ErrProviderSubscriptionMismatch = errors.New("provider event does not match the billing subscription it names")
+
 type polarSubscriptionBusiness struct {
 	workMan  workerpool.Manager
 	subRepo  repository.SubscriptionRepository
@@ -408,6 +413,9 @@ func (b *polarSubscriptionBusiness) MirrorSubscriptionState(
 }
 
 // findSubscriptionForMirror resolves the billing subscription for an event.
+// Every candidate must already be a provider-managed row of this provider
+// whose product and provider subscription (when known) match the event, so
+// metadata on a webhook can never take over another subscription.
 func (b *polarSubscriptionBusiness) findSubscriptionForMirror(
 	ctx context.Context,
 	in MirrorInput,
@@ -415,6 +423,9 @@ func (b *polarSubscriptionBusiness) findSubscriptionForMirror(
 	if in.SubscriptionID != "" {
 		sub, err := b.subRepo.GetByID(ctx, in.SubscriptionID)
 		if err == nil {
+			if bindErr := providerBindingMatches(sub, in); bindErr != nil {
+				return nil, bindErr
+			}
 			return sub, nil
 		}
 		if !data.ErrorIsNoRows(err) && !errors.Is(err, apperrors.ErrSubscriptionNotFound) {
@@ -424,6 +435,9 @@ func (b *polarSubscriptionBusiness) findSubscriptionForMirror(
 	if in.PolarSubscriptionID != "" {
 		sub, err := b.subRepo.GetByExternalSubscriptionID(ctx, in.Provider, in.PolarSubscriptionID)
 		if err == nil {
+			if bindErr := providerBindingMatches(sub, in); bindErr != nil {
+				return nil, bindErr
+			}
 			return sub, nil
 		}
 		if !errors.Is(err, apperrors.ErrSubscriptionNotFound) {
@@ -440,7 +454,35 @@ func (b *polarSubscriptionBusiness) findSubscriptionForMirror(
 		}
 		return nil, err
 	}
+	if bindErr := providerBindingMatches(sub, in); bindErr != nil {
+		return nil, bindErr
+	}
 	return sub, nil
+}
+
+// providerBindingMatches checks that an event may be applied to sub: the
+// row is provider-managed by in.Provider, its product is the event's
+// product and, once a provider subscription id is pinned, the event names it.
+func providerBindingMatches(sub *models.Subscription, in MirrorInput) error {
+	if !IsProviderManaged(sub) {
+		return ErrProviderSubscriptionMismatch
+	}
+	if p := SubscriptionProvider(sub); p != "" && p != in.Provider {
+		return ErrProviderSubscriptionMismatch
+	}
+	if stored := ExternalSubscriptionID(sub); stored != "" && in.PolarSubscriptionID != "" && stored != in.PolarSubscriptionID {
+		return ErrProviderSubscriptionMismatch
+	}
+	if in.ExternalProductID != "" {
+		product := stringData(sub.Data, models.SubDataExternalProductID)
+		if product == "" {
+			product = stringData(sub.Data, PolarDataKeyProductID)
+		}
+		if product != "" && product != in.ExternalProductID {
+			return ErrProviderSubscriptionMismatch
+		}
+	}
+	return nil
 }
 
 // applyBilled records a successful provider charge for a period.

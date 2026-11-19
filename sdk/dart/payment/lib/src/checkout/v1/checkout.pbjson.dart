@@ -176,6 +176,8 @@ const CheckoutSession$json = {
     {'1': 'expires_at', '3': 13, '4': 1, '5': 9, '10': 'expiresAt'},
     {'1': 'payment_id', '3': 14, '4': 1, '5': 9, '10': 'paymentId'},
     {'1': 'cancel_url', '3': 15, '4': 1, '5': 9, '10': 'cancelUrl'},
+    {'1': 'paid_method', '3': 16, '4': 1, '5': 9, '10': 'paidMethod'},
+    {'1': 'paid_route', '3': 17, '4': 1, '5': 9, '10': 'paidRoute'},
   ],
   '3': [CheckoutSession_MetadataEntry$json],
 };
@@ -202,8 +204,9 @@ final $typed_data.Uint8List checkoutSessionDescriptor = $convert.base64Decode(
     'ABKA4yGi5jaGVja291dC52MS5TZXNzaW9uU3RhdHVzUgZzdGF0dXMSGwoJcHJvbXB0X2lkGAsg'
     'ASgJUghwcm9tcHRJZBIZCghwYWdlX3VybBgMIAEoCVIHcGFnZVVybBIdCgpleHBpcmVzX2F0GA'
     '0gASgJUglleHBpcmVzQXQSHQoKcGF5bWVudF9pZBgOIAEoCVIJcGF5bWVudElkEh0KCmNhbmNl'
-    'bF91cmwYDyABKAlSCWNhbmNlbFVybBo7Cg1NZXRhZGF0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2'
-    'V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAE=');
+    'bF91cmwYDyABKAlSCWNhbmNlbFVybBIfCgtwYWlkX21ldGhvZBgQIAEoCVIKcGFpZE1ldGhvZB'
+    'IdCgpwYWlkX3JvdXRlGBEgASgJUglwYWlkUm91dGUaOwoNTWV0YWRhdGFFbnRyeRIQCgNrZXkY'
+    'ASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
 
 @$core.Deprecated('Use checkoutLinkDescriptor instead')
 const CheckoutLink$json = {

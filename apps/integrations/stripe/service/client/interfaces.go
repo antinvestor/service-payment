@@ -14,20 +14,47 @@
 
 package client
 
-import "context"
+import (
+	"context"
+
+	"github.com/stripe/stripe-go/v82"
+)
 
 // StripeClient defines the interface for Stripe API operations.
+//
+// Transport failures and 5xx answers are returned wrapped in
+// collection.Uncertain so workers redeliver; 4xx rejections are plain errors.
 type StripeClient interface {
-	// CreatePaymentIntent creates a Stripe PaymentIntent for requesting money
+	// CreateCheckoutSession opens a hosted Checkout Session (payment or
+	// subscription mode).
+	CreateCheckoutSession(
+		ctx context.Context,
+		creds *StripeCredentials,
+		req *CheckoutSessionRequest,
+	) (*CheckoutSessionResponse, error)
+
+	// CreatePaymentIntent creates a PaymentIntent whose client_secret is
+	// confirmed by Stripe.js on our own page.
 	CreatePaymentIntent(
 		ctx context.Context,
 		creds *StripeCredentials,
 		req *PaymentIntentRequest,
 	) (*PaymentIntentResponse, error)
 
-	// CreatePayout creates a Stripe Payout for sending money
+	// CreatePayout creates a Payout to an external account of the platform
+	// (or connected) Stripe account.
 	CreatePayout(ctx context.Context, creds *StripeCredentials, req *PayoutRequest) (*PayoutResponse, error)
 
-	// VerifyWebhookSignature verifies and parses a Stripe webhook event
-	VerifyWebhookSignature(payload []byte, signature, webhookSecret string) (*WebhookEvent, error)
+	// CancelSubscription cancels a subscription at the end of the current
+	// period (update cancel_at_period_end=true) or immediately (DELETE).
+	CancelSubscription(
+		ctx context.Context,
+		creds *StripeCredentials,
+		subscriptionID string,
+		atPeriodEnd bool,
+	) (*SubscriptionResponse, error)
+
+	// VerifyWebhookSignature verifies the Stripe-Signature header and
+	// decodes the event.
+	VerifyWebhookSignature(payload []byte, signature, webhookSecret string) (*stripe.Event, error)
 }

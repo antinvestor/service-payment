@@ -27,4 +27,13 @@ type MpesaClient interface {
 
 	// B2CPayment initiates a Business-to-Customer payment (disbursement)
 	B2CPayment(ctx context.Context, creds *MpesaCredentials, req *B2CRequest) (*B2CResponse, error)
+
+	// TransactionStatus submits a Transaction Status query. Daraja answers
+	// asynchronously on the request's ResultURL; the returned value is only
+	// the acknowledgement.
+	TransactionStatus(
+		ctx context.Context,
+		creds *MpesaCredentials,
+		req *TransactionStatusRequest,
+	) (*TransactionStatusResponse, error)
 }

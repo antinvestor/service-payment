@@ -197,3 +197,45 @@ func TestProviderProductFor(t *testing.T) {
 	assert.True(t, business.IsProviderManaged(&models.Subscription{Data: map[string]any{"collectionMode": "provider"}}))
 	assert.False(t, business.IsProviderManaged(&models.Subscription{}))
 }
+
+func (ts *ProviderSubscriptionSuite) TestMirror_RefusesEventsNamingOtherSubscriptions() {
+	ts.WithTestDependencies(ts.T(), func(t *testing.T, dep *definition.DependencyOption) {
+		ctx, _, resources := ts.CreateService(t, dep)
+		profileID := util.IDString()
+		ctx = ts.WithAuthClaims(ctx, util.IDString(), util.IDString(), profileID)
+
+		// A subscription billing collects itself: webhook metadata must not claim it.
+		own, err := resources.SubscriptionBusiness.CreateSubscription(ctx, &models.Subscription{
+			ProfileID: profileID, PlanID: util.IDString(), CatalogVersionID: util.IDString(),
+			Currency: "KES", State: models.SubscriptionStateActive,
+		})
+		require.NoError(t, err)
+		_, err = resources.PolarSubscriptionBusiness.MirrorSubscriptionState(ctx, business.MirrorInput{
+			SubscriptionID: own.GetID(), PolarSubscriptionID: "psub_evil", PolarStatus: collection.SubscriptionStatusRevoked,
+		})
+		require.ErrorIs(t, err, business.ErrProviderSubscriptionMismatch)
+		fresh, err := resources.SubscriptionBusiness.GetSubscription(ctx, own.GetID())
+		require.NoError(t, err)
+		assert.Equal(t, models.SubscriptionStateActive, fresh.State)
+
+		// A provider subscription already pinned to psub_a cannot be re-pointed.
+		_, start := startPendingPolarSub(ctx, t, resources, profileID)
+		_, err = resources.PolarSubscriptionBusiness.MirrorSubscriptionState(ctx, business.MirrorInput{
+			SubscriptionID: start.Subscription.GetID(), PolarSubscriptionID: "psub_a",
+			PolarStatus: collection.SubscriptionStatusActive, OccurredAt: rfc3339In(0),
+		})
+		require.NoError(t, err)
+		_, err = resources.PolarSubscriptionBusiness.MirrorSubscriptionState(ctx, business.MirrorInput{
+			SubscriptionID: start.Subscription.GetID(), PolarSubscriptionID: "psub_b",
+			PolarStatus: collection.SubscriptionStatusRevoked, OccurredAt: rfc3339In(time.Second),
+		})
+		require.ErrorIs(t, err, business.ErrProviderSubscriptionMismatch)
+
+		// Another product's event is refused too.
+		_, err = resources.PolarSubscriptionBusiness.MirrorSubscriptionState(ctx, business.MirrorInput{
+			PolarSubscriptionID: "psub_a", ExternalProductID: "prod_other",
+			PolarStatus: collection.SubscriptionStatusRevoked, OccurredAt: rfc3339In(time.Second),
+		})
+		require.ErrorIs(t, err, business.ErrProviderSubscriptionMismatch)
+	})
+}

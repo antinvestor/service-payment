@@ -16,13 +16,13 @@ package queue
 
 import (
 	"context"
+	"fmt"
 
-	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
-	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
-	"github.com/antinvestor/service-payments/apps/integrations/pawapay/config"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/credentials"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
@@ -31,52 +31,80 @@ import (
 )
 
 type promptHandler struct {
-	statusEmitter
+	reporter
 	credsResolver *credentials.Resolver
 	pawapayCli    client.PawapayClient
-	metrics       *integrationobs.Metrics
 }
 
-// NewPromptHandler creates a queue worker for handling deposit (collection)
-// prompt requests. A pawaPay deposit triggers a PIN prompt on the customer's
-// phone to authorise the payment, equivalent to an M-Pesa STK push.
+// NewPromptHandler creates the queue worker for deposit (collection)
+// prompts. A pawaPay deposit triggers a PIN prompt on the customer's phone,
+// equivalent to an M-Pesa STK push. The deposit id is derived from the
+// prompt id, so a redelivered prompt finds the deposit pawaPay already
+// holds instead of prompting the customer twice.
 func NewPromptHandler(
 	eventsMan frameEvents.Manager,
 	pawapayCli client.PawapayClient,
-	settingsCli settingsv1connect.SettingsServiceClient,
-	cfg *config.PawapayConfig,
+	credsResolver *credentials.Resolver,
 ) queue.SubscribeWorker {
 	return &promptHandler{
-		statusEmitter: statusEmitter{eventsMan: eventsMan},
-		credsResolver: credentials.NewResolver(settingsCli, cfg),
+		reporter: reporter{
+			emitter:    events.NewStatusEmitter(eventsMan),
+			metrics:    integrationobs.NewMetrics(providerName),
+			entityType: events.EntityTypePrompt,
+			kind:       "deposit",
+		},
+		credsResolver: credsResolver,
 		pawapayCli:    pawapayCli,
-		metrics:       integrationobs.NewMetrics("pawapay"),
 	}
+}
+
+// lookup reports the deposit pawaPay holds, or found=false when it has none.
+func (h *promptHandler) lookup(
+	ctx context.Context,
+	creds *client.Credentials,
+	promptID, depositID string,
+) (bool, error) {
+	result, err := h.pawapayCli.GetDeposit(ctx, creds, depositID)
+	if err != nil {
+		return false, err
+	}
+	if result.Status != client.SearchStatusFound || result.Data == nil {
+		return false, nil
+	}
+	d := result.Data
+	provider := ""
+	if d.Payer != nil {
+		provider = d.Payer.AccountDetails.Provider
+	}
+	return true, h.record(ctx, promptID, d.DepositID, d.Status, provider, d.Created, d.FailureReason)
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "pawapay.prompt")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
-		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
+		h.metrics.QueueFailed(ctx, h.entityType, "unmarshal_error")
 		return nil // non-retriable
 	}
 
 	promptID := prompt.GetId()
-	logger = logger.WithField("prompt_id", promptID)
+	depositID := paymentUUID(promptID)
+	logger = logger.WithField("prompt_id", promptID).WithField("deposit_id", depositID)
 
 	creds, err := h.credsResolver.FromHeaders(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
+		return h.fail(ctx, promptID, "", "credentials_error", map[string]any{"error": err.Error()})
+	}
+
+	// A redelivered prompt answers with the deposit already initiated.
+	if found, lookErr := h.lookup(ctx, creds, promptID, depositID); lookErr != nil {
+		logger.WithError(lookErr).Warn("deposit lookup failed, initiating")
+	} else if found {
+		logger.Debug("deposit already initiated")
 		return nil
 	}
 
@@ -84,21 +112,15 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	if phoneNumber == "" {
 		phoneNumber = prompt.GetSource().GetContactId()
 	}
-
 	extraProvider := extraString(prompt.GetExtra(), "provider")
-
 	provider, phoneNumber, err := resolveProvider(ctx, h.pawapayCli, creds, extraProvider, phoneNumber)
 	if err != nil {
+		if collection.IsUncertain(err) {
+			return fmt.Errorf("deposit %s provider prediction: %w", promptID, err)
+		}
 		logger.WithError(err).Error("failed to resolve provider")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "", "provider_error", map[string]any{"error": err.Error()})
 	}
-
-	depositID := paymentUUID(promptID)
 
 	depositReq := &client.DepositRequest{
 		DepositID:            depositID,
@@ -109,42 +131,34 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		PreAuthorisationCode: extraString(prompt.GetExtra(), "pre_authorisation_code"),
 		ClientReferenceID:    promptID,
 		CustomerMessage:      sanitizeCustomerMessage(extraString(prompt.GetExtra(), "customer_message")),
-		Metadata:             paymentMetadata("prompt", promptID, headers),
+		Metadata:             paymentMetadata(events.EntityTypePrompt, promptID, prompt.GetAmount(), headers),
 	}
 
 	resp, err := h.pawapayCli.InitiateDeposit(ctx, creds, depositReq)
-	if err != nil {
-		logger.WithError(err).Error("deposit initiation failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
+	switch {
+	case err != nil && !collection.IsUncertain(err):
+		logger.WithError(err).Error("deposit refused by pawaPay")
+		return h.fail(ctx, promptID, "", "provider_error", map[string]any{"error": err.Error()})
+	case err != nil || resp.Status == client.InitiationStatusDuplicateIgnored:
+		// Unknown outcome or already held: report what pawaPay holds, or
+		// redeliver until it can be found or is refused.
+		found, lookErr := h.lookup(ctx, creds, promptID, depositID)
+		if lookErr != nil || !found {
+			if err == nil {
+				err = fmt.Errorf("deposit %s duplicate but not found", depositID)
+			}
+			logger.WithError(err).Warn("deposit outcome unknown; redelivering")
+			return fmt.Errorf("deposit %s outcome unknown: %w", promptID, err)
+		}
 		return nil
-	}
-
-	if resp.Status == client.InitiationStatusRejected {
+	case resp.Status == client.InitiationStatusRejected:
 		logger.WithField("failure_reason", resp.FailureReason).Error("deposit rejected")
-		h.metrics.QueueFailed(ctx, "prompt", "rejected")
-		h.emitStatus(ctx, promptID, depositID, commonv1.STATUS_FAILED, map[string]any{
-			"deposit_id":      depositID,
+		return h.fail(ctx, promptID, depositID, "rejected", map[string]any{
 			"failure_code":    failureCode(resp.FailureReason),
 			"failure_message": failureMessage(resp.FailureReason),
-			"entity_type":     "prompt",
 		})
-		return nil
 	}
 
-	logger.WithField("deposit_id", depositID).WithField("status", resp.Status).Debug("deposit initiated")
-
-	h.metrics.QueueProcessed(ctx, "prompt")
-	h.emitStatus(ctx, promptID, depositID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"deposit_id":  depositID,
-		"provider":    provider,
-		"status":      resp.Status,
-		"created":     resp.Created,
-		"entity_type": "prompt",
-	})
-
-	return nil
+	logger.WithField("status", resp.Status).Debug("deposit initiated")
+	return h.record(ctx, promptID, depositID, resp.Status, provider, resp.Created, nil)
 }

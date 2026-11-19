@@ -1002,6 +1002,7 @@ func (b *CheckoutBusiness) Pay(
 		session.Metadata = make(data.JSONMap)
 	}
 	session.Metadata["_method"] = in.MethodKey
+	session.Metadata["_route"] = method.Route
 	if contactID != "" {
 		session.Metadata["_contact_id"] = contactID
 	}

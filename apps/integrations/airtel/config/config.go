@@ -26,19 +26,23 @@ const (
 	HeaderCountryCode           = "X-API_COUNTRY_CODE"
 	HeaderCurrency              = "X-API_CURRENCY"
 	HeaderEnvironment           = "X-API_ENVIRONMENT"
+	// HeaderDisbursementPin overrides the disbursement wallet PIN.
+	HeaderDisbursementPin = "X-API_DISBURSEMENT_PIN" //nolint:gosec // header name, not a credential
+	// HeaderPublicKey overrides Airtel's RSA public key the PIN is encrypted with.
+	HeaderPublicKey = "X-API_PUBLIC_KEY"
 )
 
 type AirtelConfig struct {
 	config.ConfigurationDefault
 
 	PaymentServiceURI                    string `envDefault:"127.0.0.1:7006"                  env:"PAYMENT_SERVICE_URI"`
-	SettingsServiceURI                   string `envDefault:"127.0.0.1:7010"                  env:"SETTINGS_SERVICE_URI"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                  env:"SETTINGS_SERVICE_URI"`
 	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment" env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
 	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings" env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
 
 	// Settings integration lookup
-	SettingsIntegrationName string `envDefault:"airtel" env:"SETTINGS_INTEGRATION_NAME"`
-	SettingsIntegrationID   string `envDefault:"airtel" env:"SETTINGS_INTEGRATION_ID"`
+	SettingsIntegrationName string `envDefault:"Airtel"  env:"SETTINGS_INTEGRATION_NAME"`
+	SettingsIntegrationID   string `envDefault:"Default" env:"SETTINGS_INTEGRATION_ID"`
 
 	// Airtel Money API credentials (optional defaults, can be overridden via headers)
 	ClientID     string `env:"AIRTEL_CLIENT_ID"`
@@ -46,6 +50,11 @@ type AirtelConfig struct {
 	CallbackURL  string `env:"AIRTEL_CALLBACK_URL"`
 	CountryCode  string `env:"AIRTEL_COUNTRY_CODE"  envDefault:"UG"`
 	Currency     string `env:"AIRTEL_CURRENCY"      envDefault:"UGX"`
+
+	// Disbursements (v2) need the wallet PIN, RSA-encrypted with the public
+	// key Airtel provides (PEM, or the base64 DER string from the portal).
+	DisbursementPin string `env:"AIRTEL_DISBURSEMENT_PIN"`
+	PublicKey       string `env:"AIRTEL_PUBLIC_KEY"`
 
 	// Environment: sandbox or production
 	Environment string `envDefault:"sandbox" env:"AIRTEL_ENVIRONMENT"`

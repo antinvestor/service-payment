@@ -16,6 +16,8 @@ package queue
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"net/url"
 	"testing"
 
@@ -24,6 +26,8 @@ import (
 	"connectrpc.com/connect/v2"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/antinvestor/service-payments/pkg/events"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,9 +79,13 @@ func TestSTKCallbackURL(t *testing.T) {
 type recordingEvents struct {
 	frameEvents.Manager
 	emitted []*commonv1.StatusUpdateRequest
+	err     error
 }
 
 func (r *recordingEvents) Emit(_ context.Context, _ string, payload any) error {
+	if r.err != nil {
+		return r.err
+	}
 	if req, ok := payload.(*commonv1.StatusUpdateRequest); ok {
 		r.emitted = append(r.emitted, req)
 	}
@@ -86,7 +94,10 @@ func (r *recordingEvents) Emit(_ context.Context, _ string, payload any) error {
 
 type recordingMpesa struct {
 	client.MpesaClient
-	pushed []*client.STKPushRequest
+	pushed  []*client.STKPushRequest
+	b2c     []*client.B2CRequest
+	pushErr error
+	b2cErr  error
 }
 
 func (m *recordingMpesa) STKPush(
@@ -95,59 +106,123 @@ func (m *recordingMpesa) STKPush(
 	req *client.STKPushRequest,
 ) (*client.STKPushResponse, error) {
 	m.pushed = append(m.pushed, req)
+	if m.pushErr != nil {
+		return nil, m.pushErr
+	}
 	return &client.STKPushResponse{MerchantRequestID: "mr-1", CheckoutRequestID: "ws_CO_1", ResponseCode: "0"}, nil
 }
 
-func TestPromptHandler_STKPush(t *testing.T) {
-	cfg := &config.MpesaConfig{
-		ConsumerKey: "k", ConsumerSecret: "s", Shortcode: "174379", Passkey: "pk",
-		CallbackURL: "https://hooks.example.com",
+func (m *recordingMpesa) B2CPayment(
+	_ context.Context,
+	_ *client.MpesaCredentials,
+	req *client.B2CRequest,
+) (*client.B2CResponse, error) {
+	m.b2c = append(m.b2c, req)
+	if m.b2cErr != nil {
+		return nil, m.b2cErr
 	}
+	return &client.B2CResponse{ConversationID: "AG_1", OriginatorConversationID: req.OriginatorConversationID, ResponseCode: "0"}, nil
+}
+
+func testConfig() *config.MpesaConfig {
+	return &config.MpesaConfig{
+		ConsumerKey: "k", ConsumerSecret: "s", Shortcode: "174379", Passkey: "pk",
+		CallbackURL: "https://hooks.example.com", InitiatorName: "init", SecurityCredential: "sec",
+	}
+}
+
+func promptPayload(t *testing.T, amount *commonv1.Money) []byte {
+	t.Helper()
+	payload, err := proto.Marshal(&paymentv1.InitiatePromptRequest{
+		Id:        "prompt-1",
+		Recipient: &commonv1.ContactLink{ContactId: "254700000001"},
+		Amount:    amount,
+	})
+	require.NoError(t, err)
+	return payload
+}
+
+func TestPromptHandler_STKPush(t *testing.T) {
 	tests := []struct {
 		name       string
-		currency   string
+		amount     *commonv1.Money
+		pushErr    error
 		wantPushed bool
+		wantErr    bool
+		wantNoEmit bool
 		wantStatus commonv1.STATUS
 	}{
-		{name: "KES is pushed", currency: "KES", wantPushed: true, wantStatus: commonv1.STATUS_IN_PROCESS},
-		{name: "unset currency is pushed", currency: "", wantPushed: true, wantStatus: commonv1.STATUS_IN_PROCESS},
-		{name: "non-KES currency is refused", currency: "USD", wantStatus: commonv1.STATUS_FAILED},
+		{name: "KES is pushed", amount: &commonv1.Money{CurrencyCode: "KES", Units: 100}, wantPushed: true, wantStatus: commonv1.STATUS_IN_PROCESS},
+		{name: "unset currency is pushed", amount: &commonv1.Money{Units: 100}, wantPushed: true, wantStatus: commonv1.STATUS_IN_PROCESS},
+		{name: "non-KES currency is refused", amount: &commonv1.Money{CurrencyCode: "USD", Units: 100}, wantStatus: commonv1.STATUS_FAILED},
+		{name: "fractional shillings are refused, never rounded", amount: &commonv1.Money{CurrencyCode: "KES", Units: 100, Nanos: 500_000_000}, wantStatus: commonv1.STATUS_FAILED},
+		{name: "zero amount is refused", amount: &commonv1.Money{CurrencyCode: "KES"}, wantStatus: commonv1.STATUS_FAILED},
+		{
+			name:       "Daraja rejection fails the prompt",
+			amount:     &commonv1.Money{CurrencyCode: "KES", Units: 100},
+			pushErr:    &client.APIError{Operation: "stk push", StatusCode: http.StatusBadRequest, Body: "Bad Request - Invalid PhoneNumber"},
+			wantPushed: true,
+			wantStatus: commonv1.STATUS_FAILED,
+		},
+		{
+			name:       "unknown outcome is redelivered, nothing recorded",
+			amount:     &commonv1.Money{CurrencyCode: "KES", Units: 100},
+			pushErr:    collection.Uncertain(errors.New("timeout")),
+			wantPushed: true,
+			wantErr:    true,
+			wantNoEmit: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evts := &recordingEvents{}
-			mp := &recordingMpesa{}
-			h := NewPromptHandler(evts, mp, nil, cfg, nil)
+			mp := &recordingMpesa{pushErr: tt.pushErr}
+			h := NewPromptHandler(evts, mp, nil, testConfig(), nil)
 
-			payload, err := proto.Marshal(&paymentv1.InitiatePromptRequest{
-				Id:        "prompt-1",
-				Recipient: &commonv1.ContactLink{ContactId: "254700000001"},
-				Amount:    &commonv1.Money{CurrencyCode: tt.currency, Units: 100},
-			})
-			require.NoError(t, err)
+			err := h.Handle(t.Context(), map[string]string{"tenant_id": "t1"}, promptPayload(t, tt.amount))
 
-			require.NoError(t, h.Handle(t.Context(), map[string]string{"tenant_id": "t1"}, payload))
-
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if !tt.wantPushed {
+				assert.Empty(t, mp.pushed)
+			} else {
+				require.Len(t, mp.pushed, 1)
+				u, perr := url.Parse(mp.pushed[0].CallBackURL)
+				require.NoError(t, perr)
+				assert.Equal(t, "prompt-1", u.Query().Get(client.CallbackParamPromptID))
+				assert.Equal(t, "t1", u.Query().Get("tenant_id"))
+				assert.Equal(t, "100", mp.pushed[0].Amount)
+			}
+			if tt.wantNoEmit {
+				assert.Empty(t, evts.emitted)
+				return
+			}
 			require.Len(t, evts.emitted, 1)
 			st := evts.emitted[0]
 			assert.Equal(t, "prompt-1", st.GetId())
 			assert.Equal(t, tt.wantStatus, st.GetStatus())
-			if !tt.wantPushed {
-				assert.Empty(t, mp.pushed)
+			assert.Equal(t, events.StateFor(tt.wantStatus), st.GetState())
+			extras := st.GetExtras().GetFields()
+			assert.Equal(t, "prompt", extras["entity_type"].GetStringValue())
+			if tt.wantStatus == commonv1.STATUS_FAILED {
+				assert.NotEmpty(t, extras[events.ExtraError].GetStringValue())
 				return
 			}
-			require.Len(t, mp.pushed, 1)
-			u, err := url.Parse(mp.pushed[0].CallBackURL)
-			require.NoError(t, err)
-			assert.Equal(t, "prompt-1", u.Query().Get(client.CallbackParamPromptID))
-			assert.Equal(t, "t1", u.Query().Get("tenant_id"))
-
-			extras := st.GetExtras().GetFields()
 			assert.Equal(t, "ws_CO_1", extras[client.ExtraCheckoutRequestID].GetStringValue())
 			assert.Equal(t, "100", extras[client.ExtraRequestedAmount].GetStringValue())
-			assert.Equal(t, "prompt", extras["entity_type"].GetStringValue())
+			assert.Equal(t, "KES", extras[client.ExtraRequestedCurrency].GetStringValue())
 		})
 	}
+}
+
+func TestPromptHandler_EmitErrorIsReturned(t *testing.T) {
+	evts := &recordingEvents{err: errors.New("bus down")}
+	h := NewPromptHandler(evts, &recordingMpesa{}, nil, testConfig(), nil)
+
+	require.Error(t, h.Handle(t.Context(), map[string]string{}, promptPayload(t, &commonv1.Money{CurrencyCode: "KES", Units: 100})))
 }
 
 type stubStatusReader struct {
@@ -170,10 +245,6 @@ func (s *stubStatusReader) Status(
 }
 
 func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
-	cfg := &config.MpesaConfig{
-		ConsumerKey: "k", ConsumerSecret: "s", Shortcode: "174379", Passkey: "pk",
-		CallbackURL: "https://hooks.example.com",
-	}
 	tests := []struct {
 		name       string
 		reader     *stubStatusReader
@@ -190,7 +261,7 @@ func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
 		},
 		{
 			name:       "no status yet: push",
-			reader:     &stubStatusReader{err: connect.NewError(connect.CodeUnknown, "record not found")},
+			reader:     &stubStatusReader{err: connect.NewError(connect.CodeNotFound, "record not found")},
 			wantPushed: true,
 		},
 	}
@@ -198,15 +269,9 @@ func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			evts := &recordingEvents{}
 			mp := &recordingMpesa{}
-			h := NewPromptHandler(evts, mp, nil, cfg, tt.reader)
+			h := NewPromptHandler(evts, mp, nil, testConfig(), tt.reader)
 
-			payload, err := proto.Marshal(&paymentv1.InitiatePromptRequest{
-				Id:        "prompt-1",
-				Recipient: &commonv1.ContactLink{ContactId: "254700000001"},
-				Amount:    &commonv1.Money{CurrencyCode: "KES", Units: 100},
-			})
-			require.NoError(t, err)
-			require.NoError(t, h.Handle(t.Context(), map[string]string{}, payload))
+			require.NoError(t, h.Handle(t.Context(), map[string]string{}, promptPayload(t, &commonv1.Money{CurrencyCode: "KES", Units: 100})))
 
 			if !tt.wantPushed {
 				assert.Empty(t, mp.pushed)
@@ -218,4 +283,10 @@ func TestPromptHandler_IdempotentPerPrompt(t *testing.T) {
 			assert.Equal(t, commonv1.STATUS_IN_PROCESS, evts.emitted[0].GetStatus())
 		})
 	}
+}
+
+func TestCredentials_SettingsConnectionWithoutClient(t *testing.T) {
+	r := credentialResolver{cfg: testConfig()}
+	_, err := r.extractCredentials(t.Context(), map[string]string{config.HeaderConnectionCredentials: "conn-1"})
+	require.Error(t, err)
 }

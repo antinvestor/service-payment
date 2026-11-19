@@ -24,6 +24,7 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/config"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/queue"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/events"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/stretchr/testify/assert"
@@ -36,6 +37,7 @@ import (
 type fakeEvents struct {
 	frameEvents.Manager
 	emitted []*commonv1.StatusUpdateRequest
+	err     error
 }
 
 func (f *fakeEvents) Emit(_ context.Context, name string, payload any) error {
@@ -45,6 +47,9 @@ func (f *fakeEvents) Emit(_ context.Context, name string, payload any) error {
 	req, ok := payload.(*commonv1.StatusUpdateRequest)
 	if !ok {
 		return errors.New("unexpected payload")
+	}
+	if f.err != nil {
+		return f.err
 	}
 	f.emitted = append(f.emitted, req)
 	return nil
@@ -69,10 +74,11 @@ type fakeClient struct {
 	lookupResp  *client.Receive
 	lookupErr   error
 
-	sendReq  *client.SendRequest
-	sendResp *client.Send
-	sendErr  error
-	sendLook *client.Send
+	sendReq     *client.SendRequest
+	sendResp    *client.Send
+	sendErr     error
+	sendLook    *client.Send
+	sendLookErr error
 
 	gotCreds *client.Credentials
 }
@@ -101,7 +107,7 @@ func (f *fakeClient) SubmitSend(_ context.Context, creds *client.Credentials, re
 }
 
 func (f *fakeClient) GetSendBySequenceID(_ context.Context, _ *client.Credentials, _ string) (*client.Send, error) {
-	return f.sendLook, nil
+	return f.sendLook, f.sendLookErr
 }
 
 func testConfig() *config.YellowcardConfig {
@@ -346,4 +352,65 @@ func TestPrompt_BadPayload(t *testing.T) {
 	h := queue.NewPromptHandler(ev, fc, client.NewCatalog(fc, 0), nil, testConfig())
 	require.NoError(t, h.Handle(t.Context(), nil, []byte{0xff, 0x01, 0x02}))
 	assert.Empty(t, ev.emitted)
+}
+
+func TestPrompt_UnknownOutcome(t *testing.T) {
+	channels, networks := ugandaCatalog()
+	uncertain := collection.Uncertain(&client.APIError{HTTPStatus: 502, Code: "BadGateway", Message: "upstream"})
+	tests := []struct {
+		name       string
+		receiveErr error
+		lookupResp *client.Receive
+		lookupErr  error
+		emitErr    error
+		wantErr    bool
+		wantEmit   bool
+		wantExtID  string
+	}{
+		{
+			name: "uncertain and lookup fails redelivers", receiveErr: uncertain,
+			lookupErr: &client.APIError{HTTPStatus: 404, Code: client.ErrCodePaymentNotFound},
+			wantErr:   true,
+		},
+		{
+			name: "uncertain and found reports the held receive", receiveErr: uncertain,
+			lookupResp: &client.Receive{ID: "r-held", SequenceID: "p-unk", Status: "pending", Country: "UG", Currency: "UGX"},
+			wantEmit:   true, wantExtID: "r-held",
+		},
+		{
+			name: "timeout is uncertain", receiveErr: context.DeadlineExceeded,
+			lookupErr: errors.New("connection refused"),
+			wantErr:   true,
+		},
+		{
+			name: "emit failure is returned", receiveErr: uncertain,
+			lookupResp: &client.Receive{ID: "r-held", SequenceID: "p-unk", Status: "pending", Country: "UG", Currency: "UGX"},
+			emitErr:    errors.New("nats down"),
+			wantErr:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fc := &fakeClient{channels: channels, networks: networks,
+				receiveErr: tt.receiveErr, lookupResp: tt.lookupResp, lookupErr: tt.lookupErr}
+			ev := &fakeEvents{err: tt.emitErr}
+			h := queue.NewPromptHandler(ev, fc, client.NewCatalog(fc, 0), nil, testConfig())
+
+			err := h.Handle(t.Context(), nil, promptPayload(t, "p-unk", "+256701234567", 100, "UGX", nil))
+
+			require.NotNil(t, fc.receiveReq, "the receive is submitted")
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if !tt.wantEmit {
+				assert.Empty(t, ev.emitted, "nothing is recorded on an unknown outcome")
+				return
+			}
+			st := ev.last(t)
+			assert.Equal(t, commonv1.STATUS_IN_PROCESS, st.GetStatus())
+			assert.Equal(t, tt.wantExtID, st.GetExternalId())
+		})
+	}
 }

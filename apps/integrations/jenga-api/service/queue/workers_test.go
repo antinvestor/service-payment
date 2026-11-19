@@ -101,7 +101,8 @@ type fakeSettings struct {
 
 func (fakeSettings) Get(_ context.Context, _ *settingsv1.GetRequest) (*settingsv1.GetResponse, error) {
 	return &settingsv1.GetResponse{Data: &settingsv1.SettingObject{Value: `{"` + config.HeaderMerchantCode + `":"MC-T",` +
-		`"` + config.HeaderConsumerSecret + `":"cs-t","` + config.HeaderAPIKey + `":"ak-t"}`}}, nil
+		`"` + config.HeaderConsumerSecret + `":"cs-t","` + config.HeaderAPIKey + `":"ak-t",` +
+		`"` + config.HeaderPrivateKeyPEM + `":"tenant-pem"}`}}, nil
 }
 
 func testConfig() *config.JengaConfig {
@@ -150,7 +151,7 @@ func TestPrompt_HappyPathBindsCallback(t *testing.T) {
 	assert.NotEqual(t, "p1", jc.stkReq.Payment.Ref, "the reference must not be the prompt id")
 	assert.Len(t, jc.stkReq.Payment.Ref, 24)
 	assert.Equal(t, "MC-T", jc.creds.MerchantCode, "tenant credentials from settings")
-	assert.Equal(t, "pem", jc.creds.PrivateKeyPEM, "signing key falls back to service config")
+	assert.Equal(t, "tenant-pem", jc.creds.PrivateKeyPEM, "tenant connections sign with their own key")
 
 	cb, err := url.Parse(jc.stkReq.Payment.CallBackUrl)
 	require.NoError(t, err)
@@ -167,7 +168,13 @@ func TestPrompt_HappyPathBindsCallback(t *testing.T) {
 	assert.Equal(t, commonv1.STATUS_QUEUED, queued.GetStatus())
 	assert.Equal(t, "p1", queued.GetId())
 	assert.Equal(t, jc.stkReq.Payment.Ref, extrasMap(queued)[models.ExtraTransactionRef])
-	assert.Equal(t, secret, extrasMap(queued)[models.ExtraCallbackSecret])
+	assert.Equal(t, models.HashCallbackSecret(secret), extrasMap(queued)[models.ExtraCallbackSecretHash])
+	for _, st := range ev.emitted {
+		assert.NotContains(t, extrasMap(st), "callback_secret", "the clear secret is never stored")
+		for _, v := range extrasMap(st) {
+			assert.NotEqual(t, secret, v, "the clear secret is never stored")
+		}
+	}
 
 	assert.Equal(t, commonv1.STATUS_IN_PROCESS, inProcess.GetStatus())
 	assert.Equal(t, "JTX-1", inProcess.GetExternalId())
@@ -178,7 +185,7 @@ func TestPrompt_HappyPathBindsCallback(t *testing.T) {
 	assert.Equal(t, "150.50", ex[models.ExtraRequestedAmount])
 	assert.Equal(t, "KES", ex[models.ExtraRequestedCurrency])
 	assert.Equal(t, "conn-1", ex[models.ExtraCredentialsConnection])
-	assert.Equal(t, secret, ex[models.ExtraCallbackSecret])
+	assert.Equal(t, models.HashCallbackSecret(secret), ex[models.ExtraCallbackSecretHash])
 }
 
 func TestPrompt_Outcomes(t *testing.T) {
@@ -302,16 +309,24 @@ func TestPrompt_Outcomes(t *testing.T) {
 func TestPrompt_RedeliveryReusesQueuedBinding(t *testing.T) {
 	ev := &fakeEvents{}
 	jc := &fakeJenga{stkResp: &models.STKUSSDResponse{Status: true, TransactionID: "JTX-2"}}
+	oldHash := models.HashCallbackSecret("secret-from-first-delivery")
 	prior := &fakeStatus{extras: map[string]any{
-		models.ExtraTransactionRef: "ref-from-first-delivery", models.ExtraCallbackSecret: "secret-from-first-delivery",
+		models.ExtraTransactionRef: "ref-from-first-delivery", models.ExtraCallbackSecretHash: oldHash,
 	}}
 	h := queue.NewPromptHandler(ev, jc, prior, nil, testConfig())
 
 	require.NoError(t, h.Handle(t.Context(), nil, promptPayload(t, "p1", "254712345678", 100, 0, nil)))
 
 	require.NotNil(t, jc.stkReq)
-	assert.Equal(t, "ref-from-first-delivery", jc.stkReq.Payment.Ref)
-	assert.Contains(t, jc.stkReq.Payment.CallBackUrl, "cb_secret=secret-from-first-delivery")
+	assert.Equal(t, "ref-from-first-delivery", jc.stkReq.Payment.Ref, "the reference is kept")
+	cb, err := url.Parse(jc.stkReq.Payment.CallBackUrl)
+	require.NoError(t, err)
+	newSecret := cb.Query().Get(models.CallbackParamSecret)
+	assert.Len(t, newSecret, 32)
+	require.Len(t, ev.emitted, 2)
+	newHash := extrasMap(ev.emitted[0])[models.ExtraCallbackSecretHash]
+	assert.Equal(t, models.HashCallbackSecret(newSecret), newHash, "binding re-emitted with the new hash")
+	assert.NotEqual(t, oldHash, newHash, "a fresh secret is minted; the previous one no longer binds")
 }
 
 func TestPrompt_EmitFailureRedelivers(t *testing.T) {

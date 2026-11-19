@@ -62,7 +62,7 @@ func TestSTKCallbackURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := stkCallbackURL("https://hooks.example.com", tt.headers, tt.promptID)
+			got := stkCallbackURL("https://hooks.example.com", tt.headers, tt.promptID, "")
 			u, err := url.Parse(got)
 			require.NoError(t, err)
 			assert.Equal(t, "/webhook/mpesa/stk", u.Path)
@@ -194,6 +194,7 @@ func TestPromptHandler_STKPush(t *testing.T) {
 				require.NoError(t, perr)
 				assert.Equal(t, "prompt-1", u.Query().Get(client.CallbackParamPromptID))
 				assert.Equal(t, "t1", u.Query().Get("tenant_id"))
+				assert.Len(t, u.Query().Get(client.CallbackParamSecret), 32, "random 16-byte hex secret")
 				assert.Equal(t, "100", mp.pushed[0].Amount)
 			}
 			if tt.wantNoEmit {
@@ -214,6 +215,12 @@ func TestPromptHandler_STKPush(t *testing.T) {
 			assert.Equal(t, "ws_CO_1", extras[client.ExtraCheckoutRequestID].GetStringValue())
 			assert.Equal(t, "100", extras[client.ExtraRequestedAmount].GetStringValue())
 			assert.Equal(t, "KES", extras[client.ExtraRequestedCurrency].GetStringValue())
+			// Only the digest of the callback secret is stored.
+			u, perr := url.Parse(mp.pushed[0].CallBackURL)
+			require.NoError(t, perr)
+			secret := u.Query().Get(client.CallbackParamSecret)
+			assert.Equal(t, client.HashCallbackSecret(secret), extras[client.ExtraCallbackSecretHash].GetStringValue())
+			assertNoSecretInClear(t, extras, secret)
 		})
 	}
 }
@@ -289,4 +296,13 @@ func TestCredentials_SettingsConnectionWithoutClient(t *testing.T) {
 	r := credentialResolver{cfg: testConfig()}
 	_, err := r.extractCredentials(t.Context(), map[string]string{config.HeaderConnectionCredentials: "conn-1"})
 	require.Error(t, err)
+}
+
+// assertNoSecretInClear checks that no status extra carries the secret itself.
+func assertNoSecretInClear(t *testing.T, extras map[string]*structpb.Value, secret string) {
+	t.Helper()
+	require.NotEmpty(t, secret)
+	for k, v := range extras {
+		assert.NotEqual(t, secret, v.GetStringValue(), "extra %q carries the callback secret in clear", k)
+	}
 }

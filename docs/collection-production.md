@@ -158,10 +158,10 @@ reference, amount and currency must match).
 
 | Integration | New / changed setting | Purpose |
 |-------------|-----------------------|---------|
-| mpesa | `?payment_id=` on B2C result/timeout URLs, `?prompt_id=` on STK URL (set by the workers) | Callbacks bind to the payout / prompt we sent; callbacks without them are refused |
+| mpesa | `MPESA_CALLBACK_ALLOWED_CIDRS`, `MPESA_TRUSTED_PROXY_HOPS`; per-record `cb_secret` on STK/B2C URLs (set by the workers) | Callbacks must come from Safaricom's ranges and carry the secret minted for that prompt/payout; C2B confirmations settle only with the allowlist configured, else stay `c2b_unverified` |
 | mtn | `MTN_TARGET_ENVIRONMENT` | Market code sent as `X-Target-Environment` (`sandbox` outside production; required in production, e.g. `mtnuganda`) |
 | airtel | `AIRTEL_DISBURSEMENT_PIN`, `AIRTEL_PUBLIC_KEY` | Disbursements need the RSA-encrypted PIN; payouts fail with a clear reason when unset |
-| jenga | `JENGA_ENV` (`sandbox`/`production`), `JENGA_BASE_URL`, `JENGA_PRIVATE_KEY_PEM`, `JENGA_CALLBACK_URL` (service base) | The private key no longer ships in the image; callbacks carry a per-prompt secret; payouts are unsupported (tills-pay only) |
+| jenga | `JENGA_ENV` (`sandbox`/`production`), `JENGA_BASE_URL`, `JENGA_BASE_URL_ALLOWLIST`, `JENGA_PRIVATE_KEY_PEM`, `JENGA_CALLBACK_URL` (service base) | The private key no longer ships in the image; tenant connections must bring their own key and a known Jenga host; callbacks carry a hashed per-prompt secret; payouts are unsupported (tills-pay only) |
 | stripe | `STRIPE_WEBHOOK_SECRET` (required), `BILLING_SERVICE_URI`, `QUEUE_STRIPE_SUBSCRIPTION_URI`, headers `X-STRIPE_*` | Hosted Checkout Sessions, subscription mirror into billing; settings connections keyed `X-API_*` must be re-saved |
 | polar | `POLAR_WEBHOOK_SECRET` (required), `BILLING_SERVICE_URI`, `QUEUE_POLAR_SUBSCRIPTION_URI`, headers `X-POLAR_*` | See provider-subscriptions.md |
 

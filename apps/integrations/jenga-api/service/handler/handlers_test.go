@@ -75,7 +75,7 @@ func pendingPrompt(ref, amount string) data.JSONMap {
 		models.ExtraRequestedCurrency:     "KES",
 		models.ExtraCredentialsConnection: "tenant-conn",
 		models.ExtraTransactionID:         "JTX-1",
-		models.ExtraCallbackSecret:        secret,
+		models.ExtraCallbackSecretHash:    models.HashCallbackSecret(secret),
 	}
 }
 
@@ -200,7 +200,7 @@ func TestStkCallbackBinding(t *testing.T) {
 			name:     "prompt without a push is unbound",
 			target:   withSecret("/receivepayments?prompt_id=p1"),
 			body:     stkBody("REF-1", true, "100"),
-			stored:   map[string]data.JSONMap{"p1": {"entity_type": "prompt", models.ExtraCallbackSecret: secret}},
+			stored:   map[string]data.JSONMap{"p1": {"entity_type": "prompt", models.ExtraCallbackSecretHash: models.HashCallbackSecret(secret)}},
 			wantHTTP: http.StatusConflict,
 		},
 		{
@@ -255,6 +255,8 @@ func TestStkCallbackBinding(t *testing.T) {
 			}
 			extras := got.GetExtras().AsMap()
 			assert.Equal(t, "prompt", extras["entity_type"])
+			assert.NotContains(t, extras, "callback_secret")
+			assert.Equal(t, models.HashCallbackSecret(secret), extras[models.ExtraCallbackSecretHash])
 			assert.Equal(t, "REF-1", extras[models.ExtraTransactionRef])
 			for k, v := range tt.wantExtra {
 				assert.Equal(t, v, extras[k], k)

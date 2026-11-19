@@ -15,7 +15,11 @@
 package client
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -246,6 +250,12 @@ const (
 	// CallbackParamPaymentID is the B2C result/timeout URL query parameter
 	// carrying the payment-service payment id the payout was issued for.
 	CallbackParamPaymentID = "payment_id"
+	// CallbackParamSecret is the query parameter every callback URL we hand
+	// Daraja carries: a per-record secret only we and Daraja know.
+	CallbackParamSecret = "cb_secret"
+	// ExtraCallbackSecretHash stores the SHA-256 (hex) of the callback
+	// secret on the status; the secret itself is never recorded.
+	ExtraCallbackSecretHash = "callback_secret_sha256"
 	// ExtraCheckoutRequestID binds a prompt status to its Daraja CheckoutRequestID.
 	ExtraCheckoutRequestID = "checkout_request_id"
 	// ExtraOriginatorConversationID binds a payment status to the B2C
@@ -367,4 +377,47 @@ func (f *FlexString) UnmarshalJSON(b []byte) error {
 	}
 	*f = FlexString(n.String())
 	return nil
+}
+
+const secretBytes = 16
+
+// NewCallbackSecret mints an unguessable per-record secret (16 random bytes,
+// hex) and returns it with its SHA-256 hex digest: the secret goes into the
+// callback URL, only the digest is stored.
+func NewCallbackSecret() (string, string, error) {
+	secret, err := randomHex()
+	if err != nil {
+		return "", "", err
+	}
+	return secret, HashCallbackSecret(secret), nil
+}
+
+// NewOriginatorConversationID mints a random B2C OriginatorConversationID so
+// a payout cannot be addressed by a guessable payment id.
+func NewOriginatorConversationID() (string, error) {
+	return randomHex()
+}
+
+func randomHex() (string, error) {
+	buf := make([]byte, secretBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate random secret: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+// HashCallbackSecret is the SHA-256 hex digest stored for a callback secret.
+func HashCallbackSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// CallbackSecretMatches reports whether the presented secret hashes to the
+// stored digest, in constant time. An empty presented value or digest never
+// matches.
+func CallbackSecretMatches(presented, storedHash string) bool {
+	if presented == "" || storedHash == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(HashCallbackSecret(presented)), []byte(storedHash)) == 1
 }

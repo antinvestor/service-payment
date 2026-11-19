@@ -17,7 +17,6 @@ package queue
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -124,6 +123,13 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	}
 	amount := strconv.FormatInt(units, 10)
 
+	// The callback URL carries a random secret only Daraja learns; its
+	// digest is stored with the push so a forged callback cannot settle.
+	secret, secretHash, err := client.NewCallbackSecret()
+	if err != nil {
+		return fmt.Errorf("prompt %s: %w", promptID, err)
+	}
+
 	timestamp := time.Now().Format("20060102150405")
 	password := client.STKPassword(creds.Shortcode, creds.Passkey, timestamp)
 
@@ -141,7 +147,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		PartyA:            phoneNumber,
 		PartyB:            creds.Shortcode,
 		PhoneNumber:       phoneNumber,
-		CallBackURL:       stkCallbackURL(creds.CallbackURL, headers, promptID),
+		CallBackURL:       stkCallbackURL(creds.CallbackURL, headers, promptID, secret),
 		AccountReference:  accountRef,
 		TransactionDesc:   "Payment prompt",
 	}
@@ -166,12 +172,13 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	// callback can prove it belongs here; requested_amount and the credential
 	// connection let it verify amount and re-query Daraja.
 	inProcessExtras := map[string]any{
-		"merchant_request_id":         resp.MerchantRequestID,
-		client.ExtraCheckoutRequestID: resp.CheckoutRequestID,
-		client.ExtraRequestedAmount:   amount,
-		client.ExtraRequestedCurrency: client.Currency,
-		"response_code":               resp.ResponseCode,
-		"customer_message":            resp.CustomerMessage,
+		"merchant_request_id":          resp.MerchantRequestID,
+		client.ExtraCheckoutRequestID:  resp.CheckoutRequestID,
+		client.ExtraCallbackSecretHash: secretHash,
+		client.ExtraRequestedAmount:    amount,
+		client.ExtraRequestedCurrency:  client.Currency,
+		"response_code":                resp.ResponseCode,
+		"customer_message":             resp.CustomerMessage,
 	}
 	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
 		inProcessExtras[client.ExtraCredentialsConnection] = connection
@@ -183,22 +190,14 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	return nil
 }
 
-// stkCallbackURL builds the STK callback URL: tenant params plus the prompt id,
-// so the callback can record the final status under the prompt the checkout
-// polls rather than under Daraja's CheckoutRequestID.
-func stkCallbackURL(base string, headers map[string]string, promptID string) string {
-	callbackURL := appendTenantParams(base+"/webhook/mpesa/stk", headers)
-	if promptID == "" {
-		return callbackURL
-	}
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return callbackURL
-	}
-	q := u.Query()
-	q.Set(client.CallbackParamPromptID, promptID)
-	u.RawQuery = q.Encode()
-	return u.String()
+// stkCallbackURL builds the STK callback URL: tenant params, the prompt id
+// (so the callback records under the prompt the checkout polls) and the
+// per-prompt secret the handler authenticates the callback with.
+func stkCallbackURL(base string, headers map[string]string, promptID, secret string) string {
+	return withQuery(appendTenantParams(base+"/webhook/mpesa/stk", headers), map[string]string{
+		client.CallbackParamPromptID: promptID,
+		client.CallbackParamSecret:   secret,
+	})
 }
 
 // pushedCheckoutRequestID returns the CheckoutRequestID already bound to the

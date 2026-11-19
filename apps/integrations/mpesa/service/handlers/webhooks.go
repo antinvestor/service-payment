@@ -54,8 +54,17 @@ type MpesaWebhookServer struct {
 	paymentCli   paymentv1connect.PaymentServiceClient
 	mpesaCli     client.MpesaClient
 	resolveCreds CredentialsResolver
+	guard        *SourceGuard
 	metrics      *integrationobs.Metrics
 	now          func() time.Time
+}
+
+// Option configures the webhook server.
+type Option func(*MpesaWebhookServer)
+
+// WithSourceGuard installs a source-IP allowlist on every route.
+func WithSourceGuard(g *SourceGuard) Option {
+	return func(s *MpesaWebhookServer) { s.guard = g }
 }
 
 // NewMpesaWebhookServer creates a new webhook server. mpesaCli and
@@ -65,30 +74,53 @@ func NewMpesaWebhookServer(
 	paymentCli paymentv1connect.PaymentServiceClient,
 	mpesaCli client.MpesaClient,
 	resolveCreds CredentialsResolver,
+	opts ...Option,
 ) *MpesaWebhookServer {
-	return &MpesaWebhookServer{
+	s := &MpesaWebhookServer{
 		paymentCli:   paymentCli,
 		mpesaCli:     mpesaCli,
 		resolveCreds: resolveCreds,
 		metrics:      integrationobs.NewMetrics("mpesa"),
 		now:          time.Now,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
-// NewRouterV1 creates the HTTP routes for M-Pesa webhooks.
-func (s *MpesaWebhookServer) NewRouterV1() *http.ServeMux {
+// NewRouterV1 creates the HTTP routes for M-Pesa webhooks, all behind the
+// source allowlist when one is configured.
+func (s *MpesaWebhookServer) NewRouterV1() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/webhook/mpesa/stk", s.HandleSTKCallback)
 	mux.HandleFunc("/webhook/mpesa/c2b/validation", s.HandleC2BValidation)
 	mux.HandleFunc("/webhook/mpesa/c2b/confirmation", s.HandleC2BConfirmation)
 	mux.HandleFunc("/webhook/mpesa/b2c", s.HandleB2CResult)
 	mux.HandleFunc("/webhook/mpesa/b2c/timeout", s.HandleB2CTimeout)
-	return mux
+	if s.guard == nil {
+		return mux
+	}
+	return s.guard.Wrap(mux)
 }
 
 // errNotBound marks callbacks that do not match a request we issued; they
 // must not change any status.
 var errNotBound = errors.New("callback does not match an issued request")
+
+// errForged marks callbacks whose per-record secret is missing or wrong.
+var errForged = errors.New("callback secret missing or invalid")
+
+// authenticate checks the secret our callback URL carried against the digest
+// stored on the record, in constant time, before anything else about the
+// record is considered.
+func authenticate(r *http.Request, stored data.JSONMap) error {
+	presented := strings.TrimSpace(r.URL.Query().Get(client.CallbackParamSecret))
+	if !client.CallbackSecretMatches(presented, stored.GetString(client.ExtraCallbackSecretHash)) {
+		return errForged
+	}
+	return nil
+}
 
 // decode reads a bounded callback body.
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
@@ -98,6 +130,12 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 // reject answers without recording anything: 409 when the callback does not
 // match an issued request, otherwise 503 so Daraja retries.
 func (s *MpesaWebhookServer) reject(ctx context.Context, w http.ResponseWriter, logger *util.LogEntry, kind string, err error) {
+	if errors.Is(err, errForged) {
+		logger.WithError(err).Warn("M-Pesa callback refused")
+		s.metrics.WebhookRejected(ctx, kind, "verification_failed")
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	if errors.Is(err, errNotBound) {
 		logger.WithError(err).Warn("M-Pesa callback rejected")
 		s.metrics.WebhookRejected(ctx, kind, "unknown_payment")
@@ -148,6 +186,7 @@ func (s *MpesaWebhookServer) loadStatus(ctx context.Context, entityID, entityTyp
 type stkBinding struct {
 	requestedAmount string
 	connection      string
+	secretHash      string
 }
 
 // HandleSTKCallback processes STK Push callback from M-Pesa.
@@ -184,7 +223,7 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	binding, err := s.bindPrompt(ctx, promptID, stkCallback.CheckoutRequestID)
+	binding, err := s.bindPrompt(ctx, r, promptID, stkCallback.CheckoutRequestID)
 	if err != nil {
 		s.reject(ctx, w, logger, "stk", err)
 		return
@@ -204,6 +243,7 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 	if binding.connection != "" {
 		extras[client.ExtraCredentialsConnection] = binding.connection
 	}
+	extras[client.ExtraCallbackSecretHash] = binding.secretHash
 	callbackAmount := ""
 	if stkCallback.CallbackMetadata != nil {
 		for _, item := range stkCallback.CallbackMetadata.Item {
@@ -239,9 +279,12 @@ func (s *MpesaWebhookServer) HandleSTKCallback(w http.ResponseWriter, r *http.Re
 // checkoutRequestID. The STK worker records checkout_request_id on the
 // prompt's IN_PROCESS status, and this handler carries it forward on every
 // status it writes, so the latest status always holds the binding.
-func (s *MpesaWebhookServer) bindPrompt(ctx context.Context, promptID, checkoutRequestID string) (*stkBinding, error) {
+func (s *MpesaWebhookServer) bindPrompt(ctx context.Context, r *http.Request, promptID, checkoutRequestID string) (*stkBinding, error) {
 	stored, err := s.loadStatus(ctx, promptID, events.EntityTypePrompt)
 	if err != nil {
+		return nil, err
+	}
+	if err = authenticate(r, stored); err != nil {
 		return nil, err
 	}
 	storedCheckoutID := stored.GetString(client.ExtraCheckoutRequestID)
@@ -254,6 +297,7 @@ func (s *MpesaWebhookServer) bindPrompt(ctx context.Context, promptID, checkoutR
 	return &stkBinding{
 		requestedAmount: stored.GetString(client.ExtraRequestedAmount),
 		connection:      stored.GetString(client.ExtraCredentialsConnection),
+		secretHash:      stored.GetString(client.ExtraCallbackSecretHash),
 	}, nil
 }
 
@@ -348,10 +392,16 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 
 // HandleC2BConfirmation processes C2B confirmation callbacks.
 //
-// The body is unauthenticated, so a confirmation only settles a prompt (or
-// payment) whose status the payment service already holds under the
-// BillRefNumber and whose requested amount and currency match what Daraja
-// reports; anything else is answered 409 and recorded nowhere.
+// The C2B URL is registered with Safaricom once, so a confirmation cannot
+// carry a per-transaction secret and the body is unauthenticated. It only
+// ever addresses a prompt the payment service holds under the
+// BillRefNumber (409 otherwise). It settles that prompt SUCCESSFUL only
+// when the source allowlist (MPESA_CALLBACK_ALLOWED_CIDRS) is configured,
+// this request passed it, and the amount and currency match the request.
+// In every other case the prompt is recorded IN_PROCESS with
+// verification=c2b_unverified and 200 is returned: a reconciliation against
+// Daraja's Transaction Status API has to confirm the receipt before the
+// prompt is treated as paid.
 func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *http.Request) {
 	ctx := injectTenantFromQuery(r.Context(), r)
 	logger := util.Log(ctx).WithField("type", "mpesa.webhook.c2b.confirmation")
@@ -374,16 +424,8 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	entityType, stored, err := s.loadC2BTarget(ctx, billRef)
+	stored, err := s.loadStatus(ctx, billRef, events.EntityTypePrompt)
 	if err != nil {
-		s.reject(ctx, w, logger, "c2b_confirmation", err)
-		return
-	}
-	if err = matchesStored(stored, req.TransAmount, client.Currency); err != nil {
-		logger.WithFields(map[string]any{
-			"requested_amount": stored.GetString(client.ExtraRequestedAmount),
-			"trans_amount":     req.TransAmount,
-		}).Warn("C2B confirmation amount does not match the request")
 		s.reject(ctx, w, logger, "c2b_confirmation", err)
 		return
 	}
@@ -398,36 +440,34 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		"middle_name":          req.MiddleName,
 		"last_name":            req.LastName,
 		"org_account_balance":  req.OrgAccountBalance,
-		"verification":         "c2b_binding_amount",
-		events.ExtraEntityType: entityType,
-		"amount":               req.TransAmount,
-		"currency":             client.Currency,
+		events.ExtraEntityType: events.EntityTypePrompt,
 	}
 	carryBinding(extras, stored)
 
+	status := commonv1.STATUS_IN_PROCESS
+	extras["verification"] = "c2b_unverified"
+	amountErr := matchesStored(stored, req.TransAmount, client.Currency)
+	switch {
+	case !s.guard.Configured() || !sourceVerified(ctx):
+		logger.Warn("C2B confirmation from an unverified source; prompt left unsettled pending reconciliation")
+	case amountErr != nil:
+		logger.WithError(amountErr).WithFields(map[string]any{
+			"requested_amount": stored.GetString(client.ExtraRequestedAmount),
+			"trans_amount":     req.TransAmount,
+		}).Warn("C2B confirmation amount does not match the request; prompt left unsettled")
+	default:
+		status = commonv1.STATUS_SUCCESSFUL
+		extras["verification"] = "c2b_source_amount"
+		extras["amount"] = req.TransAmount
+		extras["currency"] = client.Currency
+	}
+
 	s.record(ctx, w, logger, "c2b_confirmation", &commonv1.StatusUpdateRequest{
 		Id:         billRef,
-		Status:     commonv1.STATUS_SUCCESSFUL,
+		Status:     status,
 		ExternalId: req.TransID,
 		Extras:     extras.ToProtoStruct(),
 	})
-}
-
-// loadC2BTarget finds the entity a BillRefNumber refers to: a prompt first,
-// then a payment.
-func (s *MpesaWebhookServer) loadC2BTarget(ctx context.Context, billRef string) (string, data.JSONMap, error) {
-	var lastErr error
-	for _, entityType := range []string{events.EntityTypePrompt, events.EntityTypePayment} {
-		stored, err := s.loadStatus(ctx, billRef, entityType)
-		if err == nil {
-			return entityType, stored, nil
-		}
-		if !errors.Is(err, errNotBound) {
-			return "", nil, err
-		}
-		lastErr = err
-	}
-	return "", nil, lastErr
 }
 
 // matchesStored checks a callback amount/currency against the request
@@ -451,7 +491,7 @@ func matchesStored(stored data.JSONMap, amount, currency string) error {
 // latest status always holds it.
 func carryBinding(extras, stored data.JSONMap) {
 	for _, key := range []string{
-		client.ExtraCheckoutRequestID, client.ExtraOriginatorConversationID,
+		client.ExtraCheckoutRequestID, client.ExtraOriginatorConversationID, client.ExtraCallbackSecretHash,
 		client.ExtraRequestedAmount, client.ExtraRequestedCurrency, client.ExtraCredentialsConnection,
 	} {
 		if v := stored.GetString(key); v != "" {
@@ -464,10 +504,11 @@ func carryBinding(extras, stored data.JSONMap) {
 
 // HandleB2CResult processes B2C result callbacks.
 //
-// The payment id comes from our own result URL (payment_id); the callback
-// is only honoured when the payment's stored status carries the same
-// OriginatorConversationID the payout was issued with, and a success is
-// recorded only when the paid TransactionAmount equals the amount requested.
+// The payment id and the per-payout secret come from our own result URL
+// (payment_id, cb_secret); the secret must hash to the digest stored with
+// the payout, the stored OriginatorConversationID (random, never the
+// payment id) must match, and a success is recorded only when the paid
+// TransactionAmount equals the amount requested.
 //
 // Daraja's Transaction Status API cannot confirm this synchronously: it only
 // acknowledges the query and posts the status to a ResultURL later (see
@@ -484,7 +525,7 @@ func (s *MpesaWebhookServer) HandleB2CResult(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	stored, err := s.bindPayment(ctx, paymentID, result.OriginatorConversationID)
+	stored, err := s.bindPayment(ctx, r, paymentID, result.OriginatorConversationID)
 	if err != nil {
 		s.reject(ctx, w, logger, "b2c", err)
 		return
@@ -551,7 +592,7 @@ func (s *MpesaWebhookServer) HandleB2CTimeout(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	if _, err := s.bindPayment(ctx, paymentID, result.OriginatorConversationID); err != nil {
+	if _, err := s.bindPayment(ctx, r, paymentID, result.OriginatorConversationID); err != nil {
 		s.reject(ctx, w, logger, "b2c_timeout", err)
 		return
 	}
@@ -593,9 +634,12 @@ func (s *MpesaWebhookServer) decodeB2C(
 
 // bindPayment checks that paymentID's stored status was issued with
 // originatorConversationID (the payout worker records it before sending).
-func (s *MpesaWebhookServer) bindPayment(ctx context.Context, paymentID, originatorConversationID string) (data.JSONMap, error) {
+func (s *MpesaWebhookServer) bindPayment(ctx context.Context, r *http.Request, paymentID, originatorConversationID string) (data.JSONMap, error) {
 	stored, err := s.loadStatus(ctx, paymentID, events.EntityTypePayment)
 	if err != nil {
+		return nil, err
+	}
+	if err = authenticate(r, stored); err != nil {
 		return nil, err
 	}
 	issued := stored.GetString(client.ExtraOriginatorConversationID)

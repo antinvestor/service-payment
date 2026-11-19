@@ -159,32 +159,34 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	}
 
 	// The transaction reference and callback secret are unguessable and
-	// never derived from the prompt id, which checkout exposes. A QUEUED
-	// status from an earlier delivery already holds them; reuse those so the
-	// callback of a push that did go out still binds.
-	transactionRef, secret := prior.transactionRef, prior.secret
+	// never derived from the prompt id, which checkout exposes. Only the
+	// secret's hash is stored, so a redelivery (no transaction_id bound yet)
+	// mints a fresh secret and re-emits the binding with its hash while
+	// keeping the reference a QUEUED status may already hold. A push that
+	// went out under the previous secret, if any, is refused by the callback
+	// handler from then on; this redelivery re-pushes under the new one.
+	transactionRef := prior.transactionRef
 	if transactionRef == "" {
 		transactionRef = extraString(extra, models.ExtraTransactionRef, collection.ExtraTxRef)
 	}
-	if transactionRef == "" || secret == "" {
+	if transactionRef == "" {
 		var err error
-		if transactionRef == "" {
-			if transactionRef, err = randomToken(transactionRefBytes); err != nil {
-				return fmt.Errorf("mint transaction reference: %w", err)
-			}
+		if transactionRef, err = randomToken(transactionRefBytes); err != nil {
+			return fmt.Errorf("mint transaction reference: %w", err)
 		}
-		if secret, err = randomToken(callbackSecretBytes); err != nil {
-			return fmt.Errorf("mint callback secret: %w", err)
-		}
+	}
+	secret, err := randomToken(callbackSecretBytes)
+	if err != nil {
+		return fmt.Errorf("mint callback secret: %w", err)
 	}
 	connection := headers[config.HeaderConnectionCredentials]
 	binding := map[string]any{
-		collection.ExtraProvider:      providerName,
-		models.ExtraTransactionRef:    transactionRef,
-		models.ExtraCallbackSecret:    secret,
-		models.ExtraRequestedAmount:   amount,
-		models.ExtraRequestedCurrency: currency,
-		"mobile_number":               phone,
+		collection.ExtraProvider:       providerName,
+		models.ExtraTransactionRef:     transactionRef,
+		models.ExtraCallbackSecretHash: models.HashCallbackSecret(secret),
+		models.ExtraRequestedAmount:    amount,
+		models.ExtraRequestedCurrency:  currency,
+		"mobile_number":                phone,
 	}
 	if connection != "" {
 		binding[models.ExtraCredentialsConnection] = connection
@@ -270,7 +272,6 @@ func randomToken(n int) (string, error) {
 type priorBinding struct {
 	transactionID  string
 	transactionRef string
-	secret         string
 }
 
 // priorBinding reads the binding an earlier delivery recorded, if any. A
@@ -290,7 +291,6 @@ func (h *promptHandler) priorBinding(ctx context.Context, promptID string) prior
 	return priorBinding{
 		transactionID:  fields[models.ExtraTransactionID].GetStringValue(),
 		transactionRef: fields[models.ExtraTransactionRef].GetStringValue(),
-		secret:         fields[models.ExtraCallbackSecret].GetStringValue(),
 	}
 }
 

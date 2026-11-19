@@ -92,6 +92,7 @@ type binding struct {
 	requestedCurrency string
 	connection        string
 	transactionID     string
+	secretHash        string
 }
 
 // settlement is what a callback reports about the bound prompt.
@@ -239,6 +240,8 @@ func (ws *WebhookServer) settle(ctx context.Context, w http.ResponseWriter, r *h
 	if b.transactionID != "" {
 		extras[models.ExtraTransactionID] = b.transactionID
 	}
+	// The binding is carried forward so a later callback still binds.
+	extras[models.ExtraCallbackSecretHash] = b.secretHash
 
 	status := commonv1.STATUS_FAILED
 	switch {
@@ -293,12 +296,13 @@ func (ws *WebhookServer) bindPrompt(ctx context.Context, promptID, secret, trans
 	}
 	var stored data.JSONMap
 	stored = stored.FromProtoStruct(resp.GetExtras())
-	storedSecret := stored.GetString(models.ExtraCallbackSecret)
-	if storedSecret == "" || secret == "" ||
-		subtle.ConstantTimeCompare([]byte(storedSecret), []byte(secret)) != 1 {
+	storedHash := stored.GetString(models.ExtraCallbackSecretHash)
+	if storedHash == "" || secret == "" ||
+		subtle.ConstantTimeCompare([]byte(storedHash), []byte(models.HashCallbackSecret(secret))) != 1 {
 		return nil, errForged
 	}
 	b := &binding{
+		secretHash:        storedHash,
 		transactionRef:    stored.GetString(models.ExtraTransactionRef),
 		requestedAmount:   stored.GetString(models.ExtraRequestedAmount),
 		requestedCurrency: stored.GetString(models.ExtraRequestedCurrency),

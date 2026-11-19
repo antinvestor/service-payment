@@ -63,6 +63,9 @@ type JengaConfig struct {
 	JengaCallbackURL string `envDefault:"http://localhost" env:"JENGA_CALLBACK_URL" required:"true"`
 	Environment      string `envDefault:"sandbox"          env:"JENGA_ENV"`
 	BaseURL          string `env:"JENGA_BASE_URL"`
+	// BaseURLAllowlist adds hosts (comma separated, host[:port]) to the known
+	// Jenga hosts that a base URL may point at; meant for test servers.
+	BaseURLAllowlist string `env:"JENGA_BASE_URL_ALLOWLIST"`
 
 	// Queue configuration - payment queue for disbursements (tills pay, B2B)
 	QueuePaymentName string `envDefault:"jenga.payments.dequeue"       env:"QUEUE_JENGA_PAYMENT_NAME"`

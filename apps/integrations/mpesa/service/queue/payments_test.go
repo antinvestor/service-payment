@@ -118,7 +118,7 @@ func TestPaymentHandler_B2C(t *testing.T) {
 			cfg:    testConfig(),
 			amount: &commonv1.Money{CurrencyCode: "KES", Units: 250},
 			reader: &stubStatusReader{extras: map[string]any{
-				"entity_type": "payment", client.ExtraOriginatorConversationID: "payment-1",
+				"entity_type": "payment", client.ExtraOriginatorConversationID: "0123456789abcdef0123456789abcdef",
 			}},
 		},
 	}
@@ -149,30 +149,40 @@ func TestPaymentHandler_B2C(t *testing.T) {
 			}
 			require.Len(t, mp.b2c, 1)
 			req := mp.b2c[0]
-			assert.Equal(t, "payment-1", req.OriginatorConversationID)
+			assert.NotEqual(t, "payment-1", req.OriginatorConversationID, "originator id is never the payment id")
+			assert.Len(t, req.OriginatorConversationID, 32)
 			assert.Equal(t, "250", req.Amount)
 			assert.Equal(t, "init", req.InitiatorName)
+			secret := ""
 			for _, raw := range []string{req.ResultURL, req.QueueTimeOutURL} {
 				u, perr := url.Parse(raw)
 				require.NoError(t, perr)
 				assert.Equal(t, "payment-1", u.Query().Get(client.CallbackParamPaymentID))
 				assert.Equal(t, "t1", u.Query().Get("tenant_id"))
+				secret = u.Query().Get(client.CallbackParamSecret)
+				assert.Len(t, secret, 32)
 			}
 			// The first status, written before the call, carries the binding
-			// the result callback checks.
+			// the result callback checks: the random originator id and the
+			// digest (never the clear value) of the callback secret.
 			first := evts.emitted[0].GetExtras().GetFields()
-			assert.Equal(t, "payment-1", first[client.ExtraOriginatorConversationID].GetStringValue())
+			assert.Equal(t, req.OriginatorConversationID, first[client.ExtraOriginatorConversationID].GetStringValue())
+			assert.Equal(t, client.HashCallbackSecret(secret), first[client.ExtraCallbackSecretHash].GetStringValue())
 			assert.Equal(t, "250", first[client.ExtraRequestedAmount].GetStringValue())
 			assert.Equal(t, "KES", first[client.ExtraRequestedCurrency].GetStringValue())
+			for _, st := range evts.emitted {
+				assertNoSecretInClear(t, st.GetExtras().GetFields(), secret)
+			}
 		})
 	}
 }
 
 func TestB2CCallbackURL(t *testing.T) {
-	got := b2cCallbackURL("https://hooks.example.com", "/webhook/mpesa/b2c", map[string]string{"partition_id": "p1"}, "payment-9")
+	got := b2cCallbackURL("https://hooks.example.com", "/webhook/mpesa/b2c", map[string]string{"partition_id": "p1"}, "payment-9", "s3cret")
 	u, err := url.Parse(got)
 	require.NoError(t, err)
 	assert.Equal(t, "/webhook/mpesa/b2c", u.Path)
 	assert.Equal(t, "payment-9", u.Query().Get(client.CallbackParamPaymentID))
+	assert.Equal(t, "s3cret", u.Query().Get(client.CallbackParamSecret))
 	assert.Equal(t, "p1", u.Query().Get("partition_id"))
 }

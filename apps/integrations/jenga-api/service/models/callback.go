@@ -14,7 +14,17 @@
 
 package models
 
-import "encoding/json"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+)
+
+// HashCallbackSecret is the stored form of a callback secret.
+func HashCallbackSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
 
 // Callback routes and the status extras that bind a Jenga callback to the
 // prompt this service raised. The prompt worker writes the binding on the
@@ -29,8 +39,10 @@ const (
 	// CallbackParamSecret carries the unguessable per-prompt secret the
 	// worker minted; a callback without it cannot settle the prompt.
 	CallbackParamSecret = "cb_secret"
-	// ExtraCallbackSecret stores that secret on the prompt's status.
-	ExtraCallbackSecret = "callback_secret"
+	// ExtraCallbackSecretHash stores the SHA-256 hex of that secret on the
+	// prompt's status; the secret itself is never stored, since status extras
+	// are returned to clients.
+	ExtraCallbackSecretHash = "callback_secret_sha256"
 
 	// ExtraTransactionRef is the reference sent to Jenga (payment.ref) and
 	// echoed as transactionReference on callbacks.

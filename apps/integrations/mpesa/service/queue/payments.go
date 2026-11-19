@@ -127,8 +127,20 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		commandID = cmd.GetStringValue()
 	}
 
+	// The OriginatorConversationID and the callback secret are random so a
+	// result cannot be forged by anyone who merely knows the payment id;
+	// only the secret's digest is stored.
+	originatorID, err := client.NewOriginatorConversationID()
+	if err != nil {
+		return fmt.Errorf("payout %s: %w", paymentID, err)
+	}
+	secret, secretHash, err := client.NewCallbackSecret()
+	if err != nil {
+		return fmt.Errorf("payout %s: %w", paymentID, err)
+	}
 	extras := map[string]any{
-		client.ExtraOriginatorConversationID: paymentID,
+		client.ExtraOriginatorConversationID: originatorID,
+		client.ExtraCallbackSecretHash:       secretHash,
 		client.ExtraRequestedAmount:          amount,
 		client.ExtraRequestedCurrency:        client.Currency,
 		"command_id":                         commandID,
@@ -147,7 +159,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 
 	b2cReq := &client.B2CRequest{
-		OriginatorConversationID: paymentID,
+		OriginatorConversationID: originatorID,
 		InitiatorName:            creds.InitiatorName,
 		SecurityCredential:       creds.SecurityCredential,
 		CommandID:                commandID,
@@ -155,8 +167,8 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		PartyA:                   creds.Shortcode,
 		PartyB:                   payment.GetRecipient().GetContactId(),
 		Remarks:                  "Payment disbursement",
-		QueueTimeOutURL:          b2cCallbackURL(creds.CallbackURL, "/webhook/mpesa/b2c/timeout", headers, paymentID),
-		ResultURL:                b2cCallbackURL(creds.CallbackURL, "/webhook/mpesa/b2c", headers, paymentID),
+		QueueTimeOutURL:          b2cCallbackURL(creds.CallbackURL, "/webhook/mpesa/b2c/timeout", headers, paymentID, secret),
+		ResultURL:                b2cCallbackURL(creds.CallbackURL, "/webhook/mpesa/b2c", headers, paymentID, secret),
 		Occasion:                 paymentID,
 	}
 
@@ -215,19 +227,28 @@ func copyExtras(base map[string]any, add map[string]any) map[string]any {
 	return out
 }
 
-// b2cCallbackURL builds a B2C result/timeout URL carrying the tenancy and
-// the payment id, so the callback can be bound to the payout it answers.
-func b2cCallbackURL(base, path string, headers map[string]string, paymentID string) string {
-	callbackURL := appendTenantParams(base+path, headers)
-	if paymentID == "" {
-		return callbackURL
-	}
-	u, err := url.Parse(callbackURL)
+// b2cCallbackURL builds a B2C result/timeout URL carrying the tenancy, the
+// payment id and the per-payout secret, so the callback can be bound to and
+// authenticated against the payout it answers.
+func b2cCallbackURL(base, path string, headers map[string]string, paymentID, secret string) string {
+	return withQuery(appendTenantParams(base+path, headers), map[string]string{
+		client.CallbackParamPaymentID: paymentID,
+		client.CallbackParamSecret:    secret,
+	})
+}
+
+// withQuery adds the non-empty params to a URL.
+func withQuery(raw string, params map[string]string) string {
+	u, err := url.Parse(raw)
 	if err != nil {
-		return callbackURL
+		return raw
 	}
 	q := u.Query()
-	q.Set(client.CallbackParamPaymentID, paymentID)
+	for k, v := range params {
+		if v != "" {
+			q.Set(k, v)
+		}
+	}
 	u.RawQuery = q.Encode()
 	return u.String()
 }

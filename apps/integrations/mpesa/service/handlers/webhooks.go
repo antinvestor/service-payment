@@ -436,6 +436,17 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Unverified confirmations never write to the prompt and never look it
+	// up, so the answer reveals nothing about any record: they are logged
+	// for reconciliation and acknowledged so Safaricom stops retrying.
+	if !s.guard.Configured() || !sourceVerified(ctx) {
+		logger.WithField("verification", "c2b_unverified").
+			Warn("C2B confirmation from an unverified source; not recorded, reconcile with Transaction Status")
+		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "verification_failed")
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+
 	stored, err := s.loadStatus(ctx, billRef, events.EntityTypePrompt)
 	if err != nil {
 		s.reject(ctx, w, logger, "c2b_confirmation", err)
@@ -460,15 +471,6 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 	if st := stored.GetString(extraStoredStatus); st == commonv1.STATUS_SUCCESSFUL.String() || st == commonv1.STATUS_FAILED.String() {
 		logger.Info("C2B confirmation for a settled prompt ignored")
 		w.WriteHeader(http.StatusOK)
-		return
-	}
-	// Unverified confirmations never write to the prompt: they are logged
-	// for reconciliation and acknowledged so Safaricom stops retrying.
-	if !s.guard.Configured() || !sourceVerified(ctx) {
-		logger.WithField("verification", "c2b_unverified").
-			Warn("C2B confirmation from an unverified source; not recorded, reconcile with Transaction Status")
-		s.metrics.WebhookRejected(ctx, "c2b_confirmation", "verification_failed")
-		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 	if amountErr := matchesStored(stored, req.TransAmount, client.Currency); amountErr != nil {

@@ -442,7 +442,15 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 		},
 		{
 			name: "unknown bill reference is refused", stored: map[string]data.JSONMap{},
-			remote: "196.201.214.200:4433", billRef: "anything", amount: "100", wantHTTP: http.StatusConflict,
+			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "anything", amount: "100", wantHTTP: http.StatusConflict,
+		},
+		{
+			name: "unverified source learns nothing about unknown references", stored: map[string]data.JSONMap{},
+			remote: "196.201.214.200:4433", billRef: "anything", amount: "100", wantHTTP: http.StatusAccepted,
+		},
+		{
+			name: "unverified source learns nothing about settled prompts", stored: map[string]data.JSONMap{"prompt-1": {"entity_type": "prompt", client.ExtraRequestedAmount: "100", "status": "SUCCESSFUL"}},
+			remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100", wantHTTP: http.StatusAccepted,
 		},
 		{
 			name: "missing bill reference", stored: map[string]data.JSONMap{},
@@ -450,7 +458,7 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 		},
 		{
 			name: "lookup failure is retryable", statusErr: connect.NewError(connect.CodeUnavailable, "down"),
-			remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100", wantHTTP: http.StatusServiceUnavailable,
+			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100", wantHTTP: http.StatusServiceUnavailable,
 		},
 	}
 	for _, tt := range tests {

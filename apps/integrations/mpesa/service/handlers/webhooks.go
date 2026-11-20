@@ -408,7 +408,9 @@ func (s *MpesaWebhookServer) HandleC2BValidation(w http.ResponseWriter, r *http.
 // ever addresses a prompt the payment service holds under the
 // BillRefNumber (409 otherwise). It settles that prompt SUCCESSFUL only
 // when the source allowlist (MPESA_CALLBACK_ALLOWED_CIDRS) is configured,
-// this request passed it, and the amount and currency match the request.
+// this request passed it, the BusinessShortCode is the shortcode of the
+// connection that issued the prompt, and the amount and currency match the
+// request.
 // An unverified confirmation (no allowlist, or source outside it) writes
 // nothing to the prompt: it is logged and acknowledged (202), and a
 // reconciliation against Daraja's Transaction Status API has to confirm the
@@ -452,6 +454,13 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		s.reject(ctx, w, logger, "c2b_confirmation", err)
 		return
 	}
+	// The confirmation must have arrived on the paybill of the connection
+	// that issued the prompt: a payment to one tenant's shortcode that quotes
+	// another tenant's prompt as its account reference settles nothing.
+	if err = s.shortcodeMatches(ctx, stored, req.BusinessShortCode); err != nil {
+		s.reject(ctx, w, logger, "c2b_confirmation", err)
+		return
+	}
 
 	extras := data.JSONMap{
 		"trans_id":             req.TransID,
@@ -482,7 +491,7 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		http.Error(w, "amount mismatch", http.StatusConflict)
 		return
 	}
-	extras["verification"] = "c2b_source_amount"
+	extras["verification"] = "c2b_source_shortcode_amount"
 	extras["amount"] = req.TransAmount
 	extras["currency"] = client.Currency
 
@@ -492,6 +501,25 @@ func (s *MpesaWebhookServer) HandleC2BConfirmation(w http.ResponseWriter, r *htt
 		ExternalId: req.TransID,
 		Extras:     extras.ToProtoStruct(),
 	})
+}
+
+// shortcodeMatches resolves the credentials of the connection that issued
+// the prompt (empty = service defaults) and checks the confirmation's
+// BusinessShortCode against that connection's shortcode.
+func (s *MpesaWebhookServer) shortcodeMatches(ctx context.Context, stored data.JSONMap, got string) error {
+	if s.resolveCreds == nil {
+		return fmt.Errorf("%w: no credentials resolver to check the shortcode", errNotBound)
+	}
+	creds, err := s.resolveCreds(ctx, stored.GetString(client.ExtraCredentialsConnection))
+	if err != nil {
+		return fmt.Errorf("resolve credentials: %w", err)
+	}
+	got = strings.TrimSpace(got)
+	want := strings.TrimSpace(creds.Shortcode)
+	if got == "" || want == "" || got != want {
+		return fmt.Errorf("%w: shortcode %q is not the prompt connection's %q", errNotBound, got, want)
+	}
+	return nil
 }
 
 // matchesStored checks a callback amount/currency against the request

@@ -41,8 +41,8 @@ var knownJengaHosts = map[string]bool{
 
 var (
 	errTenantKeyRequired = errors.New(
-		"a Jenga settings connection must supply its own private key (X-JENGA_PRIVATE_KEY_PEM or path); " +
-			"the service key only signs for the service's own credentials")
+		"a Jenga settings connection must supply its own private key as X-JENGA_PRIVATE_KEY_PEM; " +
+			"a key path is never accepted from a tenant and the service key only signs for the service's own credentials")
 	errBaseURLNotAllowed = errors.New("jenga base URL host is not an allowed Jenga host")
 )
 
@@ -105,7 +105,9 @@ func (r *credentialResolver) extractCredentials(
 		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
 		BaseURL:        headerOrDefault(headers, config.HeaderBaseURL, r.cfg.BaseURL),
 		PrivateKeyPEM:  headerOrDefault(headers, config.HeaderPrivateKeyPEM, r.cfg.JengaPrivateKeyPEM),
-		PrivateKeyPath: headerOrDefault(headers, config.HeaderPrivateKeyPath, r.cfg.JengaPrivateKey),
+		// A key path is only ever the service's own: a header could otherwise
+		// name the service key file (or any readable file) as "its" key.
+		PrivateKeyPath: r.cfg.JengaPrivateKey,
 	}
 
 	if creds.MerchantCode == "" || creds.ConsumerSecret == "" || creds.APIKey == "" {
@@ -116,9 +118,13 @@ func (r *credentialResolver) extractCredentials(
 	// own credentials.
 	overridden := creds.MerchantCode != r.cfg.MerchantCode || creds.ConsumerSecret != r.cfg.ConsumerSecret ||
 		creds.APIKey != r.cfg.ApiKey || creds.BaseURL != r.cfg.BaseURL || creds.Environment != r.cfg.Environment
-	ownKey := headers[config.HeaderPrivateKeyPEM] != "" || headers[config.HeaderPrivateKeyPath] != ""
-	if overridden && !ownKey {
-		return nil, errTenantKeyRequired
+	ownKey := headers[config.HeaderPrivateKeyPEM] != ""
+	if overridden {
+		if !ownKey {
+			return nil, errTenantKeyRequired
+		}
+		// The service key file never backs an overridden connection.
+		creds.PrivateKeyPath = ""
 	}
 	if err := r.checkBaseURL(creds.BaseURL); err != nil {
 		return nil, err
@@ -216,11 +222,11 @@ func (r *credentialResolver) credentialsFromSettings(
 		Environment:    credMap[config.HeaderEnvironment],
 		BaseURL:        credMap[config.HeaderBaseURL],
 		PrivateKeyPEM:  credMap[config.HeaderPrivateKeyPEM],
-		PrivateKeyPath: credMap[config.HeaderPrivateKeyPath],
 	}
 	// The service's signing key is never lent to a tenant connection: a
-	// tenant that signs must hold its own key.
-	if creds.PrivateKeyPEM == "" && creds.PrivateKeyPath == "" {
+	// tenant that signs must hold its own key, and only as PEM. A path from
+	// settings could name the service key file on this host.
+	if creds.PrivateKeyPEM == "" {
 		return nil, errTenantKeyRequired
 	}
 	if creds.Environment == "" {

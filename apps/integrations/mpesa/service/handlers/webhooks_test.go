@@ -364,11 +364,12 @@ func TestSTKCallback_RejectsMissingCheckoutRequestID(t *testing.T) {
 	assert.Empty(t, pay.updates)
 }
 
-func c2bBody(t *testing.T, billRef, amount string) []byte {
+// c2bBodyOn builds a confirmation received on the given paybill shortcode.
+func c2bBodyOn(t *testing.T, shortcode, billRef, amount string) []byte {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{
 		"TransactionType": "Pay Bill", "TransID": "RKTQDM7W6S", "TransTime": "20191122063845",
-		"TransAmount": amount, "BusinessShortCode": "600638", "BillRefNumber": billRef,
+		"TransAmount": amount, "BusinessShortCode": shortcode, "BillRefNumber": billRef,
 		"MSISDN": "254700000001", "FirstName": "John",
 	})
 	require.NoError(t, err)
@@ -400,15 +401,34 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 		remote      string
 		billRef     string
 		amount      string
+		shortcode   string
+		noResolver  bool
 		wantHTTP    int
 		wantStatus  commonv1.STATUS
 		wantVerify  string
 		wantIgnored bool
+		wantConn    string
 	}{
 		{
 			name: "allowlisted source with matching amount settles", stored: map[string]data.JSONMap{"prompt-1": prompt},
 			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100.00",
-			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "c2b_source_amount",
+			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "c2b_source_shortcode_amount",
+		},
+		{
+			name:   "the prompt's own connection is the one checked",
+			stored: map[string]data.JSONMap{"prompt-1": {"entity_type": "prompt", client.ExtraRequestedAmount: "100", client.ExtraCredentialsConnection: "tenant-7"}},
+			guard:  guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
+			wantHTTP: http.StatusOK, wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "c2b_source_shortcode_amount", wantConn: "tenant-7",
+		},
+		{
+			name: "paid on another tenant's shortcode: refused", stored: map[string]data.JSONMap{"prompt-1": prompt},
+			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
+			shortcode: "600638", wantHTTP: http.StatusConflict,
+		},
+		{
+			name: "no credentials resolver: nothing can be settled", stored: map[string]data.JSONMap{"prompt-1": prompt},
+			guard: guard(t, "196.201.214.0/24", 0), remote: "196.201.214.200:4433", billRef: "prompt-1", amount: "100",
+			noResolver: true, wantHTTP: http.StatusConflict,
 		},
 		{
 			name: "no allowlist configured: acknowledged, nothing written", stored: map[string]data.JSONMap{"prompt-1": prompt},
@@ -468,14 +488,26 @@ func TestC2BConfirmation_SettlesOnlyVerifiedPrompts(t *testing.T) {
 			if tt.guard != nil {
 				opts = append(opts, handlers.WithSourceGuard(tt.guard))
 			}
-			srv := handlers.NewMpesaWebhookServer(pay, &stubMpesa{}, nil, opts...)
+			var connections []string
+			var resolver handlers.CredentialsResolver
+			if !tt.noResolver {
+				resolver = credsFor(&connections)
+			}
+			srv := handlers.NewMpesaWebhookServer(pay, &stubMpesa{}, resolver, opts...)
 
-			rr := postFrom(srv, "/webhook/mpesa/c2b/confirmation?tenant_id=t1", tt.remote, c2bBody(t, tt.billRef, tt.amount))
+			shortcode := tt.shortcode
+			if shortcode == "" {
+				shortcode = "174379"
+			}
+			rr := postFrom(srv, "/webhook/mpesa/c2b/confirmation?tenant_id=t1", tt.remote, c2bBodyOn(t, shortcode, tt.billRef, tt.amount))
 
 			require.Equal(t, tt.wantHTTP, rr.Code, rr.Body.String())
 			if tt.wantHTTP != http.StatusOK || tt.wantIgnored {
 				assert.Empty(t, pay.updates, "nothing may be written to the prompt")
 				return
+			}
+			if tt.wantConn != "" {
+				assert.Equal(t, []string{tt.wantConn}, connections)
 			}
 			require.Len(t, pay.updates, 1)
 			got := pay.updates[0]

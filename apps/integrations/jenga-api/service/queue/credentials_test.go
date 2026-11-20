@@ -103,6 +103,26 @@ func TestExtractCredentials_SigningKeyAndHostRestrictions(t *testing.T) {
 			headers: map[string]string{config.HeaderMerchantCode: "OTHER"}, wantErr: errTenantKeyRequired,
 		},
 		{
+			name: "a header key path is never accepted as the tenant's own key", cfg: serviceCfg,
+			headers: map[string]string{config.HeaderMerchantCode: "OTHER", config.HeaderPrivateKeyPath: "/etc/jenga/service.key"},
+			wantErr: errTenantKeyRequired,
+		},
+		{
+			name: "a tenant setting that only names a key path is refused", cfg: serviceCfg,
+			setting: tenantSetting(`,"` + config.HeaderPrivateKeyPath + `":"/etc/jenga/service.key"`),
+			headers: conn, wantErr: errTenantKeyRequired,
+		},
+		{
+			name: "an overridden connection never falls back to the service key file",
+			cfg: func() *config.JengaConfig {
+				c := serviceCfg()
+				c.JengaPrivateKeyPEM, c.JengaPrivateKey = "", "/etc/jenga/service.key"
+				return c
+			},
+			headers: map[string]string{config.HeaderMerchantCode: "OTHER", config.HeaderPrivateKeyPEM: "tenant-pem"},
+			wantPEM: "tenant-pem", wantURL: "https://uat.finserve.africa",
+		},
+		{
 			name: "header override of the host needs its own key and an allowed host", cfg: serviceCfg,
 			headers: map[string]string{config.HeaderBaseURL: "https://evil.example.com", config.HeaderPrivateKeyPEM: "p"},
 			wantErr: errBaseURLNotAllowed,
@@ -122,6 +142,9 @@ func TestExtractCredentials_SigningKeyAndHostRestrictions(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantPEM, creds.PrivateKeyPEM)
+			if tt.wantPEM != "service-pem" {
+				assert.Empty(t, creds.PrivateKeyPath, "a tenant or header connection never uses the service key file")
+			}
 			assert.Equal(t, tt.wantURL, toAPICreds(creds).ResolveBaseURL())
 		})
 	}

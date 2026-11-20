@@ -14,6 +14,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY ./pkg ./pkg
+COPY ./apps/billing/gen ./apps/billing/gen
 COPY ./apps/integrations/polar ./apps/integrations/polar
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath \

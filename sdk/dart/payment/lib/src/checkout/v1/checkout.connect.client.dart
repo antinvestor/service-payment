@@ -46,6 +46,25 @@ extension type CheckoutServiceClient (connect.Transport _transport) {
     );
   }
 
+  /// ListPaymentMethods returns the rails available for the caller's
+  /// partition and the given currency / amount / locality.
+  Future<checkoutv1checkout.ListPaymentMethodsResponse> listPaymentMethods(
+    checkoutv1checkout.ListPaymentMethodsRequest input, {
+    connect.Headers? headers,
+    connect.AbortSignal? signal,
+    Function(connect.Headers)? onHeader,
+    Function(connect.Headers)? onTrailer,
+  }) {
+    return connect.Client(_transport).unary(
+      specs.CheckoutService.listPaymentMethods,
+      input,
+      signal: signal,
+      headers: headers,
+      onHeader: onHeader,
+      onTrailer: onTrailer,
+    );
+  }
+
   /// CreateCheckoutLink creates a reusable, shareable link that spawns a
   /// fresh checkout session per visitor.
   Future<checkoutv1checkout.CreateCheckoutLinkResponse> createCheckoutLink(

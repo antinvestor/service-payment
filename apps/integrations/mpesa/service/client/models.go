@@ -15,8 +15,15 @@
 package client
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 	"time"
 )
 
@@ -31,14 +38,58 @@ type MpesaCredentials struct {
 	InitiatorName      string
 	SecurityCredential string
 	Environment        string // sandbox or production
+
+	baseURL string
+}
+
+// SetBaseURL points the credentials at another API host (tests).
+func (c *MpesaCredentials) SetBaseURL(u string) { c.baseURL = u }
+
+// HasInitiator reports whether the B2C / Transaction Status APIs can be
+// called: both need an initiator name and its security credential.
+func (c *MpesaCredentials) HasInitiator() bool {
+	return c.InitiatorName != "" && c.SecurityCredential != ""
 }
 
 // BaseURL returns the Daraja API base URL based on environment.
 func (c *MpesaCredentials) BaseURL() string {
+	if c.baseURL != "" {
+		return c.baseURL
+	}
 	if c.Environment == "production" {
 		return "https://api.safaricom.co.ke"
 	}
 	return "https://sandbox.safaricom.co.ke"
+}
+
+// APIError is a Daraja answer that is not the expected one: a non-200 HTTP
+// status, or a 200 whose ResponseCode is not "0".
+type APIError struct {
+	Operation    string
+	StatusCode   int
+	ResponseCode string
+	Body         string
+}
+
+func (e *APIError) Error() string {
+	if e.ResponseCode != "" {
+		return fmt.Sprintf("%s refused with response code %s: %s", e.Operation, e.ResponseCode, e.Body)
+	}
+	return fmt.Sprintf("%s failed with status %d: %s", e.Operation, e.StatusCode, e.Body)
+}
+
+// IsRejected reports whether Daraja refused the request outright (4xx or a
+// non-zero ResponseCode on 200): nothing was applied, so the worker may
+// fail the entity. Transport errors and 5xx are not rejections.
+func IsRejected(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	if apiErr.ResponseCode != "" {
+		return true
+	}
+	return apiErr.StatusCode >= http.StatusBadRequest && apiErr.StatusCode < http.StatusInternalServerError
 }
 
 // TokenResponse represents the OAuth token response from Daraja API.
@@ -139,10 +190,21 @@ type STKCallbackBody struct {
 	} `json:"Body"`
 }
 
-// CallbackItem represents a key-value item in callback metadata.
+// CallbackItem represents a key-value item in callback metadata. STK
+// callbacks label items with "Name"; B2C and Transaction Status results
+// label them with "Key".
 type CallbackItem struct {
 	Name  string `json:"Name"`
+	Key   string `json:"Key"`
 	Value any    `json:"Value"`
+}
+
+// Label is the item's name under either Daraja spelling.
+func (i CallbackItem) Label() string {
+	if i.Name != "" {
+		return i.Name
+	}
+	return i.Key
 }
 
 // C2BValidationRequest represents a C2B validation callback.
@@ -164,32 +226,100 @@ type C2BValidationRequest struct {
 
 // B2CCallbackBody represents the B2C result callback payload.
 type B2CCallbackBody struct {
-	Result struct {
-		ResultType               int    `json:"ResultType"`
-		ResultCode               int    `json:"ResultCode"`
-		ResultDesc               string `json:"ResultDesc"`
-		OriginatorConversationID string `json:"OriginatorConversationID"`
-		ConversationID           string `json:"ConversationID"`
-		TransactionID            string `json:"TransactionID"`
-		ResultParameters         *struct {
-			ResultParameter []CallbackItem `json:"ResultParameter"`
-		} `json:"ResultParameters"`
-	} `json:"Result"`
+	Result B2CResult `json:"Result"`
 }
 
-// Keys shared between the STK push worker and the STK callback handler.
+// B2CResult is the Result block of a B2C result or timeout callback.
+type B2CResult struct {
+	ResultType               int    `json:"ResultType"`
+	ResultCode               int    `json:"ResultCode"`
+	ResultDesc               string `json:"ResultDesc"`
+	OriginatorConversationID string `json:"OriginatorConversationID"`
+	ConversationID           string `json:"ConversationID"`
+	TransactionID            string `json:"TransactionID"`
+	ResultParameters         *struct {
+		ResultParameter []CallbackItem `json:"ResultParameter"`
+	} `json:"ResultParameters"`
+}
+
+// Keys shared between the queue workers and the callback handlers.
 const (
 	// CallbackParamPromptID is the callback URL query parameter carrying the
 	// payment-service prompt id the STK push was issued for.
 	CallbackParamPromptID = "prompt_id"
+	// CallbackParamPaymentID is the B2C result/timeout URL query parameter
+	// carrying the payment-service payment id the payout was issued for.
+	CallbackParamPaymentID = "payment_id"
+	// CallbackParamSecret is the query parameter every callback URL we hand
+	// Daraja carries: a per-record secret only we and Daraja know.
+	CallbackParamSecret = "cb_secret"
+	// ExtraCallbackSecretHash stores the SHA-256 (hex) of the callback
+	// secret on the status; the secret itself is never recorded.
+	ExtraCallbackSecretHash = "callback_secret_sha256"
 	// ExtraCheckoutRequestID binds a prompt status to its Daraja CheckoutRequestID.
 	ExtraCheckoutRequestID = "checkout_request_id"
-	// ExtraRequestedAmount is the amount sent to Daraja in the STK push.
+	// ExtraOriginatorConversationID binds a payment status to the B2C
+	// OriginatorConversationID the payout was issued with.
+	ExtraOriginatorConversationID = "originator_conversation_id"
+	// ExtraRequestedAmount is the amount sent to Daraja.
 	ExtraRequestedAmount = "requested_amount"
-	// ExtraCredentialsConnection is the settings key the STK push credentials
-	// were resolved from (a key name, never a secret).
+	// ExtraRequestedCurrency is the currency of the amount sent to Daraja.
+	ExtraRequestedCurrency = "requested_currency"
+	// ExtraCredentialsConnection is the settings key the credentials were
+	// resolved from (a key name, never a secret).
 	ExtraCredentialsConnection = "credentials_connection"
+
+	// Currency is the only currency Daraja moves.
+	Currency = "KES"
+	// ResultParamTransactionAmount is the B2C result parameter carrying the
+	// amount actually paid out.
+	ResultParamTransactionAmount = "TransactionAmount"
+	// ResultParamTransactionReceipt is the B2C result parameter carrying the
+	// M-Pesa receipt number.
+	ResultParamTransactionReceipt = "TransactionReceipt"
 )
+
+// TransactionStatusRequest is the Daraja Transaction Status API payload.
+// The API is asynchronous: the synchronous answer only acknowledges the
+// query and the actual status is posted to ResultURL.
+type TransactionStatusRequest struct {
+	Initiator                string `json:"Initiator"`
+	SecurityCredential       string `json:"SecurityCredential"`
+	CommandID                string `json:"CommandID"`
+	TransactionID            string `json:"TransactionID"`
+	OriginatorConversationID string `json:"OriginatorConversationID,omitempty"`
+	PartyA                   string `json:"PartyA"`
+	IdentifierType           string `json:"IdentifierType"`
+	ResultURL                string `json:"ResultURL"`
+	QueueTimeOutURL          string `json:"QueueTimeOutURL"`
+	Remarks                  string `json:"Remarks"`
+	Occasion                 string `json:"Occasion,omitempty"`
+}
+
+// NewTransactionStatusRequest builds a status query for an M-Pesa
+// transaction id against the credentials' shortcode (IdentifierType 4).
+func NewTransactionStatusRequest(creds *MpesaCredentials, transactionID, resultURL, timeoutURL string) *TransactionStatusRequest {
+	return &TransactionStatusRequest{
+		Initiator:          creds.InitiatorName,
+		SecurityCredential: creds.SecurityCredential,
+		CommandID:          "TransactionStatusQuery",
+		TransactionID:      transactionID,
+		PartyA:             creds.Shortcode,
+		IdentifierType:     "4",
+		ResultURL:          resultURL,
+		QueueTimeOutURL:    timeoutURL,
+		Remarks:            "Transaction status query",
+	}
+}
+
+// TransactionStatusResponse is the synchronous acknowledgement of a
+// Transaction Status query.
+type TransactionStatusResponse struct {
+	OriginatorConversationID string     `json:"OriginatorConversationID"`
+	ConversationID           string     `json:"ConversationID"`
+	ResponseCode             FlexString `json:"ResponseCode"`
+	ResponseDescription      string     `json:"ResponseDescription"`
+}
 
 // STKPassword builds the Lipa Na M-Pesa password: base64(shortcode+passkey+timestamp).
 func STKPassword(shortcode, passkey, timestamp string) string {
@@ -247,4 +377,47 @@ func (f *FlexString) UnmarshalJSON(b []byte) error {
 	}
 	*f = FlexString(n.String())
 	return nil
+}
+
+const secretBytes = 16
+
+// NewCallbackSecret mints an unguessable per-record secret (16 random bytes,
+// hex) and returns it with its SHA-256 hex digest: the secret goes into the
+// callback URL, only the digest is stored.
+func NewCallbackSecret() (string, string, error) {
+	secret, err := randomHex()
+	if err != nil {
+		return "", "", err
+	}
+	return secret, HashCallbackSecret(secret), nil
+}
+
+// NewOriginatorConversationID mints a random B2C OriginatorConversationID so
+// a payout cannot be addressed by a guessable payment id.
+func NewOriginatorConversationID() (string, error) {
+	return randomHex()
+}
+
+func randomHex() (string, error) {
+	buf := make([]byte, secretBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate random secret: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+// HashCallbackSecret is the SHA-256 hex digest stored for a callback secret.
+func HashCallbackSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// CallbackSecretMatches reports whether the presented secret hashes to the
+// stored digest, in constant time. An empty presented value or digest never
+// matches.
+func CallbackSecretMatches(presented, storedHash string) bool {
+	if presented == "" || storedHash == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(HashCallbackSecret(presented)), []byte(storedHash)) == 1
 }

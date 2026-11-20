@@ -118,6 +118,23 @@ func (f *fakeSessionRepo) ListUnexpiredWithPrompt(
 	return out, nil
 }
 
+func (f *fakeSessionRepo) ListExpiredBefore(
+	_ context.Context,
+	statuses []string,
+	now time.Time,
+	limit int,
+) ([]*models.CheckoutSession, error) {
+	var out []*models.CheckoutSession
+	for _, st := range statuses {
+		for _, s := range f.byStatus[st] {
+			if s.ExpiresAt.Before(now) && len(out) < limit {
+				out = append(out, s)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeSessionRepo) ListByStatus(
 	_ context.Context,
 	status string,

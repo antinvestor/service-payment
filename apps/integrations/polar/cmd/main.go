@@ -22,6 +22,7 @@ import (
 	apis "github.com/antinvestor/common/v3"
 	"github.com/antinvestor/common/v3/connection"
 	"github.com/antinvestor/common/v3/servicecatalog"
+	"github.com/antinvestor/service-payments/apps/billing/gen/collection/v1/collectionv1connect"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/handlers"
@@ -40,9 +41,12 @@ func main() {
 		util.Log(ctx).With("err", err).Error("could not process configs")
 		return
 	}
-
 	if cfg.Name() == "" {
 		cfg.ServiceName = "integration_payment_polar"
+	}
+	if err = cfg.Validate(); err != nil {
+		util.Log(ctx).WithError(err).Fatal("invalid Polar configuration")
+		return
 	}
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
@@ -61,22 +65,32 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	polarCli := client.NewClient()
+	billingCli, err := setupBillingClient(ctx, cfg)
+	if err != nil {
+		logger.WithError(err).Fatal("could not setup billing client")
+	}
+	if billingCli == nil {
+		logger.Warn("BILLING_SERVICE_URI unset — subscription webhooks are acknowledged but not mirrored")
+	}
 
-	webhookServer := handlers.NewPolarWebhookServer(paymentCli, polarCli, &cfg)
+	polarCli := client.NewClient(ctx)
+
+	webhookServer := handlers.NewPolarWebhookServer(paymentCli, billingCli, polarCli, &cfg)
 	paymentWorker := queue.NewPaymentHandler(eventsMan)
-	promptWorker := queue.NewPromptHandler(eventsMan, polarCli, settingsCli, &cfg)
+	promptWorker := queue.NewPromptHandler(eventsMan, polarCli, settingsCli, paymentCli, &cfg)
+	subscriptionWorker := queue.NewSubscriptionHandler(polarCli, settingsCli, &cfg)
 
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouterV1()),
 		frame.WithRegisterEvents(events.NewPaymentStatusUpdate(ctx, paymentCli)),
 		frame.WithRegisterSubscriber(cfg.QueuePaymentName, cfg.QueuePaymentURI, paymentWorker),
 		frame.WithRegisterSubscriber(cfg.QueuePromptName, cfg.QueuePromptURI, promptWorker),
+		frame.WithRegisterSubscriber(cfg.QueueSubscriptionName, cfg.QueueSubscriptionURI, subscriptionWorker),
 	}
 
 	svc.Init(ctx, serviceOptions...)
 
-	logger.Info("Initiating Polar.sh integration server operations")
+	logger.WithField("environment", cfg.Environment).Info("Initiating Polar.sh integration server operations")
 	err = svc.Run(ctx, "")
 	if err != nil {
 		logger.WithError(err).Error("could not run Server")
@@ -103,4 +117,20 @@ func setupSettingsClient(
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceSettings,
 	}, settingsv1connect.NewSettingsServiceClient)
+}
+
+// setupBillingClient dials billing's collection API for subscription mirrors.
+// Returns nil when BILLING_SERVICE_URI is unset.
+func setupBillingClient(
+	ctx context.Context,
+	cfg aconfig.PolarConfig,
+) (collectionv1connect.CollectionServiceClient, error) {
+	if cfg.BillingServiceURI == "" {
+		return nil, nil //nolint:nilnil // unset is a valid "not configured"
+	}
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.BillingServiceURI,
+		WorkloadAPITargetPath: cfg.BillingServiceWorkloadAPITargetPath,
+		ServiceID:             servicecatalog.ServiceBilling,
+	}, collectionv1connect.NewCollectionServiceClient)
 }

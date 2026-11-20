@@ -36,6 +36,9 @@ type SubscriptionRepository interface {
 	// GetPendingByProfileAndPlan returns the first PENDING subscription for the given profile+plan combination.
 	// Returns apperrors.ErrSubscriptionNotFound when no match exists.
 	GetPendingByProfileAndPlan(ctx context.Context, profileID, planID string) (*models.Subscription, error)
+	// GetByExternalSubscriptionID finds the subscription a provider charges
+	// by the provider's subscription id. Returns apperrors.ErrSubscriptionNotFound.
+	GetByExternalSubscriptionID(ctx context.Context, provider, externalID string) (*models.Subscription, error)
 }
 
 type subscriptionRepository struct {
@@ -93,6 +96,30 @@ func (r *subscriptionRepository) GetByPolarSubscriptionID(
 	}
 
 	return &sub, nil
+}
+
+func (r *subscriptionRepository) GetByExternalSubscriptionID(
+	ctx context.Context,
+	provider, externalID string,
+) (*models.Subscription, error) {
+	if externalID == "" {
+		return nil, apperrors.ErrUnspecifiedID
+	}
+	var sub models.Subscription
+	q := r.Pool().DB(ctx, true).
+		Where("data->>'externalSubscriptionId' = ?", externalID)
+	if provider != "" {
+		q = q.Where("data->>'paymentProvider' = ? OR data->>'paymentProvider' IS NULL", provider)
+	}
+	result := q.Order("created_at DESC").First(&sub)
+	if result.Error == nil {
+		return &sub, nil
+	}
+	if !data.ErrorIsNoRows(result.Error) {
+		return nil, apperrors.ErrSystemFailure.Override(result.Error)
+	}
+	// Rows written before the generalisation carry the Polar key only.
+	return r.GetByPolarSubscriptionID(ctx, externalID)
 }
 
 func (r *subscriptionRepository) GetPendingByProfileAndPlan(

@@ -245,5 +245,36 @@ func TestSweepProcessing_PollsUnexpiredFailedSessions(t *testing.T) {
 	require.NoError(t, b.SweepProcessing(context.Background()))
 
 	assert.Equal(t, models.SessionStatusCompleted, sessionRepo.sessions["failed-live"].Status)
-	assert.Equal(t, models.SessionStatusFailed, sessionRepo.sessions["failed-expired"].Status)
+	// An overdue session is polled one last time: a late success is money
+	// taken, so it completes rather than expiring.
+	assert.Equal(t, models.SessionStatusCompleted, sessionRepo.sessions["failed-expired"].Status)
+}
+
+func TestSweepProcessing_ExpiresOverdueProcessingAndFailed(t *testing.T) {
+	sessionRepo := newFakeSessionRepo()
+	payCli := &fakePaymentClient{statusByID: map[string]*commonv1.StatusResponse{
+		"prompt-1": {Id: "prompt-1", Status: commonv1.STATUS_IN_PROCESS},
+	}}
+	b := newBusiness(defaultConfig(), defaultRegistry(), sessionRepo, newFakeLinkRepo(), payCli, &fakeProfileClient{})
+
+	stuck := processingSession("stuck", "prompt-1", fixedNow(), "prompt-1")
+	stuck.ExpiresAt = fixedNow().Add(-time.Minute)
+	failed := processingSession("failed-old", "prompt-1", fixedNow(), "prompt-1")
+	failed.Status = models.SessionStatusFailed
+	failed.ExpiresAt = fixedNow().Add(-time.Minute)
+	pending := &models.CheckoutSession{Ref: "pending-old", Status: models.SessionStatusPending, ExpiresAt: fixedNow().Add(-time.Minute)}
+	live := processingSession("live", "prompt-1", fixedNow(), "prompt-1")
+	for _, s := range []*models.CheckoutSession{stuck, failed, pending, live} {
+		sessionRepo.sessions[s.Ref] = s
+	}
+	sessionRepo.byStatus[models.SessionStatusProcessing] = []*models.CheckoutSession{stuck, live}
+	sessionRepo.byStatus[models.SessionStatusFailed] = []*models.CheckoutSession{failed}
+	sessionRepo.byStatus[models.SessionStatusPending] = []*models.CheckoutSession{pending}
+
+	require.NoError(t, b.SweepProcessing(context.Background()))
+
+	assert.Equal(t, models.SessionStatusExpired, sessionRepo.sessions["stuck"].Status, "a stuck prompt must not keep a session alive past expiry")
+	assert.Equal(t, models.SessionStatusExpired, sessionRepo.sessions["failed-old"].Status)
+	assert.Equal(t, models.SessionStatusExpired, sessionRepo.sessions["pending-old"].Status)
+	assert.Equal(t, models.SessionStatusProcessing, sessionRepo.sessions["live"].Status)
 }

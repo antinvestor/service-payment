@@ -198,6 +198,9 @@ type ChargeRequest struct {
 	SettlementDestination string   `json:"settlementDestination,omitempty"`
 	CallbackURL           string   `json:"callbackUrl,omitempty"`
 	WebhookURL            string   `json:"webhookUrl,omitempty"`
+	// Metadata is echoed on the charge so a webhook can be attributed to
+	// its prompt and tenancy from Fincra's own record.
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // ChargeAuthorization is a pending charge's authorization requirement.

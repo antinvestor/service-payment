@@ -19,17 +19,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/pawapay/service/credentials"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/frame/v3/security"
 	"github.com/pitabwire/util"
 )
+
+// maxWebhookBody bounds a callback body; pawaPay callbacks are small JSON.
+const maxWebhookBody = 1 << 20
 
 // PawapayWebhookServer handles pawaPay callback webhooks.
 //
@@ -161,33 +168,43 @@ func (s *PawapayWebhookServer) HandlePayoutCallback(w http.ResponseWriter, r *ht
 		})
 }
 
-// HandleRefundCallback processes final refund callbacks from pawaPay.
+// HandleRefundCallback acknowledges final refund callbacks from pawaPay.
 //
-//nolint:dupl // deposit/payout/refund handlers are intentionally parallel; types differ
+// Refunds are not initiated by this service yet, so there is no record of
+// ours to update: a refund must never overwrite the original deposit's
+// status. The callback is still verified against pawaPay and logged so a
+// refund raised from the pawaPay dashboard is visible, then acknowledged.
 func (s *PawapayWebhookServer) HandleRefundCallback(w http.ResponseWriter, r *http.Request) {
 	s.metrics.WebhookReceived(r.Context(), "refund")
-	s.handleCallback(w, r, "refund",
-		func(ctx context.Context, creds *client.Credentials, id string) (*callbackData, error) {
-			result, err := s.pawapayCli.GetRefund(ctx, creds, id)
-			if err != nil {
-				return nil, err
-			}
-			if result.Status != client.SearchStatusFound || result.Data == nil {
-				return nil, errPaymentNotFound
-			}
-			verified := result.Data
-			cb := newCallbackData(
-				"refund",
-				"payment",
-				verified.RefundID,
-				verified.Status,
-				verified.Recipient,
-				verified.Metadata,
-			)
-			cb.amount, cb.currency, cb.country = verified.Amount, verified.Currency, verified.Country
-			cb.providerTransactionID, cb.failureReason = verified.ProviderTransactionID, verified.FailureReason
-			return cb, nil
-		})
+	notification, creds, ok := s.acceptNotification(w, r, "refund")
+	if !ok {
+		return
+	}
+
+	logger := util.Log(r.Context()).WithField("type", "pawapay.webhook.refund").
+		WithField("refund_id", notification.RefundID)
+	defer logger.Release()
+
+	result, err := s.pawapayCli.GetRefund(r.Context(), creds, notification.RefundID)
+	if err != nil {
+		s.metrics.WebhookRejected(r.Context(), "refund", "verification_failed")
+		s.rejectUnverifiable(w, r, "refund", err)
+		return
+	}
+	if result.Status != client.SearchStatusFound || result.Data == nil {
+		s.metrics.WebhookRejected(r.Context(), "refund", "unknown_payment")
+		s.rejectUnknown(w, r, "refund", notification.RefundID)
+		return
+	}
+
+	verified := result.Data
+	logger.WithFields(map[string]any{
+		"status":     verified.Status,
+		"amount":     verified.Amount,
+		"currency":   verified.Currency,
+		"payment_id": metadataString(verified.Metadata, "paymentId", ""),
+	}).Warn("refund callback acknowledged without recording; refunds are not initiated by this service")
+	w.WriteHeader(http.StatusOK)
 }
 
 func newCallbackData(
@@ -247,7 +264,7 @@ func (s *PawapayWebhookServer) acceptNotification(
 	defer logger.Release()
 
 	var notification callbackNotification
-	if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxWebhookBody)).Decode(&notification); err != nil {
 		logger.WithError(err).Error("failed to decode callback")
 		s.metrics.WebhookRejected(r.Context(), kind, "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -352,10 +369,23 @@ func (s *PawapayWebhookServer) processCallback(w http.ResponseWriter, r *http.Re
 		extras["failure_message"] = cb.failureReason.FailureMessage
 	}
 
+	status := callbackStatus(cb.status)
+	if !amountMatchesRequest(cb) {
+		// The amount pawaPay holds is not the amount we asked for: a
+		// completed record of the wrong amount must not settle the payment.
+		logger.WithField("requested_amount", metadataString(cb.metadata, "amount", "")).
+			WithField("requested_currency", metadataString(cb.metadata, "currency", "")).
+			Error("verified record amount differs from the requested amount")
+		extras["verification"] = "amount_mismatch"
+		if status == commonv1.STATUS_SUCCESSFUL {
+			status = commonv1.STATUS_FAILED
+		}
+	}
+
 	statusReq := &commonv1.StatusUpdateRequest{
 		Id:         metadataString(cb.metadata, "paymentId", cb.id),
-		State:      callbackState(cb.status),
-		Status:     callbackStatus(cb.status),
+		State:      events.StateFor(status),
+		Status:     status,
 		ExternalId: cb.id,
 		Extras:     extras.ToProtoStruct(),
 	}
@@ -385,12 +415,26 @@ func callbackStatus(status string) commonv1.STATUS {
 	}
 }
 
-// callbackState maps a pawaPay payment status to the platform record state.
-func callbackState(status string) commonv1.STATE {
-	if status == client.PaymentStatusFailed {
-		return commonv1.STATE_INACTIVE
+// amountMatchesRequest compares the verified record's amount and currency
+// with the ones the worker attached as metadata at initiation. Records
+// without that metadata (initiated before it existed) pass.
+func amountMatchesRequest(cb *callbackData) bool {
+	requested := metadataString(cb.metadata, "amount", "")
+	currency := metadataString(cb.metadata, "currency", "")
+	if requested != "" && !amountsEqual(requested, cb.amount) {
+		return false
 	}
-	return commonv1.STATE_ACTIVE
+	return currency == "" || cb.currency == "" || strings.EqualFold(currency, cb.currency)
+}
+
+// amountsEqual compares two decimal amount strings numerically.
+func amountsEqual(a, b string) bool {
+	x, errX := strconv.ParseFloat(strings.TrimSpace(a), 64)
+	y, errY := strconv.ParseFloat(strings.TrimSpace(b), 64)
+	if errX != nil || errY != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	return math.Abs(x-y) < 1e-6
 }
 
 // metadataString reads a string value from callback metadata, returning

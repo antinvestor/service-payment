@@ -16,8 +16,18 @@ package coreapi
 
 import (
 	"context"
+	"strings"
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+)
+
+// Jenga API hosts per environment.
+const (
+	EnvironmentProduction = "production"
+	EnvironmentSandbox    = "sandbox"
+
+	baseURLProduction = "https://api.finserve.africa"
+	baseURLSandbox    = "https://uat.finserve.africa"
 )
 
 // Credentials holds per-request Jenga API credentials for multi-tenant support.
@@ -25,8 +35,26 @@ type Credentials struct {
 	MerchantCode   string
 	ConsumerSecret string
 	APIKey         string
-	Environment    string // Base URL e.g. https://uat.finserve.africa
+	// Environment is sandbox or production; it selects the API host when
+	// BaseURL is empty.
+	Environment string
+	// BaseURL overrides the environment-derived API host (also used in tests).
+	BaseURL string
+	// PrivateKeyPEM is the RSA signing key. When empty the key is read from
+	// PrivateKeyPath.
+	PrivateKeyPEM  string
 	PrivateKeyPath string
+}
+
+// ResolveBaseURL returns the Jenga API host for these credentials.
+func (c *Credentials) ResolveBaseURL() string {
+	if u := strings.TrimRight(strings.TrimSpace(c.BaseURL), "/"); u != "" {
+		return u
+	}
+	if strings.EqualFold(strings.TrimSpace(c.Environment), EnvironmentProduction) {
+		return baseURLProduction
+	}
+	return baseURLSandbox
 }
 
 //nolint:revive // JengaApiClient follows original API naming convention

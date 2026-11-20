@@ -16,6 +16,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
@@ -62,11 +63,11 @@ func NewPromptHandler(
 	}
 }
 
-func (h *promptHandler) fail(ctx context.Context, promptID, externalID, reason string, extras map[string]any) {
+func (h *promptHandler) fail(ctx context.Context, promptID, externalID, reason string, extras map[string]any) error {
 	h.metrics.QueueFailed(ctx, "prompt", reason)
 	extras["entity_type"] = "prompt"
 	extras[collection.ExtraProvider] = providerName
-	h.emitStatus(ctx, promptID, externalID, commonv1.STATUS_FAILED, extras)
+	return h.emitStatus(ctx, promptID, externalID, commonv1.STATUS_FAILED, extras)
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
@@ -87,8 +88,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	creds, err := h.credsResolver.FromHeaders(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.fail(ctx, promptID, "", "credentials_error", failureExtras(failureCredentials, err.Error()))
-		return nil
+		return h.fail(ctx, promptID, "", "credentials_error", failureExtras(failureCredentials, err.Error()))
 	}
 
 	phone := normalizeMSISDN(prompt.GetRecipient().GetContactId())
@@ -100,21 +100,18 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	corr, err := resolveCorridor(phone, extra, prompt.GetAmount().GetCurrencyCode(), creds)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve country")
-		h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidCountry, err.Error()))
-		return nil
+		return h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidCountry, err.Error()))
 	}
 
 	localAmount := moneyToLocalAmount(prompt.GetAmount())
 	if localAmount <= 0 {
-		h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number of currency units"))
-		return nil
+		return h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number of currency units"))
 	}
 
 	channels, err := h.catalog.Channels(ctx, creds, corr.Country)
 	if err != nil {
 		logger.WithError(err).Error("failed to load channels")
-		h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(err))
-		return nil
+		return h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(err))
 	}
 
 	channelType := resolveChannelType(extra, creds)
@@ -128,23 +125,20 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	channel, ok := client.SelectChannel(channels, corr.Currency, channelType, client.RampTypeDeposit)
 	if !ok {
 		logger.WithField("country", corr.Country).WithField("channel_type", channelType).Error("no active receive channel")
-		h.fail(ctx, promptID, "", "provider_error", failureExtras(failureChannelUnavailable,
+		return h.fail(ctx, promptID, "", "provider_error", failureExtras(failureChannelUnavailable,
 			"no active "+channelType+" receive channel for "+corr.Country+" "+corr.Currency))
-		return nil
 	}
 
 	source := client.Source{AccountType: channelType}
 	networkName := ""
 	if channelType == client.ChannelTypeMomo {
 		if phone == "" {
-			h.fail(ctx, promptID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a phone number is required for mobile money"))
-			return nil
+			return h.fail(ctx, promptID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a phone number is required for mobile money"))
 		}
 		networks, netErr := h.catalog.Networks(ctx, creds, corr.Country)
 		if netErr != nil {
 			logger.WithError(netErr).Error("failed to load networks")
-			h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(netErr))
-			return nil
+			return h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(netErr))
 		}
 		hint := extraString(extra, collection.ExtraNetwork)
 		if hint == "" {
@@ -152,9 +146,8 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		}
 		network, found := client.ResolveNetwork(networks, hint, channel, client.ChannelTypeMomo)
 		if !found {
-			h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidNetwork,
+			return h.fail(ctx, promptID, "", "provider_error", failureExtras(failureInvalidNetwork,
 				"no active mobile money network for "+corr.Country))
-			return nil
 		}
 		source.AccountNumber = phone
 		source.NetworkID = network.ID
@@ -186,14 +179,21 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	}
 
 	receive, err := h.ycCli.SubmitReceive(ctx, creds, req)
-	if err != nil && client.IsDuplicate(err) {
-		logger.Warn("receive already submitted, looking up existing record")
-		receive, err = h.ycCli.GetReceiveBySequenceID(ctx, creds, promptID)
+	if err != nil && (client.IsDuplicate(err) || collection.IsUncertain(err)) {
+		// Already submitted, or the outcome is unknown (timeout, 5xx): the
+		// sequence id is ours, so report what Yellow Card holds under it, or
+		// redeliver until it can be found or is refused. Never fail on a guess.
+		logger.WithError(err).Warn("receive outcome unknown, looking up by sequence id")
+		existing, lookErr := h.ycCli.GetReceiveBySequenceID(ctx, creds, promptID)
+		if lookErr != nil {
+			logger.WithError(lookErr).Warn("receive lookup failed; redelivering")
+			return fmt.Errorf("receive %s outcome unknown: %w", promptID, err)
+		}
+		receive, err = existing, nil
 	}
 	if err != nil {
 		logger.WithError(err).Error("receive submission failed")
-		h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(err))
-		return nil
+		return h.fail(ctx, promptID, "", "provider_error", providerFailureExtras(err))
 	}
 
 	extras := receiveExtras(receive, channelType, networkName)
@@ -202,8 +202,7 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		for k, v := range failureExtras(receive.ErrorCode, "") {
 			extras[k] = v
 		}
-		h.fail(ctx, promptID, receive.ID, "rejected", extras)
-		return nil
+		return h.fail(ctx, promptID, receive.ID, "rejected", extras)
 	}
 
 	logger.WithField("receive_id", receive.ID).WithField("status", receive.Status).Debug("receive submitted")
@@ -212,6 +211,5 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	if strings.EqualFold(receive.Status, client.StatusComplete) {
 		status = commonv1.STATUS_SUCCESSFUL
 	}
-	h.emitStatus(ctx, promptID, receive.ID, status, extras)
-	return nil
+	return h.emitStatus(ctx, promptID, receive.ID, status, extras)
 }

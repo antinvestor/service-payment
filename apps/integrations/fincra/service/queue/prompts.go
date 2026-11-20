@@ -305,6 +305,7 @@ func (h *promptHandler) directCharge(ctx context.Context, job *promptJob, method
 		CallbackURL:           h.redirectURL(job.extra),
 		WebhookURL:            webhookURL(h.cfg.WebhookBaseURL, job.tenantID, job.partitionID, job.connection),
 		Description:           extraString(job.extra, "description", collection.ExtraSessionRef),
+		Metadata:              promptMetadata(job),
 	}
 
 	switch method {

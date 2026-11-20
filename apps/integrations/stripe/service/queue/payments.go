@@ -22,6 +22,8 @@ import (
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
@@ -29,15 +31,23 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ExtraStripeDestination names the external account (ba_… / card_…) or
+// connected account a payout goes to. Stripe Payouts only move the Stripe
+// balance to the account holder's own bank, so this is required: a payout
+// without it would silently pay the merchant's default bank account.
+const (
+	ExtraStripeDestination = "stripe_destination"
+	ExtraPayoutID          = "payout_id"
+)
+
 type paymentHandler struct {
-	eventsMan   frameEvents.Manager
-	stripeCli   client.StripeClient
-	settingsCli settingsv1connect.SettingsServiceClient
-	cfg         *config.StripeConfig
-	metrics     *integrationobs.Metrics
+	credentialResolver
+	emitter   *events.StatusEmitter
+	stripeCli client.StripeClient
+	metrics   *integrationobs.Metrics
 }
 
-// NewPaymentHandler creates a queue worker for handling Stripe Payout disbursements.
+// NewPaymentHandler creates a queue worker for Stripe Payout disbursements.
 func NewPaymentHandler(
 	eventsMan frameEvents.Manager,
 	stripeCli client.StripeClient,
@@ -45,18 +55,16 @@ func NewPaymentHandler(
 	cfg *config.StripeConfig,
 ) queue.SubscribeWorker {
 	return &paymentHandler{
-		eventsMan:   eventsMan,
-		stripeCli:   stripeCli,
-		settingsCli: settingsCli,
-		cfg:         cfg,
-		metrics:     integrationobs.NewMetrics("stripe"),
+		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
+		emitter:            events.NewStatusEmitter(eventsMan),
+		stripeCli:          stripeCli,
+		metrics:            integrationobs.NewMetrics(providerName),
 	}
 }
 
 func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "stripe.payment")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	payment := paymentv1.Payment{}
 	if err := proto.Unmarshal(payload, &payment); err != nil {
@@ -64,77 +72,62 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		h.metrics.QueueFailed(ctx, "payment", "unmarshal_error")
 		return nil
 	}
-
 	paymentID := payment.GetId()
 	logger = logger.WithField("payment_id", paymentID)
 
-	creds, err := extractCredentials(ctx, headers, h.settingsCli, h.cfg)
+	creds, err := h.resolve(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
 		h.metrics.QueueFailed(ctx, "payment", "credentials_error")
-		emitStatus(ctx, h.eventsMan, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "payment",
-		})
-		return nil
+		return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID, err.Error(), nil)
 	}
 
-	var amount int64
-	if payment.GetAmount() != nil {
-		amount = moneyToCents(payment.GetAmount().GetUnits(), payment.GetAmount().GetNanos())
+	extras := extraStrings(payment.GetExtra())
+	destination := extras[ExtraStripeDestination]
+	if destination == "" {
+		logger.Error("payout carries no stripe_destination")
+		h.metrics.QueueFailed(ctx, "payment", "rejected")
+		return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID,
+			"Stripe payouts need stripe_destination: the external or connected account to pay", nil)
 	}
-
-	currency := "usd"
-	if payment.GetAmount() != nil && payment.GetAmount().GetCurrencyCode() != "" {
-		currency = payment.GetAmount().GetCurrencyCode()
-	}
-
-	destination := ""
-	if payment.GetExtra() != nil {
-		if dest, ok := payment.GetExtra().GetFields()["stripe_destination"]; ok {
-			destination = dest.GetStringValue()
-		}
-	}
-
-	metadata := map[string]string{
-		"payment_id": paymentID,
-	}
-
-	// Include tenant/partition in Stripe metadata so they round-trip via webhooks
-	if v := headers["tenant_id"]; v != "" {
-		metadata["tenant_id"] = v
-	}
-	if v := headers["partition_id"]; v != "" {
-		metadata["partition_id"] = v
-	}
-
-	req := &client.PayoutRequest{
-		Amount:      amount,
-		Currency:    currency,
-		Destination: destination,
-		Description: "Payment disbursement " + paymentID,
-		Metadata:    metadata,
-	}
-
-	resp, err := h.stripeCli.CreatePayout(ctx, creds, req)
+	amount, err := collection.MinorUnits(payment.GetAmount())
 	if err != nil {
-		logger.WithError(err).Error("create payout failed")
+		logger.WithError(err).Error("payout amount cannot be sent")
+		h.metrics.QueueFailed(ctx, "payment", "rejected")
+		return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID, err.Error(), nil)
+	}
+
+	metadata := map[string]string{"payment_id": paymentID}
+	scopeMetadata(headers, metadata)
+
+	resp, err := h.stripeCli.CreatePayout(ctx, creds, &client.PayoutRequest{
+		IdempotencyKey: "payout:" + paymentID,
+		Amount:         amount,
+		Currency:       payment.GetAmount().GetCurrencyCode(),
+		Destination:    destination,
+		Description:    "Payment disbursement " + paymentID,
+		Metadata:       metadata,
+	})
+	if err != nil {
+		if collection.IsUncertain(err) {
+			logger.WithError(err).Warn("create payout outcome unknown; redelivering")
+			h.metrics.QueueFailed(ctx, "payment", "provider_error")
+			return err
+		}
+		logger.WithError(err).Error("create payout refused")
 		h.metrics.QueueFailed(ctx, "payment", "provider_error")
-		emitStatus(ctx, h.eventsMan, paymentID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "payment",
-		})
-		return nil
+		return h.emitter.Fail(ctx, events.EntityTypePayment, paymentID, err.Error(), nil)
 	}
 
 	logger.WithField("payout_id", resp.ID).Debug("payout created")
-
-	emitStatus(ctx, h.eventsMan, paymentID, resp.ID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"payout_id":     resp.ID,
-		"stripe_status": resp.Status,
-		"entity_type":   "payment",
+	err = h.emitter.Emit(ctx, events.EntityTypePayment, paymentID, resp.ID, commonv1.STATUS_IN_PROCESS, map[string]any{
+		ExtraPayoutID:            resp.ID,
+		extraStripeStatus:        resp.Status,
+		collection.ExtraProvider: providerName,
 	})
-
+	if err != nil {
+		return err
+	}
 	h.metrics.QueueProcessed(ctx, "payment")
 	return nil
 }

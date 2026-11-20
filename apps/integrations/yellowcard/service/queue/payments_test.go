@@ -15,12 +15,14 @@
 package queue_test
 
 import (
+	"errors"
 	"testing"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/queue"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -144,4 +146,76 @@ func TestPayment_BadPayload(t *testing.T) {
 	h := queue.NewPaymentHandler(ev, fc, client.NewCatalog(fc, 0), nil, testConfig())
 	require.NoError(t, h.Handle(t.Context(), nil, []byte{0xff}))
 	assert.Empty(t, ev.emitted)
+}
+
+func TestPayment_UnknownOutcome(t *testing.T) {
+	channels, networks := ugandaCatalog()
+	uncertain := collection.Uncertain(&client.APIError{HTTPStatus: 503, Code: "ServiceUnavailable", Message: "down"})
+	tests := []struct {
+		name      string
+		sendErr   error
+		sendLook  *client.Send
+		lookErr   error
+		emitErr   error
+		wantErr   bool
+		wantEmit  bool
+		wantExtID string
+	}{
+		{
+			name: "uncertain and lookup fails redelivers", sendErr: uncertain,
+			lookErr: &client.APIError{HTTPStatus: 404, Code: client.ErrCodePaymentNotFound},
+			wantErr: true,
+		},
+		{
+			name: "uncertain and found reports the held send", sendErr: uncertain,
+			sendLook: &client.Send{ID: "s-held", SequenceID: "pay-unk", Status: "processing", Country: "UG", Currency: "UGX"},
+			wantEmit: true, wantExtID: "s-held",
+		},
+		{
+			name:    "duplicate and lookup fails redelivers",
+			sendErr: &client.APIError{HTTPStatus: 400, Code: "PaymentValidationError", Message: "sequenceId already exists"},
+			lookErr: uncertain,
+			wantErr: true,
+		},
+		{
+			name: "emit failure is returned", sendErr: uncertain,
+			sendLook: &client.Send{ID: "s-held", SequenceID: "pay-unk", Status: "processing", Country: "UG", Currency: "UGX"},
+			emitErr:  errors.New("nats down"),
+			wantErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fc := &fakeClient{channels: channels, networks: networks,
+				sendErr: tt.sendErr, sendLook: tt.sendLook, sendLookErr: tt.lookErr}
+			ev := &fakeEvents{err: tt.emitErr}
+			h := queue.NewPaymentHandler(ev, fc, client.NewCatalog(fc, 0), nil, testConfig())
+
+			err := h.Handle(t.Context(), nil, paymentPayload(t, "pay-unk", "+256701234567", 100, "UGX", nil))
+
+			require.NotNil(t, fc.sendReq, "the send is submitted")
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if !tt.wantEmit {
+				assert.Empty(t, ev.emitted, "nothing is recorded on an unknown outcome")
+				return
+			}
+			st := ev.last(t)
+			assert.Equal(t, commonv1.STATUS_IN_PROCESS, st.GetStatus())
+			assert.Equal(t, tt.wantExtID, st.GetExternalId())
+		})
+	}
+}
+
+func TestPayment_EmitFailureIsReturned(t *testing.T) {
+	channels, networks := ugandaCatalog()
+	fc := &fakeClient{channels: channels, networks: networks,
+		sendErr: &client.APIError{HTTPStatus: 400, Code: "PaymentValidationError", Message: "no"}}
+	ev := &fakeEvents{err: errors.New("nats down")}
+	h := queue.NewPaymentHandler(ev, fc, client.NewCatalog(fc, 0), nil, testConfig())
+
+	require.Error(t, h.Handle(t.Context(), nil, paymentPayload(t, "pay-emit", "+256701234567", 100, "UGX", nil)))
 }

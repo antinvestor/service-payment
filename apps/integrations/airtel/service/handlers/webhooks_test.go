@@ -114,12 +114,21 @@ func issued(entityType string) data.JSONMap {
 
 func callbackBody(t *testing.T, id, statusCode string) []byte {
 	t.Helper()
-	body, err := json.Marshal(map[string]any{"transaction": map[string]any{
+	return callbackBodyWithAmount(t, id, statusCode, nil)
+}
+
+func callbackBodyWithAmount(t *testing.T, id, statusCode string, amount any) []byte {
+	t.Helper()
+	txn := map[string]any{
 		"id":              id,
 		"message":         "forged",
 		"status_code":     statusCode,
-		"airtel_money_id": map[string]any{"id": "am-forged"},
-	}})
+		"airtel_money_id": "am-forged",
+	}
+	if amount != nil {
+		txn["amount"] = amount
+	}
+	body, err := json.Marshal(map[string]any{"transaction": txn})
 	require.NoError(t, err)
 	return body
 }
@@ -217,6 +226,54 @@ func TestCallback_RejectsMissingTransactionID(t *testing.T) {
 	srv := handlers.NewAirtelWebhookServer(pay, &stubAirtel{}, nil)
 
 	rr := post(srv, "/webhook/airtel/collection", callbackBody(t, "", "TS"))
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Empty(t, pay.updates)
+}
+
+func TestCollectionCallback_AmountCheck(t *testing.T) {
+	withAmount := func(id, status, amount string) *client.StatusResponse {
+		r := airtelResp(id, status)
+		r.Data.Transaction.Amount = client.FlexString(amount)
+		return r
+	}
+	tests := []struct {
+		name       string
+		resp       *client.StatusResponse
+		bodyAmount any
+		wantStatus commonv1.STATUS
+		wantVerify string
+	}{
+		{name: "enquiry amount matches", resp: withAmount("prompt-1", "TS", "5000.00"), wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "status_query"},
+		{name: "enquiry amount differs", resp: withAmount("prompt-1", "TS", "50"), wantStatus: commonv1.STATUS_FAILED, wantVerify: "amount_mismatch"},
+		{name: "callback amount differs, enquiry silent", resp: airtelResp("prompt-1", "TS"), bodyAmount: 50, wantStatus: commonv1.STATUS_FAILED, wantVerify: "amount_mismatch"},
+		{name: "callback amount matches, enquiry silent", resp: airtelResp("prompt-1", "TS"), bodyAmount: "5000", wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "status_query"},
+		{name: "no amount anywhere: status query alone", resp: airtelResp("prompt-1", "TS"), wantStatus: commonv1.STATUS_SUCCESSFUL, wantVerify: "status_query"},
+		{name: "failed with wrong amount stays failed", resp: withAmount("prompt-1", "TF", "50"), wantStatus: commonv1.STATUS_FAILED, wantVerify: "status_query"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pay := &stubPaymentClient{stored: map[string]data.JSONMap{"prompt-1": issued("prompt")}}
+			var connections []string
+			srv := handlers.NewAirtelWebhookServer(pay, &stubAirtel{resp: tt.resp}, resolver(&connections))
+
+			rr := post(srv, "/webhook/airtel/collection", callbackBodyWithAmount(t, "prompt-1", "TS", tt.bodyAmount))
+
+			require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+			require.Len(t, pay.updates, 1)
+			got := pay.updates[0]
+			assert.Equal(t, tt.wantStatus, got.GetStatus())
+			assert.Equal(t, tt.wantStatus != commonv1.STATUS_FAILED, got.GetState() == commonv1.STATE_ACTIVE)
+			assert.Equal(t, tt.wantVerify, got.GetExtras().GetFields()["verification"].GetStringValue())
+		})
+	}
+}
+
+func TestCallback_BodyTooLarge(t *testing.T) {
+	pay := &stubPaymentClient{}
+	srv := handlers.NewAirtelWebhookServer(pay, &stubAirtel{}, nil)
+
+	rr := post(srv, "/webhook/airtel/collection", bytes.Repeat([]byte(" "), 1<<20+1))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Empty(t, pay.updates)

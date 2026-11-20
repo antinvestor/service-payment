@@ -20,6 +20,7 @@ require (
 	buf.build/gen/go/antinvestor/workflow/connectrpc/go/v2 v2.0.2-20260511135803-9b0e411394e1.1
 	buf.build/gen/go/antinvestor/workflow/protocolbuffers/go v1.36.12-20260511135803-9b0e411394e1.2
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
+	connectrpc.com/connect v1.21.1
 	connectrpc.com/connect/v2 v2.0.2
 	github.com/antinvestor/common/v3 v3.0.1
 	github.com/google/uuid v1.6.0
@@ -54,7 +55,6 @@ require (
 	cloud.google.com/go/iam v1.15.1 // indirect
 	cloud.google.com/go/pubsub v1.52.0 // indirect
 	cloud.google.com/go/pubsub/v2 v2.9.0 // indirect
-	connectrpc.com/connect v1.21.1 // indirect
 	connectrpc.com/otelconnect v0.12.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20261008234032-65faa4be4f89 // indirect

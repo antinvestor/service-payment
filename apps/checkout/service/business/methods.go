@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/antinvestor/service-payments/pkg/collection"
 )
 
 // Method describes one renderable payment method and its prompt route hint.
@@ -39,24 +41,134 @@ type Method struct {
 	Redirect   bool     `json:"redirect"`
 	Embed      bool     `json:"embed"` // card form on pay.stawi.org
 	// WholeAmounts marks rails that can only charge whole currency units.
-	// Routes in wholeAmountRoutes are always treated this way.
+	// Routes whose provider descriptor says so are always treated this way.
 	WholeAmounts bool `json:"whole_amounts"`
+	// MethodType is the portable instrument class (card, mobile_money, …).
+	// Empty means "derive from the provider descriptor or the key".
+	MethodType string `json:"method_type,omitempty"`
+	// RequiresProductID marks providers that charge a catalog product
+	// (Polar) so a session must carry product_id metadata to offer them.
+	RequiresProductID bool `json:"requires_product_id,omitempty"`
+	// Subscriptions marks providers that manage recurring billing themselves.
+	Subscriptions bool `json:"subscriptions,omitempty"`
 }
-
-// wholeAmountRoutes are payment routes whose integrations round the charge to
-// whole units (the M-Pesa, MTN and Airtel workers send integer amounts, and
-// Yellow Card and Fincra take integer amounts), so a fractional amount would
-// be charged as a different amount or refused by the worker.
-var wholeAmountRoutes = map[string]bool{"mpesa": true, "mtn": true, "airtel": true, "yellowcard": true, "fincra": true}
 
 // IsEmbedded reports whether this method collects payment details on our domain.
 func (m Method) IsEmbedded() bool {
 	return m.Embed || (!m.Redirect && strings.EqualFold(m.Key, "card"))
 }
 
+// IsCard reports whether the method charges a card (embedded or hosted).
+func (m Method) IsCard() bool {
+	if m.MethodType != "" {
+		return strings.EqualFold(m.MethodType, collection.PaymentMethodTypeCard)
+	}
+	if p, ok := collection.ProviderByRoute(m.Route); ok {
+		return p.MethodType == collection.PaymentMethodTypeCard
+	}
+	return m.IsEmbedded() || strings.EqualFold(m.Key, "card")
+}
+
+// ResolvedMethodType returns the portable instrument class for the method.
+func (m Method) ResolvedMethodType() string {
+	if m.MethodType != "" {
+		return strings.ToLower(m.MethodType)
+	}
+	if p, ok := collection.ProviderByRoute(m.Route); ok {
+		return p.MethodType
+	}
+	if strings.EqualFold(m.Key, "card") {
+		return collection.PaymentMethodTypeCard
+	}
+	return collection.PaymentMethodTypeMobileMoney
+}
+
 // MethodRegistry is the configured catalog of payment methods for this service.
 type MethodRegistry struct {
 	Methods []Method
+}
+
+// methodFromProvider builds the default method entry for an integration.
+func methodFromProvider(p collection.Provider) Method {
+	return Method{
+		Key:               p.MethodKey,
+		Name:              p.Name,
+		Route:             p.Route,
+		Prefixes:          append([]string(nil), p.Prefixes...),
+		Currencies:        append([]string(nil), p.Currencies...),
+		Countries:         append([]string(nil), p.Countries...),
+		Redirect:          p.Flow == collection.FlowRedirect,
+		Embed:             p.Flow == collection.FlowEmbed,
+		WholeAmounts:      p.WholeAmounts,
+		MethodType:        p.MethodType,
+		RequiresProductID: p.RequiresProductID,
+		Subscriptions:     p.Subscriptions,
+	}
+}
+
+// BuildMethodRegistry composes the method catalog from the enabled payment
+// routes (CHECKOUT_ROUTES) and the optional CHECKOUT_METHODS override.
+//
+// Each enabled route contributes its provider descriptor's default method,
+// in the order given. Entries in the override JSON replace the generated
+// entry with the same key or add a new one (its route must be a known
+// provider or one of the enabled routes). This keeps "what is deployed" a
+// one-line list while the rails' currencies, countries and flows stay in
+// code next to the integrations.
+func BuildMethodRegistry(routesCSV, methodsJSON string) (*MethodRegistry, error) {
+	var methods []Method
+	seen := map[string]int{}
+	for _, raw := range strings.Split(routesCSV, ",") {
+		route := strings.ToLower(strings.TrimSpace(raw))
+		if route == "" {
+			continue
+		}
+		p, ok := collection.ProviderByRoute(route)
+		if !ok {
+			return nil, fmt.Errorf("CHECKOUT_ROUTES: unknown payment route %q", route)
+		}
+		m := methodFromProvider(p)
+		if _, dup := seen[m.Key]; dup {
+			continue
+		}
+		seen[m.Key] = len(methods)
+		methods = append(methods, m)
+	}
+	if strings.TrimSpace(methodsJSON) != "" {
+		var overrides []Method
+		if err := json.Unmarshal([]byte(methodsJSON), &overrides); err != nil {
+			return nil, fmt.Errorf("parse method registry: %w", err)
+		}
+		for _, o := range overrides {
+			o.Key = strings.TrimSpace(o.Key)
+			o.Route = strings.ToLower(strings.TrimSpace(o.Route))
+			if o.Key == "" || o.Route == "" {
+				return nil, errors.New("CHECKOUT_METHODS: every method needs a key and a route")
+			}
+			if p, ok := collection.ProviderByRoute(o.Route); ok {
+				// Inherit what the override leaves unset.
+				if o.Name == "" {
+					o.Name = p.Name
+				}
+				if o.MethodType == "" {
+					o.MethodType = p.MethodType
+				}
+				o.WholeAmounts = o.WholeAmounts || p.WholeAmounts
+				o.RequiresProductID = o.RequiresProductID || p.RequiresProductID
+				o.Subscriptions = o.Subscriptions || p.Subscriptions
+			}
+			if idx, ok := seen[o.Key]; ok {
+				methods[idx] = o
+				continue
+			}
+			seen[o.Key] = len(methods)
+			methods = append(methods, o)
+		}
+	}
+	if len(methods) == 0 {
+		return nil, errors.New("method registry is empty: set CHECKOUT_ROUTES or CHECKOUT_METHODS")
+	}
+	return &MethodRegistry{Methods: methods}, nil
 }
 
 // MethodFilter is the Link-style context used to decide which methods appear
@@ -90,6 +202,9 @@ type MethodFilter struct {
 	PartitionAllowlist []string // partition-configured method keys
 	ClueMethod         string   // profile lastProvider / lastMethod
 	GuestMethod        string   // device cookie last method
+	// HasProductID reports whether the session carries a provider product
+	// reference; methods that require one are hidden otherwise.
+	HasProductID bool
 }
 
 // MethodResolution is the filtered, ordered method list plus the preselected key.
@@ -163,7 +278,7 @@ func (r *MethodRegistry) Get(key string) (Method, bool) {
 
 // IsCardMethod reports whether the method is card (embedded or hosted card).
 func IsCardMethod(m Method) bool {
-	return m.IsEmbedded() || strings.EqualFold(m.Key, "card")
+	return m.IsCard()
 }
 
 // FilterMethodsForContactKind enforces product rule:
@@ -233,12 +348,19 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 	// include matching MSISDNs — otherwise PreferCard-only sessions hide MoMo.
 	sessionKeys := cleanKeys(f.SessionRestriction)
 	partitionKeys := cleanKeys(f.PartitionAllowlist)
-	phoneLocalKeys := phoneLocalMethodKeys(r.Methods, phones, country, currency, partitionKeys)
+	// Only the payer's own profile contacts (Phones) relax the merchant's
+	// restriction; a typed or cookie phone (Phone) ranks but never widens.
+	phoneLocalKeys := phoneLocalMethodKeys(r.Methods, collectPhones("", f.Phones), "", currency, partitionKeys)
 	effectiveSession := sessionKeys
 	if len(phoneLocalKeys) > 0 && len(sessionKeys) > 0 {
 		effectiveSession = unionKeys(sessionKeys, phoneLocalKeys)
 	}
-	allow := intersectAllowlists(effectiveSession, partitionKeys)
+	allow, allowNone := intersectAllowlists(effectiveSession, partitionKeys)
+	if allowNone {
+		// The merchant's methods and the partition's allowlist share nothing:
+		// offer nothing rather than everything.
+		return MethodResolution{Reason: "allowlists_disjoint"}
+	}
 	hasLocality := len(phones) > 0 || country != ""
 
 	var available []Method
@@ -247,6 +369,9 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 			continue
 		}
 		if !MethodAcceptsCurrency(m, currency) || !MethodAcceptsAmount(m, f.Amount) {
+			continue
+		}
+		if m.RequiresProductID && !f.HasProductID {
 			continue
 		}
 		// When locality is known, drop methods that declare a locality and do
@@ -267,6 +392,9 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 			if !MethodAcceptsCurrency(m, currency) || !MethodAcceptsAmount(m, f.Amount) {
 				continue
 			}
+			if m.RequiresProductID && !f.HasProductID {
+				continue
+			}
 			available = append(available, m)
 		}
 	}
@@ -281,6 +409,33 @@ func (r *MethodRegistry) Resolve(f MethodFilter) MethodResolution {
 		Available: available,
 		Selected:  selected,
 		Reason:    reason,
+	}
+}
+
+// MethodForPay validates a submitted method key against the same resolution
+// the pay page used, so a crafted POST cannot pick a rail the page would not
+// have offered (partition allowlist, currency, amount, locality, product).
+func (r *MethodRegistry) MethodForPay(f MethodFilter, key string) (Method, error) {
+	key = strings.TrimSpace(key)
+	if _, ok := r.Get(key); !ok {
+		return Method{}, fmt.Errorf("%w: %s", ErrUnknownMethod, key)
+	}
+	res := r.Resolve(f)
+	for _, m := range res.Available {
+		if strings.EqualFold(m.Key, key) {
+			return m, nil
+		}
+	}
+	method, _ := r.Get(key)
+	switch {
+	case !MethodAcceptsCurrency(method, f.Currency):
+		return Method{}, fmt.Errorf("%w: %s cannot collect %s", ErrMethodCurrencyUnsupported, key, f.Currency)
+	case !MethodAcceptsAmount(method, f.Amount):
+		return Method{}, fmt.Errorf("%w: %s cannot charge %s", ErrMethodAmountUnsupported, key, f.Amount)
+	case method.RequiresProductID && !f.HasProductID:
+		return Method{}, fmt.Errorf("%w: %s needs a product reference", ErrUnknownMethod, key)
+	default:
+		return Method{}, fmt.Errorf("%w: %s is not offered for this session", ErrUnknownMethod, key)
 	}
 }
 
@@ -492,7 +647,7 @@ func MethodAcceptsCurrency(m Method, currency string) bool {
 
 // RequiresWholeAmount reports whether the method can only charge whole units.
 func (m Method) RequiresWholeAmount() bool {
-	return m.WholeAmounts || wholeAmountRoutes[strings.ToLower(strings.TrimSpace(m.Route))]
+	return m.WholeAmounts || collection.RouteRequiresWholeAmount(m.Route)
 }
 
 // MethodAcceptsAmount is the amount rule shared by the pay page and Pay: a
@@ -636,14 +791,17 @@ func DetectCountryFromHeaders(getHeader func(string) string) string {
 	return ""
 }
 
-func intersectAllowlists(a, b []string) []string {
+// intersectAllowlists combines the session restriction with the partition
+// allowlist. An empty list on either side means "no restriction". When both
+// are set and share no key the second result is true: nothing is allowed.
+func intersectAllowlists(a, b []string) ([]string, bool) {
 	a = cleanKeys(a)
 	b = cleanKeys(b)
 	if len(a) == 0 {
-		return b
+		return b, false
 	}
 	if len(b) == 0 {
-		return a
+		return a, false
 	}
 	set := make(map[string]bool, len(b))
 	for _, k := range b {
@@ -655,7 +813,7 @@ func intersectAllowlists(a, b []string) []string {
 			out = append(out, k)
 		}
 	}
-	return out
+	return out, len(out) == 0
 }
 
 func cleanKeys(keys []string) []string {

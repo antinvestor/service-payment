@@ -32,4 +32,9 @@ type PaymentBusiness interface {
 	InitiatePrompt(ctx context.Context, req *paymentv1.InitiatePromptRequest) (*commonv1.StatusResponse, error)
 	CreatePaymentLink(ctx context.Context, req *paymentv1.CreatePaymentLinkRequest) (*commonv1.StatusResponse, error)
 	Reconcile(ctx context.Context, msg *paymentv1.ReconcileRequest) (*paymentv1.ReconcileResponse, error)
+	// WithPromptRoutes declares the routes with a dedicated prompt queue;
+	// prompts on other routes are refused. Empty = any route (default topic).
+	WithPromptRoutes(routes []string) PaymentBusiness
+	// PromptRoutes lists the declared prompt routes (nil = unrestricted).
+	PromptRoutes() []string
 }

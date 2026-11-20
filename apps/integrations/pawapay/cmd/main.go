@@ -66,8 +66,8 @@ func main() {
 	credsResolver := credentials.NewResolver(settingsCli, &cfg)
 
 	webhookServer := handlers.NewPawapayWebhookServer(paymentCli, pawapayCli, credsResolver)
-	paymentWorker := queue.NewPaymentHandler(eventsMan, pawapayCli, settingsCli, &cfg)
-	promptWorker := queue.NewPromptHandler(eventsMan, pawapayCli, settingsCli, &cfg)
+	paymentWorker := queue.NewPaymentHandler(eventsMan, pawapayCli, credsResolver)
+	promptWorker := queue.NewPromptHandler(eventsMan, pawapayCli, credsResolver)
 
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouterV1()),

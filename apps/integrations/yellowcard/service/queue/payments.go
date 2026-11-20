@@ -16,6 +16,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -58,11 +59,11 @@ func NewPaymentHandler(
 	}
 }
 
-func (h *paymentHandler) fail(ctx context.Context, paymentID, externalID, reason string, extras map[string]any) {
+func (h *paymentHandler) fail(ctx context.Context, paymentID, externalID, reason string, extras map[string]any) error {
 	h.metrics.QueueFailed(ctx, "payment", reason)
 	extras["entity_type"] = "payment"
 	extras[collection.ExtraProvider] = providerName
-	h.emitStatus(ctx, paymentID, externalID, commonv1.STATUS_FAILED, extras)
+	return h.emitStatus(ctx, paymentID, externalID, commonv1.STATUS_FAILED, extras)
 }
 
 func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
@@ -83,8 +84,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	creds, err := h.credsResolver.FromHeaders(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.fail(ctx, paymentID, "", "credentials_error", failureExtras(failureCredentials, err.Error()))
-		return nil
+		return h.fail(ctx, paymentID, "", "credentials_error", failureExtras(failureCredentials, err.Error()))
 	}
 
 	extra := payment.GetExtra()
@@ -96,14 +96,12 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	corr, err := resolveCorridor(phone, extra, payment.GetAmount().GetCurrencyCode(), creds)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve country")
-		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidCountry, err.Error()))
-		return nil
+		return h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidCountry, err.Error()))
 	}
 
 	localAmount := moneyToLocalAmount(payment.GetAmount())
 	if localAmount <= 0 {
-		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number of currency units"))
-		return nil
+		return h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidAmount, "amount must be a positive whole number of currency units"))
 	}
 
 	channelType := resolveChannelType(extra, creds)
@@ -121,21 +119,18 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	channels, err := h.catalog.Channels(ctx, creds, corr.Country)
 	if err != nil {
 		logger.WithError(err).Error("failed to load channels")
-		h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
-		return nil
+		return h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
 	}
 	channel, ok := client.SelectChannel(channels, corr.Currency, channelType, client.RampTypeWithdraw)
 	if !ok {
-		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureChannelUnavailable,
+		return h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureChannelUnavailable,
 			"no active "+channelType+" send channel for "+corr.Country+" "+corr.Currency))
-		return nil
 	}
 
 	networks, err := h.catalog.Networks(ctx, creds, corr.Country)
 	if err != nil {
 		logger.WithError(err).Error("failed to load networks")
-		h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
-		return nil
+		return h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
 	}
 	hint := extraString(extra, collection.ExtraNetwork, "bank_code", "bank_name")
 	if hint == "" && channelType == client.ChannelTypeMomo {
@@ -143,9 +138,8 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 	network, found := client.ResolveNetwork(networks, hint, channel, channelType)
 	if !found {
-		h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidNetwork,
+		return h.fail(ctx, paymentID, "", "provider_error", failureExtras(failureInvalidNetwork,
 			"no active "+channelType+" network for "+corr.Country))
-		return nil
 	}
 
 	dest := client.Destination{
@@ -156,15 +150,13 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 	if channelType == client.ChannelTypeMomo {
 		if phone == "" {
-			h.fail(ctx, paymentID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a phone number is required for mobile money"))
-			return nil
+			return h.fail(ctx, paymentID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a phone number is required for mobile money"))
 		}
 		dest.AccountNumber = phone
 		dest.PhoneNumber = phone
 	} else {
 		if accountNumber == "" {
-			h.fail(ctx, paymentID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a bank account number is required"))
-			return nil
+			return h.fail(ctx, paymentID, "", "provider_error", failureExtras(client.TxErrInvalidRecipient, "a bank account number is required"))
 		}
 		dest.AccountNumber = accountNumber
 		dest.AccountBank = network.Name
@@ -190,14 +182,21 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	}
 
 	send, err := h.ycCli.SubmitSend(ctx, creds, req)
-	if err != nil && client.IsDuplicate(err) {
-		logger.Warn("send already submitted, looking up existing record")
-		send, err = h.ycCli.GetSendBySequenceID(ctx, creds, paymentID)
+	if err != nil && (client.IsDuplicate(err) || collection.IsUncertain(err)) {
+		// Already submitted, or the outcome is unknown (timeout, 5xx): the
+		// sequence id is ours, so report what Yellow Card holds under it, or
+		// redeliver until it can be found or is refused. Never fail on a guess.
+		logger.WithError(err).Warn("send outcome unknown, looking up by sequence id")
+		existing, lookErr := h.ycCli.GetSendBySequenceID(ctx, creds, paymentID)
+		if lookErr != nil {
+			logger.WithError(lookErr).Warn("send lookup failed; redelivering")
+			return fmt.Errorf("send %s outcome unknown: %w", paymentID, err)
+		}
+		send, err = existing, nil
 	}
 	if err != nil {
 		logger.WithError(err).Error("send submission failed")
-		h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
-		return nil
+		return h.fail(ctx, paymentID, "", "provider_error", providerFailureExtras(err))
 	}
 
 	extras := sendExtras(send, channelType, network.Name)
@@ -206,8 +205,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 		for k, v := range failureExtras(send.ErrorCode, "") {
 			extras[k] = v
 		}
-		h.fail(ctx, paymentID, send.ID, "rejected", extras)
-		return nil
+		return h.fail(ctx, paymentID, send.ID, "rejected", extras)
 	}
 
 	logger.WithField("send_id", send.ID).WithField("status", send.Status).Debug("send submitted")
@@ -216,8 +214,7 @@ func (h *paymentHandler) Handle(ctx context.Context, headers map[string]string, 
 	if strings.EqualFold(send.Status, client.StatusComplete) {
 		status = commonv1.STATUS_SUCCESSFUL
 	}
-	h.emitStatus(ctx, paymentID, send.ID, status, extras)
-	return nil
+	return h.emitStatus(ctx, paymentID, send.ID, status, extras)
 }
 
 // sendExtras builds the extras for an in-flight send.

@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/util"
 )
@@ -162,6 +163,11 @@ func (c *client) doOnce(
 		if jsonErr := json.Unmarshal(respBody, apiErr); jsonErr != nil || apiErr.Code == "" {
 			apiErr.Code = http.StatusText(resp.StatusCode)
 			apiErr.Message = string(respBody)
+		}
+		if resp.StatusCode >= http.StatusInternalServerError {
+			// A 5xx says nothing about whether Yellow Card applied the
+			// request: GETs are retried, and workers look the record up.
+			return &errRetryable{err: collection.Uncertain(apiErr)}
 		}
 		if isRetryableStatus(resp.StatusCode) {
 			return &errRetryable{err: apiErr}

@@ -97,12 +97,14 @@ class PayerPrefill extends $pb.GeneratedMessage {
     $core.String? displayName,
     $core.String? language,
     $core.Iterable<PayerContact>? contacts,
+    $core.String? email,
   }) {
     final result = PayerPrefill._();
     if (profileId != null) result.profileId = profileId;
     if (displayName != null) result.displayName = displayName;
     if (language != null) result.language = language;
     if (contacts != null) result.contacts.addAll(contacts);
+    if (email != null) result.email = email;
     return result;
   }
 
@@ -124,6 +126,7 @@ class PayerPrefill extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'language')
     ..pPM<PayerContact>(4, _omitFieldNames ? '' : 'contacts',
         subBuilder: PayerContact.$_createMessage)
+    ..aOS(5, _omitFieldNames ? '' : 'email')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -177,6 +180,180 @@ class PayerPrefill extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(4)
   $pb.PbList<PayerContact> get contacts => $_getList(3);
+
+  /// Email used for card customers when the profile has no EMAIL contact.
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+}
+
+/// PaymentMethod is one rail the hosted page can offer.
+class PaymentMethod extends $pb.GeneratedMessage {
+  factory PaymentMethod({
+    $core.String? key,
+    $core.String? name,
+    $core.String? route,
+    $core.String? methodType,
+    $core.String? flow,
+    $core.Iterable<$core.String>? currencies,
+    $core.Iterable<$core.String>? countries,
+    $core.bool? wholeAmounts,
+    $core.bool? subscriptions,
+    $core.bool? requiresProductId,
+  }) {
+    final result = PaymentMethod._();
+    if (key != null) result.key = key;
+    if (name != null) result.name = name;
+    if (route != null) result.route = route;
+    if (methodType != null) result.methodType = methodType;
+    if (flow != null) result.flow = flow;
+    if (currencies != null) result.currencies.addAll(currencies);
+    if (countries != null) result.countries.addAll(countries);
+    if (wholeAmounts != null) result.wholeAmounts = wholeAmounts;
+    if (subscriptions != null) result.subscriptions = subscriptions;
+    if (requiresProductId != null) result.requiresProductId = requiresProductId;
+    return result;
+  }
+
+  PaymentMethod._();
+
+  factory PaymentMethod.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PaymentMethod()..mergeFromBuffer(data, registry);
+  factory PaymentMethod.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PaymentMethod()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PaymentMethod',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'checkout.v1'),
+      createEmptyInstance: PaymentMethod.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'route')
+    ..aOS(4, _omitFieldNames ? '' : 'methodType')
+    ..aOS(5, _omitFieldNames ? '' : 'flow')
+    ..pPS(6, _omitFieldNames ? '' : 'currencies')
+    ..pPS(7, _omitFieldNames ? '' : 'countries')
+    ..aOB(8, _omitFieldNames ? '' : 'wholeAmounts')
+    ..aOB(9, _omitFieldNames ? '' : 'subscriptions')
+    ..aOB(10, _omitFieldNames ? '' : 'requiresProductId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaymentMethod clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaymentMethod copyWith(void Function(PaymentMethod) updates) =>
+      super.copyWith((message) => updates(message as PaymentMethod))
+          as PaymentMethod;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PaymentMethod() / PaymentMethod.new instead')
+  static PaymentMethod create() => PaymentMethod._();
+  static $pb.GeneratedMessage $_createMessage() => PaymentMethod._();
+  @$core.override
+  PaymentMethod createEmptyInstance() => PaymentMethod._();
+  @$core.pragma('dart2js:noInline')
+  static PaymentMethod getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PaymentMethod>(
+          PaymentMethod.$_createMessage);
+  static PaymentMethod? _defaultInstance;
+
+  /// Registry key passed in CreateCheckoutSessionRequest.methods.
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  /// Display name.
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  /// Payment service route (integration) that collects on this rail.
+  @$pb.TagNumber(3)
+  $core.String get route => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set route($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRoute() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRoute() => $_clearField(3);
+
+  /// card | mobile_money | bank_transfer.
+  @$pb.TagNumber(4)
+  $core.String get methodType => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set methodType($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMethodType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMethodType() => $_clearField(4);
+
+  /// push (prompt on the payer's phone), redirect (provider page) or embed.
+  @$pb.TagNumber(5)
+  $core.String get flow => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set flow($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasFlow() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearFlow() => $_clearField(5);
+
+  /// ISO 4217 currencies accepted (empty = any).
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.String> get currencies => $_getList(5);
+
+  /// ISO 3166-1 alpha-2 countries served (empty = any).
+  @$pb.TagNumber(7)
+  $pb.PbList<$core.String> get countries => $_getList(6);
+
+  /// Only whole currency units can be charged.
+  @$pb.TagNumber(8)
+  $core.bool get wholeAmounts => $_getBF(7);
+  @$pb.TagNumber(8)
+  set wholeAmounts($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasWholeAmounts() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearWholeAmounts() => $_clearField(8);
+
+  /// The provider manages recurring billing itself (Polar, Stripe).
+  @$pb.TagNumber(9)
+  $core.bool get subscriptions => $_getBF(8);
+  @$pb.TagNumber(9)
+  set subscriptions($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasSubscriptions() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearSubscriptions() => $_clearField(9);
+
+  /// A provider product reference (product_id metadata) is required.
+  @$pb.TagNumber(10)
+  $core.bool get requiresProductId => $_getBF(9);
+  @$pb.TagNumber(10)
+  set requiresProductId($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasRequiresProductId() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearRequiresProductId() => $_clearField(10);
 }
 
 class CheckoutSession extends $pb.GeneratedMessage {
@@ -195,6 +372,9 @@ class CheckoutSession extends $pb.GeneratedMessage {
     $core.String? pageUrl,
     $core.String? expiresAt,
     $core.String? paymentId,
+    $core.String? cancelUrl,
+    $core.String? paidMethod,
+    $core.String? paidRoute,
   }) {
     final result = CheckoutSession._();
     if (ref != null) result.ref = ref;
@@ -211,6 +391,9 @@ class CheckoutSession extends $pb.GeneratedMessage {
     if (pageUrl != null) result.pageUrl = pageUrl;
     if (expiresAt != null) result.expiresAt = expiresAt;
     if (paymentId != null) result.paymentId = paymentId;
+    if (cancelUrl != null) result.cancelUrl = cancelUrl;
+    if (paidMethod != null) result.paidMethod = paidMethod;
+    if (paidRoute != null) result.paidRoute = paidRoute;
     return result;
   }
 
@@ -249,6 +432,9 @@ class CheckoutSession extends $pb.GeneratedMessage {
     ..aOS(12, _omitFieldNames ? '' : 'pageUrl')
     ..aOS(13, _omitFieldNames ? '' : 'expiresAt')
     ..aOS(14, _omitFieldNames ? '' : 'paymentId')
+    ..aOS(15, _omitFieldNames ? '' : 'cancelUrl')
+    ..aOS(16, _omitFieldNames ? '' : 'paidMethod')
+    ..aOS(17, _omitFieldNames ? '' : 'paidRoute')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -396,6 +582,37 @@ class CheckoutSession extends $pb.GeneratedMessage {
   $core.bool hasPaymentId() => $_has(13);
   @$pb.TagNumber(14)
   void clearPaymentId() => $_clearField(14);
+
+  /// Browser landing when the payer abandons the page (optional).
+  @$pb.TagNumber(15)
+  $core.String get cancelUrl => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set cancelUrl($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasCancelUrl() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearCancelUrl() => $_clearField(15);
+
+  /// Method key and payment route of the latest payment attempt (empty
+  /// before the payer pays). Lets product apps verify a completed session
+  /// was paid on the rail they expected.
+  @$pb.TagNumber(16)
+  $core.String get paidMethod => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set paidMethod($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasPaidMethod() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearPaidMethod() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.String get paidRoute => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set paidRoute($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasPaidRoute() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearPaidRoute() => $_clearField(17);
 }
 
 class CheckoutLink extends $pb.GeneratedMessage {
@@ -411,6 +628,7 @@ class CheckoutLink extends $pb.GeneratedMessage {
     $core.String? pageUrl,
     $core.String? expiresAt,
     $core.bool? active,
+    $core.String? cancelUrl,
   }) {
     final result = CheckoutLink._();
     if (ref != null) result.ref = ref;
@@ -424,6 +642,7 @@ class CheckoutLink extends $pb.GeneratedMessage {
     if (pageUrl != null) result.pageUrl = pageUrl;
     if (expiresAt != null) result.expiresAt = expiresAt;
     if (active != null) result.active = active;
+    if (cancelUrl != null) result.cancelUrl = cancelUrl;
     return result;
   }
 
@@ -457,6 +676,7 @@ class CheckoutLink extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'pageUrl')
     ..aOS(10, _omitFieldNames ? '' : 'expiresAt')
     ..aOB(11, _omitFieldNames ? '' : 'active')
+    ..aOS(12, _omitFieldNames ? '' : 'cancelUrl')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -575,6 +795,15 @@ class CheckoutLink extends $pb.GeneratedMessage {
   $core.bool hasActive() => $_has(10);
   @$pb.TagNumber(11)
   void clearActive() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get cancelUrl => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set cancelUrl($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasCancelUrl() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearCancelUrl() => $_clearField(12);
 }
 
 class CreateCheckoutSessionRequest extends $pb.GeneratedMessage {
@@ -588,6 +817,7 @@ class CreateCheckoutSessionRequest extends $pb.GeneratedMessage {
     $core.String? returnUrl,
     PayerPrefill? payer,
     $core.Iterable<$core.String>? methods,
+    $core.String? cancelUrl,
   }) {
     final result = CreateCheckoutSessionRequest._();
     if (name != null) result.name = name;
@@ -599,6 +829,7 @@ class CreateCheckoutSessionRequest extends $pb.GeneratedMessage {
     if (returnUrl != null) result.returnUrl = returnUrl;
     if (payer != null) result.payer = payer;
     if (methods != null) result.methods.addAll(methods);
+    if (cancelUrl != null) result.cancelUrl = cancelUrl;
     return result;
   }
 
@@ -631,6 +862,7 @@ class CreateCheckoutSessionRequest extends $pb.GeneratedMessage {
     ..aOM<PayerPrefill>(8, _omitFieldNames ? '' : 'payer',
         subBuilder: PayerPrefill.$_createMessage)
     ..pPS(9, _omitFieldNames ? '' : 'methods')
+    ..aOS(10, _omitFieldNames ? '' : 'cancelUrl')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -733,6 +965,16 @@ class CreateCheckoutSessionRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(9)
   $pb.PbList<$core.String> get methods => $_getList(8);
+
+  /// Optional browser landing when the payer abandons the page.
+  @$pb.TagNumber(10)
+  $core.String get cancelUrl => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set cancelUrl($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCancelUrl() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCancelUrl() => $_clearField(10);
 }
 
 class CreateCheckoutSessionResponse extends $pb.GeneratedMessage {
@@ -937,6 +1179,7 @@ class CreateCheckoutLinkRequest extends $pb.GeneratedMessage {
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? metadata,
     $core.String? returnUrl,
     $core.String? expiresAt,
+    $core.String? cancelUrl,
   }) {
     final result = CreateCheckoutLinkRequest._();
     if (name != null) result.name = name;
@@ -947,6 +1190,7 @@ class CreateCheckoutLinkRequest extends $pb.GeneratedMessage {
     if (metadata != null) result.metadata.addEntries(metadata);
     if (returnUrl != null) result.returnUrl = returnUrl;
     if (expiresAt != null) result.expiresAt = expiresAt;
+    if (cancelUrl != null) result.cancelUrl = cancelUrl;
     return result;
   }
 
@@ -977,6 +1221,7 @@ class CreateCheckoutLinkRequest extends $pb.GeneratedMessage {
         packageName: const $pb.PackageName('checkout.v1'))
     ..aOS(7, _omitFieldNames ? '' : 'returnUrl')
     ..aOS(8, _omitFieldNames ? '' : 'expiresAt')
+    ..aOS(9, _omitFieldNames ? '' : 'cancelUrl')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1072,6 +1317,201 @@ class CreateCheckoutLinkRequest extends $pb.GeneratedMessage {
   $core.bool hasExpiresAt() => $_has(7);
   @$pb.TagNumber(8)
   void clearExpiresAt() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get cancelUrl => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set cancelUrl($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCancelUrl() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCancelUrl() => $_clearField(9);
+}
+
+/// ListPaymentMethodsRequest asks which rails a session with these
+/// properties would be offered, so product apps can show choices or pick
+/// methods[] before creating a session.
+class ListPaymentMethodsRequest extends $pb.GeneratedMessage {
+  factory ListPaymentMethodsRequest({
+    $core.String? currency,
+    $core.String? amount,
+    $core.String? country,
+    $core.Iterable<$core.String>? phones,
+    $core.Iterable<$core.String>? methods,
+    $core.Iterable<$core.MapEntry<$core.String, $core.String>>? metadata,
+  }) {
+    final result = ListPaymentMethodsRequest._();
+    if (currency != null) result.currency = currency;
+    if (amount != null) result.amount = amount;
+    if (country != null) result.country = country;
+    if (phones != null) result.phones.addAll(phones);
+    if (methods != null) result.methods.addAll(methods);
+    if (metadata != null) result.metadata.addEntries(metadata);
+    return result;
+  }
+
+  ListPaymentMethodsRequest._();
+
+  factory ListPaymentMethodsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPaymentMethodsRequest()..mergeFromBuffer(data, registry);
+  factory ListPaymentMethodsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPaymentMethodsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPaymentMethodsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'checkout.v1'),
+      createEmptyInstance: ListPaymentMethodsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'currency')
+    ..aOS(2, _omitFieldNames ? '' : 'amount')
+    ..aOS(3, _omitFieldNames ? '' : 'country')
+    ..pPS(4, _omitFieldNames ? '' : 'phones')
+    ..pPS(5, _omitFieldNames ? '' : 'methods')
+    ..m<$core.String, $core.String>(6, _omitFieldNames ? '' : 'metadata',
+        entryClassName: 'ListPaymentMethodsRequest.MetadataEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OS,
+        packageName: const $pb.PackageName('checkout.v1'))
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPaymentMethodsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPaymentMethodsRequest copyWith(
+          void Function(ListPaymentMethodsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListPaymentMethodsRequest))
+          as ListPaymentMethodsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListPaymentMethodsRequest() / ListPaymentMethodsRequest.new instead')
+  static ListPaymentMethodsRequest create() => ListPaymentMethodsRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ListPaymentMethodsRequest._();
+  @$core.override
+  ListPaymentMethodsRequest createEmptyInstance() =>
+      ListPaymentMethodsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListPaymentMethodsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPaymentMethodsRequest>(
+          ListPaymentMethodsRequest.$_createMessage);
+  static ListPaymentMethodsRequest? _defaultInstance;
+
+  /// ISO 4217 currency (empty = any).
+  @$pb.TagNumber(1)
+  $core.String get currency => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set currency($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCurrency() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrency() => $_clearField(1);
+
+  /// Decimal amount; filters whole-unit rails (empty = any).
+  @$pb.TagNumber(2)
+  $core.String get amount => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set amount($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAmount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAmount() => $_clearField(2);
+
+  /// ISO 3166-1 alpha-2 payer country (empty = unknown).
+  @$pb.TagNumber(3)
+  $core.String get country => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set country($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCountry() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCountry() => $_clearField(3);
+
+  /// Payer MSISDNs for phone-local rails.
+  @$pb.TagNumber(4)
+  $pb.PbList<$core.String> get phones => $_getList(3);
+
+  /// Restrict to these keys (empty = all).
+  @$pb.TagNumber(5)
+  $pb.PbList<$core.String> get methods => $_getList(4);
+
+  /// Metadata the session would carry (product_id enables product rails).
+  @$pb.TagNumber(6)
+  $pb.PbMap<$core.String, $core.String> get metadata => $_getMap(5);
+}
+
+class ListPaymentMethodsResponse extends $pb.GeneratedMessage {
+  factory ListPaymentMethodsResponse({
+    $core.Iterable<PaymentMethod>? data,
+    $core.String? selected,
+  }) {
+    final result = ListPaymentMethodsResponse._();
+    if (data != null) result.data.addAll(data);
+    if (selected != null) result.selected = selected;
+    return result;
+  }
+
+  ListPaymentMethodsResponse._();
+
+  factory ListPaymentMethodsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPaymentMethodsResponse()..mergeFromBuffer(data, registry);
+  factory ListPaymentMethodsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPaymentMethodsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPaymentMethodsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'checkout.v1'),
+      createEmptyInstance: ListPaymentMethodsResponse.$_createMessage)
+    ..pPM<PaymentMethod>(1, _omitFieldNames ? '' : 'data',
+        subBuilder: PaymentMethod.$_createMessage)
+    ..aOS(2, _omitFieldNames ? '' : 'selected')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPaymentMethodsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPaymentMethodsResponse copyWith(
+          void Function(ListPaymentMethodsResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ListPaymentMethodsResponse))
+          as ListPaymentMethodsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListPaymentMethodsResponse() / ListPaymentMethodsResponse.new instead')
+  static ListPaymentMethodsResponse create() => ListPaymentMethodsResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ListPaymentMethodsResponse._();
+  @$core.override
+  ListPaymentMethodsResponse createEmptyInstance() =>
+      ListPaymentMethodsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListPaymentMethodsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPaymentMethodsResponse>(
+          ListPaymentMethodsResponse.$_createMessage);
+  static ListPaymentMethodsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PaymentMethod> get data => $_getList(0);
+
+  /// Key the hosted page would preselect.
+  @$pb.TagNumber(2)
+  $core.String get selected => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set selected($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSelected() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSelected() => $_clearField(2);
 }
 
 class CreateCheckoutLinkResponse extends $pb.GeneratedMessage {
@@ -1157,6 +1597,13 @@ class CheckoutServiceApi {
           $pb.ClientContext? ctx, GetCheckoutSessionRequest request) =>
       _client.invoke<GetCheckoutSessionResponse>(ctx, 'CheckoutService',
           'GetCheckoutSession', request, GetCheckoutSessionResponse());
+
+  /// ListPaymentMethods returns the rails available for the caller's
+  /// partition and the given currency / amount / locality.
+  $async.Future<ListPaymentMethodsResponse> listPaymentMethods(
+          $pb.ClientContext? ctx, ListPaymentMethodsRequest request) =>
+      _client.invoke<ListPaymentMethodsResponse>(ctx, 'CheckoutService',
+          'ListPaymentMethods', request, ListPaymentMethodsResponse());
 
   /// CreateCheckoutLink creates a reusable, shareable link that spawns a
   /// fresh checkout session per visitor.

@@ -156,27 +156,6 @@ type TillsPayPartner struct {
 	Ref string `json:"ref"`
 }
 
-type Prompt struct {
-	data.BaseModel
-	ID                string `gorm:"type:varchar(50)"`
-	SourceID          string `gorm:"type:varchar(50)"`
-	SourceProfileType string `gorm:"type:varchar(50)"`
-	SourceContactID   string `gorm:"type:varchar(50)"`
-
-	RecipientID          string            `gorm:"type:varchar(50)"`
-	RecipientProfileType string            `gorm:"type:varchar(50)"`
-	RecipientContactID   string            `gorm:"type:varchar(50)"`
-	Amount               *decimalx.Decimal `gorm:"type:numeric"                          json:"amount"`
-	DateCreated          string            `gorm:"type:varchar(50)"`
-	DeviceID             string            `gorm:"type:varchar(50)"`
-	State                int32             `gorm:"type:integer"`
-	Status               int32             `gorm:"type:integer"`
-	Route                string            `gorm:"type:varchar(50)"`
-	AccountID            string            `gorm:"type:varchar(50)"                      json:"accountID"`
-	Account              data.JSONMap      `gorm:"type:jsonb"                            json:"account"`
-	Extra                data.JSONMap      `gorm:"index:,type:gin;option:jsonb_path_ops" json:"extra"`
-}
-
 type Account struct {
 	data.BaseModel
 	AccountNumber string `gorm:"type:varchar(50)" json:"accountNumber"`

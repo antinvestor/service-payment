@@ -61,6 +61,8 @@ const (
 	ExtraCustomerAdditionalIDNumber = "customer_additional_id_number"
 
 	// Embedded card (AES-GCM ciphertext + nonce) — never clear PAN in extras long-term logs.
+	// Each field is sealed with its own IV: ExtraCardNonce with the final
+	// byte replaced by the field index (0 PAN, 1 month, 2 year, 3 CVV).
 	ExtraEncryptedCardNumber  = "encrypted_card_number"
 	ExtraEncryptedExpiryMonth = "encrypted_expiry_month"
 	ExtraEncryptedExpiryYear  = "encrypted_expiry_year"
@@ -122,3 +124,24 @@ const (
 // DefaultCardRoute is the payment service route name for card collection.
 // Override per tenant/partition via checkout method registry Route field.
 const DefaultCardRoute = "fincra"
+
+// Product and provider-session extras.
+const (
+	// ExtraProductID names the provider catalog product to charge (Polar
+	// products, Stripe prices). Billing sets it from the plan.
+	ExtraProductID = "product_id"
+	// ExtraCancelURL is where a hosted page sends the payer on cancel.
+	ExtraCancelURL = "cancel_url"
+	// ExtraClientSecret is returned by adapters whose instrument is collected
+	// by provider JS on our page (Stripe PaymentIntent).
+	ExtraClientSecret = "client_secret"
+	// ExtraCustomerExternalID is our stable payer id passed to the provider
+	// so provider customers map back to profiles.
+	ExtraCustomerExternalID = "customer_external_id"
+	// ExtraExternalSubscriptionID is the provider's subscription id.
+	ExtraExternalSubscriptionID = "external_subscription_id"
+	// ExtraOrderRef is the merchant order / invoice reference on a session.
+	ExtraOrderRef = "order_ref"
+	// ExtraCollectionSource names the product that opened the collection.
+	ExtraCollectionSource = "collection_source"
+)

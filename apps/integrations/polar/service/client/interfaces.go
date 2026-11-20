@@ -18,24 +18,24 @@ import "context"
 
 // PolarClient defines the interface for Polar.sh API operations.
 type PolarClient interface {
-	// CreateCheckout creates a Polar checkout session for requesting money.
-	// For subscription products the product id determines recurrence — Polar
-	// decides subscription vs one-time by the product; no extra checkout field
-	// is required from our side.
+	// CreateCheckout creates a Polar checkout session for the products.
+	// Subscription vs one-time is decided by the product on Polar's side.
 	CreateCheckout(ctx context.Context, creds *PolarCredentials, req *CheckoutRequest) (*CheckoutResponse, error)
 
-	// VerifyWebhookSignature verifies a Polar webhook signature
+	// GetCheckout reads a checkout session (status, metadata).
+	GetCheckout(ctx context.Context, creds *PolarCredentials, checkoutID string) (*CheckoutResponse, error)
+
+	// VerifyWebhookSignature verifies a Standard Webhooks signature and
+	// decodes the event. headers carry webhook-id, webhook-timestamp and
+	// webhook-signature (any case).
 	VerifyWebhookSignature(payload []byte, headers map[string]string, webhookSecret string) (*WebhookEvent, error)
 
 	// GetSubscription fetches the current state of a Polar subscription by ID.
-	// Endpoint: GET /v1/subscriptions/{id}
 	GetSubscription(ctx context.Context, creds *PolarCredentials, subscriptionID string) (*Subscription, error)
 
-	// CancelSubscription cancels a Polar subscription.
-	// When atPeriodEnd is true the subscription is cancelled at the end of the
-	// current billing period (PATCH /v1/subscriptions/{id} with
-	// cancel_at_period_end=true); when false the subscription is revoked
-	// immediately (DELETE /v1/subscriptions/{id}/revoke).
+	// CancelSubscription cancels a Polar subscription: at the end of the
+	// current period (PATCH cancel_at_period_end=true) or immediately
+	// (DELETE /revoke).
 	CancelSubscription(
 		ctx context.Context,
 		creds *PolarCredentials,

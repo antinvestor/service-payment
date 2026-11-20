@@ -27,6 +27,7 @@ import (
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	"github.com/pitabwire/frame/v3/data"
 	"github.com/pitabwire/frame/v3/security"
@@ -87,6 +88,9 @@ func (s *MtnWebhookServer) HandleDisbursementCallback(w http.ResponseWriter, r *
 // errNotBound means the callback does not match a request we issued.
 var errNotBound = errors.New("callback does not match an issued request")
 
+// maxWebhookBodyBytes bounds a callback body; MTN callbacks are a few hundred bytes.
+const maxWebhookBodyBytes = 1 << 20
+
 // confirmed is MTN's authoritative view of a request.
 type confirmed struct {
 	status, amount, currency, externalID, financialTxID string
@@ -100,7 +104,7 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 	defer logger.Release()
 
 	var callback client.CallbackBody
-	if err := json.NewDecoder(r.Body).Decode(&callback); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)).Decode(&callback); err != nil {
 		logger.WithError(err).Error("failed to decode callback")
 		s.metrics.WebhookRejected(ctx, entityType, "decode_error")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -110,7 +114,7 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 	entityID := strings.TrimSpace(callback.ExternalID)
 	logger = logger.WithField("external_id", entityID)
 	if entityID == "" {
-		s.metrics.WebhookRejected(ctx, entityType, "missing_external_id")
+		s.metrics.WebhookRejected(ctx, entityType, "missing_id")
 		http.Error(w, "missing externalId", http.StatusBadRequest)
 		return
 	}
@@ -160,14 +164,9 @@ func (s *MtnWebhookServer) handleCallback(w http.ResponseWriter, r *http.Request
 		extras["verification"] = "amount_mismatch"
 	}
 
-	state := commonv1.STATE_ACTIVE
-	if status == commonv1.STATUS_FAILED {
-		state = commonv1.STATE_INACTIVE
-	}
-
 	statusReq := &commonv1.StatusUpdateRequest{
 		Id:         entityID,
-		State:      state,
+		State:      events.StateFor(status),
 		Status:     status,
 		ExternalId: conf.financialTxID,
 		Extras:     extras.ToProtoStruct(),
@@ -194,12 +193,12 @@ func (s *MtnWebhookServer) reject(
 ) {
 	if errors.Is(err, errNotBound) {
 		logger.WithError(err).Warn("MTN callback rejected")
-		s.metrics.WebhookRejected(ctx, entityType, "not_bound")
+		s.metrics.WebhookRejected(ctx, entityType, "unknown_payment")
 		http.Error(w, "callback does not match request", http.StatusConflict)
 		return
 	}
 	logger.WithError(err).Error("could not verify MTN callback")
-	s.metrics.WebhookRejected(ctx, entityType, "verification_error")
+	s.metrics.WebhookRejected(ctx, entityType, "verification_failed")
 	http.Error(w, "could not verify callback", http.StatusServiceUnavailable)
 }
 

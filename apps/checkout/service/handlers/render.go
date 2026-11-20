@@ -43,6 +43,8 @@ type MethodChoice struct {
 	Selected bool
 	Embed    bool // card form on this page
 	Redirect bool
+	// Card marks card rails (email-only payers can use these).
+	Card bool
 }
 
 // BankTransferDetails are the account details shown on the confirm page for
@@ -89,8 +91,10 @@ type PageData struct {
 	Status        string
 	FailureReason string
 	ReturnURL     string
-	PollURL       string
-	RedirectURL   string
+	// CancelURL lets the payer leave the page back to the product.
+	CancelURL   string
+	PollURL     string
+	RedirectURL string
 	// NextAction: requires_pin | requires_otp | redirect_url | …
 	NextAction string
 	// PaymentInstruction for bank transfer notes.
@@ -197,6 +201,8 @@ var translations = map[string]map[string]string{
 		"select_contact":             "Pay with",
 		"no_profile_contacts":        "Add an email or phone to your profile before paying.",
 		"redirect_hint":              "Securing your payment…",
+		"cancel_return":              "Cancel and go back",
+		"cancelled_title":            "Payment cancelled — you can try again",
 	},
 	"fr": {
 		"pay_button":                 "Payer",

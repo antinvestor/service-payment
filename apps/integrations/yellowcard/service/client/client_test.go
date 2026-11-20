@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/antinvestor/service-payments/apps/integrations/yellowcard/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -206,7 +207,20 @@ func TestSubmitReceive_NoRetryOn503(t *testing.T) {
 	var apiErr *client.APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusServiceUnavailable, apiErr.HTTPStatus)
+	assert.True(t, collection.IsUncertain(err), "a 5xx leaves the outcome unknown")
 	assert.Equal(t, int32(1), calls.Load())
+}
+
+func TestSubmitReceive_400IsCertain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"code":"PaymentValidationError","message":"bad amount"}`))
+	}))
+	defer srv.Close()
+
+	_, err := client.NewClient().SubmitReceive(t.Context(), testCreds(srv.URL), &client.ReceiveRequest{SequenceID: "p1"})
+	require.Error(t, err)
+	assert.False(t, collection.IsUncertain(err), "a rejection is final")
 }
 
 func TestGetRatesAndNetworks(t *testing.T) {

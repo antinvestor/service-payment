@@ -144,8 +144,10 @@ type CreateSessionInput struct {
 	OrderRef     string
 	Metadata     map[string]string
 	ReturnURL    string
-	Payer        *PayerInput
-	Methods      []string // restriction list; empty = all
+	// CancelURL is where the payer lands when abandoning the page (optional).
+	CancelURL string
+	Payer     *PayerInput
+	Methods   []string // restriction list; empty = all
 }
 
 // CreateLinkInput carries all fields needed to create a CheckoutLink.
@@ -157,6 +159,7 @@ type CreateLinkInput struct {
 	AmountOption string
 	OrderRef     string
 	ReturnURL    string
+	CancelURL    string
 	Metadata     map[string]string
 	ExpiresAt    *time.Time
 }
@@ -224,6 +227,9 @@ type CheckoutBusiness struct {
 	now         func() time.Time
 	cluesSync   bool               // true in tests only: makes writeClues run synchronously
 	workMan     workerpool.Manager // nil in tests → falls back to synchronous execution
+	// partitions restricts methods per partition; the same allowlist the
+	// pay page applies, so Pay refuses what the page would not show.
+	partitions PartitionAllowlists
 }
 
 // NewCheckoutBusiness creates a CheckoutBusiness with a real clock.
@@ -249,6 +255,24 @@ func NewCheckoutBusiness(
 		now:         time.Now,
 		workMan:     workMan,
 	}
+}
+
+// WithPartitionAllowlists returns a copy of b that enforces per-partition
+// method allowlists (CHECKOUT_PARTITION_METHODS) when a payment is submitted.
+func (b *CheckoutBusiness) WithPartitionAllowlists(p PartitionAllowlists) *CheckoutBusiness {
+	cp := *b
+	cp.partitions = p
+	return &cp
+}
+
+// Registry exposes the method catalog (for the hosted page and ListPaymentMethods).
+func (b *CheckoutBusiness) Registry() *MethodRegistry {
+	return b.registry
+}
+
+// PartitionAllowlist returns the configured allowlist for a partition (nil = none).
+func (b *CheckoutBusiness) PartitionAllowlist(partitionID string) []string {
+	return b.partitions.ForPartition(partitionID)
 }
 
 // WithClock returns a copy of b with an injectable clock for tests.
@@ -300,6 +324,7 @@ func (b *CheckoutBusiness) CreateSession(
 		AmountOption: in.AmountOption,
 		OrderRef:     in.OrderRef,
 		ReturnURL:    in.ReturnURL,
+		CancelURL:    in.CancelURL,
 		Status:       models.SessionStatusPending,
 		ExpiresAt:    b.now().Add(time.Duration(b.cfg.SessionTTLMinutes) * time.Minute),
 	}
@@ -351,12 +376,112 @@ func (b *CheckoutBusiness) validateSessionInput(in CreateSessionInput) error {
 	if in.ReturnURL != "" && !IsSafeReturnURL(in.ReturnURL) {
 		return errors.New("return_url must use http or https scheme")
 	}
+	if in.CancelURL != "" && !IsSafeReturnURL(in.CancelURL) {
+		return errors.New("cancel_url must use http or https scheme")
+	}
 	for _, key := range in.Methods {
-		if _, ok := b.registry.Get(key); !ok {
+		method, ok := b.registry.Get(key)
+		if !ok {
 			return fmt.Errorf("%w: %s", ErrUnknownMethod, key)
+		}
+		if method.RequiresProductID && MetadataProductID(in.Metadata) == "" {
+			return fmt.Errorf("%w: %s needs product_id metadata", ErrUnknownMethod, key)
 		}
 	}
 	return nil
+}
+
+// productIDKeys are the metadata keys product apps use for a provider
+// catalog product (Polar product, Stripe price). First non-empty wins.
+var productIDKeys = []string{collection.ExtraProductID, "productId", "polarProductId", "stripePriceId"}
+
+// MetadataProductID returns the provider product reference in session metadata.
+func MetadataProductID(meta map[string]string) string {
+	for _, k := range productIDKeys {
+		if v := strings.TrimSpace(meta[k]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// SessionProductID returns the provider product reference stored on a session.
+func SessionProductID(session *models.CheckoutSession) string {
+	if session == nil || session.Metadata == nil {
+		return ""
+	}
+	for _, k := range productIDKeys {
+		if v, _ := session.Metadata[k].(string); strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// SessionRestrictionKeys extracts the merchant's methods[] restriction.
+func SessionRestrictionKeys(methods map[string]any) []string {
+	if methods == nil {
+		return nil
+	}
+	keysRaw, hasKeys := methods["keys"]
+	if !hasKeys {
+		return nil
+	}
+	list, isList := keysRaw.([]any)
+	if !isList {
+		return nil
+	}
+	keys := make([]string, 0, len(list))
+	for _, k := range list {
+		if ks, isStr := k.(string); isStr {
+			keys = append(keys, ks)
+		}
+	}
+	return keys
+}
+
+// PrefillPhones lists the MSISDNs of the payer's prefill contacts.
+func PrefillPhones(prefill map[string]any) []string {
+	if prefill == nil {
+		return nil
+	}
+	var out []string
+	if raw, ok := prefill["contacts"].([]any); ok {
+		for _, c := range raw {
+			m, isMap := c.(map[string]any)
+			if !isMap {
+				continue
+			}
+			if msisdn, _ := m["msisdn"].(string); strings.TrimSpace(msisdn) != "" {
+				out = append(out, strings.TrimSpace(msisdn))
+			}
+		}
+	}
+	if phone, _ := prefill["phone"].(string); strings.TrimSpace(phone) != "" {
+		out = append(out, strings.TrimSpace(phone))
+	}
+	return out
+}
+
+// MethodFilterFor builds the resolution context for a session: what the pay
+// page shows and what Pay accepts share this one definition.
+func (b *CheckoutBusiness) MethodFilterFor(session *models.CheckoutSession, extraPhone string) MethodFilter {
+	// Variable sessions carry no amount until Pay sets it; "" is unrestricted.
+	amount := session.Amount
+	country := ""
+	if session.Prefill != nil {
+		country, _ = session.Prefill["country"].(string)
+	}
+	return MethodFilter{
+		Currency:           session.Currency,
+		Amount:             amount,
+		Phone:              strings.TrimSpace(extraPhone),
+		Phones:             PrefillPhones(session.Prefill),
+		Country:            country,
+		SessionRestriction: SessionRestrictionKeys(session.Methods),
+		PartitionAllowlist: b.partitions.ForPartition(session.PartitionID),
+		HasProductID:       SessionProductID(session) != "",
+	}
 }
 
 // applyPayer enriches a session with prefill data from the payer + optional profile.
@@ -657,6 +782,9 @@ func (b *CheckoutBusiness) CreateLink(
 	if in.ReturnURL != "" && !IsSafeReturnURL(in.ReturnURL) {
 		return nil, errors.New("return_url must use http or https scheme")
 	}
+	if in.CancelURL != "" && !IsSafeReturnURL(in.CancelURL) {
+		return nil, errors.New("cancel_url must use http or https scheme")
+	}
 
 	link := &models.CheckoutLink{
 		Ref:          util.RandomAlphaNumericString(linkRefLen),
@@ -667,6 +795,7 @@ func (b *CheckoutBusiness) CreateLink(
 		AmountOption: amtOption,
 		OrderRef:     in.OrderRef,
 		ReturnURL:    in.ReturnURL,
+		CancelURL:    in.CancelURL,
 		ExpiresAt:    in.ExpiresAt,
 		Active:       true,
 	}
@@ -718,6 +847,7 @@ func (b *CheckoutBusiness) SpawnSession(
 		AmountOption: link.AmountOption,
 		OrderRef:     link.OrderRef,
 		ReturnURL:    link.ReturnURL,
+		CancelURL:    link.CancelURL,
 		Status:       models.SessionStatusPending,
 		ExpiresAt:    b.now().Add(time.Duration(b.cfg.SessionTTLMinutes) * time.Minute),
 		Metadata:     link.Metadata,
@@ -819,8 +949,9 @@ func (b *CheckoutBusiness) Pay(
 		session.Amount = in.Amount
 	}
 
-	// Method validation and restriction check
-	method, methodErr := b.resolveMethod(session, in.MethodKey)
+	// Method validation: the same resolution the page used (partition
+	// allowlist, session restriction, currency, amount, locality, product).
+	method, methodErr := b.resolveMethod(session, in)
 	if methodErr != nil {
 		b.obs.RecordPayFailure(ctx, "unknown_method")
 		err = methodErr
@@ -871,6 +1002,7 @@ func (b *CheckoutBusiness) Pay(
 		session.Metadata = make(data.JSONMap)
 	}
 	session.Metadata["_method"] = in.MethodKey
+	session.Metadata["_route"] = method.Route
 	if contactID != "" {
 		session.Metadata["_contact_id"] = contactID
 	}
@@ -920,54 +1052,13 @@ func (b *CheckoutBusiness) Pay(
 	return session, nil
 }
 
-// resolveMethod validates that the method key exists, is allowed by the
-// session, and supports the session currency.
+// resolveMethod validates the submitted method against the session's
+// resolution so a crafted POST cannot pick a rail the page never offered.
 func (b *CheckoutBusiness) resolveMethod(
 	session *models.CheckoutSession,
-	methodKey string,
+	in PayInput,
 ) (Method, error) {
-	method, ok := b.registry.Get(methodKey)
-	if !ok {
-		return Method{}, fmt.Errorf("%w: %s", ErrUnknownMethod, methodKey)
-	}
-	if err := b.checkMethodRestriction(session, methodKey); err != nil {
-		return Method{}, err
-	}
-	// Same currency rule the pay page uses to list methods (Resolve), so a
-	// crafted POST cannot push e.g. a USD session through a KES-only rail.
-	if !MethodAcceptsCurrency(method, session.Currency) {
-		return Method{}, fmt.Errorf("%w: %s cannot collect %s", ErrMethodCurrencyUnsupported, methodKey, session.Currency)
-	}
-	// Same amount rule as the page: never let a rail round the charge.
-	if !MethodAcceptsAmount(method, session.Amount) {
-		return Method{}, fmt.Errorf("%w: %s cannot charge %s", ErrMethodAmountUnsupported, methodKey, session.Amount)
-	}
-	return method, nil
-}
-
-// checkMethodRestriction returns ErrUnknownMethod when the session restricts methods and
-// the key is not in the restriction list.
-func (b *CheckoutBusiness) checkMethodRestriction(
-	session *models.CheckoutSession,
-	methodKey string,
-) error {
-	if session.Methods == nil {
-		return nil
-	}
-	keysRaw, hasKeys := session.Methods["keys"]
-	if !hasKeys {
-		return nil
-	}
-	keysList, isList := keysRaw.([]any)
-	if !isList {
-		return nil
-	}
-	for _, k := range keysList {
-		if ks, isStr := k.(string); isStr && ks == methodKey {
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: %s not in session restriction", ErrUnknownMethod, methodKey)
+	return b.registry.MethodForPay(b.MethodFilterFor(session, in.PhoneNumber), in.MethodKey)
 }
 
 // sendPrompt builds the prompt request, calls the payment service, and returns the promptID.
@@ -986,18 +1077,23 @@ func (b *CheckoutBusiness) sendPrompt(
 ) (string, error) {
 	methodKey := in.MethodKey
 	extraMap := map[string]any{
-		"session_ref": session.Ref,
-		"order_ref":   session.OrderRef,
-		"provider":    methodKey,
+		collection.ExtraSessionRef:        session.Ref,
+		collection.ExtraOrderRef:          session.OrderRef,
+		collection.ExtraProvider:          methodKey,
+		collection.ExtraPaymentMethodType: method.ResolvedMethodType(),
 	}
-	if method.IsEmbedded() || strings.EqualFold(methodKey, "card") {
-		extraMap["payment_method_type"] = "card"
+	if session.PayerProfileID != "" {
+		extraMap[collection.ExtraCustomerExternalID] = session.PayerProfileID
+	}
+	if productID := SessionProductID(session); productID != "" {
+		extraMap[collection.ExtraProductID] = productID
 	}
 	// Provider return after 3DS / hosted: land back on our checkout session page.
 	if b.cfg != nil && b.cfg.PublicBaseURL != "" && session.Ref != "" {
 		successURL := strings.TrimRight(b.cfg.PublicBaseURL, "/") + "/c/" + session.Ref
-		extraMap["success_url"] = successURL
-		extraMap["redirect_url"] = successURL
+		extraMap[collection.ExtraSuccessURL] = successURL
+		extraMap[collection.ExtraRedirectURL] = successURL
+		extraMap[collection.ExtraCancelURL] = successURL + "?cancelled=1"
 	}
 	// Profile / prefill identity — only fill gaps from form input.
 	email := strings.TrimSpace(in.Email)
@@ -1065,7 +1161,7 @@ func (b *CheckoutBusiness) sendPrompt(
 			case "subscriptionId", "subscription_id":
 				extraMap["subscription_id"] = vStr
 			case "source":
-				extraMap["collection_source"] = vStr
+				extraMap[collection.ExtraCollectionSource] = vStr
 			case "paymentMethodId", "payment_method_id":
 				if extraMap["payment_method_id"] == nil {
 					extraMap["payment_method_id"] = vStr
@@ -1677,6 +1773,8 @@ func (b *CheckoutBusiness) captureProviderExtras(
 		{"charge_id", "_charge_id"},
 		{"payment_method_id", "_payment_method_id"},
 		{"customer_id", "_customer_id"},
+		{collection.ExtraClientSecret, "_client_secret"},
+		{collection.ExtraExternalSubscriptionID, "_external_subscription_id"},
 		{"payment_instruction", "_payment_instruction"},
 		{collection.ExtraBankName, "_bank_name"},
 		{collection.ExtraBankAccountNumber, "_bank_account_number"},
@@ -1796,7 +1894,12 @@ func (b *CheckoutBusiness) writeClues(ctx context.Context, session *models.Check
 // SweepProcessing
 // ---------------------------------------------------------------------------
 
-// SweepProcessing polls processing sessions for status and expires stale pending ones.
+// SweepProcessing polls live sessions for status and expires overdue ones.
+//
+// Processing and failed sessions that still have a prompt and have not
+// expired are refreshed (a late provider success completes them). Sessions
+// past their expiry are refreshed one last time, then expired so a stuck
+// prompt never keeps a session alive forever.
 func (b *CheckoutBusiness) SweepProcessing(ctx context.Context) error {
 	ctx, span := b.obs.StartSpan(ctx, "SweepProcessing")
 	sweepStart := b.now()
@@ -1805,52 +1908,50 @@ func (b *CheckoutBusiness) SweepProcessing(ctx context.Context) error {
 		b.obs.RecordSweepLatency(ctx, float64(b.now().Sub(sweepStart).Milliseconds()))
 		b.obs.EndSpan(ctx, span, firstErr)
 	}()
-
-	// Refresh processing sessions
-	processing, err := b.sessionRepo.ListByStatus(ctx, models.SessionStatusProcessing, sweepBatch)
-	if err != nil {
-		firstErr = fmt.Errorf("list processing sessions: %w", err)
-	} else {
-		for _, s := range processing {
-			if _, refreshErr := b.RefreshStatus(ctx, s); refreshErr != nil && firstErr == nil {
-				firstErr = refreshErr
-			}
+	keep := func(err error) {
+		if err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
 
-	// Failed sessions stay payable until they expire and may still have an
-	// earlier prompt that completes late; keep polling those prompts.
-	failed, failedErr := b.sessionRepo.ListUnexpiredWithPrompt(ctx, models.SessionStatusFailed, b.now(), sweepBatch)
-	if failedErr != nil {
-		if firstErr == nil {
-			firstErr = fmt.Errorf("list failed sessions: %w", failedErr)
-		}
-	} else {
-		for _, s := range failed {
-			if _, refreshErr := b.RefreshStatus(ctx, s); refreshErr != nil && firstErr == nil {
-				firstErr = refreshErr
-			}
-		}
-	}
-
-	// Expire overdue pending sessions
-	pending, listErr := b.sessionRepo.ListByStatus(ctx, models.SessionStatusPending, sweepBatch)
-	if listErr != nil {
-		if firstErr == nil {
-			firstErr = fmt.Errorf("list pending sessions: %w", listErr)
-		}
-		return firstErr
-	}
-	for _, s := range pending {
-		if !b.now().After(s.ExpiresAt) {
+	for _, status := range []string{models.SessionStatusProcessing, models.SessionStatusFailed} {
+		live, err := b.sessionRepo.ListUnexpiredWithPrompt(ctx, status, b.now(), sweepBatch)
+		if err != nil {
+			keep(fmt.Errorf("list %s sessions: %w", status, err))
 			continue
 		}
-		s.Status = models.SessionStatusExpired
-		if _, updateErr := b.sessionRepo.Update(ctx, s); updateErr != nil && firstErr == nil {
-			firstErr = updateErr
-		} else if updateErr == nil {
-			b.obs.RecordSweepExpired(ctx)
+		for _, s := range live {
+			if _, refreshErr := b.RefreshStatus(ctx, s); refreshErr != nil {
+				keep(refreshErr)
+			}
 		}
+	}
+
+	overdue, listErr := b.sessionRepo.ListExpiredBefore(ctx,
+		[]string{models.SessionStatusPending, models.SessionStatusProcessing, models.SessionStatusFailed},
+		b.now(), sweepBatch)
+	if listErr != nil {
+		keep(fmt.Errorf("list expired sessions: %w", listErr))
+		return firstErr
+	}
+	for _, s := range overdue {
+		if s.PromptID != "" {
+			refreshed, refreshErr := b.RefreshStatus(ctx, s)
+			if refreshErr != nil {
+				keep(refreshErr)
+				continue
+			}
+			if refreshed.Status == models.SessionStatusCompleted {
+				continue
+			}
+			s = refreshed
+		}
+		s.Status = models.SessionStatusExpired
+		if _, updateErr := b.sessionRepo.Update(ctx, s); updateErr != nil {
+			keep(updateErr)
+			continue
+		}
+		b.obs.RecordSweepExpired(ctx)
 	}
 
 	return firstErr

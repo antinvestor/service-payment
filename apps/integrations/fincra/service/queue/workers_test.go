@@ -281,6 +281,8 @@ func TestPrompt_DirectMobileMoney(t *testing.T) {
 	assert.Equal(t, "MPESA", req.Operator, "operator detected from the Safaricom prefix")
 	assert.Equal(t, "prompt-2", req.Reference)
 	assert.Equal(t, "https://hooks.example.com/webhook/fincra?partition_id=partition-1&tenant_id=tenant-1", req.WebhookURL)
+	assert.Equal(t, map[string]string{"prompt_id": "prompt-2", "tenant_id": "tenant-1", "partition_id": "partition-1"},
+		req.Metadata, "tenancy travels with the charge so the webhook can be attributed")
 
 	st, ex := h.events.last(t)
 	assert.Equal(t, commonv1.STATUS_IN_PROCESS, st.GetStatus())

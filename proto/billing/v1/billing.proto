@@ -733,7 +733,9 @@ service BillingService {
       "credit_view",
       "credit_manage",
       "discount_view",
-      "discount_manage"
+      "discount_manage",
+      "payment_collect",
+      "provider_subscription_sync"
     ]
     role_bindings: [
       {

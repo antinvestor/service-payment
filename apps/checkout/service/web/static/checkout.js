@@ -306,13 +306,21 @@
       .then(function (ct) { return bytesToB64(ct); });
   }
 
+  // AES-GCM must never reuse an IV under one key: each field gets its own
+  // IV, the shared nonce with its last character replaced by the field
+  // index (0 = PAN, 1 = month, 2 = year, 3 = CVV). Decrypting adapters apply
+  // the same rule (pkg/collection ExtraCardNonce).
+  function fieldIV(nonce, index) {
+    return nonce.slice(0, nonce.length - 1) + String(index);
+  }
+
   function encryptCard(keyB64, pan, mm, yy, cvv) {
     var nonce = generateNonce(12);
     return Promise.all([
-      encryptAESGCM(pan, keyB64, nonce),
-      encryptAESGCM(mm, keyB64, nonce),
-      encryptAESGCM(yy, keyB64, nonce),
-      encryptAESGCM(cvv, keyB64, nonce)
+      encryptAESGCM(pan, keyB64, fieldIV(nonce, 0)),
+      encryptAESGCM(mm, keyB64, fieldIV(nonce, 1)),
+      encryptAESGCM(yy, keyB64, fieldIV(nonce, 2)),
+      encryptAESGCM(cvv, keyB64, fieldIV(nonce, 3))
     ]).then(function (parts) {
       return {
         encrypted_card_number: parts[0],

@@ -61,6 +61,14 @@ type MpesaConfig struct {
 	// Environment: sandbox or production
 	Environment string `envDefault:"sandbox" env:"MPESA_ENVIRONMENT"`
 
+	// CallbackAllowedCIDRs is a comma-separated list of CIDRs Daraja calls
+	// back from (Safaricom publishes its ranges). When set, callbacks from
+	// other sources are refused and C2B confirmations may settle.
+	CallbackAllowedCIDRs string `env:"MPESA_CALLBACK_ALLOWED_CIDRS"`
+	// TrustedProxyHops is how many X-Forwarded-For hops belong to our own
+	// proxies; 0 means the TCP peer (RemoteAddr) is the caller.
+	TrustedProxyHops int `envDefault:"0" env:"MPESA_TRUSTED_PROXY_HOPS"`
+
 	// Queue configuration - payment queue for B2C disbursements
 	QueuePaymentName string `envDefault:"mpesa.payments.dequeue"       env:"QUEUE_MPESA_PAYMENT_NAME"`
 	QueuePaymentURI  string `envDefault:"mem://mpesa.payments.dequeue" env:"QUEUE_MPESA_PAYMENT_URI"`

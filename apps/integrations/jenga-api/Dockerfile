@@ -52,11 +52,10 @@ WORKDIR /
 # Copy from builder stage
 COPY --from=builder /app/binary /jenga-api
 
-# Copy UAT keys (production keys should be mounted via K8s Secret)
-COPY --chown=65532:65532 apps/integrations/jenga-api/keys /keys
+# The RSA signing key is never baked into the image: supply it through the
+# JENGA_PRIVATE_KEY_PEM secret or mount a file and point JENGA_PRIVATE_KEY_PATH at it.
 
 ENV LOG_LEVEL=info
-ENV JENGA_PRIVATE_KEY_PATH=/keys/privatekey.pem
 
 # Run the binary
 ENTRYPOINT ["/jenga-api"]

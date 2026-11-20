@@ -16,14 +16,15 @@ package queue
 
 import (
 	"context"
+	"fmt"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/google/uuid"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
 	"github.com/pitabwire/util"
@@ -31,14 +32,16 @@ import (
 )
 
 type promptHandler struct {
-	eventsMan   frameEvents.Manager
+	emitter     *events.StatusEmitter
 	mtnCli      client.MtnClient
 	settingsCli settingsv1connect.SettingsServiceClient
 	cfg         *config.MtnConfig
 	metrics     *integrationobs.Metrics
 }
 
-// NewPromptHandler creates a queue worker for handling requestToPay collection prompts.
+// NewPromptHandler creates the queue worker for requestToPay collections.
+// The X-Reference-Id is derived from the prompt id, so a redelivered prompt
+// finds the request already issued instead of charging twice.
 func NewPromptHandler(
 	eventsMan frameEvents.Manager,
 	mtnCli client.MtnClient,
@@ -46,54 +49,60 @@ func NewPromptHandler(
 	cfg *config.MtnConfig,
 ) queue.SubscribeWorker {
 	return &promptHandler{
-		eventsMan:   eventsMan,
+		emitter:     events.NewStatusEmitter(eventsMan),
 		mtnCli:      mtnCli,
 		settingsCli: settingsCli,
 		cfg:         cfg,
-		metrics:     integrationobs.NewMetrics("mtn"),
+		metrics:     integrationobs.NewMetrics(providerName),
 	}
+}
+
+func (h *promptHandler) fail(ctx context.Context, promptID, reason, message string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, kindPrompt, reason)
+	return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID, message, extras)
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "mtn.prompt")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
-		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
+		h.metrics.QueueFailed(ctx, kindPrompt, "unmarshal_error")
 		return nil
 	}
-
 	promptID := prompt.GetId()
 	logger = logger.WithField("prompt_id", promptID)
 
 	creds, err := extractCredentials(ctx, headers, h.settingsCli, h.cfg)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		emitStatus(ctx, h.eventsMan, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "credentials_error", err.Error(), nil)
+	}
+
+	amount, err := mtnAmount(prompt.GetAmount())
+	if err != nil {
+		logger.WithError(err).Error("prompt amount cannot be sent to MTN")
+		return h.fail(ctx, promptID, "rejected", "invalid amount: "+err.Error(), nil)
+	}
+	currency := requestCurrency(prompt.GetAmount(), creds)
+	referenceID := client.ReferenceID(events.EntityTypePrompt, promptID)
+	extras := requestExtras(events.EntityTypePrompt, referenceID, amount, currency, headers)
+	logger = logger.WithField("reference_id", referenceID)
+
+	// A redelivered prompt answers with the request already issued.
+	if existing, getErr := h.mtnCli.GetRequestToPayStatus(ctx, creds, referenceID); getErr == nil {
+		logger.Debug("requestToPay already issued")
+		return h.emitRequestToPay(ctx, promptID, existing, extras)
+	} else if !client.IsNotFound(getErr) {
+		logger.WithError(getErr).Warn("requestToPay lookup failed, issuing")
 	}
 
 	phoneNumber := prompt.GetRecipient().GetContactId()
 	if phoneNumber == "" {
 		phoneNumber = prompt.GetSource().GetContactId()
 	}
-
-	amount := formatMoneyAmount(prompt.GetAmount())
-
-	currency := creds.Currency
-	if prompt.GetAmount() != nil && prompt.GetAmount().GetCurrencyCode() != "" {
-		currency = prompt.GetAmount().GetCurrencyCode()
-	}
-
-	referenceID := uuid.NewString()
-
 	req := &client.RequestToPayRequest{
 		ReferenceID: referenceID,
 		Amount:      amount,
@@ -108,22 +117,55 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		CallbackURL:  appendTenantParams(creds.CallbackURL+"/webhook/mtn/collection", headers),
 	}
 
-	err = h.mtnCli.RequestToPay(ctx, creds, req)
-	if err != nil {
-		logger.WithError(err).Error("requestToPay failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		emitStatus(ctx, h.eventsMan, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+	if err = h.mtnCli.RequestToPay(ctx, creds, req); err != nil {
+		if client.IsRejected(err) {
+			logger.WithError(err).Error("requestToPay refused by MTN")
+			return h.fail(ctx, promptID, "provider_error", err.Error(), extras)
+		}
+		// Duplicate reference (409) or unknown outcome (timeout, 5xx): MTN
+		// may hold the request. Report what MTN holds, or redeliver.
+		existing, getErr := h.mtnCli.GetRequestToPayStatus(ctx, creds, referenceID)
+		if getErr != nil {
+			logger.WithError(err).Warn("requestToPay outcome unknown; redelivering")
+			h.metrics.QueueFailed(ctx, kindPrompt, "provider_error")
+			return fmt.Errorf("requestToPay %s outcome unknown: %w", promptID, err)
+		}
+		return h.emitRequestToPay(ctx, promptID, existing, extras)
 	}
 
-	logger.WithField("reference_id", referenceID).Debug("requestToPay initiated")
+	logger.Debug("requestToPay initiated")
+	if err = h.emitter.Emit(ctx, events.EntityTypePrompt, promptID, referenceID, commonv1.STATUS_IN_PROCESS, extras); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, kindPrompt)
+	return nil
+}
 
-	h.metrics.QueueProcessed(ctx, "prompt")
-	emitStatus(ctx, h.eventsMan, promptID, referenceID, commonv1.STATUS_IN_PROCESS,
-		requestExtras("prompt", referenceID, amount, currency, headers))
-
+// emitRequestToPay reports the state MTN holds for a collection request.
+func (h *promptHandler) emitRequestToPay(ctx context.Context, promptID string, st *client.RequestToPayStatus, extras map[string]any) error {
+	status := mapMtnStatus(st.Status)
+	extras["mtn_status"] = st.Status
+	if st.FinancialTransactionID != "" {
+		extras["financial_transaction_id"] = st.FinancialTransactionID
+	}
+	if st.Reason != nil {
+		extras["reason_code"] = st.Reason.Code
+		extras["reason_message"] = st.Reason.Message
+	}
+	if status == commonv1.STATUS_FAILED {
+		reason := "requestToPay failed"
+		if st.Reason != nil && st.Reason.Message != "" {
+			reason = st.Reason.Message
+		}
+		return h.fail(ctx, promptID, "rejected", reason, extras)
+	}
+	externalID := st.FinancialTransactionID
+	if externalID == "" {
+		externalID, _ = extras[client.ExtraReferenceID].(string)
+	}
+	if err := h.emitter.Emit(ctx, events.EntityTypePrompt, promptID, externalID, status, extras); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, kindPrompt)
 	return nil
 }

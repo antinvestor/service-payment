@@ -401,7 +401,7 @@ func TestHandleRefundCallback(t *testing.T) {
 			Currency:  "ZMW",
 			Country:   "ZMB",
 			Recipient: client.NewMMOParty("260763456789", "MTN_MOMO_ZMB"),
-			Metadata:  map[string]any{"paymentId": "refund-001"},
+			Metadata:  map[string]any{"paymentId": "prompt-001"},
 		},
 	}}
 	server := newServer(paymentCli, pawapayCli)
@@ -410,12 +410,101 @@ func TestHandleRefundCallback(t *testing.T) {
 		`{"refundId":"11111111-1568-4140-bf2d-eb77d2b2b639","status":"COMPLETED"}`)
 
 	require.Equal(t, http.StatusOK, rr.Code)
-	require.NotNil(t, paymentCli.statusReq)
-	assert.Equal(t, "refund-001", paymentCli.statusReq.GetId())
-	assert.Equal(t, "11111111-1568-4140-bf2d-eb77d2b2b639", paymentCli.statusReq.GetExternalId())
-	assert.Equal(t, commonv1.STATUS_SUCCESSFUL, paymentCli.statusReq.GetStatus())
+	assert.Equal(t, "11111111-1568-4140-bf2d-eb77d2b2b639", pawapayCli.gotID, "refund is still verified")
+	assert.Nil(t, paymentCli.statusReq, "a refund must not change the original payment's status")
+}
 
-	extras := paymentCli.statusReq.GetExtras().AsMap()
-	assert.Equal(t, "11111111-1568-4140-bf2d-eb77d2b2b639", extras["refund_id"])
-	assert.Equal(t, "payment", extras["entity_type"])
+func TestHandleRefundCallbackRejectsUnknown(t *testing.T) {
+	paymentCli := &fakePaymentClient{}
+	pawapayCli := &fakePawapayClient{refund: &client.RefundStatusResult{Status: client.SearchStatusNotFound}}
+	server := newServer(paymentCli, pawapayCli)
+
+	rr := postCallback(t, server, "/webhook/pawapay/refunds", `{"refundId":"missing"}`)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Nil(t, paymentCli.statusReq)
+}
+
+func TestHandleDepositCallbackAmountMismatch(t *testing.T) {
+	tests := []struct {
+		name       string
+		status     string
+		metadata   map[string]any
+		wantStatus commonv1.STATUS
+		wantState  commonv1.STATE
+		wantFlag   bool
+	}{
+		{
+			name:       "completed with the requested amount",
+			status:     client.PaymentStatusCompleted,
+			metadata:   map[string]any{"paymentId": "prompt-1", "amount": "50", "currency": "ZMW"},
+			wantStatus: commonv1.STATUS_SUCCESSFUL,
+			wantState:  commonv1.STATE_ACTIVE,
+		},
+		{
+			name:       "completed with a different amount fails",
+			status:     client.PaymentStatusCompleted,
+			metadata:   map[string]any{"paymentId": "prompt-1", "amount": "500", "currency": "ZMW"},
+			wantStatus: commonv1.STATUS_FAILED,
+			wantState:  commonv1.STATE_INACTIVE,
+			wantFlag:   true,
+		},
+		{
+			name:       "completed in a different currency fails",
+			status:     client.PaymentStatusCompleted,
+			metadata:   map[string]any{"paymentId": "prompt-1", "amount": "50", "currency": "UGX"},
+			wantStatus: commonv1.STATUS_FAILED,
+			wantState:  commonv1.STATE_INACTIVE,
+			wantFlag:   true,
+		},
+		{
+			name:       "failed record only carries the flag",
+			status:     client.PaymentStatusFailed,
+			metadata:   map[string]any{"paymentId": "prompt-1", "amount": "500", "currency": "ZMW"},
+			wantStatus: commonv1.STATUS_FAILED,
+			wantState:  commonv1.STATE_INACTIVE,
+			wantFlag:   true,
+		},
+		{
+			name:       "record without request metadata passes",
+			status:     client.PaymentStatusCompleted,
+			metadata:   map[string]any{"paymentId": "prompt-1"},
+			wantStatus: commonv1.STATUS_SUCCESSFUL,
+			wantState:  commonv1.STATE_ACTIVE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			paymentCli := &fakePaymentClient{}
+			pawapayCli := &fakePawapayClient{deposit: &client.DepositStatusResult{
+				Status: client.SearchStatusFound,
+				Data: &client.Deposit{
+					DepositID: "dep-1", Status: tt.status, Amount: "50", Currency: "ZMW",
+					Metadata: tt.metadata,
+				},
+			}}
+			server := newServer(paymentCli, pawapayCli)
+
+			rr := postCallback(t, server, "/webhook/pawapay/deposits", `{"depositId":"dep-1"}`)
+
+			require.Equal(t, http.StatusOK, rr.Code)
+			require.NotNil(t, paymentCli.statusReq)
+			assert.Equal(t, tt.wantStatus, paymentCli.statusReq.GetStatus())
+			assert.Equal(t, tt.wantState, paymentCli.statusReq.GetState())
+			_, flagged := paymentCli.statusReq.GetExtras().AsMap()["verification"]
+			assert.Equal(t, tt.wantFlag, flagged)
+		})
+	}
+}
+
+func TestHandleDepositCallbackBodyLimit(t *testing.T) {
+	paymentCli := &fakePaymentClient{}
+	server := newServer(paymentCli, &fakePawapayClient{})
+
+	body := `{"depositId":"dep-1","metadata":{"pad":"` + strings.Repeat("x", 2<<20) + `"}}`
+	rr := postCallback(t, server, "/webhook/pawapay/deposits", body)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Nil(t, paymentCli.statusReq)
 }

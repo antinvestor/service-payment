@@ -24,6 +24,7 @@ import (
 
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/coreapi"
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/models"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +34,7 @@ func testCreds(serverURL string) *coreapi.Credentials {
 		MerchantCode:   "TEST_MERCHANT",
 		ConsumerSecret: "TEST_SECRET",
 		APIKey:         "TEST_API_KEY",
-		Environment:    serverURL,
+		BaseURL:        serverURL,
 	}
 }
 
@@ -239,4 +240,56 @@ func TestGenerateSignature(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOutcomeClassificationAndTokenCache(t *testing.T) {
+	coreapi.SetTestMode(true)
+	defer coreapi.SetTestMode(false)
+
+	tokenCalls := 0
+	stkStatus := http.StatusOK
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/authentication/api/v3/authenticate/merchant" {
+			tokenCalls++
+			_, _ = w.Write([]byte(`{"accessToken":"tok","expiresIn":"3600"}`))
+			return
+		}
+		w.WriteHeader(stkStatus)
+		_, _ = w.Write([]byte(`{"status":false,"code":500,"message":"upstream"}`))
+	}))
+	defer server.Close()
+	client := coreapi.New(server.Client())
+	creds := testCreds(server.URL)
+
+	for range 3 {
+		tok, err := client.GenerateBearerToken(context.Background(), creds)
+		require.NoError(t, err)
+		assert.Equal(t, "tok", tok.AccessToken)
+	}
+	assert.Equal(t, 1, tokenCalls, "token is cached per credentials")
+
+	other := testCreds(server.URL)
+	other.APIKey = "OTHER"
+	_, err := client.GenerateBearerToken(context.Background(), other)
+	require.NoError(t, err)
+	assert.Equal(t, 2, tokenCalls, "different credentials get their own token")
+
+	req := models.STKUSSDRequest{Payment: models.Payment{Ref: "R", Amount: "1", Currency: "KES"}}
+	stkStatus = http.StatusInternalServerError
+	_, err = client.InitiateSTKUSSD(context.Background(), creds, req, "tok")
+	require.Error(t, err)
+	assert.True(t, collection.IsUncertain(err), "5xx is outcome-unknown")
+	assert.False(t, coreapi.IsRejected(err) && !collection.IsUncertain(err))
+
+	stkStatus = http.StatusBadRequest
+	_, err = client.InitiateSTKUSSD(context.Background(), creds, req, "tok")
+	require.Error(t, err)
+	assert.True(t, coreapi.IsRejected(err), "4xx is a rejection")
+	assert.False(t, collection.IsUncertain(err))
+
+	server.Close()
+	_, err = client.InitiateSTKUSSD(context.Background(), creds, req, "tok")
+	require.Error(t, err)
+	assert.True(t, collection.IsUncertain(err), "transport failure is outcome-unknown")
 }

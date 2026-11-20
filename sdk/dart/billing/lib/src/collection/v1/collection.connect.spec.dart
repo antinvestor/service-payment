@@ -6,7 +6,6 @@
 import "package:connectrpc/connect.dart" as connect;
 import "collection.pb.dart" as collectionv1collection;
 
-/// CollectionService is the merchant-facing simplified payment collection API.
 abstract final class CollectionService {
   /// Fully-qualified name of the CollectionService service.
   static const name = 'collection.v1.CollectionService';
@@ -36,6 +35,16 @@ abstract final class CollectionService {
     connect.StreamType.unary,
     collectionv1collection.ConfirmPaymentRequest.new,
     collectionv1collection.ConfirmPaymentResponse.new,
+  );
+
+  /// SyncProviderSubscription mirrors provider-managed subscription state
+  /// (webhooks from Polar, Stripe) into billing. Grant provider_subscription_sync
+  /// to integration service accounts only.
+  static const syncProviderSubscription = connect.Spec(
+    '/$name/SyncProviderSubscription',
+    connect.StreamType.unary,
+    collectionv1collection.SyncProviderSubscriptionRequest.new,
+    collectionv1collection.SyncProviderSubscriptionResponse.new,
   );
 
   /// CancelSubscription cancels a subscription (and voids unpaid first invoices).

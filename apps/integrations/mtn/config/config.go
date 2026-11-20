@@ -15,7 +15,13 @@
 package config
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/pitabwire/frame/v3/config"
+	"github.com/pitabwire/util"
 )
 
 const (
@@ -29,6 +35,18 @@ const (
 	HeaderCallbackURL     = "X-MTN_CALLBACK_URL"
 	HeaderCurrency        = "X-MTN_CURRENCY"
 	HeaderEnvironment     = "X-MTN_ENVIRONMENT"
+	// HeaderTargetEnvironment overrides the X-Target-Environment market code
+	// (mtnuganda, mtnghana, …) MTN routes production calls by.
+	HeaderTargetEnvironment = "X-MTN_TARGET_ENVIRONMENT"
+)
+
+const (
+	// EnvironmentProduction selects MTN's live API.
+	EnvironmentProduction = "production"
+	// EnvironmentSandbox selects MTN's sandbox API.
+	EnvironmentSandbox = "sandbox"
+	// SandboxCurrency is the only currency MTN's sandbox accepts.
+	SandboxCurrency = "EUR"
 )
 
 type MtnConfig struct {
@@ -53,6 +71,11 @@ type MtnConfig struct {
 	// Environment: sandbox or production
 	Environment string `envDefault:"sandbox" env:"MTN_ENVIRONMENT"`
 
+	// TargetEnvironment is the X-Target-Environment market code MTN expects
+	// in production (mtnuganda, mtnghana, mtnzambia, …). It defaults to
+	// "sandbox" in the sandbox environment and is required in production.
+	TargetEnvironment string `env:"MTN_TARGET_ENVIRONMENT"`
+
 	// Queue configuration - payment queue for disbursements
 	QueuePaymentName string `envDefault:"mtn.payments.dequeue"       env:"QUEUE_MTN_PAYMENT_NAME"`
 	QueuePaymentURI  string `envDefault:"mem://mtn.payments.dequeue" env:"QUEUE_MTN_PAYMENT_URI"`
@@ -64,8 +87,36 @@ type MtnConfig struct {
 
 // BaseURL returns the MTN MoMo API base URL based on environment.
 func (c *MtnConfig) BaseURL() string {
-	if c.Environment == "production" {
+	if c.Environment == EnvironmentProduction {
 		return "https://proxy.momoapi.mtn.com"
 	}
 	return "https://sandbox.momodeveloper.mtn.com"
+}
+
+// ResolveTargetEnvironment returns the X-Target-Environment value for an
+// environment: the explicit value, else "sandbox" outside production. In
+// production a market code is mandatory, since MTN rejects (or misroutes)
+// calls sent with "production" as the target.
+func ResolveTargetEnvironment(environment, target string) (string, error) {
+	target = strings.TrimSpace(target)
+	if target != "" {
+		return target, nil
+	}
+	if environment != EnvironmentProduction {
+		return EnvironmentSandbox, nil
+	}
+	return "", errors.New("MTN target environment (market code such as mtnuganda) is required in production")
+}
+
+// Validate checks the startup configuration and warns about sandbox-only
+// defaults left in place for production.
+func (c *MtnConfig) Validate(ctx context.Context) error {
+	if _, err := ResolveTargetEnvironment(c.Environment, c.TargetEnvironment); err != nil {
+		return fmt.Errorf("MTN_TARGET_ENVIRONMENT: %w", err)
+	}
+	if c.Environment == EnvironmentProduction && strings.EqualFold(c.Currency, SandboxCurrency) {
+		util.Log(ctx).WithField("currency", c.Currency).
+			Warn("MTN_CURRENCY is the sandbox default EUR while MTN_ENVIRONMENT is production; set the market currency")
+	}
+	return nil
 }

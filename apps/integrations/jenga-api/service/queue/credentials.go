@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +31,21 @@ import (
 
 const credentialCacheTTL = 5 * time.Minute
 
+// knownJengaHosts are the hosts a Jenga base URL may point at. Anything
+// else is refused before a request is signed, so a tenant setting cannot
+// turn the service into a signing oracle for an arbitrary host.
+var knownJengaHosts = map[string]bool{
+	"uat.finserve.africa": true,
+	"api.finserve.africa": true,
+}
+
+var (
+	errTenantKeyRequired = errors.New(
+		"a Jenga settings connection must supply its own private key as X-JENGA_PRIVATE_KEY_PEM; " +
+			"a key path is never accepted from a tenant and the service key only signs for the service's own credentials")
+	errBaseURLNotAllowed = errors.New("jenga base URL host is not an allowed Jenga host")
+)
+
 // JengaCredentials holds per-request credentials for Jenga API calls.
 type JengaCredentials struct {
 	MerchantCode   string
@@ -36,6 +53,8 @@ type JengaCredentials struct {
 	APIKey         string
 	CallbackURL    string
 	Environment    string
+	BaseURL        string
+	PrivateKeyPEM  string
 	PrivateKeyPath string
 }
 
@@ -71,6 +90,9 @@ func (r *credentialResolver) extractCredentials(
 				"incomplete Jenga credentials from settings (merchant_code, consumer_secret, api_key)",
 			)
 		}
+		if err = r.checkBaseURL(creds.BaseURL); err != nil {
+			return nil, err
+		}
 		return creds, nil
 	}
 
@@ -80,15 +102,58 @@ func (r *credentialResolver) extractCredentials(
 		ConsumerSecret: headerOrDefault(headers, config.HeaderConsumerSecret, r.cfg.ConsumerSecret),
 		APIKey:         headerOrDefault(headers, config.HeaderAPIKey, r.cfg.ApiKey),
 		CallbackURL:    headerOrDefault(headers, config.HeaderCallbackURL, r.cfg.JengaCallbackURL),
-		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Env),
-		PrivateKeyPath: headerOrDefault(headers, config.HeaderPrivateKeyPath, r.cfg.JengaPrivateKey),
+		Environment:    headerOrDefault(headers, config.HeaderEnvironment, r.cfg.Environment),
+		BaseURL:        headerOrDefault(headers, config.HeaderBaseURL, r.cfg.BaseURL),
+		PrivateKeyPEM:  headerOrDefault(headers, config.HeaderPrivateKeyPEM, r.cfg.JengaPrivateKeyPEM),
+		// A key path is only ever the service's own: a header could otherwise
+		// name the service key file (or any readable file) as "its" key.
+		PrivateKeyPath: r.cfg.JengaPrivateKey,
 	}
 
 	if creds.MerchantCode == "" || creds.ConsumerSecret == "" || creds.APIKey == "" {
 		return nil, errors.New("missing required Jenga credentials (merchant_code, consumer_secret, api_key)")
 	}
+	// Headers that override the service's merchant, keys or host must bring
+	// their own signing key; the service key signs only for the service's
+	// own credentials.
+	overridden := creds.MerchantCode != r.cfg.MerchantCode || creds.ConsumerSecret != r.cfg.ConsumerSecret ||
+		creds.APIKey != r.cfg.ApiKey || creds.BaseURL != r.cfg.BaseURL || creds.Environment != r.cfg.Environment
+	ownKey := headers[config.HeaderPrivateKeyPEM] != ""
+	if overridden {
+		if !ownKey {
+			return nil, errTenantKeyRequired
+		}
+		// The service key file never backs an overridden connection.
+		creds.PrivateKeyPath = ""
+	}
+	if err := r.checkBaseURL(creds.BaseURL); err != nil {
+		return nil, err
+	}
 
 	return creds, nil
+}
+
+// checkBaseURL refuses a base URL whose host is not a known Jenga host or
+// on the configured allowlist. An empty base URL resolves to a known host.
+func (r *credentialResolver) checkBaseURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return fmt.Errorf("%w: %q", errBaseURLNotAllowed, raw)
+	}
+	host := strings.ToLower(u.Host)
+	if knownJengaHosts[host] && u.Scheme == "https" {
+		return nil
+	}
+	for _, allowed := range strings.Split(r.cfg.BaseURLAllowlist, ",") {
+		if allowed = strings.ToLower(strings.TrimSpace(allowed)); allowed != "" && allowed == host {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %q", errBaseURLNotAllowed, raw)
 }
 
 func (r *credentialResolver) cachedCredentialsFromSettings(
@@ -155,7 +220,23 @@ func (r *credentialResolver) credentialsFromSettings(
 		APIKey:         credMap[config.HeaderAPIKey],
 		CallbackURL:    credMap[config.HeaderCallbackURL],
 		Environment:    credMap[config.HeaderEnvironment],
-		PrivateKeyPath: credMap[config.HeaderPrivateKeyPath],
+		BaseURL:        credMap[config.HeaderBaseURL],
+		PrivateKeyPEM:  credMap[config.HeaderPrivateKeyPEM],
+	}
+	// The service's signing key is never lent to a tenant connection: a
+	// tenant that signs must hold its own key, and only as PEM. A path from
+	// settings could name the service key file on this host.
+	if creds.PrivateKeyPEM == "" {
+		return nil, errTenantKeyRequired
+	}
+	if creds.Environment == "" {
+		creds.Environment = r.cfg.Environment
+	}
+	if creds.BaseURL == "" {
+		creds.BaseURL = r.cfg.BaseURL
+	}
+	if creds.CallbackURL == "" {
+		creds.CallbackURL = r.cfg.JengaCallbackURL
 	}
 
 	return creds, nil

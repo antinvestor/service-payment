@@ -104,6 +104,36 @@ type paymentBusiness struct {
 	workMan              workerpool.Manager
 	paymentMetrics       *metrics.PaymentMetrics
 	obs                  *metrics.Metrics
+	// promptRoutes are the routes with a dedicated prompt queue
+	// (INITIATE_PROMPT_ROUTE_URIS). When set, a prompt for any other route
+	// is refused instead of being published to the default topic nobody
+	// may consume.
+	promptRoutes map[string]bool
+}
+
+// ErrPromptRouteUnavailable is returned for a prompt on a route that has no
+// integration queue in this deployment.
+var ErrPromptRouteUnavailable = errors.New("no payment integration serves this route")
+
+// WithPromptRoutes declares the routes with a dedicated prompt queue.
+func (pb *paymentBusiness) WithPromptRoutes(routes []string) PaymentBusiness {
+	pb.promptRoutes = make(map[string]bool, len(routes))
+	for _, r := range routes {
+		if r = strings.ToLower(strings.TrimSpace(r)); r != "" {
+			pb.promptRoutes[r] = true
+		}
+	}
+	return pb
+}
+
+// PromptRoutes lists the routes a prompt can be sent on (nil = any, on the
+// default topic).
+func (pb *paymentBusiness) PromptRoutes() []string {
+	out := make([]string, 0, len(pb.promptRoutes))
+	for r := range pb.promptRoutes {
+		out = append(out, r)
+	}
+	return out
 }
 
 //nolint:nonamedreturns // named err captured by deferred span-end closure
@@ -732,6 +762,13 @@ func (pb *paymentBusiness) InitiatePrompt(
 		}
 	} else if isContinuation(req) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, "an authorization step names its prompt")
+	}
+
+	// A route nobody consumes is refused now, not queued forever.
+	if route := strings.ToLower(strings.TrimSpace(req.GetRoute())); len(pb.promptRoutes) > 0 && route != "" && !pb.promptRoutes[route] {
+		logger.WithField("route", route).Warn("prompt refused: no integration serves the route")
+		return nil, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Sprintf("%s: %s", ErrPromptRouteUnavailable.Error(), route)).WithCause(ErrPromptRouteUnavailable)
 	}
 
 	// Resolve the payer's number before anything is stored, so a prompt

@@ -19,14 +19,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
-	"github.com/google/uuid"
+	frameclient "github.com/pitabwire/frame/v3/client"
 	"github.com/pitabwire/util"
 )
 
@@ -37,65 +39,77 @@ type tokenEntry struct {
 
 const (
 	httpClientTimeout = 30 * time.Second
-	tokenExpiryBuffer = 60 // seconds before actual expiry to refresh token
+	tokenExpiryBuffer = 60 * time.Second // refresh before the token actually expires
+	maxResponseBytes  = 1 << 20
 )
 
 type mtnClient struct {
 	httpClient *http.Client
 	mu         sync.RWMutex
-	tokens     map[string]*tokenEntry // keyed by product:apiUser
+	tokens     map[string]*tokenEntry // keyed by environment:product:apiUser
 	metrics    *integrationobs.Metrics
 }
 
-// NewClient creates a new MTN MoMo API client.
-func NewClient() MtnClient {
+// NewClient creates an MTN MoMo API client on a frame HTTP client with a
+// fixed outbound timeout (set once here, never per call).
+func NewClient(ctx context.Context) MtnClient {
+	return NewClientWithHTTP(frameclient.NewHTTPClient(ctx, frameclient.WithHTTPTimeout(httpClientTimeout)))
+}
+
+// NewClientWithHTTP wraps a caller-supplied HTTP client (tests).
+func NewClientWithHTTP(httpClient *http.Client) MtnClient {
 	return &mtnClient{
-		httpClient: &http.Client{
-			Timeout: httpClientTimeout,
-		},
-		tokens:  make(map[string]*tokenEntry),
-		metrics: integrationobs.NewMetrics("mtn"),
+		httpClient: httpClient,
+		tokens:     make(map[string]*tokenEntry),
+		metrics:    integrationobs.NewMetrics("mtn"),
 	}
 }
 
+// generateToken returns a cached bearer token for the product, fetching a
+// new one when none is valid. The HTTP call runs outside the lock so other
+// products and credentials are not blocked by a slow token endpoint.
 func (c *mtnClient) generateToken(ctx context.Context, creds *MtnCredentials, product string) (string, error) {
-	cacheKey := product + ":" + creds.APIUser
+	cacheKey := creds.Environment + ":" + product + ":" + creds.APIUser
 
 	c.mu.RLock()
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
-		token := entry.token
-		c.mu.RUnlock()
-		return token, nil
-	}
+	entry, ok := c.tokens[cacheKey]
 	c.mu.RUnlock()
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if entry, ok := c.tokens[cacheKey]; ok && time.Now().Before(entry.expiry) {
+	if ok && time.Now().Before(entry.expiry) {
 		return entry.token, nil
 	}
 
-	url := fmt.Sprintf("%s/%s/token/", creds.BaseURL(), product)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	token, expiry, err := c.fetchToken(ctx, creds, product)
 	if err != nil {
-		return "", fmt.Errorf("create token request: %w", err)
+		return "", err
 	}
 
+	c.mu.Lock()
+	c.tokens[cacheKey] = &tokenEntry{token: token, expiry: expiry}
+	c.mu.Unlock()
+	return token, nil
+}
+
+func (c *mtnClient) fetchToken(ctx context.Context, creds *MtnCredentials, product string) (string, time.Time, error) {
+	url := fmt.Sprintf("%s/%s/token/", creds.BaseURL(), product)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("create token request: %w", err)
+	}
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.APIUser + ":" + creds.APIKey))
 	req.Header.Set("Authorization", "Basic "+auth)
 	req.Header.Set("Ocp-Apim-Subscription-Key", creds.SubscriptionKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("execute token request: %w", err)
+		return "", time.Time{}, collection.Uncertain(fmt.Errorf("execute token request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return "", time.Time{}, collection.Uncertain(fmt.Errorf("read token response: %w", err))
+	}
+	if err = statusError("token", resp.StatusCode, body, http.StatusOK); err != nil {
+		return "", time.Time{}, err
 	}
 
 	var tokenResp struct {
@@ -103,18 +117,29 @@ func (c *mtnClient) generateToken(ctx context.Context, creds *MtnCredentials, pr
 		TokenType   string `json:"token_type"`
 		ExpiresIn   int    `json:"expires_in"`
 	}
-	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
+	if err = json.Unmarshal(body, &tokenResp); err != nil {
+		return "", time.Time{}, fmt.Errorf("decode token response: %w", err)
 	}
-
-	expiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn-tokenExpiryBuffer) * time.Second)
-
-	c.tokens[cacheKey] = &tokenEntry{
-		token:  tokenResp.AccessToken,
-		expiry: expiry,
+	if tokenResp.AccessToken == "" {
+		return "", time.Time{}, errors.New("token response carried no access token")
 	}
+	expiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second - tokenExpiryBuffer)
+	return tokenResp.AccessToken, expiry, nil
+}
 
-	return tokenResp.AccessToken, nil
+// statusError classifies an MTN answer: 5xx is outcome-unknown (the request
+// may have been applied) and wrapped as collection.Uncertain; every other
+// status that is not the expected one is an APIError the caller can inspect
+// (IsDuplicate, IsNotFound, IsRejected).
+func statusError(operation string, status int, body []byte, want int) error {
+	if status == want {
+		return nil
+	}
+	apiErr := &APIError{Operation: operation, StatusCode: status, Body: string(body)}
+	if status >= http.StatusInternalServerError {
+		return collection.Uncertain(apiErr)
+	}
+	return apiErr
 }
 
 // postTransaction handles the common POST pattern for both RequestToPay and Transfer.
@@ -151,7 +176,7 @@ func (c *mtnClient) postTransaction(
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Reference-Id", referenceID)
-	httpReq.Header.Set("X-Target-Environment", creds.Environment)
+	httpReq.Header.Set("X-Target-Environment", creds.TargetEnvironment)
 	httpReq.Header.Set("Ocp-Apim-Subscription-Key", creds.SubscriptionKey)
 	if callbackURL != "" {
 		httpReq.Header.Set("X-Callback-Url", callbackURL)
@@ -159,16 +184,14 @@ func (c *mtnClient) postTransaction(
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("execute request: %w", err)
+		return collection.Uncertain(fmt.Errorf("execute request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusAccepted {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("%s failed with status %d: %s", logType, resp.StatusCode, string(respBody))
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return collection.Uncertain(fmt.Errorf("read response: %w", err))
 	}
-
-	return nil
+	return statusError(logType, resp.StatusCode, respBody, http.StatusAccepted)
 }
 
 // getTransactionStatus handles the common GET status pattern for both collection and disbursement.
@@ -193,31 +216,29 @@ func (c *mtnClient) getTransactionStatus(
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("X-Target-Environment", creds.Environment)
+	req.Header.Set("X-Target-Environment", creds.TargetEnvironment)
 	req.Header.Set("Ocp-Apim-Subscription-Key", creds.SubscriptionKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+		return nil, collection.Uncertain(fmt.Errorf("execute request: %w", err))
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("get status failed with status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
+		return nil, collection.Uncertain(fmt.Errorf("read response body: %w", err))
 	}
-
+	if err = statusError("get status", resp.StatusCode, respBody, http.StatusOK); err != nil {
+		return nil, err
+	}
 	return respBody, nil
 }
 
+// RequestToPay issues a collection request. req.ReferenceID must be set
+// (see ReferenceID); it is the idempotency key MTN deduplicates on.
 func (c *mtnClient) RequestToPay(ctx context.Context, creds *MtnCredentials, req *RequestToPayRequest) error {
 	if req.ReferenceID == "" {
-		req.ReferenceID = uuid.NewString()
+		return errors.New("requestToPay needs a reference id")
 	}
 
 	payload := requestToPayPayload{
@@ -252,9 +273,11 @@ func (c *mtnClient) GetRequestToPayStatus(
 	return &status, nil
 }
 
+// Transfer issues a disbursement. req.ReferenceID must be set (see
+// ReferenceID); it is the idempotency key MTN deduplicates on.
 func (c *mtnClient) Transfer(ctx context.Context, creds *MtnCredentials, req *TransferRequest) error {
 	if req.ReferenceID == "" {
-		req.ReferenceID = uuid.NewString()
+		return errors.New("transfer needs a reference id")
 	}
 
 	payload := transferPayload{

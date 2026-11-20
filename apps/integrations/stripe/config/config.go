@@ -15,22 +15,29 @@
 package config
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/pitabwire/frame/v3/config"
 )
 
 const (
 	HeaderConnectionCredentials = "X-API_CONNECTION_CREDENTIALS"
-	HeaderAPIKey                = "X-API_KEY"
-	HeaderWebhookSecret         = "X-API_WEBHOOK_SECRET" //nolint:gosec // header name, not a credential
+	HeaderAPIKey                = "X-STRIPE_API_KEY"
+	HeaderWebhookSecret         = "X-STRIPE_WEBHOOK_SECRET" //nolint:gosec // header name, not a credential
 )
 
 type StripeConfig struct {
 	config.ConfigurationDefault
 
 	PaymentServiceURI                    string `envDefault:"127.0.0.1:7006"                  env:"PAYMENT_SERVICE_URI"`
-	SettingsServiceURI                   string `envDefault:"127.0.0.1:7010"                  env:"SETTINGS_SERVICE_URI"`
+	SettingsServiceURI                   string `envDefault:"127.0.0.1:7005"                  env:"SETTINGS_SERVICE_URI"`
 	PaymentServiceWorkloadAPITargetPath  string `envDefault:"/ns/payments/sa/service-payment" env:"PAYMENT_SERVICE_WORKLOAD_API_TARGET_PATH"`
 	SettingsServiceWorkloadAPITargetPath string `envDefault:"/ns/profile/sa/service-settings" env:"SETTINGS_SERVICE_WORKLOAD_API_TARGET_PATH"`
+	// Billing receives subscription and invoice webhooks (SyncProviderSubscription).
+	// Empty disables the mirror: webhooks then only settle checkout prompts.
+	BillingServiceURI                   string `env:"BILLING_SERVICE_URI"`
+	BillingServiceWorkloadAPITargetPath string `envDefault:"/ns/payments/sa/service-billing" env:"BILLING_SERVICE_WORKLOAD_API_TARGET_PATH"`
 
 	// Settings integration lookup
 	SettingsIntegrationName string `envDefault:"stripe" env:"SETTINGS_INTEGRATION_NAME"`
@@ -44,7 +51,20 @@ type StripeConfig struct {
 	QueuePaymentName string `envDefault:"stripe.payments.dequeue"       env:"QUEUE_STRIPE_PAYMENT_NAME"`
 	QueuePaymentURI  string `envDefault:"mem://stripe.payments.dequeue" env:"QUEUE_STRIPE_PAYMENT_URI"`
 
-	// Queue configuration - prompt queue for PaymentIntent creation
+	// Queue configuration - prompt queue for Checkout Session / PaymentIntent creation
 	QueuePromptName string `envDefault:"stripe.prompts.dequeue"       env:"QUEUE_STRIPE_PROMPT_NAME"`
 	QueuePromptURI  string `envDefault:"mem://stripe.prompts.dequeue" env:"QUEUE_STRIPE_PROMPT_URI"`
+
+	// Queue configuration - subscription commands from billing
+	// (BILLING_PROVIDER_COMMAND_URIS["stripe"] must be this queue).
+	QueueSubscriptionName string `envDefault:"stripe.subscriptions.dequeue"       env:"QUEUE_STRIPE_SUBSCRIPTION_NAME"`
+	QueueSubscriptionURI  string `envDefault:"mem://stripe.subscriptions.dequeue" env:"QUEUE_STRIPE_SUBSCRIPTION_URI"`
+}
+
+// Validate refuses a configuration that would accept forged webhooks.
+func (c *StripeConfig) Validate() error {
+	if strings.TrimSpace(c.WebhookSecret) == "" {
+		return errors.New("STRIPE_WEBHOOK_SECRET is required: unsigned webhooks are never accepted")
+	}
+	return nil
 }

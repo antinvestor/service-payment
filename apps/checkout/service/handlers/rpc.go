@@ -26,6 +26,8 @@ import (
 	"github.com/antinvestor/service-payments/apps/checkout/gen/checkout/v1/checkoutv1connect"
 	"github.com/antinvestor/service-payments/apps/checkout/service/business"
 	"github.com/antinvestor/service-payments/apps/checkout/service/models"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/pitabwire/frame/v3/security"
 	"gorm.io/gorm"
 )
 
@@ -82,6 +84,7 @@ func (s *CheckoutServer) CreateCheckoutSession(
 			ProfileID:   p.GetProfileId(),
 			DisplayName: p.GetDisplayName(),
 			Language:    p.GetLanguage(),
+			Email:       p.GetEmail(),
 			Contacts:    contacts,
 		}
 	}
@@ -95,6 +98,7 @@ func (s *CheckoutServer) CreateCheckoutSession(
 		OrderRef:     msg.GetOrderRef(),
 		Metadata:     msg.GetMetadata(),
 		ReturnURL:    msg.GetReturnUrl(),
+		CancelURL:    msg.GetCancelUrl(),
 		Payer:        payer,
 		Methods:      msg.GetMethods(),
 	}
@@ -118,6 +122,9 @@ func (s *CheckoutServer) GetCheckoutSession(
 	ctx context.Context,
 	req *checkoutv1.GetCheckoutSessionRequest,
 ) (*checkoutv1.GetCheckoutSessionResponse, error) {
+	// GetSessionByRef already refreshes a live prompt (processing / expired)
+	// against the payment service; a second refresh here only doubled the
+	// Status calls per poll.
 	session, err := s.business.GetSessionByRef(ctx, req.GetRef())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -126,14 +133,67 @@ func (s *CheckoutServer) GetCheckoutSession(
 		return nil, connect.NewError(connect.CodeInternal, err.Error()).WithCause(err)
 	}
 
-	// Best-effort live refresh — ignore errors, return current state.
-	if refreshed, refreshErr := s.business.RefreshStatus(ctx, session); refreshErr == nil {
-		session = refreshed
-	}
-
 	return &checkoutv1.GetCheckoutSessionResponse{
 		Data: toProtoSession(session, s.cfg.PublicBaseURL),
 	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// ListPaymentMethods
+// ---------------------------------------------------------------------------
+
+// ListPaymentMethods resolves the rails a session with the given properties
+// would be offered for the caller's partition.
+func (s *CheckoutServer) ListPaymentMethods(
+	ctx context.Context,
+	req *checkoutv1.ListPaymentMethodsRequest,
+) (*checkoutv1.ListPaymentMethodsResponse, error) {
+	partitionID := ""
+	if claims := security.ClaimsFromContext(ctx); claims != nil {
+		partitionID = claims.GetPartitionID()
+	}
+	filter := business.MethodFilter{
+		Currency:           req.GetCurrency(),
+		Amount:             req.GetAmount(),
+		Country:            req.GetCountry(),
+		Phones:             req.GetPhones(),
+		SessionRestriction: req.GetMethods(),
+		PartitionAllowlist: s.business.PartitionAllowlist(partitionID),
+		HasProductID:       business.MetadataProductID(req.GetMetadata()) != "",
+	}
+	for _, key := range req.GetMethods() {
+		if _, ok := s.business.Registry().Get(key); !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, "unknown payment method: "+key)
+		}
+	}
+	res := s.business.Registry().Resolve(filter)
+	out := make([]*checkoutv1.PaymentMethod, 0, len(res.Available))
+	for _, m := range res.Available {
+		out = append(out, toProtoMethod(m))
+	}
+	return &checkoutv1.ListPaymentMethodsResponse{Data: out, Selected: res.Selected.Key}, nil
+}
+
+func toProtoMethod(m business.Method) *checkoutv1.PaymentMethod {
+	flow := string(collection.FlowPush)
+	switch {
+	case m.IsEmbedded():
+		flow = string(collection.FlowEmbed)
+	case m.Redirect:
+		flow = string(collection.FlowRedirect)
+	}
+	return &checkoutv1.PaymentMethod{
+		Key:               m.Key,
+		Name:              m.Name,
+		Route:             m.Route,
+		MethodType:        m.ResolvedMethodType(),
+		Flow:              flow,
+		Currencies:        m.Currencies,
+		Countries:         m.Countries,
+		WholeAmounts:      m.RequiresWholeAmount(),
+		Subscriptions:     m.Subscriptions,
+		RequiresProductId: m.RequiresProductID,
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +242,7 @@ func (s *CheckoutServer) CreateCheckoutLink(
 		AmountOption: amtOption,
 		OrderRef:     msg.GetOrderRef(),
 		ReturnURL:    msg.GetReturnUrl(),
+		CancelURL:    msg.GetCancelUrl(),
 		Metadata:     msg.GetMetadata(),
 		ExpiresAt:    expiresAt,
 	}
@@ -209,10 +270,15 @@ func toProtoSession(s *models.CheckoutSession, baseURL string) *checkoutv1.Check
 		Description: s.Description,
 		OrderRef:    s.OrderRef,
 		ReturnUrl:   s.ReturnURL,
+		CancelUrl:   s.CancelURL,
 		PromptId:    s.PromptID,
 		PaymentId:   s.PaymentID,
 		PageUrl:     baseURL + "/c/" + s.Ref,
 		ExpiresAt:   s.ExpiresAt.Format(time.RFC3339),
+	}
+	if s.Metadata != nil {
+		proto.PaidMethod, _ = s.Metadata["_method"].(string)
+		proto.PaidRoute, _ = s.Metadata["_route"].(string)
 	}
 
 	// Amount
@@ -264,6 +330,7 @@ func toProtoLink(l *models.CheckoutLink, baseURL string) *checkoutv1.CheckoutLin
 		Description: l.Description,
 		OrderRef:    l.OrderRef,
 		ReturnUrl:   l.ReturnURL,
+		CancelUrl:   l.CancelURL,
 		Active:      l.Active,
 		PageUrl:     baseURL + "/l/" + l.Ref,
 	}
@@ -338,6 +405,9 @@ func buildPayerPrefill(s *models.CheckoutSession) *checkoutv1.PayerPrefill {
 	}
 	if lang, ok := s.Prefill["language"].(string); ok {
 		payer.Language = lang
+	}
+	if email, ok := s.Prefill["email"].(string); ok {
+		payer.Email = email
 	}
 
 	// Contacts

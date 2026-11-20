@@ -16,16 +16,15 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
+	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	paymentv1 "buf.build/gen/go/antinvestor/payment/protocolbuffers/go/v1"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
-	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/config"
 	"github.com/antinvestor/service-payments/apps/integrations/polar/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
@@ -35,34 +34,42 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// Extras returned on the prompt status once a checkout exists.
+const (
+	ExtraCheckoutID = "checkout_id"
+	extraPolarEvent = "polar_event_type"
+)
+
 type promptHandler struct {
-	eventsMan   frameEvents.Manager
-	polarCli    client.PolarClient
-	settingsCli settingsv1connect.SettingsServiceClient
-	cfg         *config.PolarConfig
-	metrics     *integrationobs.Metrics
+	credentialResolver
+	emitter    *events.StatusEmitter
+	polarCli   client.PolarClient
+	paymentCli paymentv1connect.PaymentServiceClient
+	metrics    *integrationobs.Metrics
 }
 
-// NewPromptHandler creates a queue worker for handling Polar checkout session prompts.
+// NewPromptHandler creates the worker that turns a prompt into a Polar
+// checkout session. paymentCli (optional) lets a redelivered prompt find the
+// checkout it already opened instead of opening a second one.
 func NewPromptHandler(
 	eventsMan frameEvents.Manager,
 	polarCli client.PolarClient,
 	settingsCli settingsv1connect.SettingsServiceClient,
+	paymentCli paymentv1connect.PaymentServiceClient,
 	cfg *config.PolarConfig,
 ) queue.SubscribeWorker {
 	return &promptHandler{
-		eventsMan:   eventsMan,
-		polarCli:    polarCli,
-		settingsCli: settingsCli,
-		cfg:         cfg,
-		metrics:     integrationobs.NewMetrics("polar"),
+		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
+		emitter:            events.NewStatusEmitter(eventsMan),
+		polarCli:           polarCli,
+		paymentCli:         paymentCli,
+		metrics:            integrationobs.NewMetrics("polar"),
 	}
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "polar.prompt")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
@@ -70,177 +77,120 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
 		return nil
 	}
-
 	promptID := prompt.GetId()
 	logger = logger.WithField("prompt_id", promptID)
 
-	creds, err := h.extractCredentials(ctx, headers)
-	if err != nil {
-		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
+	if existing := h.openedCheckoutID(ctx, promptID); existing != "" {
+		logger.WithField("checkout_id", existing).Info("checkout already opened for prompt, skipping")
+		h.metrics.QueueProcessed(ctx, "prompt")
 		return nil
 	}
 
-	var amount int64
-	if prompt.GetAmount() != nil {
-		amount = moneyToCents(prompt.GetAmount().GetUnits(), prompt.GetAmount().GetNanos())
+	creds, err := h.resolve(ctx, headers)
+	if err != nil {
+		logger.WithError(err).Error("failed to resolve credentials")
+		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
+		return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID, err.Error(), nil)
 	}
 
-	currency := "usd"
-	if prompt.GetAmount() != nil && prompt.GetAmount().GetCurrencyCode() != "" {
-		currency = prompt.GetAmount().GetCurrencyCode()
+	extras := extraStrings(prompt.GetExtra())
+	productID := extras[collection.ExtraProductID]
+	if productID == "" {
+		logger.Error("prompt carries no product_id; Polar charges catalog products only")
+		h.metrics.QueueFailed(ctx, "prompt", "rejected")
+		return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID,
+			"Polar needs product_id: the plan's Polar product", nil)
 	}
 
-	productID := ""
-	customerEmail := ""
-	successURL := ""
-	if prompt.GetExtra() != nil {
-		fields := prompt.GetExtra().GetFields()
-		if v, ok := fields["product_id"]; ok {
-			productID = v.GetStringValue()
-		}
-		if v, ok := fields["customer_email"]; ok {
-			customerEmail = v.GetStringValue()
-		}
-		if v, ok := fields["success_url"]; ok {
-			successURL = v.GetStringValue()
+	metadata := map[string]string{"prompt_id": promptID}
+	for _, key := range []string{
+		collection.ExtraSessionRef, collection.ExtraSubscriptionID, collection.ExtraInvoiceID,
+		collection.ExtraOrderRef, collection.ExtraCustomerExternalID,
+	} {
+		if v := extras[key]; v != "" {
+			metadata[key] = v
 		}
 	}
-
-	checkoutMetadata := map[string]string{
-		"prompt_id": promptID,
-	}
-	// Include tenant/partition in Polar metadata so they round-trip via webhooks
-	if v := headers["tenant_id"]; v != "" {
-		checkoutMetadata["tenant_id"] = v
-	}
-	if v := headers["partition_id"]; v != "" {
-		checkoutMetadata["partition_id"] = v
+	// Tenant and partition round-trip through Polar so webhooks can be scoped.
+	for _, key := range []string{"tenant_id", "partition_id"} {
+		if v := headers[key]; v != "" {
+			metadata[key] = v
+		}
 	}
 
 	req := &client.CheckoutRequest{
-		ProductID:     productID,
-		CustomerEmail: customerEmail,
-		Amount:        amount,
-		Currency:      currency,
-		SuccessURL:    successURL,
-		Metadata:      checkoutMetadata,
+		ProductIDs:         []string{productID},
+		CustomerEmail:      firstNonEmpty(extras[collection.ExtraCustomerEmail], extras[collection.ExtraEmail]),
+		CustomerName:       firstNonEmpty(extras[collection.ExtraCustomerName], extras[collection.ExtraDisplayName]),
+		ExternalCustomerID: firstNonEmpty(extras[collection.ExtraCustomerExternalID], prompt.GetSource().GetProfileId()),
+		SuccessURL:         firstNonEmpty(extras[collection.ExtraSuccessURL], extras[collection.ExtraRedirectURL]),
+		Metadata:           metadata,
 	}
 
 	resp, err := h.polarCli.CreateCheckout(ctx, creds, req)
 	if err != nil {
-		logger.WithError(err).Error("create checkout failed")
+		if collection.IsUncertain(err) {
+			// Polar may have opened the checkout: redeliver, the status
+			// lookup above then finds it on the next attempt.
+			logger.WithError(err).Warn("create checkout outcome unknown; redelivering")
+			h.metrics.QueueFailed(ctx, "prompt", "provider_error")
+			return err
+		}
+		logger.WithError(err).Error("create checkout refused")
 		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID, err.Error(), nil)
 	}
 
 	logger.WithField("checkout_id", resp.ID).Debug("checkout session created")
-
-	h.emitStatus(ctx, promptID, resp.ID, commonv1.STATUS_IN_PROCESS, map[string]any{
-		"checkout_id":  resp.ID,
-		"checkout_url": resp.URL,
-		"polar_status": resp.Status,
-		"entity_type":  "prompt",
+	err = h.emitter.Emit(ctx, events.EntityTypePrompt, promptID, resp.ID, commonv1.STATUS_IN_PROCESS, map[string]any{
+		ExtraCheckoutID:                  resp.ID,
+		collection.ExtraCheckoutURL:      resp.URL,
+		collection.ExtraNextAction:       collection.NextActionRedirectURL,
+		collection.ExtraNextActionType:   collection.NextActionRedirectURL,
+		collection.ExtraProvider:         "polar",
+		collection.ExtraPaymentExpiresAt: resp.ExpiresAt,
+		collection.ExtraProductID:        productID,
+		"polar_status":                   resp.Status,
 	})
-
+	if err != nil {
+		return err
+	}
 	h.metrics.QueueProcessed(ctx, "prompt")
 	return nil
 }
 
-func (h *promptHandler) extractCredentials(
-	ctx context.Context,
-	headers map[string]string,
-) (*client.PolarCredentials, error) {
-	connection, ok := headers[config.HeaderConnectionCredentials]
-	if ok && connection != "" {
-		return h.credentialsFromSettings(ctx, connection)
+// openedCheckoutID returns the checkout id already recorded on the prompt's
+// status, or "" when none (or when no payment client is configured).
+func (h *promptHandler) openedCheckoutID(ctx context.Context, promptID string) string {
+	if h.paymentCli == nil || promptID == "" {
+		return ""
 	}
-
-	creds := &client.PolarCredentials{
-		APIKey:         headerOrDefault(headers, config.HeaderAPIKey, h.cfg.APIKey),
-		WebhookSecret:  headerOrDefault(headers, config.HeaderWebhookSecret, h.cfg.WebhookSecret),
-		OrganizationID: headerOrDefault(headers, config.HeaderOrganizationID, h.cfg.OrganizationID),
-		Environment:    headerOrDefault(headers, config.HeaderEnvironment, h.cfg.Environment),
-	}
-
-	if creds.APIKey == "" {
-		return nil, errors.New("missing required Polar API key")
-	}
-
-	return creds, nil
-}
-
-func (h *promptHandler) credentialsFromSettings(
-	ctx context.Context,
-	connection string,
-) (*client.PolarCredentials, error) {
-	settingReq := &settingsv1.GetRequest{
-		Key: &settingsv1.Setting{
-			Name:     connection,
-			Object:   h.cfg.SettingsIntegrationName,
-			ObjectId: h.cfg.SettingsIntegrationID,
-			Module:   h.cfg.SettingsIntegrationName,
-		},
-	}
-
-	settingResp, err := h.settingsCli.Get(ctx, settingReq)
+	statusExtras, _ := structpb.NewStruct(map[string]any{events.ExtraEntityType: events.EntityTypePrompt})
+	resp, err := h.paymentCli.Status(ctx, &commonv1.StatusRequest{Id: promptID, Extras: statusExtras})
 	if err != nil {
-		return nil, fmt.Errorf("settings lookup failed: %w", err)
+		return ""
 	}
-
-	var credMap map[string]string
-	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {
-		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
+	if f, ok := resp.GetExtras().GetFields()[ExtraCheckoutID]; ok {
+		return f.GetStringValue()
 	}
-
-	return &client.PolarCredentials{
-		APIKey:         credMap[config.HeaderAPIKey],
-		WebhookSecret:  credMap[config.HeaderWebhookSecret],
-		OrganizationID: credMap[config.HeaderOrganizationID],
-		Environment:    credMap[config.HeaderEnvironment],
-	}, nil
+	return ""
 }
 
-const (
-	centsPerUnit = 100
-	nanosPerCent = 10000000
-)
-
-// moneyToCents converts google.type.Money units+nanos to smallest currency unit (cents).
-func moneyToCents(units int64, nanos int32) int64 {
-	return units*centsPerUnit + int64(nanos/nanosPerCent)
+func extraStrings(s *structpb.Struct) map[string]string {
+	out := map[string]string{}
+	for k, v := range s.GetFields() {
+		if str := strings.TrimSpace(v.GetStringValue()); str != "" {
+			out[k] = str
+		}
+	}
+	return out
 }
 
-func headerOrDefault(headers map[string]string, key, fallback string) string {
-	if v, ok := headers[key]; ok && v != "" {
-		return v
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
 	}
-	return fallback
-}
-
-func (h *promptHandler) emitStatus(
-	ctx context.Context,
-	id, externalID string,
-	status commonv1.STATUS,
-	extras map[string]any,
-) {
-	extra, _ := structpb.NewStruct(extras)
-	err := h.eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
-		Id:         id,
-		State:      commonv1.STATE_ACTIVE,
-		Status:     status,
-		ExternalId: externalID,
-		Extras:     extra,
-	})
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
-	}
+	return ""
 }

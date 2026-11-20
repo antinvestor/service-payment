@@ -19,16 +19,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mtn/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
 	"github.com/antinvestor/service-payments/pkg/events"
-	frameEvents "github.com/pitabwire/frame/v3/events"
-	"github.com/pitabwire/util"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // extractCredentials resolves MTN MoMo credentials from headers or settings.
@@ -44,18 +43,34 @@ func extractCredentials(
 	}
 
 	creds := &client.MtnCredentials{
-		SubscriptionKey: headerOrDefault(headers, config.HeaderSubscriptionKey, cfg.SubscriptionKey),
-		APIUser:         headerOrDefault(headers, config.HeaderAPIUser, cfg.APIUser),
-		APIKey:          headerOrDefault(headers, config.HeaderAPIKey, cfg.APIKey),
-		CallbackURL:     headerOrDefault(headers, config.HeaderCallbackURL, cfg.CallbackURL),
-		Currency:        headerOrDefault(headers, config.HeaderCurrency, cfg.Currency),
-		Environment:     headerOrDefault(headers, config.HeaderEnvironment, cfg.Environment),
+		SubscriptionKey:   headerOrDefault(headers, config.HeaderSubscriptionKey, cfg.SubscriptionKey),
+		APIUser:           headerOrDefault(headers, config.HeaderAPIUser, cfg.APIUser),
+		APIKey:            headerOrDefault(headers, config.HeaderAPIKey, cfg.APIKey),
+		CallbackURL:       headerOrDefault(headers, config.HeaderCallbackURL, cfg.CallbackURL),
+		Currency:          headerOrDefault(headers, config.HeaderCurrency, cfg.Currency),
+		Environment:       headerOrDefault(headers, config.HeaderEnvironment, cfg.Environment),
+		TargetEnvironment: headerOrDefault(headers, config.HeaderTargetEnvironment, cfg.TargetEnvironment),
 	}
+	return completeCredentials(creds, cfg)
+}
 
+// completeCredentials fills environment-derived defaults and checks the
+// credentials are usable.
+func completeCredentials(creds *client.MtnCredentials, cfg *config.MtnConfig) (*client.MtnCredentials, error) {
+	if creds.Environment == "" {
+		creds.Environment = cfg.Environment
+	}
+	if creds.Currency == "" {
+		creds.Currency = cfg.Currency
+	}
 	if creds.SubscriptionKey == "" || creds.APIUser == "" || creds.APIKey == "" {
 		return nil, errors.New("missing required MTN MoMo credentials")
 	}
-
+	target, err := config.ResolveTargetEnvironment(creds.Environment, creds.TargetEnvironment)
+	if err != nil {
+		return nil, err
+	}
+	creds.TargetEnvironment = target
 	return creds, nil
 }
 
@@ -66,6 +81,9 @@ func credentialsFromSettings(
 	settingsCli settingsv1connect.SettingsServiceClient,
 	cfg *config.MtnConfig,
 ) (*client.MtnCredentials, error) {
+	if settingsCli == nil {
+		return nil, errors.New("settings client not configured; cannot resolve connection credentials")
+	}
 	settingReq := &settingsv1.GetRequest{
 		Key: &settingsv1.Setting{
 			Name:     connection,
@@ -85,35 +103,15 @@ func credentialsFromSettings(
 		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
 	}
 
-	return &client.MtnCredentials{
-		SubscriptionKey: credMap[config.HeaderSubscriptionKey],
-		APIUser:         credMap[config.HeaderAPIUser],
-		APIKey:          credMap[config.HeaderAPIKey],
-		CallbackURL:     credMap[config.HeaderCallbackURL],
-		Currency:        credMap[config.HeaderCurrency],
-		Environment:     credMap[config.HeaderEnvironment],
-	}, nil
-}
-
-// emitStatus emits a payment status update event.
-func emitStatus(
-	ctx context.Context,
-	eventsMan frameEvents.Manager,
-	id, externalID string,
-	status commonv1.STATUS,
-	extras map[string]any,
-) {
-	extra, _ := structpb.NewStruct(extras)
-	err := eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
-		Id:         id,
-		State:      commonv1.STATE_ACTIVE,
-		Status:     status,
-		ExternalId: externalID,
-		Extras:     extra,
-	})
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
-	}
+	return completeCredentials(&client.MtnCredentials{
+		SubscriptionKey:   credMap[config.HeaderSubscriptionKey],
+		APIUser:           credMap[config.HeaderAPIUser],
+		APIKey:            credMap[config.HeaderAPIKey],
+		CallbackURL:       credMap[config.HeaderCallbackURL],
+		Currency:          credMap[config.HeaderCurrency],
+		Environment:       credMap[config.HeaderEnvironment],
+		TargetEnvironment: credMap[config.HeaderTargetEnvironment],
+	}, cfg)
 }
 
 // requestExtras is what the callback handler needs to re-query MTN and check
@@ -124,12 +122,47 @@ func requestExtras(entityType, referenceID, amount, currency string, headers map
 		client.ExtraReferenceID:       referenceID,
 		client.ExtraRequestedAmount:   amount,
 		client.ExtraRequestedCurrency: currency,
-		"entity_type":                 entityType,
+		events.ExtraEntityType:        entityType,
 	}
 	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
 		extras[client.ExtraCredentialsConnection] = connection
 	}
 	return extras
+}
+
+// mtnAmount renders a Money for MTN: whole units when there is no fraction
+// ("5000"), else the currency's decimals ("10.50"). An amount finer than the
+// currency allows is refused rather than rounded into a different charge.
+func mtnAmount(m *commonv1.Money) (string, error) {
+	if _, err := collection.MinorUnits(m); err != nil {
+		return "", err
+	}
+	if m.GetNanos() == 0 {
+		return fmt.Sprintf("%d", m.GetUnits()), nil
+	}
+	return collection.DecimalString(m), nil
+}
+
+// requestCurrency is the prompt/payment currency, else the credentials'.
+func requestCurrency(m *commonv1.Money, creds *client.MtnCredentials) string {
+	if c := strings.ToUpper(strings.TrimSpace(m.GetCurrencyCode())); c != "" {
+		return c
+	}
+	return strings.ToUpper(strings.TrimSpace(creds.Currency))
+}
+
+// mapMtnStatus maps MTN's transaction status to the platform status.
+func mapMtnStatus(status string) commonv1.STATUS {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "SUCCESSFUL":
+		return commonv1.STATUS_SUCCESSFUL
+	case "FAILED":
+		return commonv1.STATUS_FAILED
+	case "PENDING":
+		return commonv1.STATUS_IN_PROCESS
+	default:
+		return commonv1.STATUS_UNKNOWN
+	}
 }
 
 // NewCredentialResolver returns a resolver for credentials outside the queue

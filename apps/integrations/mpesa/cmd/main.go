@@ -61,12 +61,21 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	mpesaCli := client.NewClient()
+	mpesaCli := client.NewClient(ctx)
+
+	guard, err := handlers.NewSourceGuard(cfg.CallbackAllowedCIDRs, cfg.TrustedProxyHops)
+	if err != nil {
+		logger.WithError(err).Fatal("invalid MPESA_CALLBACK_ALLOWED_CIDRS")
+	}
+	if !guard.Configured() {
+		logger.Warn("MPESA_CALLBACK_ALLOWED_CIDRS is empty: C2B confirmations will not settle until reconciled")
+	}
 
 	webhookServer := handlers.NewMpesaWebhookServer(
 		paymentCli, mpesaCli, queue.NewCredentialResolver(settingsCli, &cfg).Resolve,
+		handlers.WithSourceGuard(guard),
 	)
-	paymentWorker := queue.NewPaymentHandler(eventsMan, mpesaCli, settingsCli, &cfg)
+	paymentWorker := queue.NewPaymentHandler(eventsMan, mpesaCli, settingsCli, &cfg, paymentCli)
 	promptWorker := queue.NewPromptHandler(eventsMan, mpesaCli, settingsCli, &cfg, paymentCli)
 
 	serviceOptions := []frame.Option{

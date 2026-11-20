@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"buf.build/gen/go/antinvestor/payment/connectrpc/go/v2/v1/paymentv1connect"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
@@ -28,9 +29,13 @@ import (
 	"github.com/antinvestor/service-payments/apps/integrations/jenga-api/service/queue"
 	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/pitabwire/frame/v3"
+	frameclient "github.com/pitabwire/frame/v3/client"
 	"github.com/pitabwire/frame/v3/config"
 	"github.com/pitabwire/util"
 )
+
+// jengaHTTPTimeout bounds every call to Jenga; it is set once on the client.
+const jengaHTTPTimeout = 30 * time.Second
 
 func main() {
 	ctx := context.Background()
@@ -51,11 +56,7 @@ func main() {
 	logger := svc.Log(ctx)
 	eventsMan := svc.EventsManager()
 
-	// Use Frame's HTTP client for the Jenga API client
-	httpClient := svc.HTTPClientManager().Client(ctx)
-
-	//nolint:revive,staticcheck // clientApi more readable than clientAPI
-	clientApi := coreapi.New(httpClient)
+	jengaCli := coreapi.New(frameclient.NewHTTPClient(ctx, frameclient.WithHTTPTimeout(jengaHTTPTimeout)))
 
 	// Setup service clients
 	paymentCli, err := setupPaymentClient(ctx, cfg)
@@ -72,8 +73,8 @@ func main() {
 	webhookServer := handlers.NewWebhookServer(paymentCli)
 
 	// Create queue workers following the standard integration pattern
-	paymentWorker := queue.NewPaymentHandler(eventsMan, clientApi, settingsCli, &cfg)
-	promptWorker := queue.NewPromptHandler(eventsMan, clientApi, settingsCli, &cfg)
+	paymentWorker := queue.NewPaymentHandler(eventsMan)
+	promptWorker := queue.NewPromptHandler(eventsMan, jengaCli, paymentCli, settingsCli, &cfg)
 
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouter()),

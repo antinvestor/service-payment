@@ -28,12 +28,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// The OPL is generated from the LedgerService manifest; these files are the
-// copies Keto is deployed with.
-var oplFiles = []string{
-	filepath.Join("..", "..", "..", "..", "opl", "ledger", "service_ledger.opl.ts"),
-	filepath.Join("..", "..", "..", "default", "service_ledger.opl.ts"),
-}
+// The OPL is generated from the LedgerService manifest; opl/ is the source
+// of truth the release opl-push job ships to Keto.
+var oplFile = filepath.Join("..", "..", "..", "..", "opl", "ledger", "service_ledger.opl.ts")
 
 func ledgerManifest(t *testing.T) *commonv1.ServicePermissions {
 	t.Helper()
@@ -77,21 +74,13 @@ func TestOPLDeclaresEveryManifestPermission(t *testing.T) {
 		}
 	}
 
-	var first string
-	for _, path := range oplFiles {
-		raw, err := os.ReadFile(path)
-		require.NoError(t, err)
-		opl := string(raw)
-		for p := range declared {
-			require.Regexp(t, regexp.MustCompile(`(?m)^\s+`+authz.GrantedRelation(p)+`: `), opl,
-				"%s lacks the %s relation", path, authz.GrantedRelation(p))
-			require.Regexp(t, regexp.MustCompile(`(?m)^\s+`+p+`: \(ctx: Context\)`), opl,
-				"%s lacks the %s permit", path, p)
-		}
-		if first == "" {
-			first = opl
-			continue
-		}
-		require.Equal(t, first, opl, "the ledger OPL copies have diverged")
+	raw, err := os.ReadFile(oplFile)
+	require.NoError(t, err)
+	opl := string(raw)
+	for p := range declared {
+		require.Regexp(t, regexp.MustCompile(`(?m)^\s+`+authz.GrantedRelation(p)+`: `), opl,
+			"%s lacks the %s relation", oplFile, authz.GrantedRelation(p))
+		require.Regexp(t, regexp.MustCompile(`(?m)^\s+`+p+`: \(ctx: Context\)`), opl,
+			"%s lacks the %s permit", oplFile, p)
 	}
 }

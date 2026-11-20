@@ -43,6 +43,32 @@ message PayerPrefill {
   string display_name = 2;
   string language = 3;
   repeated PayerContact contacts = 4;
+  // Email used for card customers when the profile has no EMAIL contact.
+  string email = 5;
+}
+
+// PaymentMethod is one rail the hosted page can offer.
+message PaymentMethod {
+  // Registry key passed in CreateCheckoutSessionRequest.methods.
+  string key = 1;
+  // Display name.
+  string name = 2;
+  // Payment service route (integration) that collects on this rail.
+  string route = 3;
+  // card | mobile_money | bank_transfer.
+  string method_type = 4;
+  // push (prompt on the payer's phone), redirect (provider page) or embed.
+  string flow = 5;
+  // ISO 4217 currencies accepted (empty = any).
+  repeated string currencies = 6;
+  // ISO 3166-1 alpha-2 countries served (empty = any).
+  repeated string countries = 7;
+  // Only whole currency units can be charged.
+  bool whole_amounts = 8;
+  // The provider manages recurring billing itself (Polar, Stripe).
+  bool subscriptions = 9;
+  // A provider product reference (product_id metadata) is required.
+  bool requires_product_id = 10;
 }
 
 message CheckoutSession {
@@ -60,6 +86,13 @@ message CheckoutSession {
   string page_url = 12;
   string expires_at = 13; // RFC3339
   string payment_id = 14;
+  // Browser landing when the payer abandons the page (optional).
+  string cancel_url = 15;
+  // Method key and payment route of the latest payment attempt (empty
+  // before the payer pays). Lets product apps verify a completed session
+  // was paid on the rail they expected.
+  string paid_method = 16;
+  string paid_route = 17;
 }
 
 message CheckoutLink {
@@ -74,6 +107,7 @@ message CheckoutLink {
   string page_url = 9;
   string expires_at = 10; // RFC3339, empty = no expiry
   bool active = 11;
+  string cancel_url = 12;
 }
 
 message CreateCheckoutSessionRequest {
@@ -89,6 +123,11 @@ message CreateCheckoutSessionRequest {
   string return_url = 7 [(buf.validate.field).string.uri = true];
   PayerPrefill payer = 8;
   repeated string methods = 9; // optional restriction; method registry keys
+  // Optional browser landing when the payer abandons the page.
+  string cancel_url = 10 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string.uri = true
+  ];
 }
 
 message CreateCheckoutSessionResponse {
@@ -118,6 +157,34 @@ message CreateCheckoutLinkRequest {
   map<string, string> metadata = 6;
   string return_url = 7 [(buf.validate.field).string.uri = true];
   string expires_at = 8; // RFC3339, empty = no expiry
+  string cancel_url = 9 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).string.uri = true
+  ];
+}
+
+// ListPaymentMethodsRequest asks which rails a session with these
+// properties would be offered, so product apps can show choices or pick
+// methods[] before creating a session.
+message ListPaymentMethodsRequest {
+  // ISO 4217 currency (empty = any).
+  string currency = 1 [(buf.validate.field).string.max_len = 3];
+  // Decimal amount; filters whole-unit rails (empty = any).
+  string amount = 2 [(buf.validate.field).string.max_len = 40];
+  // ISO 3166-1 alpha-2 payer country (empty = unknown).
+  string country = 3 [(buf.validate.field).string.max_len = 2];
+  // Payer MSISDNs for phone-local rails.
+  repeated string phones = 4;
+  // Restrict to these keys (empty = all).
+  repeated string methods = 5;
+  // Metadata the session would carry (product_id enables product rails).
+  map<string, string> metadata = 6;
+}
+
+message ListPaymentMethodsResponse {
+  repeated PaymentMethod data = 1;
+  // Key the hosted page would preselect.
+  string selected = 2;
 }
 
 message CreateCheckoutLinkResponse {
@@ -161,6 +228,14 @@ service CheckoutService {
     };
   }
 
+  // ListPaymentMethods returns the rails available for the caller's
+  // partition and the given currency / amount / locality.
+  rpc ListPaymentMethods(ListPaymentMethodsRequest) returns (ListPaymentMethodsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (common.v1.method_permissions) = {
+      permissions: ["checkout_session_view"]
+    };
+  }
   // CreateCheckoutLink creates a reusable, shareable link that spawns a
   // fresh checkout session per visitor.
   rpc CreateCheckoutLink(CreateCheckoutLinkRequest) returns (CreateCheckoutLinkResponse) {

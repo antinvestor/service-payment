@@ -16,7 +16,8 @@ package queue
 
 import (
 	"context"
-	"net/url"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/config"
 	"github.com/antinvestor/service-payments/apps/integrations/mpesa/service/client"
+	"github.com/antinvestor/service-payments/pkg/collection"
+	"github.com/antinvestor/service-payments/pkg/events"
 	"github.com/antinvestor/service-payments/pkg/integrationobs"
 	frameEvents "github.com/pitabwire/frame/v3/events"
 	"github.com/pitabwire/frame/v3/queue"
@@ -35,15 +38,15 @@ import (
 
 type promptHandler struct {
 	credentialResolver
-	statusEmitter
+	emitter      *events.StatusEmitter
 	mpesaCli     client.MpesaClient
-	statusReader PromptStatusReader
+	statusReader StatusReader
 	metrics      *integrationobs.Metrics
 }
 
-// PromptStatusReader reads a prompt's latest status from the payment service
+// StatusReader reads an entity's latest status from the payment service
 // (satisfied by paymentv1connect.PaymentServiceClient).
-type PromptStatusReader interface {
+type StatusReader interface {
 	Status(
 		ctx context.Context,
 		req *commonv1.StatusRequest,
@@ -56,29 +59,32 @@ func NewPromptHandler(
 	mpesaCli client.MpesaClient,
 	settingsCli settingsv1connect.SettingsServiceClient,
 	cfg *config.MpesaConfig,
-	statusReader PromptStatusReader,
+	statusReader StatusReader,
 ) queue.SubscribeWorker {
 	return &promptHandler{
 		credentialResolver: credentialResolver{settingsCli: settingsCli, cfg: cfg},
-		statusEmitter:      statusEmitter{eventsMan: eventsMan},
+		emitter:            events.NewStatusEmitter(eventsMan),
 		mpesaCli:           mpesaCli,
 		statusReader:       statusReader,
-		metrics:            integrationobs.NewMetrics("mpesa"),
+		metrics:            integrationobs.NewMetrics(providerName),
 	}
+}
+
+func (h *promptHandler) fail(ctx context.Context, promptID, reason, message string, extras map[string]any) error {
+	h.metrics.QueueFailed(ctx, kindPrompt, reason)
+	return h.emitter.Fail(ctx, events.EntityTypePrompt, promptID, message, extras)
 }
 
 func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, payload []byte) error {
 	logger := util.Log(ctx).WithField("type", "mpesa.prompt")
 	defer logger.Release()
-	logger.Debug("queue handler started")
 
 	prompt := paymentv1.InitiatePromptRequest{}
 	if err := proto.Unmarshal(payload, &prompt); err != nil {
 		logger.WithError(err).Error("failed to unmarshal prompt")
-		h.metrics.QueueFailed(ctx, "prompt", "unmarshal_error")
+		h.metrics.QueueFailed(ctx, kindPrompt, "unmarshal_error")
 		return nil // non-retriable
 	}
-
 	promptID := prompt.GetId()
 	logger = logger.WithField("prompt_id", promptID)
 
@@ -88,19 +94,14 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	// rejected.
 	if existing := h.pushedCheckoutRequestID(ctx, promptID); existing != "" {
 		logger.WithField("checkout_request_id", existing).Info("STK push already issued for prompt, skipping")
-		h.metrics.QueueProcessed(ctx, "prompt")
+		h.metrics.QueueProcessed(ctx, kindPrompt)
 		return nil
 	}
 
 	creds, err := h.extractCredentials(ctx, headers)
 	if err != nil {
 		logger.WithError(err).Error("failed to resolve credentials")
-		h.metrics.QueueFailed(ctx, "prompt", "credentials_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "credentials_error", err.Error(), nil)
 	}
 
 	phoneNumber := prompt.GetRecipient().GetContactId()
@@ -108,31 +109,34 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		phoneNumber = prompt.GetSource().GetContactId()
 	}
 
-	// Daraja only charges KES; pushing a USD amount as KES would let a
-	// session complete for the wrong currency.
-	if cur := strings.ToUpper(strings.TrimSpace(prompt.GetAmount().GetCurrencyCode())); cur != "" && cur != mpesaCurrency {
+	// Daraja only charges KES, in whole shillings; pushing a USD amount as
+	// KES would let a session complete for the wrong currency, and a
+	// rounded amount would charge something else than what was asked.
+	if cur := strings.ToUpper(strings.TrimSpace(prompt.GetAmount().GetCurrencyCode())); cur != "" && cur != client.Currency {
 		logger.WithField("currency", cur).Error("unsupported prompt currency for M-Pesa")
-		h.metrics.QueueFailed(ctx, "prompt", "unsupported_currency")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       "M-Pesa only supports " + mpesaCurrency + ", got " + cur,
-			"entity_type": "prompt",
-		})
-		return nil
+		return h.fail(ctx, promptID, "rejected", "M-Pesa only supports "+client.Currency+", got "+cur, nil)
 	}
+	units, err := collection.WholeUnits(prompt.GetAmount())
+	if err != nil {
+		logger.WithError(err).Error("prompt amount cannot be sent to M-Pesa")
+		return h.fail(ctx, promptID, "rejected", "invalid amount: "+err.Error(), nil)
+	}
+	amount := strconv.FormatInt(units, 10)
 
-	amount := formatMoneyAmount(prompt.GetAmount())
+	// The callback URL carries a random secret only Daraja learns; its
+	// digest is stored with the push so a forged callback cannot settle.
+	secret, secretHash, err := client.NewCallbackSecret()
+	if err != nil {
+		return fmt.Errorf("prompt %s: %w", promptID, err)
+	}
 
 	timestamp := time.Now().Format("20060102150405")
 	password := client.STKPassword(creds.Shortcode, creds.Passkey, timestamp)
 
 	accountRef := promptID
-	if prompt.GetExtra() != nil {
-		if ref, ok := prompt.GetExtra().GetFields()["account_reference"]; ok {
-			accountRef = ref.GetStringValue()
-		}
+	if ref, ok := prompt.GetExtra().GetFields()["account_reference"]; ok && ref.GetStringValue() != "" {
+		accountRef = ref.GetStringValue()
 	}
-
-	callbackURL := stkCallbackURL(creds.CallbackURL, headers, promptID)
 
 	stkReq := &client.STKPushRequest{
 		BusinessShortCode: creds.Shortcode,
@@ -143,20 +147,23 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 		PartyA:            phoneNumber,
 		PartyB:            creds.Shortcode,
 		PhoneNumber:       phoneNumber,
-		CallBackURL:       callbackURL,
+		CallBackURL:       stkCallbackURL(creds.CallbackURL, headers, promptID, secret),
 		AccountReference:  accountRef,
 		TransactionDesc:   "Payment prompt",
 	}
 
 	resp, err := h.mpesaCli.STKPush(ctx, creds, stkReq)
 	if err != nil {
-		logger.WithError(err).Error("STK push failed")
-		h.metrics.QueueFailed(ctx, "prompt", "provider_error")
-		h.emitStatus(ctx, promptID, "", commonv1.STATUS_FAILED, map[string]any{
-			"error":       err.Error(),
-			"entity_type": "prompt",
-		})
-		return nil
+		if client.IsRejected(err) {
+			logger.WithError(err).Error("STK push refused by Daraja")
+			return h.fail(ctx, promptID, "provider_error", err.Error(), nil)
+		}
+		// Unknown outcome (timeout, 5xx): redeliver. If the push did go out
+		// the customer sees a second prompt; only the one whose
+		// CheckoutRequestID is bound below can be recorded.
+		logger.WithError(err).Warn("STK push outcome unknown; redelivering")
+		h.metrics.QueueFailed(ctx, kindPrompt, "provider_error")
+		return fmt.Errorf("stk push %s outcome unknown: %w", promptID, err)
 	}
 
 	logger.WithField("checkout_request_id", resp.CheckoutRequestID).Debug("STK push initiated")
@@ -165,41 +172,32 @@ func (h *promptHandler) Handle(ctx context.Context, headers map[string]string, p
 	// callback can prove it belongs here; requested_amount and the credential
 	// connection let it verify amount and re-query Daraja.
 	inProcessExtras := map[string]any{
-		"merchant_request_id":         resp.MerchantRequestID,
-		client.ExtraCheckoutRequestID: resp.CheckoutRequestID,
-		client.ExtraRequestedAmount:   amount,
-		"response_code":               resp.ResponseCode,
-		"customer_message":            resp.CustomerMessage,
-		"entity_type":                 "prompt",
+		"merchant_request_id":          resp.MerchantRequestID,
+		client.ExtraCheckoutRequestID:  resp.CheckoutRequestID,
+		client.ExtraCallbackSecretHash: secretHash,
+		client.ExtraRequestedAmount:    amount,
+		client.ExtraRequestedCurrency:  client.Currency,
+		"response_code":                resp.ResponseCode,
+		"customer_message":             resp.CustomerMessage,
 	}
 	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
 		inProcessExtras[client.ExtraCredentialsConnection] = connection
 	}
-	h.emitStatus(ctx, promptID, resp.CheckoutRequestID, commonv1.STATUS_IN_PROCESS, inProcessExtras)
-
-	h.metrics.QueueProcessed(ctx, "prompt")
+	if err = h.emitter.Emit(ctx, events.EntityTypePrompt, promptID, resp.CheckoutRequestID, commonv1.STATUS_IN_PROCESS, inProcessExtras); err != nil {
+		return err
+	}
+	h.metrics.QueueProcessed(ctx, kindPrompt)
 	return nil
 }
 
-// mpesaCurrency is the only currency Daraja STK Push collects.
-const mpesaCurrency = "KES"
-
-// stkCallbackURL builds the STK callback URL: tenant params plus the prompt id,
-// so the callback can record the final status under the prompt the checkout
-// polls rather than under Daraja's CheckoutRequestID.
-func stkCallbackURL(base string, headers map[string]string, promptID string) string {
-	callbackURL := appendTenantParams(base+"/webhook/mpesa/stk", headers)
-	if promptID == "" {
-		return callbackURL
-	}
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		return callbackURL
-	}
-	q := u.Query()
-	q.Set(client.CallbackParamPromptID, promptID)
-	u.RawQuery = q.Encode()
-	return u.String()
+// stkCallbackURL builds the STK callback URL: tenant params, the prompt id
+// (so the callback records under the prompt the checkout polls) and the
+// per-prompt secret the handler authenticates the callback with.
+func stkCallbackURL(base string, headers map[string]string, promptID, secret string) string {
+	return withQuery(appendTenantParams(base+"/webhook/mpesa/stk", headers), map[string]string{
+		client.CallbackParamPromptID: promptID,
+		client.CallbackParamSecret:   secret,
+	})
 }
 
 // pushedCheckoutRequestID returns the CheckoutRequestID already bound to the
@@ -211,7 +209,7 @@ func (h *promptHandler) pushedCheckoutRequestID(ctx context.Context, promptID st
 	if h.statusReader == nil || promptID == "" {
 		return ""
 	}
-	extras, _ := structpb.NewStruct(map[string]any{"entity_type": "prompt"})
+	extras, _ := structpb.NewStruct(map[string]any{events.ExtraEntityType: events.EntityTypePrompt})
 	resp, err := h.statusReader.Status(ctx, &commonv1.StatusRequest{
 		Id:     promptID,
 		Extras: extras,

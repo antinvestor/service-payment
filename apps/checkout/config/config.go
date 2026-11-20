@@ -49,16 +49,18 @@ type CheckoutConfig struct {
 	// refused until it elapses, so the payer is not charged twice.
 	PromptTimeoutSeconds int `envDefault:"180" env:"CHECKOUT_PROMPT_TIMEOUT_SECONDS"`
 
-	// MethodsJSON is the global method catalog. Each method may declare
-	// currencies, MSISDN prefixes (locality), and ISO countries.
-	//
-	// Link-style resolution on the page:
-	//  1. Filter by partition allowlist + session methods[] + currency + location
-	//  2. Preselect: profile last-used → guest cookie → phone/country → default
-	//
-	// Card is first and goes to Fincra's hosted payment page (redirect=true):
-	// card details are entered on Fincra's page, never on ours.
-	MethodsJSON string `env:"CHECKOUT_METHODS" envDefault:"[{\"key\":\"card\",\"name\":\"Card\",\"route\":\"fincra\",\"prefixes\":[],\"currencies\":[],\"countries\":[],\"redirect\":true,\"embed\":false},{\"key\":\"mpesa\",\"name\":\"M-PESA\",\"route\":\"mpesa\",\"prefixes\":[\"254\"],\"currencies\":[\"KES\"],\"countries\":[\"KE\"]},{\"key\":\"mtn_momo\",\"name\":\"MTN MoMo\",\"route\":\"mtn\",\"prefixes\":[\"256\",\"260\"],\"currencies\":[\"UGX\",\"ZMW\"],\"countries\":[\"UG\",\"ZM\"]},{\"key\":\"airtel_money\",\"name\":\"Airtel Money\",\"route\":\"airtel\",\"prefixes\":[\"255\",\"256\"],\"currencies\":[\"TZS\",\"UGX\"],\"countries\":[\"TZ\",\"UG\"]}]"`
+	// Routes lists the payment routes this deployment offers, in display
+	// order. Each must be a provider in pkg/collection.Providers and have a
+	// prompt queue on the payment service (INITIATE_PROMPT_ROUTE_URIS).
+	// The hosted page derives its method catalog from these descriptors:
+	// names, currencies, countries, phone prefixes and flow (push, redirect).
+	Routes string `env:"CHECKOUT_ROUTES" envDefault:"fincra,mpesa,mtn,airtel"`
+
+	// MethodsJSON optionally overrides or extends the derived catalog. Each
+	// entry replaces the generated method with the same key (or adds one);
+	// unset fields inherit from the route's provider descriptor.
+	// Example: [{"key":"card","name":"Visa / Mastercard","route":"fincra","redirect":true}]
+	MethodsJSON string `env:"CHECKOUT_METHODS"`
 
 	// PartitionMethodsJSON optionally restricts methods per partition.
 	// Format: {"partition-uuid":["mpesa","card"],"*":["card"]}

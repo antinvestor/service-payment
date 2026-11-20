@@ -79,6 +79,7 @@ const PayerPrefill$json = {
       '6': '.checkout.v1.PayerContact',
       '10': 'contacts'
     },
+    {'1': 'email', '3': 5, '4': 1, '5': 9, '10': 'email'},
   ],
 };
 
@@ -86,7 +87,40 @@ const PayerPrefill$json = {
 final $typed_data.Uint8List payerPrefillDescriptor = $convert.base64Decode(
     'CgxQYXllclByZWZpbGwSHQoKcHJvZmlsZV9pZBgBIAEoCVIJcHJvZmlsZUlkEiEKDGRpc3BsYX'
     'lfbmFtZRgCIAEoCVILZGlzcGxheU5hbWUSGgoIbGFuZ3VhZ2UYAyABKAlSCGxhbmd1YWdlEjUK'
-    'CGNvbnRhY3RzGAQgAygLMhkuY2hlY2tvdXQudjEuUGF5ZXJDb250YWN0Ughjb250YWN0cw==');
+    'CGNvbnRhY3RzGAQgAygLMhkuY2hlY2tvdXQudjEuUGF5ZXJDb250YWN0Ughjb250YWN0cxIUCg'
+    'VlbWFpbBgFIAEoCVIFZW1haWw=');
+
+@$core.Deprecated('Use paymentMethodDescriptor instead')
+const PaymentMethod$json = {
+  '1': 'PaymentMethod',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'route', '3': 3, '4': 1, '5': 9, '10': 'route'},
+    {'1': 'method_type', '3': 4, '4': 1, '5': 9, '10': 'methodType'},
+    {'1': 'flow', '3': 5, '4': 1, '5': 9, '10': 'flow'},
+    {'1': 'currencies', '3': 6, '4': 3, '5': 9, '10': 'currencies'},
+    {'1': 'countries', '3': 7, '4': 3, '5': 9, '10': 'countries'},
+    {'1': 'whole_amounts', '3': 8, '4': 1, '5': 8, '10': 'wholeAmounts'},
+    {'1': 'subscriptions', '3': 9, '4': 1, '5': 8, '10': 'subscriptions'},
+    {
+      '1': 'requires_product_id',
+      '3': 10,
+      '4': 1,
+      '5': 8,
+      '10': 'requiresProductId'
+    },
+  ],
+};
+
+/// Descriptor for `PaymentMethod`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List paymentMethodDescriptor = $convert.base64Decode(
+    'Cg1QYXltZW50TWV0aG9kEhAKA2tleRgBIAEoCVIDa2V5EhIKBG5hbWUYAiABKAlSBG5hbWUSFA'
+    'oFcm91dGUYAyABKAlSBXJvdXRlEh8KC21ldGhvZF90eXBlGAQgASgJUgptZXRob2RUeXBlEhIK'
+    'BGZsb3cYBSABKAlSBGZsb3cSHgoKY3VycmVuY2llcxgGIAMoCVIKY3VycmVuY2llcxIcCgljb3'
+    'VudHJpZXMYByADKAlSCWNvdW50cmllcxIjCg13aG9sZV9hbW91bnRzGAggASgIUgx3aG9sZUFt'
+    'b3VudHMSJAoNc3Vic2NyaXB0aW9ucxgJIAEoCFINc3Vic2NyaXB0aW9ucxIuChNyZXF1aXJlc1'
+    '9wcm9kdWN0X2lkGAogASgIUhFyZXF1aXJlc1Byb2R1Y3RJZA==');
 
 @$core.Deprecated('Use checkoutSessionDescriptor instead')
 const CheckoutSession$json = {
@@ -141,6 +175,9 @@ const CheckoutSession$json = {
     {'1': 'page_url', '3': 12, '4': 1, '5': 9, '10': 'pageUrl'},
     {'1': 'expires_at', '3': 13, '4': 1, '5': 9, '10': 'expiresAt'},
     {'1': 'payment_id', '3': 14, '4': 1, '5': 9, '10': 'paymentId'},
+    {'1': 'cancel_url', '3': 15, '4': 1, '5': 9, '10': 'cancelUrl'},
+    {'1': 'paid_method', '3': 16, '4': 1, '5': 9, '10': 'paidMethod'},
+    {'1': 'paid_route', '3': 17, '4': 1, '5': 9, '10': 'paidRoute'},
   ],
   '3': [CheckoutSession_MetadataEntry$json],
 };
@@ -166,8 +203,10 @@ final $typed_data.Uint8List checkoutSessionDescriptor = $convert.base64Decode(
     'eWVyGAkgASgLMhkuY2hlY2tvdXQudjEuUGF5ZXJQcmVmaWxsUgVwYXllchIyCgZzdGF0dXMYCi'
     'ABKA4yGi5jaGVja291dC52MS5TZXNzaW9uU3RhdHVzUgZzdGF0dXMSGwoJcHJvbXB0X2lkGAsg'
     'ASgJUghwcm9tcHRJZBIZCghwYWdlX3VybBgMIAEoCVIHcGFnZVVybBIdCgpleHBpcmVzX2F0GA'
-    '0gASgJUglleHBpcmVzQXQSHQoKcGF5bWVudF9pZBgOIAEoCVIJcGF5bWVudElkGjsKDU1ldGFk'
-    'YXRhRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
+    '0gASgJUglleHBpcmVzQXQSHQoKcGF5bWVudF9pZBgOIAEoCVIJcGF5bWVudElkEh0KCmNhbmNl'
+    'bF91cmwYDyABKAlSCWNhbmNlbFVybBIfCgtwYWlkX21ldGhvZBgQIAEoCVIKcGFpZE1ldGhvZB'
+    'IdCgpwYWlkX3JvdXRlGBEgASgJUglwYWlkUm91dGUaOwoNTWV0YWRhdGFFbnRyeRIQCgNrZXkY'
+    'ASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
 
 @$core.Deprecated('Use checkoutLinkDescriptor instead')
 const CheckoutLink$json = {
@@ -205,6 +244,7 @@ const CheckoutLink$json = {
     {'1': 'page_url', '3': 9, '4': 1, '5': 9, '10': 'pageUrl'},
     {'1': 'expires_at', '3': 10, '4': 1, '5': 9, '10': 'expiresAt'},
     {'1': 'active', '3': 11, '4': 1, '5': 8, '10': 'active'},
+    {'1': 'cancel_url', '3': 12, '4': 1, '5': 9, '10': 'cancelUrl'},
   ],
   '3': [CheckoutLink_MetadataEntry$json],
 };
@@ -228,8 +268,8 @@ final $typed_data.Uint8List checkoutLinkDescriptor = $convert.base64Decode(
     'QwoIbWV0YWRhdGEYByADKAsyJy5jaGVja291dC52MS5DaGVja291dExpbmsuTWV0YWRhdGFFbn'
     'RyeVIIbWV0YWRhdGESHQoKcmV0dXJuX3VybBgIIAEoCVIJcmV0dXJuVXJsEhkKCHBhZ2VfdXJs'
     'GAkgASgJUgdwYWdlVXJsEh0KCmV4cGlyZXNfYXQYCiABKAlSCWV4cGlyZXNBdBIWCgZhY3Rpdm'
-    'UYCyABKAhSBmFjdGl2ZRo7Cg1NZXRhZGF0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZh'
-    'bHVlGAIgASgJUgV2YWx1ZToCOAE=');
+    'UYCyABKAhSBmFjdGl2ZRIdCgpjYW5jZWxfdXJsGAwgASgJUgljYW5jZWxVcmwaOwoNTWV0YWRh'
+    'dGFFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
 
 @$core.Deprecated('Use createCheckoutSessionRequestDescriptor instead')
 const CreateCheckoutSessionRequest$json = {
@@ -272,6 +312,7 @@ const CreateCheckoutSessionRequest$json = {
       '10': 'payer'
     },
     {'1': 'methods', '3': 9, '4': 3, '5': 9, '10': 'methods'},
+    {'1': 'cancel_url', '3': 10, '4': 1, '5': 9, '8': {}, '10': 'cancelUrl'},
   ],
   '3': [CreateCheckoutSessionRequest_MetadataEntry$json],
 };
@@ -296,8 +337,9 @@ final $typed_data.Uint8List createCheckoutSessionRequestDescriptor = $convert.ba
     'V0LnYxLkNyZWF0ZUNoZWNrb3V0U2Vzc2lvblJlcXVlc3QuTWV0YWRhdGFFbnRyeVIIbWV0YWRh'
     'dGESJwoKcmV0dXJuX3VybBgHIAEoCUIIukgFcgOIAQFSCXJldHVyblVybBIvCgVwYXllchgIIA'
     'EoCzIZLmNoZWNrb3V0LnYxLlBheWVyUHJlZmlsbFIFcGF5ZXISGAoHbWV0aG9kcxgJIAMoCVIH'
-    'bWV0aG9kcxo7Cg1NZXRhZGF0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgAS'
-    'gJUgV2YWx1ZToCOAE=');
+    'bWV0aG9kcxIqCgpjYW5jZWxfdXJsGAogASgJQgu6SAjYAQFyA4gBAVIJY2FuY2VsVXJsGjsKDU'
+    '1ldGFkYXRhRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4'
+    'AQ==');
 
 @$core.Deprecated('Use createCheckoutSessionResponseDescriptor instead')
 const CreateCheckoutSessionResponse$json = {
@@ -388,6 +430,7 @@ const CreateCheckoutLinkRequest$json = {
     },
     {'1': 'return_url', '3': 7, '4': 1, '5': 9, '8': {}, '10': 'returnUrl'},
     {'1': 'expires_at', '3': 8, '4': 1, '5': 9, '10': 'expiresAt'},
+    {'1': 'cancel_url', '3': 9, '4': 1, '5': 9, '8': {}, '10': 'cancelUrl'},
   ],
   '3': [CreateCheckoutLinkRequest_MetadataEntry$json],
 };
@@ -411,8 +454,71 @@ final $typed_data.Uint8List createCheckoutLinkRequestDescriptor = $convert.base6
     'BSABKAlCCLpIBXIDGPoBUghvcmRlclJlZhJQCghtZXRhZGF0YRgGIAMoCzI0LmNoZWNrb3V0Ln'
     'YxLkNyZWF0ZUNoZWNrb3V0TGlua1JlcXVlc3QuTWV0YWRhdGFFbnRyeVIIbWV0YWRhdGESJwoK'
     'cmV0dXJuX3VybBgHIAEoCUIIukgFcgOIAQFSCXJldHVyblVybBIdCgpleHBpcmVzX2F0GAggAS'
-    'gJUglleHBpcmVzQXQaOwoNTWV0YWRhdGFFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1'
-    'ZRgCIAEoCVIFdmFsdWU6AjgB');
+    'gJUglleHBpcmVzQXQSKgoKY2FuY2VsX3VybBgJIAEoCUILukgI2AEBcgOIAQFSCWNhbmNlbFVy'
+    'bBo7Cg1NZXRhZGF0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJUgV2YW'
+    'x1ZToCOAE=');
+
+@$core.Deprecated('Use listPaymentMethodsRequestDescriptor instead')
+const ListPaymentMethodsRequest$json = {
+  '1': 'ListPaymentMethodsRequest',
+  '2': [
+    {'1': 'currency', '3': 1, '4': 1, '5': 9, '8': {}, '10': 'currency'},
+    {'1': 'amount', '3': 2, '4': 1, '5': 9, '8': {}, '10': 'amount'},
+    {'1': 'country', '3': 3, '4': 1, '5': 9, '8': {}, '10': 'country'},
+    {'1': 'phones', '3': 4, '4': 3, '5': 9, '10': 'phones'},
+    {'1': 'methods', '3': 5, '4': 3, '5': 9, '10': 'methods'},
+    {
+      '1': 'metadata',
+      '3': 6,
+      '4': 3,
+      '5': 11,
+      '6': '.checkout.v1.ListPaymentMethodsRequest.MetadataEntry',
+      '10': 'metadata'
+    },
+  ],
+  '3': [ListPaymentMethodsRequest_MetadataEntry$json],
+};
+
+@$core.Deprecated('Use listPaymentMethodsRequestDescriptor instead')
+const ListPaymentMethodsRequest_MetadataEntry$json = {
+  '1': 'MetadataEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `ListPaymentMethodsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listPaymentMethodsRequestDescriptor = $convert.base64Decode(
+    'ChlMaXN0UGF5bWVudE1ldGhvZHNSZXF1ZXN0EiMKCGN1cnJlbmN5GAEgASgJQge6SARyAhgDUg'
+    'hjdXJyZW5jeRIfCgZhbW91bnQYAiABKAlCB7pIBHICGChSBmFtb3VudBIhCgdjb3VudHJ5GAMg'
+    'ASgJQge6SARyAhgCUgdjb3VudHJ5EhYKBnBob25lcxgEIAMoCVIGcGhvbmVzEhgKB21ldGhvZH'
+    'MYBSADKAlSB21ldGhvZHMSUAoIbWV0YWRhdGEYBiADKAsyNC5jaGVja291dC52MS5MaXN0UGF5'
+    'bWVudE1ldGhvZHNSZXF1ZXN0Lk1ldGFkYXRhRW50cnlSCG1ldGFkYXRhGjsKDU1ldGFkYXRhRW'
+    '50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
+
+@$core.Deprecated('Use listPaymentMethodsResponseDescriptor instead')
+const ListPaymentMethodsResponse$json = {
+  '1': 'ListPaymentMethodsResponse',
+  '2': [
+    {
+      '1': 'data',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.checkout.v1.PaymentMethod',
+      '10': 'data'
+    },
+    {'1': 'selected', '3': 2, '4': 1, '5': 9, '10': 'selected'},
+  ],
+};
+
+/// Descriptor for `ListPaymentMethodsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listPaymentMethodsResponseDescriptor =
+    $convert.base64Decode(
+        'ChpMaXN0UGF5bWVudE1ldGhvZHNSZXNwb25zZRIuCgRkYXRhGAEgAygLMhouY2hlY2tvdXQudj'
+        'EuUGF5bWVudE1ldGhvZFIEZGF0YRIaCghzZWxlY3RlZBgCIAEoCVIIc2VsZWN0ZWQ=');
 
 @$core.Deprecated('Use createCheckoutLinkResponseDescriptor instead')
 const CreateCheckoutLinkResponse$json = {
@@ -451,6 +557,12 @@ const $core.Map<$core.String, $core.dynamic> CheckoutServiceBase$json = {
       '4': {'34': 1},
     },
     {
+      '1': 'ListPaymentMethods',
+      '2': '.checkout.v1.ListPaymentMethodsRequest',
+      '3': '.checkout.v1.ListPaymentMethodsResponse',
+      '4': {'34': 1},
+    },
+    {
       '1': 'CreateCheckoutLink',
       '2': '.checkout.v1.CreateCheckoutLinkRequest',
       '3': '.checkout.v1.CreateCheckoutLinkResponse',
@@ -477,6 +589,11 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       CheckoutSession_MetadataEntry$json,
   '.checkout.v1.GetCheckoutSessionRequest': GetCheckoutSessionRequest$json,
   '.checkout.v1.GetCheckoutSessionResponse': GetCheckoutSessionResponse$json,
+  '.checkout.v1.ListPaymentMethodsRequest': ListPaymentMethodsRequest$json,
+  '.checkout.v1.ListPaymentMethodsRequest.MetadataEntry':
+      ListPaymentMethodsRequest_MetadataEntry$json,
+  '.checkout.v1.ListPaymentMethodsResponse': ListPaymentMethodsResponse$json,
+  '.checkout.v1.PaymentMethod': PaymentMethod$json,
   '.checkout.v1.CreateCheckoutLinkRequest': CreateCheckoutLinkRequest$json,
   '.checkout.v1.CreateCheckoutLinkRequest.MetadataEntry':
       CreateCheckoutLinkRequest_MetadataEntry$json,
@@ -492,9 +609,12 @@ final $typed_data.Uint8List checkoutServiceDescriptor = $convert.base64Decode(
     'a291dFNlc3Npb25SZXNwb25zZSIdgrUYGQoXY2hlY2tvdXRfc2Vzc2lvbl9jcmVhdGUShQEKEk'
     'dldENoZWNrb3V0U2Vzc2lvbhImLmNoZWNrb3V0LnYxLkdldENoZWNrb3V0U2Vzc2lvblJlcXVl'
     'c3QaJy5jaGVja291dC52MS5HZXRDaGVja291dFNlc3Npb25SZXNwb25zZSIekAIBgrUYFwoVY2'
-    'hlY2tvdXRfc2Vzc2lvbl92aWV3EoEBChJDcmVhdGVDaGVja291dExpbmsSJi5jaGVja291dC52'
-    'MS5DcmVhdGVDaGVja291dExpbmtSZXF1ZXN0GicuY2hlY2tvdXQudjEuQ3JlYXRlQ2hlY2tvdX'
-    'RMaW5rUmVzcG9uc2UiGoK1GBYKFGNoZWNrb3V0X2xpbmtfY3JlYXRlGqcBgrUYogEKEHNlcnZp'
-    'Y2VfY2hlY2tvdXQSF2NoZWNrb3V0X3Nlc3Npb25fY3JlYXRlEhVjaGVja291dF9zZXNzaW9uX3'
-    'ZpZXcSFGNoZWNrb3V0X2xpbmtfY3JlYXRlGkgIARIXY2hlY2tvdXRfc2Vzc2lvbl9jcmVhdGUS'
-    'FWNoZWNrb3V0X3Nlc3Npb25fdmlldxIUY2hlY2tvdXRfbGlua19jcmVhdGU=');
+    'hlY2tvdXRfc2Vzc2lvbl92aWV3EoUBChJMaXN0UGF5bWVudE1ldGhvZHMSJi5jaGVja291dC52'
+    'MS5MaXN0UGF5bWVudE1ldGhvZHNSZXF1ZXN0GicuY2hlY2tvdXQudjEuTGlzdFBheW1lbnRNZX'
+    'Rob2RzUmVzcG9uc2UiHpACAYK1GBcKFWNoZWNrb3V0X3Nlc3Npb25fdmlldxKBAQoSQ3JlYXRl'
+    'Q2hlY2tvdXRMaW5rEiYuY2hlY2tvdXQudjEuQ3JlYXRlQ2hlY2tvdXRMaW5rUmVxdWVzdBonLm'
+    'NoZWNrb3V0LnYxLkNyZWF0ZUNoZWNrb3V0TGlua1Jlc3BvbnNlIhqCtRgWChRjaGVja291dF9s'
+    'aW5rX2NyZWF0ZRqnAYK1GKIBChBzZXJ2aWNlX2NoZWNrb3V0EhdjaGVja291dF9zZXNzaW9uX2'
+    'NyZWF0ZRIVY2hlY2tvdXRfc2Vzc2lvbl92aWV3EhRjaGVja291dF9saW5rX2NyZWF0ZRpICAES'
+    'F2NoZWNrb3V0X3Nlc3Npb25fY3JlYXRlEhVjaGVja291dF9zZXNzaW9uX3ZpZXcSFGNoZWNrb3'
+    'V0X2xpbmtfY3JlYXRl');

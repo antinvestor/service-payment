@@ -49,6 +49,11 @@ type BillingConfig struct {
 	SubscriptionLifecycleTopicName string `envDefault:"subscription.lifecycle" env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_NAME"`
 	SubscriptionLifecycleTopicURI  string `env:"BILLING_SUBSCRIPTION_LIFECYCLE_TOPIC_URI"`
 
+	// ProviderCommandURIs maps a provider route to the queue its integration
+	// worker consumes commands from (cancel at the provider, …).
+	// Example: {"polar":"nats://…/polar.subscriptions.dequeue"}
+	ProviderCommandURIs string `env:"BILLING_PROVIDER_COMMAND_URIS"`
+
 	// Payment service for server-side COF (card-on-file) renewals
 	// token charges only (payment_method_id + customer_id + recurring=true).
 	PaymentServiceURI                   string `envDefault:"127.0.0.1:7000"                     env:"PAYMENT_SERVICE_URI"`

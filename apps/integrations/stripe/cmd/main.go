@@ -22,6 +22,7 @@ import (
 	apis "github.com/antinvestor/common/v3"
 	"github.com/antinvestor/common/v3/connection"
 	"github.com/antinvestor/common/v3/servicecatalog"
+	"github.com/antinvestor/service-payments/apps/billing/gen/collection/v1/collectionv1connect"
 	aconfig "github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/handlers"
@@ -40,9 +41,12 @@ func main() {
 		util.Log(ctx).With("err", err).Error("could not process configs")
 		return
 	}
-
 	if cfg.Name() == "" {
 		cfg.ServiceName = "integration_payment_stripe"
+	}
+	if err = cfg.Validate(); err != nil {
+		util.Log(ctx).WithError(err).Fatal("invalid Stripe configuration")
+		return
 	}
 
 	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg))
@@ -61,17 +65,27 @@ func main() {
 		logger.WithError(err).Warn("could not setup settings client — per-tenant credentials disabled")
 	}
 
-	stripeCli := client.NewClient()
+	billingCli, err := setupBillingClient(ctx, cfg)
+	if err != nil {
+		logger.WithError(err).Fatal("could not setup billing client")
+	}
+	if billingCli == nil {
+		logger.Warn("BILLING_SERVICE_URI unset — subscription webhooks are acknowledged but not mirrored")
+	}
 
-	webhookServer := handlers.NewStripeWebhookServer(paymentCli, stripeCli, &cfg)
+	stripeCli := client.NewClient(ctx)
+
+	webhookServer := handlers.NewStripeWebhookServer(paymentCli, billingCli, stripeCli, &cfg)
 	paymentWorker := queue.NewPaymentHandler(eventsMan, stripeCli, settingsCli, &cfg)
-	promptWorker := queue.NewPromptHandler(eventsMan, stripeCli, settingsCli, &cfg)
+	promptWorker := queue.NewPromptHandler(eventsMan, stripeCli, settingsCli, paymentCli, &cfg)
+	subscriptionWorker := queue.NewSubscriptionHandler(stripeCli, settingsCli, &cfg)
 
 	serviceOptions := []frame.Option{
 		frame.WithHTTPHandler(webhookServer.NewRouterV1()),
 		frame.WithRegisterEvents(events.NewPaymentStatusUpdate(ctx, paymentCli)),
 		frame.WithRegisterSubscriber(cfg.QueuePaymentName, cfg.QueuePaymentURI, paymentWorker),
 		frame.WithRegisterSubscriber(cfg.QueuePromptName, cfg.QueuePromptURI, promptWorker),
+		frame.WithRegisterSubscriber(cfg.QueueSubscriptionName, cfg.QueueSubscriptionURI, subscriptionWorker),
 	}
 
 	svc.Init(ctx, serviceOptions...)
@@ -103,4 +117,20 @@ func setupSettingsClient(
 		WorkloadAPITargetPath: cfg.SettingsServiceWorkloadAPITargetPath,
 		ServiceID:             servicecatalog.ServiceSettings,
 	}, settingsv1connect.NewSettingsServiceClient)
+}
+
+// setupBillingClient dials billing's collection API for subscription mirrors.
+// Returns nil when BILLING_SERVICE_URI is unset.
+func setupBillingClient(
+	ctx context.Context,
+	cfg aconfig.StripeConfig,
+) (collectionv1connect.CollectionServiceClient, error) {
+	if cfg.BillingServiceURI == "" {
+		return nil, nil //nolint:nilnil // unset is a valid "not configured"
+	}
+	return connection.NewServiceClient(ctx, &cfg, apis.ServiceTarget{
+		Endpoint:              cfg.BillingServiceURI,
+		WorkloadAPITargetPath: cfg.BillingServiceWorkloadAPITargetPath,
+		ServiceID:             servicecatalog.ServiceBilling,
+	}, collectionv1connect.NewCollectionServiceClient)
 }

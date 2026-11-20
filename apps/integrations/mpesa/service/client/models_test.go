@@ -62,3 +62,10 @@ func TestNewSTKQueryRequest(t *testing.T) {
 		`{"BusinessShortCode":"174379","Password":"`+req.Password+`","Timestamp":"20260926130405","CheckoutRequestID":"ws_CO_1"}`,
 		string(raw))
 }
+
+func TestCallbackItem_Label(t *testing.T) {
+	var items []client.CallbackItem
+	require.NoError(t, json.Unmarshal([]byte(`[{"Name":"Amount","Value":10},{"Key":"TransactionAmount","Value":10}]`), &items))
+	assert.Equal(t, "Amount", items[0].Label())
+	assert.Equal(t, "TransactionAmount", items[1].Label())
+}

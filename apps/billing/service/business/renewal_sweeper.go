@@ -126,6 +126,15 @@ func (s *renewalProcessor) ProcessSubscription(
 	}
 	now := time.Now().UTC()
 
+	// A provider (Polar, Stripe) charges this subscription and reports by
+	// webhook: billing never raises its own renewal charge for it.
+	if IsProviderManaged(sub) {
+		_ = s.scheduler.CancelReminder(ctx, subscriptionID)
+		out.Action = "skipped"
+		out.Reason = "provider_managed:" + SubscriptionProvider(sub)
+		return out, nil
+	}
+
 	// Soft-cancel finalize when period is over (this sub only).
 	if cancelAtPeriodEnd(sub.Data) {
 		pe := currentPeriodEnd(sub)

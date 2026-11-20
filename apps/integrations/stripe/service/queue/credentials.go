@@ -19,80 +19,70 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
-	commonv1 "buf.build/gen/go/antinvestor/common/protocolbuffers/go/common/v1"
 	"buf.build/gen/go/antinvestor/settingz/connectrpc/go/v2/settings/v1/settingsv1connect"
 	settingsv1 "buf.build/gen/go/antinvestor/settingz/protocolbuffers/go/settings/v1"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/config"
 	"github.com/antinvestor/service-payments/apps/integrations/stripe/service/client"
-	"github.com/antinvestor/service-payments/pkg/events"
-	frameEvents "github.com/pitabwire/frame/v3/events"
-	"github.com/pitabwire/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func extractCredentials(
-	ctx context.Context,
-	headers map[string]string,
-	settingsCli settingsv1connect.SettingsServiceClient,
-	cfg *config.StripeConfig,
-) (*client.StripeCredentials, error) {
-	connection, ok := headers[config.HeaderConnectionCredentials]
-	if ok && connection != "" {
-		return credentialsFromSettings(ctx, connection, settingsCli, cfg)
-	}
+// Queue header names carrying the caller's scope.
+const (
+	headerTenantID    = "tenant_id"
+	headerPartitionID = "partition_id"
+)
 
+// credentialResolver picks the Stripe credentials for a queue message:
+// a settings connection named in the headers, else header overrides, else
+// the service defaults.
+type credentialResolver struct {
+	settingsCli settingsv1connect.SettingsServiceClient
+	cfg         *config.StripeConfig
+}
+
+func (r credentialResolver) resolve(ctx context.Context, headers map[string]string) (*client.StripeCredentials, error) {
+	if connection := headers[config.HeaderConnectionCredentials]; connection != "" {
+		return r.fromSettings(ctx, connection)
+	}
 	creds := &client.StripeCredentials{
-		APIKey:        headerOrDefault(headers, config.HeaderAPIKey, cfg.APIKey),
-		WebhookSecret: headerOrDefault(headers, config.HeaderWebhookSecret, cfg.WebhookSecret),
+		APIKey:        headerOrDefault(headers, config.HeaderAPIKey, r.cfg.APIKey),
+		WebhookSecret: headerOrDefault(headers, config.HeaderWebhookSecret, r.cfg.WebhookSecret),
 	}
-
 	if creds.APIKey == "" {
 		return nil, errors.New("missing required Stripe API key")
 	}
-
 	return creds, nil
 }
 
-func credentialsFromSettings(
-	ctx context.Context,
-	connection string,
-	settingsCli settingsv1connect.SettingsServiceClient,
-	cfg *config.StripeConfig,
-) (*client.StripeCredentials, error) {
-	settingReq := &settingsv1.GetRequest{
+func (r credentialResolver) fromSettings(ctx context.Context, connection string) (*client.StripeCredentials, error) {
+	if r.settingsCli == nil {
+		return nil, errors.New("settings client not configured; cannot resolve connection credentials")
+	}
+	settingResp, err := r.settingsCli.Get(ctx, &settingsv1.GetRequest{
 		Key: &settingsv1.Setting{
 			Name:     connection,
-			Object:   cfg.SettingsIntegrationName,
-			ObjectId: cfg.SettingsIntegrationID,
-			Module:   cfg.SettingsIntegrationName,
+			Object:   r.cfg.SettingsIntegrationName,
+			ObjectId: r.cfg.SettingsIntegrationID,
+			Module:   r.cfg.SettingsIntegrationName,
 		},
-	}
-
-	settingResp, err := settingsCli.Get(ctx, settingReq)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("settings lookup failed: %w", err)
 	}
-
 	var credMap map[string]string
 	if err = json.Unmarshal([]byte(settingResp.GetData().GetValue()), &credMap); err != nil {
 		return nil, fmt.Errorf("failed to parse settings credentials: %w", err)
 	}
-
-	return &client.StripeCredentials{
+	creds := &client.StripeCredentials{
 		APIKey:        credMap[config.HeaderAPIKey],
 		WebhookSecret: credMap[config.HeaderWebhookSecret],
-	}, nil
-}
-
-const (
-	centsPerUnit = 100
-	nanosPerCent = 10000000
-)
-
-// moneyToCents converts google.type.Money units+nanos to smallest currency unit (cents).
-func moneyToCents(units int64, nanos int32) int64 {
-	return units*centsPerUnit + int64(nanos/nanosPerCent)
+	}
+	if creds.APIKey == "" {
+		return nil, errors.New("settings connection has no Stripe API key")
+	}
+	return creds, nil
 }
 
 func headerOrDefault(headers map[string]string, key, fallback string) string {
@@ -102,22 +92,31 @@ func headerOrDefault(headers map[string]string, key, fallback string) string {
 	return fallback
 }
 
-func emitStatus(
-	ctx context.Context,
-	eventsMan frameEvents.Manager,
-	id, externalID string,
-	status commonv1.STATUS,
-	extras map[string]any,
-) {
-	extra, _ := structpb.NewStruct(extras)
-	err := eventsMan.Emit(ctx, events.PaymentStatusUpdateEvent, &commonv1.StatusUpdateRequest{
-		Id:         id,
-		State:      commonv1.STATE_ACTIVE,
-		Status:     status,
-		ExternalId: externalID,
-		Extras:     extra,
-	})
-	if err != nil {
-		util.Log(ctx).WithError(err).Warn("could not emit status update")
+// scopeMetadata copies the tenant and partition from the queue headers so
+// webhooks can be scoped to the caller.
+func scopeMetadata(headers map[string]string, metadata map[string]string) {
+	for _, key := range []string{headerTenantID, headerPartitionID} {
+		if v := headers[key]; v != "" {
+			metadata[key] = v
+		}
 	}
+}
+
+func extraStrings(s *structpb.Struct) map[string]string {
+	out := map[string]string{}
+	for k, v := range s.GetFields() {
+		if str := strings.TrimSpace(v.GetStringValue()); str != "" {
+			out[k] = str
+		}
+	}
+	return out
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }

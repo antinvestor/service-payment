@@ -128,6 +128,8 @@ type collectionBusiness struct {
 	instruments    InstrumentSource    // optional — pins COF on first settle
 	scheduler      RenewalScheduler    // optional — per-sub Trustage renew
 	settleSched    SettlementScheduler // optional — per-invoice Trustage settle
+	providerSubs   PolarSubscriptionBusiness
+	commands       ProviderCommandPublisher
 	obs            *observability.Metrics
 }
 
@@ -136,6 +138,10 @@ type CollectionOptions struct {
 	Instruments         InstrumentSource
 	Scheduler           RenewalScheduler
 	SettlementScheduler SettlementScheduler
+	// ProviderSubscriptions opens and mirrors provider-managed subscriptions.
+	ProviderSubscriptions PolarSubscriptionBusiness
+	// ProviderCommands reaches the integration workers (cancel at provider).
+	ProviderCommands ProviderCommandPublisher
 }
 
 // NewCollectionBusiness constructs the simplified collection orchestrator.
@@ -159,6 +165,8 @@ func NewCollectionBusiness(
 	var inst InstrumentSource
 	var sched RenewalScheduler = NoopRenewalScheduler{}
 	var settleSched SettlementScheduler = NoopSettlementScheduler{}
+	var providerSubs PolarSubscriptionBusiness
+	commands := NoopProviderCommandPublisher()
 	for _, o := range optional {
 		switch v := o.(type) {
 		case InstrumentSource:
@@ -183,6 +191,12 @@ func NewCollectionBusiness(
 			if v.SettlementScheduler != nil {
 				settleSched = v.SettlementScheduler
 			}
+			if v.ProviderSubscriptions != nil {
+				providerSubs = v.ProviderSubscriptions
+			}
+			if v.ProviderCommands != nil {
+				commands = v.ProviderCommands
+			}
 		}
 	}
 	return &collectionBusiness{
@@ -194,6 +208,8 @@ func NewCollectionBusiness(
 		instruments:    inst,
 		scheduler:      sched,
 		settleSched:    settleSched,
+		providerSubs:   providerSubs,
+		commands:       commands,
 		compRepo:       compRepo,
 		runRepo:        runRepo,
 		pricing:        pricing,
@@ -306,6 +322,11 @@ func (b *collectionBusiness) StartSubscription(
 		return nil, err
 	}
 
+	// A provider product (Polar, Stripe) is charged by the provider.
+	if provider, productID := ProviderProductFor(plan); provider != "" && productID != "" {
+		return b.startProviderSubscription(ctx, in, plan, components, provider, productID)
+	}
+
 	// Create subscription as PENDING when a charge is expected; ACTIVE when free.
 	upfront := b.rateUpfrontFlatFees(components)
 	initialState := models.SubscriptionStatePending
@@ -390,6 +411,13 @@ func (b *collectionBusiness) ConfirmPayment(
 	}
 	if b.checkout == nil {
 		return nil, errors.New("checkout integration not configured")
+	}
+
+	// Provider-managed subscriptions have no invoice to settle: the session
+	// completing means the provider charged, so activate the subscription.
+	if state, stateErr := b.checkout.SessionState(ctx, sessionRef); stateErr == nil &&
+		state.Metadata[models.SubDataCollectionMode] == models.CollectionModeProvider {
+		return b.confirmProviderSubscription(ctx, state)
 	}
 
 	// SettleFromCheckout is idempotent. Cash ledger posting is gated by
@@ -765,6 +793,7 @@ func (b *collectionBusiness) CancelSubscription(
 		if b.scheduler != nil {
 			_ = b.scheduler.CancelReminder(ctx, cancelled.GetID())
 		}
+		b.cancelAtProvider(ctx, cancelled, false)
 		return &CancelSubscriptionResult{
 			SubscriptionID:    cancelled.GetID(),
 			SubscriptionState: cancelled.State,
@@ -792,6 +821,8 @@ func (b *collectionBusiness) CancelSubscription(
 		}
 		// Lifecycle: product mirrors cancel_at_period_end (still ACTIVE until End).
 		b.subBiz.NotifyLifecycle(ctx, models.SubscriptionEventCancelled, patched, "")
+		// The provider stops charging; the webhook later finalizes the row.
+		b.cancelAtProvider(ctx, patched, true)
 		// Reschedule Trustage: drop rebill, keep finalize-at-period-end only.
 		b.syncRenewalReminder(ctx, patched)
 		return &CancelSubscriptionResult{
@@ -807,7 +838,7 @@ func (b *collectionBusiness) CancelSubscription(
 }
 
 func (b *collectionBusiness) syncRenewalReminder(ctx context.Context, sub *models.Subscription) {
-	if b.scheduler == nil || sub == nil {
+	if b.scheduler == nil || sub == nil || IsProviderManaged(sub) {
 		return
 	}
 	if err := b.scheduler.SyncReminder(ctx, sub); err != nil {
@@ -861,4 +892,158 @@ func (b *collectionBusiness) activateSubscriptionIfPending(ctx context.Context, 
 
 func isZeroAmount(d *decimalx.Decimal) bool {
 	return d == nil || d.IsZero() || d.IsNegative()
+}
+
+// startProviderSubscription opens hosted checkout on the provider's rail
+// for a plan the provider charges. No invoice is raised: the provider
+// invoices the payer and reports each charge by webhook.
+func (b *collectionBusiness) startProviderSubscription(
+	ctx context.Context,
+	in StartSubscriptionInput,
+	plan *models.Plan,
+	components []*models.Component,
+	provider, productID string,
+) (*CollectionResult, error) {
+	if b.providerSubs == nil {
+		return nil, fmt.Errorf("provider subscriptions not configured for %s", provider)
+	}
+	upfront := b.rateUpfrontFlatFees(components)
+	if upfront.IsZero() {
+		return nil, fmt.Errorf("%w: provider plans need a flat fee so checkout can show the charge", ErrPlanHasNoUpfrontCharge)
+	}
+	start, err := b.providerSubs.StartPolarSubscription(ctx, plan, StartPolarInput{
+		ProfileID:        in.ProfileID,
+		PlanID:           in.PlanID,
+		CatalogVersionID: in.CatalogVersionID,
+		Currency:         in.Currency,
+		Data:             buildSubscriptionData(in),
+	})
+	if err != nil {
+		return nil, err
+	}
+	sub := start.Subscription
+	if sub.State == models.SubscriptionStateActive {
+		return &CollectionResult{SubscriptionID: sub.GetID(), AlreadyComplete: true}, nil
+	}
+
+	// A pending subscription whose hosted session is still open is sent
+	// back to that session: one open checkout per subscription, and the
+	// session bound on the row stays the one ConfirmPayment accepts.
+	if ref, _ := sub.Data[models.SubDataCheckoutSessionRef].(string); ref != "" {
+		if state, stateErr := b.checkout.SessionState(ctx, ref); stateErr == nil {
+			switch state.Status {
+			case "pending", "processing", "failed":
+				return &CollectionResult{PageURL: state.PageURL, SessionRef: ref, SubscriptionID: sub.GetID()}, nil
+			case "completed":
+				if actErr := b.activateSubscriptionIfPending(ctx, sub.GetID()); actErr == nil {
+					return &CollectionResult{SubscriptionID: sub.GetID(), AlreadyComplete: true}, nil
+				}
+			}
+		}
+	}
+
+	money, err := moneyFromDecimal(&upfront, in.Currency)
+	if err != nil {
+		return nil, fmt.Errorf("cannot build checkout amount: %w", err)
+	}
+	checkout, err := b.checkout.CreateSubscriptionCheckout(ctx, SubscriptionCheckoutInput{
+		Subscription: sub,
+		Plan:         plan,
+		Provider:     provider,
+		ProductID:    productID,
+		Amount:       money,
+		Options: CheckoutOptions{
+			ReturnURL:        in.ReturnURL,
+			Source:           CollectionSourceSubscription,
+			PayerDisplayName: in.PayerDisplayName,
+			Methods:          in.Methods,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if _, patchErr := b.subBiz.PatchSubscriptionData(ctx, sub.GetID(), map[string]any{
+		models.SubDataCheckoutSessionRef: checkout.SessionRef,
+	}); patchErr != nil {
+		util.Log(ctx).WithError(patchErr).Warn("could not link checkout session on subscription")
+	}
+	return &CollectionResult{
+		PageURL:        checkout.PageURL,
+		SessionRef:     checkout.SessionRef,
+		SubscriptionID: sub.GetID(),
+	}, nil
+}
+
+// ErrCheckoutSessionNotBound is returned when a completed session does not
+// belong to the subscription it names.
+var ErrCheckoutSessionNotBound = errors.New("checkout session is not the one opened for this subscription")
+
+// confirmProviderSubscription activates a provider-managed subscription
+// whose hosted checkout completed. Session metadata only names the
+// candidate: the subscription row must be provider-managed, must have
+// opened exactly this session, and the session must have completed on the
+// provider's own rail. The provider webhook carries the authoritative state
+// later; this only removes the wait for it.
+func (b *collectionBusiness) confirmProviderSubscription(
+	ctx context.Context,
+	state *CheckoutSessionState,
+) (*ConfirmPaymentResult, error) {
+	subID := state.Metadata["subscriptionId"]
+	if subID == "" {
+		subID = state.OrderRef
+	}
+	if subID == "" {
+		return nil, apperrors.ErrUnspecifiedReference
+	}
+	sub, err := b.subBiz.GetSubscription(ctx, subID)
+	if err != nil {
+		return nil, err
+	}
+	if !IsProviderManaged(sub) {
+		return nil, ErrCheckoutSessionNotBound
+	}
+	if bound, _ := sub.Data[models.SubDataCheckoutSessionRef].(string); bound != state.Ref {
+		return nil, ErrCheckoutSessionNotBound
+	}
+	if !state.Completed {
+		return nil, ErrCheckoutNotCompleted
+	}
+	provider := SubscriptionProvider(sub)
+	if state.PaidRoute != "" && state.PaidRoute != provider {
+		return nil, fmt.Errorf("%w: paid on %s, expected %s", ErrCheckoutSessionNotBound, state.PaidRoute, provider)
+	}
+	if actErr := b.activateSubscriptionIfPending(ctx, subID); actErr != nil {
+		return nil, actErr
+	}
+	sub, err = b.subBiz.GetSubscription(ctx, subID)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfirmPaymentResult{
+		SubscriptionID:    sub.GetID(),
+		SubscriptionState: sub.State,
+		Paid:              sub.State == models.SubscriptionStateActive,
+	}, nil
+}
+
+// cancelAtProvider asks the provider to stop charging a provider-managed
+// subscription. Billing's own state is already cancelled; a lost command is
+// logged and visible in the provider's dashboard, never a billing rollback.
+func (b *collectionBusiness) cancelAtProvider(ctx context.Context, sub *models.Subscription, atPeriodEnd bool) {
+	if !IsProviderManaged(sub) {
+		return
+	}
+	cmd, ok := cancelCommandFor(sub, atPeriodEnd)
+	if !ok {
+		util.Log(ctx).WithField("subscription_id", sub.GetID()).
+			Info("provider subscription has no external id yet; nothing to cancel at the provider")
+		return
+	}
+	if b.commands == nil {
+		return
+	}
+	if err := b.commands.Publish(ctx, cmd); err != nil {
+		util.Log(ctx).WithError(err).WithField("subscription_id", sub.GetID()).
+			Error("could not send cancel command to provider")
+	}
 }

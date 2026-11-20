@@ -25,6 +25,8 @@ abstract class CheckoutServiceBase extends $pb.GeneratedService {
       $pb.ServerContext ctx, $1.CreateCheckoutSessionRequest request);
   $async.Future<$1.GetCheckoutSessionResponse> getCheckoutSession(
       $pb.ServerContext ctx, $1.GetCheckoutSessionRequest request);
+  $async.Future<$1.ListPaymentMethodsResponse> listPaymentMethods(
+      $pb.ServerContext ctx, $1.ListPaymentMethodsRequest request);
   $async.Future<$1.CreateCheckoutLinkResponse> createCheckoutLink(
       $pb.ServerContext ctx, $1.CreateCheckoutLinkRequest request);
 
@@ -34,6 +36,8 @@ abstract class CheckoutServiceBase extends $pb.GeneratedService {
         return $1.CreateCheckoutSessionRequest();
       case 'GetCheckoutSession':
         return $1.GetCheckoutSessionRequest();
+      case 'ListPaymentMethods':
+        return $1.ListPaymentMethodsRequest();
       case 'CreateCheckoutLink':
         return $1.CreateCheckoutLinkRequest();
       default:
@@ -49,6 +53,8 @@ abstract class CheckoutServiceBase extends $pb.GeneratedService {
             ctx, request as $1.CreateCheckoutSessionRequest);
       case 'GetCheckoutSession':
         return getCheckoutSession(ctx, request as $1.GetCheckoutSessionRequest);
+      case 'ListPaymentMethods':
+        return listPaymentMethods(ctx, request as $1.ListPaymentMethodsRequest);
       case 'CreateCheckoutLink':
         return createCheckoutLink(ctx, request as $1.CreateCheckoutLinkRequest);
       default:

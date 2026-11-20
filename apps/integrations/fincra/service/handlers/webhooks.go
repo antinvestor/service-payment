@@ -51,9 +51,11 @@ const (
 // A webhook must carry a valid HMAC-SHA512 signature. Even then its body
 // only says which record to look at: status, amounts and tenancy are read
 // back from the Fincra API by our own reference before any status is
-// recorded. Hosted checkouts carry tenancy in the metadata stored on
-// Fincra's record; direct charges carry it in their per-request webhook URL.
-// Payouts cannot carry it (Fincra's payout API takes no webhook URL or
+// recorded. The webhook URL (per-request for direct charges, dashboard
+// configured otherwise) is the primary tenancy binding; the metadata stored
+// on Fincra's record (written at creation from the prompt) only fills in
+// what the URL does not carry, and a disagreement between the two is refused.
+// Payouts cannot carry metadata (Fincra's payout API takes no webhook URL or
 // metadata), so they take the tenant_id / partition_id query parameters of
 // the account's dashboard webhook URL: one Fincra account per paying
 // tenant/partition.
@@ -173,8 +175,8 @@ func (s *FincraWebhookServer) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	tenantID, partitionID, ok := attribute(r, creds, res)
 	if !ok {
-		logger.WithField("connection", creds.Connection).Error("webhook tenancy differs from its connection's, rejecting")
-		s.metrics.WebhookRejected(ctx, kind, "tenancy_mismatch")
+		logger.WithField("connection", creds.Connection).Error("webhook tenancy differs from its binding, rejecting")
+		s.metrics.WebhookRejected(ctx, kind, "verification_failed")
 		http.Error(w, "tenancy mismatch", http.StatusForbidden)
 		return
 	}
@@ -200,12 +202,19 @@ func (s *FincraWebhookServer) resolveCredentials(ctx context.Context, connection
 // the service's own account, whose secret no tenant holds, takes tenancy
 // from the record's metadata or the webhook URL.
 func attribute(r *http.Request, creds *client.Credentials, res *outcome) (string, string, bool) {
-	tenantID, partitionID := res.tenantID, res.partitionID
+	// The webhook URL (minted by the worker) is the primary binding. Record
+	// metadata is written at charge creation from the prompt and may only
+	// fill in tenancy the URL does not carry; a disagreement is refused.
+	tenantID, partitionID := r.URL.Query().Get("tenant_id"), r.URL.Query().Get("partition_id")
+	if (tenantID != "" && res.tenantID != "" && tenantID != res.tenantID) ||
+		(partitionID != "" && res.partitionID != "" && partitionID != res.partitionID) {
+		return "", "", false
+	}
 	if tenantID == "" {
-		tenantID = r.URL.Query().Get("tenant_id")
+		tenantID = res.tenantID
 	}
 	if partitionID == "" {
-		partitionID = r.URL.Query().Get("partition_id")
+		partitionID = res.partitionID
 	}
 	if creds.Connection == "" {
 		return tenantID, partitionID, true
@@ -353,7 +362,12 @@ func chargeOutcome(ref string, ch *client.Charge, creds *client.Credentials) *ou
 		addFailure(extras, ch.Status, ch.VarianceType, ch.Message)
 	default:
 	}
-	return &outcome{entityID: entityID, externalID: ch.ID.String(), status: status, extras: extras}
+	tenantID, _ := ch.Metadata["tenant_id"].(string)
+	partitionID, _ := ch.Metadata["partition_id"].(string)
+	return &outcome{
+		entityID: entityID, externalID: ch.ID.String(), status: status, extras: extras,
+		tenantID: tenantID, partitionID: partitionID,
+	}
 }
 
 // verifyPayout reads the payout the event is about.

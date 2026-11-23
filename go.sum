@@ -8,10 +8,10 @@ buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2 v2.0.2-20261011184341-46035
 buf.build/gen/go/antinvestor/ledger/connectrpc/go/v2 v2.0.2-20261011184341-460358e58550.1/go.mod h1:a8bxvDCqhR8ZSTMS8hETSshfMNraGm3bVP402ENc2xw=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.12-20261011184341-460358e58550.2 h1:n3btReYznxfVquXh8j4da71ctrR4FOWuslmDINqyd4w=
 buf.build/gen/go/antinvestor/ledger/protocolbuffers/go v1.36.12-20261011184341-460358e58550.2/go.mod h1:p2FtdNopFlAWpXjF+uDgq6W+aMCIchivPD8HXRlr4e4=
-buf.build/gen/go/antinvestor/payment/connectrpc/go/v2 v2.0.2-20260831184824-a4a7e9defafa.1 h1:J/x8ATKU9+NbwL+9w3AJkXlMVBkhl94kaunucb90n58=
-buf.build/gen/go/antinvestor/payment/connectrpc/go/v2 v2.0.2-20260831184824-a4a7e9defafa.1/go.mod h1:uWffTPQnhaxQ8PNtM5kBMCLLVSVM0L8A+ccaUZVnXDA=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20260831184824-a4a7e9defafa.2 h1:P+jq3JQygoRJQjMEPuOsfHlH5zub8N0d7TCTMCfD06E=
-buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20260831184824-a4a7e9defafa.2/go.mod h1:HaflZxT334AlAe/vJuzkzc84fwOaLbFoavgFuW/lbE8=
+buf.build/gen/go/antinvestor/payment/connectrpc/go/v2 v2.0.2-20261120074459-2f443f3744c9.1 h1:I9VSsVdWGuO4F7SoQ0aJR7Eu3OkdJsd8j6B2kPj13I8=
+buf.build/gen/go/antinvestor/payment/connectrpc/go/v2 v2.0.2-20261120074459-2f443f3744c9.1/go.mod h1:QLA1ATn7FTQoPGlaunVTOV/7FJRiC3OJzYZdS+hrDHk=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20261120074459-2f443f3744c9.2 h1:BdIAFMiVI2E2HafqP3VP8SlWkUSsb/PFChgLsuSuwzM=
+buf.build/gen/go/antinvestor/payment/protocolbuffers/go v1.36.12-20261120074459-2f443f3744c9.2/go.mod h1:HaflZxT334AlAe/vJuzkzc84fwOaLbFoavgFuW/lbE8=
 buf.build/gen/go/antinvestor/profile/connectrpc/go/v2 v2.0.2-20261103174907-37a702425cb2.1 h1:plvdB3SPisIDh9gVNOCTCE0PDC0sxymEHT28v5h1COE=
 buf.build/gen/go/antinvestor/profile/connectrpc/go/v2 v2.0.2-20261103174907-37a702425cb2.1/go.mod h1:8MPG57MHsqFmny33X4DUwMs5VqkNgxtWGPF68u6r7KA=
 buf.build/gen/go/antinvestor/profile/protocolbuffers/go v1.36.12-20261103174907-37a702425cb2.2 h1:TRz8z3/144eVza0haxq02e5Hq9e5mxQ2yxHhs9n6Zcs=
